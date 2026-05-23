@@ -6,14 +6,25 @@
    its own padding. Surface-specific bits below. */
 
 .bp-page-head {
-  padding: var(--space-6) 28px var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-5) var(--space-7) var(--space-2);
+}
+
+.bp-page-description {
+  max-width: 70ch;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.45;
 }
 
 .bp-catalog-body {
   display: flex;
   flex-direction: column;
   gap: 18px;
-  padding: 24px 28px 56px;
+  padding: var(--space-4) var(--space-7) var(--space-8);
 }
 
 .bp-supply-metrics {

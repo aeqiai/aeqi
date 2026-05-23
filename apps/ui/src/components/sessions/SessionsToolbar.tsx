@@ -19,6 +19,7 @@ export interface SessionsToolbarProps {
   /** Forwarded to the search input so a parent keyboard handler (e.g. inbox's
    *  `/`-to-focus shortcut) can target it directly. */
   searchRef?: React.RefObject<HTMLInputElement | null>;
+  inline?: boolean;
 }
 
 /**
@@ -41,65 +42,66 @@ export default function SessionsToolbar({
   sort,
   filter,
   searchRef,
+  inline = false,
 }: SessionsToolbarProps) {
-  return (
-    <div className="ideas-list-head inbox-head">
-      <div className="ideas-toolbar">
-        {/* Search */}
-        <span className="ideas-list-search-field">
-          <svg
-            className="ideas-list-search-glyph"
-            width="12"
-            height="12"
-            viewBox="0 0 12 12"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.3"
-            strokeLinecap="round"
-            aria-hidden
-          >
-            <circle cx="5.2" cy="5.2" r="3.2" />
-            <path d="M7.6 7.6 L10 10" />
-          </svg>
-          <input
-            ref={searchRef}
-            className="ideas-list-search"
-            type="text"
-            placeholder={searchPlaceholder}
-            aria-label={searchPlaceholder}
-            value={query}
-            onChange={(e) => onQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                if (query) {
-                  onQuery("");
-                } else {
-                  (e.target as HTMLInputElement).blur();
-                }
+  const toolbar = (
+    <div className={`ideas-toolbar${inline ? " ideas-toolbar--inline" : ""}`}>
+      {/* Search */}
+      <span className="ideas-list-search-field">
+        <svg
+          className="ideas-list-search-glyph"
+          width="12"
+          height="12"
+          viewBox="0 0 12 12"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.3"
+          strokeLinecap="round"
+          aria-hidden
+        >
+          <circle cx="5.2" cy="5.2" r="3.2" />
+          <path d="M7.6 7.6 L10 10" />
+        </svg>
+        <input
+          ref={searchRef}
+          className="ideas-list-search"
+          type="text"
+          placeholder={searchPlaceholder}
+          aria-label={searchPlaceholder}
+          value={query}
+          onChange={(e) => onQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              if (query) {
+                onQuery("");
+              } else {
+                (e.target as HTMLInputElement).blur();
               }
-            }}
-          />
-          {!query && (
-            <kbd className="ideas-list-search-kbd" aria-hidden>
-              /
-            </kbd>
-          )}
-          {query && (
-            <button
-              type="button"
-              className="ideas-list-search-clear"
-              onClick={() => onQuery("")}
-              aria-label="Clear search"
-            >
-              ×
-            </button>
-          )}
-        </span>
+            }
+          }}
+        />
+        {!query && (
+          <kbd className="ideas-list-search-kbd" aria-hidden>
+            /
+          </kbd>
+        )}
+        {query && (
+          <button
+            type="button"
+            className="ideas-list-search-clear"
+            onClick={() => onQuery("")}
+            aria-label="Clear search"
+          >
+            ×
+          </button>
+        )}
+      </span>
 
-        {/* Sort + Filter slots — each surface composes its own popovers */}
-        {sort}
-        {filter}
-      </div>
+      {/* Sort + Filter slots — each surface composes its own popovers */}
+      {sort}
+      {filter}
     </div>
   );
+  if (inline) return toolbar;
+  return <div className="ideas-list-head inbox-head">{toolbar}</div>;
 }

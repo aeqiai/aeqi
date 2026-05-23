@@ -63,6 +63,25 @@ export default function IdeasGraphView({
     <div className="ideas-graph">
       <PrimitivePageHeader
         title="Ideas"
+        children={
+          <IdeasToolbar
+            inline
+            filter={filter}
+            scopeCounts={scopeCounts}
+            needsReviewCount={needsReviewCount}
+            onFilter={onFilterChange}
+            view={view}
+            onViewChange={onViewChange}
+            toolbarMeta={
+              <span
+                className="ideas-toolbar-meta"
+                title={`${nodeCount} nodes · ${edgeCount} links`}
+              >
+                {countLabel}
+              </span>
+            }
+          />
+        }
         actions={
           <Tooltip content="New idea (N)">
             <Button
@@ -74,19 +93,6 @@ export default function IdeasGraphView({
               New
             </Button>
           </Tooltip>
-        }
-      />
-      <IdeasToolbar
-        filter={filter}
-        scopeCounts={scopeCounts}
-        needsReviewCount={needsReviewCount}
-        onFilter={onFilterChange}
-        view={view}
-        onViewChange={onViewChange}
-        toolbarMeta={
-          <span className="ideas-toolbar-meta" title={`${nodeCount} nodes · ${edgeCount} links`}>
-            {countLabel}
-          </span>
         }
       />
       <div className="ideas-graph-canvas">

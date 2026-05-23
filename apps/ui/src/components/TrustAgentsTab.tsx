@@ -262,6 +262,49 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
             )}
           </span>
         }
+        children={
+          <div className="trust-agents-toolbar ideas-toolbar">
+            <PrimitiveSearchField
+              inputRef={searchRef}
+              placeholder="Search agents"
+              value={search}
+              onChange={(next) => setSearchParam("q", next)}
+              showKbdHint
+              onEscapeEmpty={(e) => e.currentTarget.blur()}
+            />
+
+            <ToolbarRadioPopover
+              label="Sort"
+              current={SORT_LABELS[sort]}
+              glyph={GLYPHS.sort}
+              options={SORT_ORDER.map((s) => ({ id: s, label: SORT_LABELS[s] }))}
+              value={sort}
+              onChange={(next) => setSearchParam("sort", next === "recent" ? null : next)}
+            />
+
+            <ToolbarRadioPopover
+              label="Filter"
+              current={LIVENESS_FILTER_LABELS[status]}
+              glyph={GLYPHS.filter}
+              options={LIVENESS_FILTER_ORDER.map((s) => ({
+                id: s,
+                label: LIVENESS_FILTER_LABELS[s],
+              }))}
+              value={status}
+              onChange={(next) => setSearchParam("status", next === "all" ? null : next)}
+              indicator={status !== "all"}
+            />
+
+            <ToolbarRadioPopover
+              label="View"
+              current={VIEW_LABELS[view]}
+              glyph={GLYPHS.view}
+              options={VIEW_ORDER.map((v) => ({ id: v, label: VIEW_LABELS[v] }))}
+              value={view}
+              onChange={(next) => setSearchParam("view", next === "list" ? null : next)}
+            />
+          </div>
+        }
         actions={
           <Tooltip content="New agent (N)">
             <Button
@@ -275,50 +318,6 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
           </Tooltip>
         }
       />
-
-      <div className="trust-agents-toolbar ideas-list-head">
-        <div className="ideas-toolbar">
-          <PrimitiveSearchField
-            inputRef={searchRef}
-            placeholder="Search agents"
-            value={search}
-            onChange={(next) => setSearchParam("q", next)}
-            showKbdHint
-            onEscapeEmpty={(e) => e.currentTarget.blur()}
-          />
-
-          <ToolbarRadioPopover
-            label="Sort"
-            current={SORT_LABELS[sort]}
-            glyph={GLYPHS.sort}
-            options={SORT_ORDER.map((s) => ({ id: s, label: SORT_LABELS[s] }))}
-            value={sort}
-            onChange={(next) => setSearchParam("sort", next === "recent" ? null : next)}
-          />
-
-          <ToolbarRadioPopover
-            label="Filter"
-            current={LIVENESS_FILTER_LABELS[status]}
-            glyph={GLYPHS.filter}
-            options={LIVENESS_FILTER_ORDER.map((s) => ({
-              id: s,
-              label: LIVENESS_FILTER_LABELS[s],
-            }))}
-            value={status}
-            onChange={(next) => setSearchParam("status", next === "all" ? null : next)}
-            indicator={status !== "all"}
-          />
-
-          <ToolbarRadioPopover
-            label="View"
-            current={VIEW_LABELS[view]}
-            glyph={GLYPHS.view}
-            options={VIEW_ORDER.map((v) => ({ id: v, label: VIEW_LABELS[v] }))}
-            value={view}
-            onChange={(next) => setSearchParam("view", next === "list" ? null : next)}
-          />
-        </div>
-      </div>
 
       <div className="trust-agents-main">
         {activeChips.length > 0 && (

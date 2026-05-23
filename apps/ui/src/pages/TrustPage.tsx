@@ -138,6 +138,47 @@ export default function TrustPage() {
       <PrimitivePageHeader
         title="TRUST"
         className="trust-context-header"
+        children={
+          <div className="trust-context-toolbar ideas-toolbar" aria-label="TRUST controls">
+            <PrimitiveSearchField
+              value={query}
+              onChange={setQuery}
+              placeholder="Search TRUSTs or roles"
+              onEscapeEmpty={(event) => event.currentTarget.blur()}
+            />
+            <ToolbarRadioPopover
+              label="Sort"
+              current={sortLabel}
+              glyph={<ArrowDownAZ size={15} strokeWidth={1.7} />}
+              options={ROLE_SORT_OPTIONS}
+              value={sort}
+              onChange={setSort}
+            />
+            <ToolbarRadioPopover
+              label="Filter"
+              current={filterLabel}
+              glyph={<Filter size={15} strokeWidth={1.7} />}
+              options={ROLE_FILTER_OPTIONS}
+              value={roleFilter}
+              onChange={setRoleFilter}
+              indicator={roleFilter !== "all"}
+            />
+            <ToolbarRadioPopover
+              label="View"
+              current={viewLabel}
+              glyph={
+                view === "map" ? (
+                  <Network size={15} strokeWidth={1.7} />
+                ) : (
+                  <LayoutGrid size={15} strokeWidth={1.7} />
+                )
+              }
+              options={ROLE_VIEW_OPTIONS}
+              value={view}
+              onChange={setView}
+            />
+          </div>
+        }
         actions={
           <Button
             type="button"
@@ -150,48 +191,6 @@ export default function TrustPage() {
           </Button>
         }
       />
-
-      <div className="trust-context-toolbar ideas-list-head" aria-label="TRUST controls">
-        <div className="ideas-toolbar">
-          <PrimitiveSearchField
-            value={query}
-            onChange={setQuery}
-            placeholder="Search TRUSTs or roles"
-            onEscapeEmpty={(event) => event.currentTarget.blur()}
-          />
-          <ToolbarRadioPopover
-            label="Sort"
-            current={sortLabel}
-            glyph={<ArrowDownAZ size={15} strokeWidth={1.7} />}
-            options={ROLE_SORT_OPTIONS}
-            value={sort}
-            onChange={setSort}
-          />
-          <ToolbarRadioPopover
-            label="Filter"
-            current={filterLabel}
-            glyph={<Filter size={15} strokeWidth={1.7} />}
-            options={ROLE_FILTER_OPTIONS}
-            value={roleFilter}
-            onChange={setRoleFilter}
-            indicator={roleFilter !== "all"}
-          />
-          <ToolbarRadioPopover
-            label="View"
-            current={viewLabel}
-            glyph={
-              view === "map" ? (
-                <Network size={15} strokeWidth={1.7} />
-              ) : (
-                <LayoutGrid size={15} strokeWidth={1.7} />
-              )
-            }
-            options={ROLE_VIEW_OPTIONS}
-            value={view}
-            onChange={setView}
-          />
-        </div>
-      </div>
 
       <main className="trust-context-workbench">
         <section className="trust-context-canvas" aria-label="TRUST role map">

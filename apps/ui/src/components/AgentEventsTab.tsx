@@ -6,7 +6,7 @@ import * as eventsApi from "@/api/events";
 import { useAgentEventCounts, useAgentEvents, useAgentEventsCache } from "@/queries/events";
 import type { Agent, AgentEvent, ScopeValue } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
-import { Button, Icon, Select, Loading, Tooltip } from "./ui";
+import { Button, Icon, Select, Loading, PrimitivePageHeader, Tooltip } from "./ui";
 import { Events as TrackEvents, useTrack } from "@/lib/analytics";
 import EventsToolbar from "./events/EventsToolbar";
 import {
@@ -510,23 +510,32 @@ export default function AgentEventsTab({
 
   return frame(
     <div className="asv-main events-surface">
-      {/* Page header — matches the Quests-page pattern: display title on
-         the left, primary CTA on the right, then the toolbar row beneath
-         (search + filter). Anchors the surface with a destination label
-         instead of jumping straight into the search field. */}
-      <header className="events-list-header">
-        <div className="events-list-title-block">
-          <h1 className="events-list-title">Events</h1>
-          {agentRail && (
-            <div className="events-list-context">
-              <span>Agent loop</span>
-              <strong>{activeAgent?.name ?? "Select an agent"}</strong>
-              <span>{agentLivenessLabel(activeAgent)}</span>
-              <span>{handlerCountLabel(events.length)}</span>
-            </div>
-          )}
-        </div>
-        <div className="events-list-header-actions">
+      <PrimitivePageHeader
+        className="events-list-header"
+        title={
+          <span className="events-list-title-block">
+            <span>Events</span>
+            {agentRail && (
+              <span className="events-list-context">
+                <span>Agent loop</span>
+                <strong>{activeAgent?.name ?? "Select an agent"}</strong>
+                <span>{agentLivenessLabel(activeAgent)}</span>
+                <span>{handlerCountLabel(events.length)}</span>
+              </span>
+            )}
+          </span>
+        }
+        children={
+          <EventsToolbar
+            inline
+            filter={filter}
+            onFilter={onFilter}
+            scopeCounts={scopeCounts}
+            groupCounts={groupCounts}
+            onNew={openCompose}
+          />
+        }
+        actions={
           <Tooltip content="New handler (N)">
             <Button
               variant="primary"
@@ -538,14 +547,7 @@ export default function AgentEventsTab({
               New handler
             </Button>
           </Tooltip>
-        </div>
-      </header>
-      <EventsToolbar
-        filter={filter}
-        onFilter={onFilter}
-        scopeCounts={scopeCounts}
-        groupCounts={groupCounts}
-        onNew={openCompose}
+        }
       />
       <div className="events-surface-body">
         <EventsOverview

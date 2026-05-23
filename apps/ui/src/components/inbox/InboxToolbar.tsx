@@ -12,6 +12,7 @@ export interface InboxToolbarProps {
   onFilter: (patch: Partial<InboxFilterState>) => void;
   onSort: (s: InboxSort) => void;
   searchRef: React.RefObject<HTMLInputElement | null>;
+  inline?: boolean;
 }
 
 /**
@@ -31,9 +32,11 @@ export default function InboxToolbar({
   onFilter,
   onSort,
   searchRef,
+  inline = false,
 }: InboxToolbarProps) {
   return (
     <SessionsToolbar
+      inline={inline}
       query={search}
       onQuery={onSearch}
       searchPlaceholder="Search inbox"

@@ -103,6 +103,17 @@ export default function IdeasTableView({
     <div className="ideas-list">
       <PrimitivePageHeader
         title="Ideas"
+        children={
+          <IdeasToolbar
+            inline
+            filter={filter}
+            scopeCounts={scopeCounts}
+            needsReviewCount={needsReviewCount}
+            onFilter={onFilter}
+            view={view}
+            onViewChange={onViewChange}
+          />
+        }
         actions={
           <Tooltip content="New idea (N)">
             <Button
@@ -115,14 +126,6 @@ export default function IdeasTableView({
             </Button>
           </Tooltip>
         }
-      />
-      <IdeasToolbar
-        filter={filter}
-        scopeCounts={scopeCounts}
-        needsReviewCount={needsReviewCount}
-        onFilter={onFilter}
-        view={view}
-        onViewChange={onViewChange}
       />
       <div className="ideas-table-wrap" role="region" aria-label="Ideas table">
         <table className="ideas-table">

@@ -3,6 +3,7 @@ import EventsFilterPopover, {
   type EventsFilterPopoverProps,
   type EventsFilterState,
 } from "./EventsFilterPopover";
+import { PrimitiveSearchField } from "../ui";
 
 export interface EventsToolbarProps {
   filter: EventsFilterState;
@@ -17,6 +18,7 @@ export interface EventsToolbarProps {
   lead?: ReactNode;
   /** Optional right-side content slotted after the filter popover. */
   rightExtra?: ReactNode;
+  inline?: boolean;
 }
 
 export default function EventsToolbar({
@@ -27,6 +29,7 @@ export default function EventsToolbar({
   onNew,
   lead,
   rightExtra,
+  inline = false,
 }: EventsToolbarProps) {
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -52,63 +55,26 @@ export default function EventsToolbar({
     return () => window.removeEventListener("keydown", handler, true);
   }, [onNew]);
 
-  return (
-    <div className="ideas-list-head">
-      <div className="ideas-toolbar">
-        {lead}
-        <span className="ideas-list-search-field">
-          <svg
-            className="ideas-list-search-glyph"
-            width="12"
-            height="12"
-            viewBox="0 0 12 12"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.3"
-            strokeLinecap="round"
-            aria-hidden
-          >
-            <circle cx="5.2" cy="5.2" r="3.2" />
-            <path d="M7.6 7.6 L10 10" />
-          </svg>
-          <input
-            ref={searchRef}
-            className="ideas-list-search"
-            type="text"
-            placeholder="Search events"
-            value={filter.search}
-            onChange={(e) => onFilter({ search: e.target.value })}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                if (filter.search) onFilter({ search: "" });
-                else (e.target as HTMLInputElement).blur();
-              }
-            }}
-          />
-          {!filter.search && (
-            <kbd className="ideas-list-search-kbd" aria-hidden>
-              /
-            </kbd>
-          )}
-          {filter.search && (
-            <button
-              type="button"
-              className="ideas-list-search-clear"
-              onClick={() => onFilter({ search: "" })}
-              aria-label="Clear search"
-            >
-              ×
-            </button>
-          )}
-        </span>
-        <EventsFilterPopover
-          filter={filter}
-          scopeCounts={scopeCounts}
-          groupCounts={groupCounts}
-          onChange={onFilter}
-        />
-        {rightExtra}
-      </div>
+  const toolbar = (
+    <div className={`ideas-toolbar${inline ? " ideas-toolbar--inline" : ""}`}>
+      {lead}
+      <PrimitiveSearchField
+        inputRef={searchRef}
+        placeholder="Search events"
+        value={filter.search}
+        onChange={(next) => onFilter({ search: next })}
+        showKbdHint
+        onEscapeEmpty={(event) => event.currentTarget.blur()}
+      />
+      <EventsFilterPopover
+        filter={filter}
+        scopeCounts={scopeCounts}
+        groupCounts={groupCounts}
+        onChange={onFilter}
+      />
+      {rightExtra}
     </div>
   );
+  if (inline) return toolbar;
+  return <div className="ideas-list-head">{toolbar}</div>;
 }

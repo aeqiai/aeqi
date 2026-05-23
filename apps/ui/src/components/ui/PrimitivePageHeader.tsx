@@ -16,10 +16,17 @@ export const PrimitivePageHeader = forwardRef<HTMLElement, PrimitivePageHeaderPr
     { title, actions, padding = "standard", className, children, ...rest },
     ref,
   ) {
+    const hasChrome = Boolean(children);
     return (
-      <header ref={ref} className={cx(styles.header, className)} data-padding={padding} {...rest}>
+      <header
+        ref={ref}
+        className={cx(styles.header, className)}
+        data-padding={padding}
+        data-has-chrome={hasChrome ? "true" : undefined}
+        {...rest}
+      >
         <h1 className={styles.title}>{title}</h1>
-        {children}
+        {children && <div className={styles.chrome}>{children}</div>}
         {actions && <div className={styles.actions}>{actions}</div>}
       </header>
     );

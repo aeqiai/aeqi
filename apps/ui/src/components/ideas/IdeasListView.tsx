@@ -276,6 +276,32 @@ export default function IdeasListView({
     <div className="ideas-list">
       <PrimitivePageHeader
         title="Ideas"
+        children={
+          <IdeasToolbar
+            inline
+            filter={filter}
+            scopeCounts={scopeCounts}
+            needsReviewCount={needsReviewCount}
+            onFilter={onFilter}
+            view={view}
+            onViewChange={onViewChange}
+            searchInputRef={searchRef}
+            showKbdHint
+            onSearchKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                if (filteredCount > 0 && rankedFirstId) {
+                  goEntity(trustId, "ideas", rankedFirstId, { search: folderSearch });
+                } else if (noMatchTrimmed) {
+                  fireNew(noMatchTrimmed);
+                }
+              } else if (e.key === "ArrowDown" && filteredCount > 0) {
+                e.preventDefault();
+                rowRefs.current?.[0]?.focus();
+              }
+            }}
+          />
+        }
         actions={
           <>
             <ImportMenu
@@ -300,29 +326,6 @@ export default function IdeasListView({
             </Tooltip>
           </>
         }
-      />
-      <IdeasToolbar
-        filter={filter}
-        scopeCounts={scopeCounts}
-        needsReviewCount={needsReviewCount}
-        onFilter={onFilter}
-        view={view}
-        onViewChange={onViewChange}
-        searchInputRef={searchRef}
-        showKbdHint
-        onSearchKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            if (filteredCount > 0 && rankedFirstId) {
-              goEntity(trustId, "ideas", rankedFirstId, { search: folderSearch });
-            } else if (noMatchTrimmed) {
-              fireNew(noMatchTrimmed);
-            }
-          } else if (e.key === "ArrowDown" && filteredCount > 0) {
-            e.preventDefault();
-            rowRefs.current?.[0]?.focus();
-          }
-        }}
       />
       {importError && (
         <div className="bp-error" role="alert">

@@ -8,11 +8,10 @@ import type { FilterState, IdeasFilter } from "./types";
 /**
  * Canonical toolbar for every Ideas view (List, Table, Kanban, Graph).
  *
- * Required surface is the locked search · sort · filter · view row. The
- * primary "New idea" CTA lives in the page header above the toolbar
- * (mirrors Quests / Events), so the toolbar stays focused on
- * find / narrow / switch-view affordances. The `n` keyboard hotkey is
- * owned by each view's own window listener.
+ * Required surface is the locked search · sort · filter · view cluster.
+ * Primitive pages pass this toolbar into `<PrimitivePageHeader inline>` so
+ * the title, search chrome, view modifiers, and actions share one top row.
+ * The `n` keyboard hotkey is owned by each view's own window listener.
  * View-specific extensions land via optional slots:
  *
  * - `searchInputRef` + `onSearchKeyDown` — list-style keyboard navigation

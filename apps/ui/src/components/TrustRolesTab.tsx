@@ -7,7 +7,7 @@ import { useDaemonStore } from "@/store/daemon";
 import { useAuthStore } from "@/store/auth";
 import { entityPathFromId, entityBasePath } from "@/lib/entityPath";
 import "@/styles/roles.css";
-import { Button, EmptyState, Loading, PrimitiveSearchField } from "./ui";
+import { Button, EmptyState, Loading, PrimitivePageHeader, PrimitiveSearchField } from "./ui";
 import RolesChart from "./roles/RolesChart";
 import RolesCards from "./roles/RolesCards";
 import RolesList from "./roles/RolesList";
@@ -309,9 +309,12 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
 
   return (
     <div className={isEditingRole ? "trust-roles trust-roles--editing" : "trust-roles"}>
-      <header className="trust-roles-page-header">
-        <h1 className="trust-roles-page-title">Roles</h1>
-        <div className="ideas-toolbar trust-roles-toolbar" aria-label="Role controls">
+      <PrimitivePageHeader
+        className="trust-roles-page-header"
+        title="Roles"
+        aria-label="Role controls"
+      >
+        <div className="ideas-toolbar trust-roles-toolbar">
           <PrimitiveSearchField
             placeholder="Search roles"
             value={search}
@@ -342,7 +345,7 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
             Role
           </Button>
         </div>
-      </header>
+      </PrimitivePageHeader>
 
       <div className="trust-roles-main">
         <RoleSnapshotBand

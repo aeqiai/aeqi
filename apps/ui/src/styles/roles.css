@@ -598,42 +598,27 @@
 .trust-agents {
   grid-template-columns: minmax(0, 1fr);
   column-gap: 0;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   grid-template-areas:
     "header"
-    "toolbar"
     "main";
   padding: 0;
 }
 .trust-roles-page-header,
 .trust-agents-page-header {
   grid-area: header;
+  align-items: center;
+  padding: var(--space-5) var(--space-6) var(--space-2);
 }
 .trust-roles-page-header {
-  display: grid;
-  grid-template-columns: auto minmax(280px, 1fr);
-  align-items: center;
-  gap: 14px;
-  min-width: 0;
-  padding: 16px var(--space-6) 10px;
-}
-.trust-roles-page-title {
-  min-width: 0;
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 28px;
-  font-weight: 500;
-  letter-spacing: -0.025em;
-  line-height: 1.1;
-  color: var(--color-text-primary);
+  gap: var(--space-4);
 }
 .trust-roles-toolbar,
 .trust-agents-toolbar {
-  grid-area: toolbar;
   min-width: 0;
 }
 .trust-roles-toolbar {
-  grid-area: auto;
+  flex: 1;
 }
 .trust-roles-toolbar > .ideas-list-search-field {
   min-width: 180px;
@@ -656,6 +641,7 @@
 }
 .trust-agents-main {
   padding-left: var(--space-6);
+  padding-top: var(--space-1);
   padding-bottom: var(--space-5);
 }
 .trust-roles-side {
@@ -1967,13 +1953,14 @@
     padding: var(--space-4);
   }
   .trust-roles-page-header {
-    grid-template-columns: minmax(0, 1fr);
     padding-inline: var(--space-4);
   }
-  .trust-roles-toolbar {
+  .trust-roles-toolbar,
+  .trust-agents-toolbar {
     flex-wrap: wrap;
   }
-  .trust-roles-toolbar > .ideas-list-search-field {
+  .trust-roles-toolbar > .ideas-list-search-field,
+  .trust-agents-toolbar > .ideas-list-search-field {
     flex-basis: 100%;
   }
   .trust-roles-snapshot {

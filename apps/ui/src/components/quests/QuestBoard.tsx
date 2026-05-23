@@ -345,6 +345,25 @@ export default function QuestBoard({
     <div className="quest-board">
       <PrimitivePageHeader
         title="Quests"
+        children={
+          <div className="ideas-toolbar">
+            <PrimitiveSearchField
+              inputRef={searchRef}
+              placeholder="Search quests"
+              value={search}
+              onChange={setSearch}
+              showKbdHint
+            />
+            <QuestsSortPopover sort={sort} onChange={onSortChange} />
+            <QuestsFilterPopover
+              agentId={resolvedAgentId}
+              quests={allQuests}
+              filter={scopeFilter}
+              onChange={onScopeChange}
+            />
+            <QuestsViewPopover view={view} onChange={onViewChange} />
+          </div>
+        }
         actions={
           <>
             <ImportMenu
@@ -381,25 +400,6 @@ export default function QuestBoard({
           </>
         }
       />
-      <div className="ideas-list-head">
-        <div className="ideas-toolbar">
-          <PrimitiveSearchField
-            inputRef={searchRef}
-            placeholder="Search quests"
-            value={search}
-            onChange={setSearch}
-            showKbdHint
-          />
-          <QuestsSortPopover sort={sort} onChange={onSortChange} />
-          <QuestsFilterPopover
-            agentId={resolvedAgentId}
-            quests={allQuests}
-            filter={scopeFilter}
-            onChange={onScopeChange}
-          />
-          <QuestsViewPopover view={view} onChange={onViewChange} />
-        </div>
-      </div>
       <QuestBoardScope
         scope={boardScopeQuest}
         childCount={

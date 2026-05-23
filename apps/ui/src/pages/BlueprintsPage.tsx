@@ -5,7 +5,15 @@ import { api } from "@/lib/api";
 import { countBlueprintStructures } from "@/lib/blueprintStructures";
 import type { AgentTemplate, Blueprint, BlueprintCategory, SingleBlueprint } from "@/lib/types";
 import { isSingleBlueprint } from "@/lib/types";
-import { Button, Card, Loading, MetricCard, MetricGrid, PageHeader } from "@/components/ui";
+import {
+  Button,
+  Card,
+  Loading,
+  MetricCard,
+  MetricGrid,
+  PrimitivePageHeader,
+  PrimitiveSearchField,
+} from "@/components/ui";
 import { EmptyState } from "@/components/ui/EmptyState";
 import PageRail from "@/components/PageRail";
 import { parseTags, serializeTags } from "@/components/ideas/types";
@@ -310,9 +318,47 @@ export default function BlueprintsPage() {
       <PageRail tabs={KIND_TABS} defaultTab="companies" title="Blueprints" basePath="/blueprints" />
       <main className="page-rail-content page-rail-content--full">
         <div className="bp-page-head">
-          <PageHeader
+          <PrimitivePageHeader
             title="Blueprints"
-            description="Launch a TRUST with ownership, roles, agents, quests, ideas, and runtime triggers already wired."
+            padding="none"
+            children={
+              <div className="ideas-toolbar" aria-label="Blueprint controls">
+                <PrimitiveSearchField
+                  inputRef={searchRef}
+                  placeholder={searchPlaceholder}
+                  value={query}
+                  onChange={(next) => setSearchParam("q", next)}
+                  showKbdHint
+                  onEscapeEmpty={(event) => event.currentTarget.blur()}
+                />
+
+                <ToolbarRadioPopover
+                  label="Sort"
+                  current={SORT_LABELS[sort]}
+                  glyph={GLYPHS.sort}
+                  options={SORT_ORDER.map((s) => ({ id: s, label: SORT_LABELS[s] }))}
+                  value={sort}
+                  onChange={(next) => setSearchParam("sort", next === "recent" ? null : next)}
+                />
+
+                <BlueprintsFilterPopover
+                  tagCounts={tagCounts}
+                  selected={selectedTags}
+                  onChange={setTags}
+                  activeCategory={activeCategory}
+                  onCategoryChange={(cat) => setSearchParam("category", cat)}
+                />
+
+                <ToolbarRadioPopover
+                  label="View"
+                  current={VIEW_LABELS[view]}
+                  glyph={GLYPHS.view}
+                  options={VIEW_ORDER.map((v) => ({ id: v, label: VIEW_LABELS[v] }))}
+                  value={view}
+                  onChange={(next) => setSearchParam("view", next === "grid" ? null : next)}
+                />
+              </div>
+            }
             actions={
               activeKind === "companies" && !isImportMode ? (
                 <Button
@@ -326,82 +372,10 @@ export default function BlueprintsPage() {
               ) : undefined
             }
           />
-        </div>
-        <div className="ideas-list-head">
-          <div className="ideas-toolbar">
-            <span className="ideas-list-search-field">
-              <svg
-                className="ideas-list-search-glyph"
-                width="12"
-                height="12"
-                viewBox="0 0 12 12"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.3"
-                strokeLinecap="round"
-                aria-hidden
-              >
-                <circle cx="5.2" cy="5.2" r="3.2" />
-                <path d="M7.6 7.6 L10 10" />
-              </svg>
-              <input
-                ref={searchRef}
-                className="ideas-list-search"
-                type="search"
-                placeholder={searchPlaceholder}
-                aria-label={searchPlaceholder}
-                value={query}
-                onChange={(e) => setSearchParam("q", e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") {
-                    if (query) setSearchParam("q", "");
-                    else (e.target as HTMLInputElement).blur();
-                  }
-                }}
-              />
-              {!query && (
-                <kbd className="ideas-list-search-kbd" aria-hidden>
-                  /
-                </kbd>
-              )}
-              {query && (
-                <button
-                  type="button"
-                  className="ideas-list-search-clear"
-                  onClick={() => setSearchParam("q", "")}
-                  aria-label="Clear search"
-                >
-                  ×
-                </button>
-              )}
-            </span>
-
-            <ToolbarRadioPopover
-              label="Sort"
-              current={SORT_LABELS[sort]}
-              glyph={GLYPHS.sort}
-              options={SORT_ORDER.map((s) => ({ id: s, label: SORT_LABELS[s] }))}
-              value={sort}
-              onChange={(next) => setSearchParam("sort", next === "recent" ? null : next)}
-            />
-
-            <BlueprintsFilterPopover
-              tagCounts={tagCounts}
-              selected={selectedTags}
-              onChange={setTags}
-              activeCategory={activeCategory}
-              onCategoryChange={(cat) => setSearchParam("category", cat)}
-            />
-
-            <ToolbarRadioPopover
-              label="View"
-              current={VIEW_LABELS[view]}
-              glyph={GLYPHS.view}
-              options={VIEW_ORDER.map((v) => ({ id: v, label: VIEW_LABELS[v] }))}
-              value={view}
-              onChange={(next) => setSearchParam("view", next === "grid" ? null : next)}
-            />
-          </div>
+          <p className="bp-page-description">
+            Launch a TRUST with ownership, roles, agents, quests, ideas, and runtime triggers
+            already wired.
+          </p>
         </div>
 
         <div className="bp-catalog-body">

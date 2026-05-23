@@ -9,6 +9,7 @@ export interface PrimitiveSearchFieldProps {
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   onEscapeEmpty?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   className?: string;
+  ariaLabel?: string;
 }
 
 export function PrimitiveSearchField({
@@ -20,6 +21,7 @@ export function PrimitiveSearchField({
   onKeyDown,
   onEscapeEmpty,
   className,
+  ariaLabel,
 }: PrimitiveSearchFieldProps) {
   return (
     <span className={["ideas-list-search-field", className].filter(Boolean).join(" ")}>
@@ -40,7 +42,8 @@ export function PrimitiveSearchField({
       <input
         ref={inputRef}
         className="ideas-list-search"
-        type="text"
+        type="search"
+        aria-label={ariaLabel ?? placeholder}
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
