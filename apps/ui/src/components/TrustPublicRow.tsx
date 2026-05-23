@@ -73,6 +73,12 @@ const dataRoom = [
     icon: FileText,
   },
   {
+    label: "Investor walkthrough",
+    detail: "Five-minute script from launch to live proof to checkpoint.",
+    to: "/ideas",
+    icon: Rocket,
+  },
+  {
     label: "Launch readiness ledger",
     detail: "Open launch quests, shipped blockers, and remaining cut-line work.",
     to: "/quests",
