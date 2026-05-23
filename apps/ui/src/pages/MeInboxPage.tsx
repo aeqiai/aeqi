@@ -590,6 +590,7 @@ export default function MeInboxPage() {
                 onSelect={setSelectedId}
                 density="comfortable"
                 surface="card"
+                tone="dark"
                 emptyTitle={hasActiveNarrowing ? "No matches" : "No items"}
                 emptyStateClassName="sessions-rail-empty--compact"
               />
@@ -621,6 +622,7 @@ export default function MeInboxPage() {
                 onSelect={setSelectedId}
                 density="comfortable"
                 surface="card"
+                tone="dark"
                 emptyTitle={emptyInboxTitle}
                 emptyHint={emptyInboxHint}
                 traversalEventName="inbox:traverse"

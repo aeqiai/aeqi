@@ -10,13 +10,13 @@ import SurfaceHeader from "./SurfaceHeader";
 /**
  * Header for the drilled-agent default surface. Wraps the shared
  * SurfaceHeader primitive with agent-specific data (avatar + name) and
- * mode switcher (Sessions / Settings) and actions.
+ * mode switcher (Inbox / Settings) and actions.
  *
  * Variants:
  *   - "default" (drilled-agent landing) → [← Agents] · <Agent name> ·
- *     [Sessions | Settings] · [+ New]
+ *     [Inbox | Settings] · [+ New]
  *   - "settings" (settings sub-surface) → [← Agents] · <Agent name> ·
- *     [Sessions | Settings]
+ *     [Inbox | Settings]
  *
  * The chat surface lives one level beneath the header — sessions rail
  * to the left of the chat column (mounted by AppLayout), composer at
@@ -72,8 +72,8 @@ export default function AgentSurfaceHeader({
               activeMode === "sessions" ? " is-active" : ""
             }`}
           >
-            <MessagesSquare size={13} strokeWidth={1.5} aria-hidden="true" />
-            Sessions
+            <MessagesSquare size={14} strokeWidth={1.5} aria-hidden="true" />
+            Inbox
           </Link>
         </Tooltip>
         <Tooltip content="Agent settings">
@@ -85,7 +85,7 @@ export default function AgentSurfaceHeader({
               activeMode === "settings" ? " is-active" : ""
             }`}
           >
-            <Settings size={13} strokeWidth={1.5} aria-hidden="true" />
+            <Settings size={14} strokeWidth={1.5} aria-hidden="true" />
             Settings
           </Link>
         </Tooltip>
@@ -95,9 +95,9 @@ export default function AgentSurfaceHeader({
           <Tooltip content="Start a fresh conversation with this agent">
             <Button
               variant="primary"
-              size="sm"
+              size="md"
               onClick={handleNewSession}
-              leadingIcon={<Plus size={13} strokeWidth={1.5} aria-hidden="true" />}
+              leadingIcon={<Plus size={14} strokeWidth={1.5} aria-hidden="true" />}
             >
               New
             </Button>

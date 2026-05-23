@@ -125,6 +125,7 @@ export default function SessionsRail() {
       onSelect={handleSelect}
       density="comfortable"
       surface="card"
+      tone="dark"
       streamingIds={streamingSessions}
       emptyTitle={emptyTitle}
       emptyHint={emptyHint}

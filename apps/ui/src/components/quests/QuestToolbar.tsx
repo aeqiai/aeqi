@@ -97,7 +97,7 @@ export default function QuestToolbar({
       <Tooltip content="Back to quests">
         <Button
           variant="secondary"
-          size="sm"
+          size="md"
           onClick={onBack}
           leadingIcon={
             <svg
@@ -130,7 +130,7 @@ export default function QuestToolbar({
         <Tooltip content="New quest (N)">
           <Button
             variant="primary"
-            size="sm"
+            size="md"
             onClick={onNew}
             leadingIcon={
               <svg

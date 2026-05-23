@@ -41,6 +41,8 @@ export interface SessionRailProps {
   density?: "compact" | "comfortable";
   /** Surface treatment: plain legacy rail, or card rows on a recessed lane. */
   surface?: "plain" | "card";
+  /** Color treatment: light by default, dark for focused inbox/session rails. */
+  tone?: "light" | "dark";
   /** Sessions that are currently streaming — drive the ThinkingDot. */
   streamingIds?: Record<string, boolean>;
   /** Empty-state title (e.g. "no sessions yet" / "inbox is clear"). */
@@ -110,6 +112,7 @@ export default function SessionRail({
   onSelect,
   density = "compact",
   surface = "plain",
+  tone = "light",
   streamingIds,
   emptyTitle,
   emptyHint,
@@ -121,6 +124,7 @@ export default function SessionRail({
     "sessions-rail",
     `sessions-rail--${density}`,
     `sessions-rail--${surface}`,
+    `sessions-rail--${tone}`,
   ].join(" ");
 
   // j/k traversal bridge — only listens when a parent registers an event

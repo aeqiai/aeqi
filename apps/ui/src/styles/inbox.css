@@ -33,7 +33,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  padding: var(--space-5) var(--space-6) var(--space-2);
+  padding: var(--space-3) var(--space-6);
   flex-shrink: 0;
 }
 
@@ -127,6 +127,10 @@
   box-shadow: var(--card-elevation);
   border-radius: var(--radius-sm);
   padding: var(--space-3);
+}
+
+.inbox-pane-list:has(.sessions-rail--dark) {
+  background: var(--color-ink-card);
 }
 
 /* Pass-through flex column — `<SessionRail>` inside owns the actual
@@ -728,6 +732,14 @@
   height: 6px;
   border-radius: 999px;
   background: var(--color-warmth);
+  box-shadow: 0 0 0 2px var(--color-card-elevated);
+}
+
+.sessions-rail--dark .sessions-rail-awaiting-dot {
+  box-shadow: 0 0 0 2px var(--color-ink-card);
+}
+
+.sessions-rail--dark .sessions-rail-row.active .sessions-rail-awaiting-dot {
   box-shadow: 0 0 0 2px var(--color-card-elevated);
 }
 

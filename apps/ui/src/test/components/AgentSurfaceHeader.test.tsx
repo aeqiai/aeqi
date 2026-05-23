@@ -45,7 +45,7 @@ describe("AgentSurfaceHeader", () => {
     );
   }
 
-  it("uses Agents as the back pill and exposes Sessions plus Settings modes", () => {
+  it("uses Agents as the back pill and exposes Inbox plus Settings modes", () => {
     renderHeader();
 
     expect(screen.getByRole("link", { name: "Agents" })).toHaveAttribute(
@@ -53,7 +53,7 @@ describe("AgentSurfaceHeader", () => {
       "/trust/root-1/agents",
     );
     expect(screen.getByText("Research Agent")).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Sessions" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Inbox" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tab", { name: "Settings" })).toHaveAttribute(
       "href",
       "/trust/root-1/agents/agent-1/settings",
