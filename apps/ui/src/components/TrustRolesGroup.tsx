@@ -59,7 +59,10 @@ export default function TrustRolesGroup({ trustId, basePath }: TrustRolesGroupPr
   }
 
   return (
-    <section className="trust-cockpit-card" aria-labelledby="trust-roles-heading">
+    <section
+      className="trust-cockpit-card trust-cockpit-card--roles"
+      aria-labelledby="trust-roles-heading"
+    >
       <header className="trust-cockpit-card-header">
         <h2 id="trust-roles-heading" className="trust-cockpit-card-title">
           Roles

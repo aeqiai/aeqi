@@ -334,6 +334,9 @@
   display: grid;
   flex: 0 0 auto;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-areas:
+    "roles operations"
+    "apps ownership";
   gap: var(--space-4);
   align-items: stretch;
 }
@@ -352,6 +355,22 @@
 
 .trust-cockpit-card--wide {
   grid-column: 1 / -1;
+}
+
+.trust-cockpit-card--roles {
+  grid-area: roles;
+}
+
+.trust-cockpit-card--apps {
+  grid-area: apps;
+}
+
+.trust-cockpit-card--operations {
+  grid-area: operations;
+}
+
+.trust-cockpit-card--ownership {
+  grid-area: ownership;
 }
 
 .trust-cockpit-card-header {
@@ -1107,6 +1126,14 @@
   .trust-cockpit-row,
   .trust-apps-grid {
     grid-template-columns: 1fr;
+  }
+
+  .trust-cockpit-row {
+    grid-template-areas:
+      "roles"
+      "apps"
+      "operations"
+      "ownership";
   }
 
   .trust-activity-grid,

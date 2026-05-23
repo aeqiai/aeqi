@@ -71,7 +71,10 @@ export default function TrustOwnershipGroup({ trustAddress, basePath }: TrustOwn
   }, [assets.holdings]);
 
   return (
-    <section className="trust-cockpit-card" aria-labelledby="trust-ownership-heading">
+    <section
+      className="trust-cockpit-card trust-cockpit-card--ownership"
+      aria-labelledby="trust-ownership-heading"
+    >
       <header className="trust-cockpit-card-header">
         <h2 id="trust-ownership-heading" className="trust-cockpit-card-title">
           Capital &amp; Governance

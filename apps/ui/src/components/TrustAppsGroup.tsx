@@ -22,7 +22,10 @@ export default function TrustAppsGroup({ trustId, basePath }: TrustAppsGroupProp
     : `${basePath}/agents`;
 
   return (
-    <section className="trust-cockpit-card" aria-labelledby="trust-apps-heading">
+    <section
+      className="trust-cockpit-card trust-cockpit-card--apps"
+      aria-labelledby="trust-apps-heading"
+    >
       <header className="trust-cockpit-card-header">
         <h2 id="trust-apps-heading" className="trust-cockpit-card-title">
           Apps

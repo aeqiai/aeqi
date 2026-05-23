@@ -84,7 +84,10 @@ export default function TrustExecutionGroup({ trustId, basePath }: TrustExecutio
   }, [events, subtreeNames]);
 
   return (
-    <section className="trust-cockpit-card" aria-labelledby="trust-operations-heading">
+    <section
+      className="trust-cockpit-card trust-cockpit-card--operations"
+      aria-labelledby="trust-operations-heading"
+    >
       <header className="trust-cockpit-card-header">
         <h2 id="trust-operations-heading" className="trust-cockpit-card-title">
           Operations
