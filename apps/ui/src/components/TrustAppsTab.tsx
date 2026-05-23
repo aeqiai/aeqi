@@ -1,11 +1,12 @@
-import { Link, useSearchParams } from "react-router-dom";
-import { MessageCircle, Send, Smartphone, Waypoints } from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { MessageCircle, Send, Smartphone } from "lucide-react";
 
 import { useTrustApps } from "@/hooks/useTrustApps";
 import { entityBasePath } from "@/lib/entityPath";
 import { formatInteger } from "@/lib/i18n";
 import type { TrustAppKind, TrustAppSummary } from "@/lib/trustApps";
 import { useDaemonStore } from "@/store/daemon";
+import { Button } from "./ui";
 import "@/styles/overview.css";
 
 const APP_ICONS: Record<TrustAppKind, React.ReactNode> = {
@@ -14,6 +15,7 @@ const APP_ICONS: Record<TrustAppKind, React.ReactNode> = {
 };
 
 export default function TrustAppsTab({ trustId }: { trustId: string }) {
+  const navigate = useNavigate();
   const [params] = useSearchParams();
   const selectedKind = params.get("app");
   const entities = useDaemonStore((s) => s.entities);
@@ -27,28 +29,26 @@ export default function TrustAppsTab({ trustId }: { trustId: string }) {
 
   return (
     <div className="trust-overview trust-apps-page">
-      <section className="trust-apps-header">
-        <div className="trust-apps-header-main">
-          <span className="trust-apps-header-icon" aria-hidden>
-            <Waypoints size={18} strokeWidth={1.5} />
+      <header className="trust-apps-page-header">
+        <h1 className="trust-apps-page-title">Apps</h1>
+        <div className="ideas-toolbar trust-apps-toolbar" aria-label="App controls">
+          <span className="ideas-toolbar-meta trust-apps-toolbar-summary">
+            {isLoading
+              ? "Loading app status"
+              : `${formatInteger(installed.connectedApps)} connected · ${formatInteger(
+                  installed.enabledChannels,
+                )} channels · ${formatInteger(trustAgents.length)} agents`}
           </span>
-          <div>
-            <p className="trust-apps-eyebrow">Trust apps</p>
-            <h1 className="trust-apps-title">Apps</h1>
-          </div>
+          <Button
+            variant="secondary"
+            size="md"
+            onClick={() => navigate(agentChannelsPath)}
+            leadingIcon={<Smartphone size={14} strokeWidth={1.6} />}
+          >
+            {defaultAgent ? "Channels" : "Agents"}
+          </Button>
         </div>
-        <div className="trust-apps-header-stats" aria-label="Apps summary">
-          <Stat
-            label="Connected"
-            value={isLoading ? "..." : formatInteger(installed.connectedApps)}
-          />
-          <Stat
-            label="Channels"
-            value={isLoading ? "..." : formatInteger(installed.enabledChannels)}
-          />
-          <Stat label="Agents" value={formatInteger(trustAgents.length)} />
-        </div>
-      </section>
+      </header>
 
       <section
         className="trust-cockpit-card trust-cockpit-card--wide"
