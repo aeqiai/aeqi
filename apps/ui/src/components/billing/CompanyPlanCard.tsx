@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import {
   launchPlanBillingLine,
   launchPlanById,
+  launchPlanDisplayName,
   normalizeLaunchPlanId,
   type LaunchPlanId,
 } from "@/lib/pricing";
@@ -63,6 +64,7 @@ export function CompanyPlanCard({
   const subscribing = actionPending === subscribeKey;
   const plan = launchPlanById(company.plan);
   const planId = normalizeLaunchPlanId(company.plan);
+  const planName = launchPlanDisplayName(company.plan);
 
   return (
     <Card variant="surface" padding="md" className="billing-company" role="listitem">
@@ -73,8 +75,11 @@ export function CompanyPlanCard({
             <Badge variant={statusBadge.variant} size="sm" dot>
               {statusBadge.label}
             </Badge>
-            <Badge variant={plan.id === "growth" ? "accent" : "neutral"} size="sm">
-              {plan.name}
+            <Badge
+              variant={plan.id === "growth" && planName !== "Sandbox" ? "accent" : "neutral"}
+              size="sm"
+            >
+              {planName}
             </Badge>
           </div>
         </div>

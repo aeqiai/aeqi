@@ -59,7 +59,14 @@ export default function TrustHeroOverview({
   const rolesCount = incorporation.roles?.length ?? null;
 
   const runtimeTone = runtime.hostActive ? "live" : runtime.hasRuntime ? "provisioning" : "static";
-  const runtimePlanLabel = runtime.plan === "pro" ? "Pro" : runtime.hostActive ? "Standard" : null;
+  const runtimePlanLabel =
+    runtime.plan === "sandbox"
+      ? "Sandbox"
+      : runtime.plan === "pro"
+        ? "Pro"
+        : runtime.hostActive
+          ? "Standard"
+          : null;
   const runtimeLabel = runtime.hostActive
     ? `${runtimePlanLabel} runtime`
     : runtime.hasRuntime

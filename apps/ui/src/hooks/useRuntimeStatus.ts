@@ -22,10 +22,10 @@ const STALE_TIME_MS = 30_000;
 
 /**
  * Normalized runtime plan. We map the platform's free-form Stripe-stamped
- * label (`"standard" | "pro" | "company" | …`) onto the two canonical
- * pricing plans so callers don't have to keep the legacy strings in mind.
+ * label (`"standard" | "pro" | "company" | …`) onto the canonical
+ * runtime labels so callers don't have to keep the legacy strings in mind.
  */
-export type RuntimePlan = "standard" | "pro";
+export type RuntimePlan = "standard" | "pro" | "sandbox";
 
 export interface UseRuntimeStatusResult {
   hasRuntime: boolean;
@@ -57,10 +57,13 @@ export function useRuntimeStatus(trustId: string | null | undefined): UseRuntime
   // `"launch"` / …) onto the canonical pricing plan id. Mirrors the
   // legacy-name normalization in pricing.ts so a placement still on
   // `"company"` displays as Standard.
-  const plan: RuntimePlan | null = data?.plan
-    ? normalizeLaunchPlanId(data.plan) === "growth"
-      ? "pro"
-      : "standard"
+  const rawPlan = data?.plan?.toLowerCase();
+  const plan: RuntimePlan | null = rawPlan
+    ? rawPlan === "sandbox"
+      ? "sandbox"
+      : normalizeLaunchPlanId(rawPlan) === "growth"
+        ? "pro"
+        : "standard"
     : null;
 
   return {
