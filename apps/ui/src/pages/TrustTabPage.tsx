@@ -17,6 +17,7 @@ const MeInboxPage = lazy(() => import("@/pages/MeInboxPage"));
 // agent, while Quests and Ideas ask their shared components for entity-wide
 // data so sibling-agent work remains visible on `/trust/<addr>/...`.
 const TrustAgentsTab = lazy(() => import("@/components/TrustAgentsTab"));
+const TrustAppsTab = lazy(() => import("@/components/TrustAppsTab"));
 const TrustRolesTab = lazy(() => import("@/components/TrustRolesTab"));
 const AssetsPage = lazy(() => import("@/pages/AssetsPage"));
 const EquityPage = lazy(() => import("@/pages/EquityPage"));
@@ -47,6 +48,7 @@ interface TrustTabPageProps {
  *   /trust/:trustAddress/health        → 308 redirect to bare cockpit (legacy URL)
  *   /trust/:trustAddress/roles         → TrustRolesTab (org chart)
  *   /trust/:trustAddress/agents        → TrustAgentsTab (LIST)
+ *   /trust/:trustAddress/apps          → TrustAppsTab (channel-backed apps)
  *   /trust/:trustAddress/events        → AgentEventsTab(defaultAgent)
  *   /trust/:trustAddress/quests        → AgentQuestsTab(entity scope)
  *   /trust/:trustAddress/ideas         → AgentIdeasTab(entity scope)
@@ -62,6 +64,7 @@ interface TrustTabPageProps {
  *  read on-chain state and stay reachable on free TRUSTs. */
 const RUNTIME_GATED_TABS: Record<string, UpsellSurface> = {
   agents: "agents",
+  apps: "apps",
   events: "events",
   quests: "quests",
   ideas: "ideas",
@@ -112,7 +115,7 @@ export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTab
     navigate(targetPath, { replace: true });
   }, [entity?.trust_address, tab, itemId, navigate, location.pathname, location.search]);
 
-  // Runtime gate — applied before the per-tab dispatch so all 5 gated
+  // Runtime gate — applied before the per-tab dispatch so all gated
   // surfaces share one branch. While the status query is in-flight we
   // fall through to the normal per-tab render (best-effort optimism);
   // the gate flips to the upsell on the next render once the placement
@@ -166,6 +169,13 @@ export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTab
     return (
       <Suspense>
         <TrustAgentsTab trustId={trustId} />
+      </Suspense>
+    );
+  }
+  if (tab === "apps") {
+    return (
+      <Suspense>
+        <TrustAppsTab trustId={trustId} />
       </Suspense>
     );
   }

@@ -19,6 +19,7 @@ import {
   PanelLeftOpen,
   Globe,
   Blocks,
+  Plug,
 } from "lucide-react";
 import ActingAsSelector from "@/components/shell/ActingAsSelector";
 import AccountDropdown from "@/components/shell/AccountDropdown";
@@ -67,6 +68,7 @@ const IncorporationIcon = () => <Landmark />;
 // org-chart authority graph (RoleNewPage / RoleDetailPage et al). Workflow
 // reads parent + child boxes = hierarchy.
 const RolesIcon = () => <Workflow />;
+const AppsIcon = () => <Plug />;
 // Economy — Globe reads "the wider network / world economy" — the
 // marketplace + inference + stake activity is happening *out there*
 // across every trust, not in your local store.
@@ -392,6 +394,9 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
                   navigate(`${base}/agents`);
                   setTimeout(() => window.dispatchEvent(new CustomEvent("aeqi:create")), 0);
                 }),
+              })}
+              {navItem("apps", "Apps", <AppsIcon />, {
+                locked: runtimeLocked,
               })}
               {navItem("events", "Events", <EventsIcon />, {
                 locked: runtimeLocked,

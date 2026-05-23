@@ -1,6 +1,6 @@
 /**
  * ProvisionRuntimeUpsell — the gate users hit when they open a runtime-
- * gated surface (Agents / Quests / Ideas / Events / Inbox / Sessions) on
+ * gated surface (Agents / Apps / Quests / Ideas / Events / Inbox / Sessions) on
  * a free TRUST.
  *
  * Architecture:
@@ -9,7 +9,7 @@
  *     ownership/governance tabs (Overview / Roles / Assets / Equity /
  *     Quorum / Incorporation) work without a runtime — they read the
  *     chain directly.
- *   - The 6 execution tabs need a per-tenant runtime service to be
+ *   - Runtime-backed operation tabs need a per-tenant runtime service to be
  *     running. This component is the upsell shown in their place until
  *     the user provisions one.
  *   - Wire: `POST /api/runtime/provision { trust_id, plan }` returns a
@@ -37,10 +37,18 @@ import "@/styles/runtime-upsell.css";
  * headline copy ("Provision a runtime to unlock <Surface>.") — the rest
  * of the panel is surface-agnostic.
  */
-export type UpsellSurface = "agents" | "quests" | "ideas" | "events" | "inbox" | "sessions";
+export type UpsellSurface =
+  | "agents"
+  | "apps"
+  | "quests"
+  | "ideas"
+  | "events"
+  | "inbox"
+  | "sessions";
 
 const SURFACE_LABELS: Record<UpsellSurface, string> = {
   agents: "Agents",
+  apps: "Apps",
   quests: "Quests",
   ideas: "Ideas",
   events: "Events",

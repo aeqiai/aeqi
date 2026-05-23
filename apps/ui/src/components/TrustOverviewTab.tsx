@@ -3,6 +3,7 @@ import { entityBasePath } from "@/lib/entityPath";
 import TrustHeroStrip from "./TrustHeroStrip";
 import TrustHeroOverview from "./TrustHeroOverview";
 import TrustRolesGroup from "./TrustRolesGroup";
+import TrustAppsGroup from "./TrustAppsGroup";
 import TrustExecutionGroup from "./TrustExecutionGroup";
 import TrustOwnershipGroup from "./TrustOwnershipGroup";
 import TrustActivityCard from "./TrustActivityCard";
@@ -32,6 +33,7 @@ export default function TrustOverviewTab({ trustId }: { trustId: string }) {
       <TrustActivityCard trustAddress={trustAddress ?? trustId} />
       <div className="trust-cockpit-row">
         <TrustRolesGroup trustId={trustId} basePath={basePath} />
+        <TrustAppsGroup trustId={trustId} basePath={basePath} />
         <TrustExecutionGroup trustId={trustId} basePath={basePath} />
         <TrustOwnershipGroup trustAddress={trustAddress} basePath={basePath} />
       </div>
