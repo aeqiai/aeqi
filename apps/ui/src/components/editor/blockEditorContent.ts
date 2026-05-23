@@ -1,11 +1,13 @@
+import { BlockNoteEditor, type PartialBlock } from "@blocknote/core";
+
 /**
  * Helpers for the dual-shape `idea.content` field.
  *
  * Phase 1 stores serialized BlockNote JSON when an idea has been
- * touched after this ship, but legacy ideas still hold plaintext (with
- * markdown sprinkles). Every read site that wants a flat string for
- * preview / search / truncation goes through `blockTreeToPlainText`
- * here so the dual shape stays a single concern.
+ * touched after this ship, but legacy ideas still hold plaintext or
+ * markdown. Every read site that wants a flat string for preview /
+ * search / truncation goes through `blockTreeToPlainText` here so the
+ * dual shape stays a single concern.
  */
 
 interface InlineLike {
@@ -18,6 +20,18 @@ interface BlockLike {
   type?: string;
   content?: unknown;
   children?: unknown;
+}
+
+let markdownParser: BlockNoteEditor | null = null;
+
+function getMarkdownParser(): BlockNoteEditor | null {
+  if (markdownParser) return markdownParser;
+  try {
+    markdownParser = BlockNoteEditor.create();
+    return markdownParser;
+  } catch {
+    return null;
+  }
 }
 
 /** Best-effort plaintext extractor for BlockNote inline content. */
@@ -72,6 +86,54 @@ export function blockTreeToPlainText(raw: string | null | undefined): string {
     }
   }
   return raw;
+}
+
+/**
+ * Normalize the editor's initial content into a BlockNote-ready block tree.
+ *
+ * Accepted shapes, in order:
+ * - serialized BlockNote JSON
+ * - markdown-like text, parsed into actual blocks
+ * - plaintext paragraphs
+ *
+ * This keeps legacy markdown ideas from rendering literally while still
+ * preserving the old plaintext fallback for notes that were never meant
+ * to be markdown.
+ */
+export function parseBlockEditorInitialContent(
+  raw: string | null | undefined,
+): PartialBlock[] | undefined {
+  if (raw == null || raw === "") return undefined;
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed as PartialBlock[];
+    }
+  } catch {
+    /* fall through */
+  }
+
+  const parser = getMarkdownParser();
+  if (parser) {
+    try {
+      const parsedMarkdown = parser.tryParseMarkdownToBlocks(raw);
+      if (parsedMarkdown.length > 0) {
+        return parsedMarkdown as PartialBlock[];
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+
+  const paragraphs = raw
+    .split(/\n{2,}/)
+    .map((chunk) => chunk.trim())
+    .filter(Boolean);
+  if (paragraphs.length === 0) {
+    return [{ type: "paragraph", content: raw }] as PartialBlock[];
+  }
+  return paragraphs.map((text) => ({ type: "paragraph", content: text }));
 }
 
 /**

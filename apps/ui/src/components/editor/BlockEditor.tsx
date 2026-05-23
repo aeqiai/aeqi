@@ -3,11 +3,12 @@ import { useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/mantine";
 import { BlockNoteSchema, defaultBlockSpecs } from "@blocknote/core";
 import { en } from "@blocknote/core/locales";
-import type { Block, PartialBlock } from "@blocknote/core";
+import type { Block } from "@blocknote/core";
 
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/mantine/style.css";
 import "./blockEditor.theme.css";
+import { parseBlockEditorInitialContent } from "./blockEditorContent";
 
 /**
  * Reusable Notion-style block editor built on BlockNote (Tiptap +
@@ -42,33 +43,6 @@ const editorSchema = BlockNoteSchema.create({
   blockSpecs: defaultBlockSpecs,
 });
 
-/**
- * Forgiving parser. BlockNote's own document type is `PartialBlock[]`;
- * we accept three shapes and normalize.
- */
-function parseInitial(raw: string | null): PartialBlock[] | undefined {
-  if (raw == null || raw === "") return undefined;
-  // Try JSON first — the new shape.
-  try {
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      return parsed as PartialBlock[];
-    }
-  } catch {
-    /* fall through — plaintext path */
-  }
-  // Plaintext fallback. Split on blank lines into paragraph blocks so
-  // multi-paragraph existing ideas don't collapse into one wall of text.
-  const paragraphs = raw
-    .split(/\n{2,}/)
-    .map((chunk) => chunk.trim())
-    .filter(Boolean);
-  if (paragraphs.length === 0) {
-    return [{ type: "paragraph", content: raw }];
-  }
-  return paragraphs.map((text) => ({ type: "paragraph", content: text }));
-}
-
 export default function BlockEditor({
   initialContent,
   onChange,
@@ -76,7 +50,7 @@ export default function BlockEditor({
   placeholder,
   autofocus = false,
 }: BlockEditorProps) {
-  const initial = useMemo(() => parseInitial(initialContent), [initialContent]);
+  const initial = useMemo(() => parseBlockEditorInitialContent(initialContent), [initialContent]);
 
   // Override only the empty-document placeholder. We deep-merge on top
   // of BlockNote's default `en` dictionary so every other label
