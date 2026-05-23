@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 import { ProgressList, type ProgressStep } from "@/components/ui";
 import { api } from "@/lib/api";
 import { LaunchShell } from "@/pages/trustSetup/LaunchShell";
+import { useUIStore } from "@/store/ui";
 
 import "@/styles/launching-reveal.css";
 
@@ -39,9 +41,8 @@ function truncate(addr: string): string {
  * every 1s and lights each of four steps as the placement transitions
  * through the spawn flow.
  *
- * Owns visualization only. Navigation when the placement becomes
- * `ready` is the caller's responsibility (TrustSetupPage's existing
- * effect handles it via the entities store).
+ * Owns the launch interstitial and takes the user into the launched
+ * TRUST once the placement becomes ready.
  */
 export function LaunchingReveal({
   trustId,
@@ -52,6 +53,9 @@ export function LaunchingReveal({
 }) {
   const [status, setStatus] = useState<LaunchStatus | null>(null);
   const [pollError, setPollError] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const setActiveEntity = useUIStore((s) => s.setActiveEntity);
+  const didEnterRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -128,6 +132,13 @@ export function LaunchingReveal({
     };
   });
   const busy = !isReady && !hasError;
+
+  useEffect(() => {
+    if (!isReady || hasError || !trustAddress || didEnterRef.current) return;
+    didEnterRef.current = true;
+    setActiveEntity(trustAddress);
+    navigate(`/trust/${encodeURIComponent(trustAddress)}`, { replace: true });
+  }, [hasError, isReady, navigate, setActiveEntity, trustAddress]);
 
   return (
     <LaunchShell
