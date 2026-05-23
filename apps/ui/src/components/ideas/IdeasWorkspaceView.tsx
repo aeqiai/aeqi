@@ -93,7 +93,12 @@ export default function IdeasWorkspaceView({
   const searchActive = filter.search.trim() !== "";
   const activeIdea = composing ? undefined : (selectedIdea ?? rootIdea ?? undefined);
   const activeParentId = composing ? composeParentId : (activeIdea?.id ?? rootIdea?.id ?? null);
-  const activeScope = activeIdea ? scopeValue(activeIdea, agentId) : composeScope;
+  const rootSelected = Boolean(activeIdea && rootIdea && activeIdea.id === rootIdea.id);
+  const activeScope = rootSelected
+    ? "global"
+    : activeIdea
+      ? scopeValue(activeIdea, agentId)
+      : composeScope;
 
   const ranked = useMemo(() => {
     if (searchActive) {
@@ -164,6 +169,7 @@ export default function IdeasWorkspaceView({
         setComposeScope(next);
         return;
       }
+      if (rootSelected) return;
       if (next === activeScope) return;
       setInspectorError(null);
       setInspectorBusy(true);
@@ -176,7 +182,7 @@ export default function IdeasWorkspaceView({
         setInspectorBusy(false);
       }
     },
-    [activeIdea, activeScope, composing, patchIdea],
+    [activeIdea, activeScope, composing, patchIdea, rootSelected],
   );
 
   const handleSave = useCallback(async () => {
@@ -428,7 +434,9 @@ export default function IdeasWorkspaceView({
               canCommit={canCommit}
               busy={inspectorBusy}
               error={inspectorError}
+              canTrack={Boolean(activeIdea && !rootSelected)}
               canDelete={Boolean(activeIdea && activeIdea.id !== rootIdea?.id)}
+              scopeLocked={rootSelected}
               importMenu={
                 <ImportMenu
                   trustId={trustId}

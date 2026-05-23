@@ -536,9 +536,6 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
     else setDeleteArmed(true);
   };
 
-  const showCompose = !isEdit;
-
-  const dirty = saveState === "dirty" || saveState === "saving";
   const conversationActivityRefreshKey = useMemo(
     () => [activityRefreshSeq, activityRefreshKey],
     [activityRefreshSeq, activityRefreshKey],
@@ -620,8 +617,8 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
         <div className="ideas-list-head ideas-canvas-head">
           <IdeaCanvasToolbar
             isEdit={isEdit}
-            showCompose={showCompose}
-            dirty={dirty}
+            showCompose={!isEdit}
+            dirty={saveState === "dirty" || saveState === "saving"}
             idea={idea}
             headerScope={headerScope}
             setComposeScope={setInternalComposeScope}
@@ -726,7 +723,9 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
               />
             )}
 
-            {isEdit && idea && <IdeaPropertyChips ideaId={idea.id} properties={idea.properties} />}
+            {isEdit && idea && !hideMetaStrip ? (
+              <IdeaPropertyChips ideaId={idea.id} properties={idea.properties} />
+            ) : null}
 
             <div className="ideas-canvas-body ideas-canvas-body-block">
               <LazyBlockEditor

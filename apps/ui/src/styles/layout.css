@@ -4398,6 +4398,14 @@
   outline: none;
 }
 
+.ideas-workspace-scope-option:disabled {
+  cursor: default;
+}
+
+.ideas-workspace-properties .idea-properties {
+  margin-bottom: 0;
+}
+
 .ideas-workspace-tags .ideas-tags-editor,
 .ideas-workspace-refs .ideas-refs {
   gap: 5px;
