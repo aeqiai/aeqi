@@ -41,6 +41,22 @@ const EMPTY_SEED_EVENTS: BlueprintSeedEvent[] = [];
 const EMPTY_SEED_QUESTS: BlueprintSeedQuest[] = [];
 const EMPTY_SEED_IDEAS: BlueprintSeedIdea[] = [];
 
+function blueprintAgents(template: SingleBlueprint): BlueprintSeedAgent[] {
+  const rootName = template.root?.name ?? template.name;
+  const rootRole = template.seed_roles?.find(
+    (role) => role.default_occupant_agent === "root" || role.default_occupant_agent === rootName,
+  );
+  const rootAgent: BlueprintSeedAgent = {
+    name: rootName,
+    role: rootRole?.title,
+    system_prompt: template.root?.system_prompt,
+    model: template.root?.model,
+    color: template.root?.color,
+  };
+
+  return [rootAgent, ...(template.seed_agents ?? []).filter((agent) => agent.name !== rootName)];
+}
+
 /**
  * `/blueprints/:blueprintId[/:section]` — inspect a Blueprint and explore its
  * seed primitives.
@@ -237,8 +253,8 @@ export default function BlueprintDetailPage() {
           )}
 
           {activeSection === "overview" && <OverviewSection template={single} />}
-          {activeSection === "roles" && <RolesSection seeds={single.seed_agents} />}
-          {activeSection === "agents" && <AgentsSection seeds={single.seed_agents} />}
+          {activeSection === "roles" && <RolesSection seeds={blueprintAgents(single)} />}
+          {activeSection === "agents" && <AgentsSection seeds={blueprintAgents(single)} />}
           {activeSection === "events" && <EventsSection seeds={single.seed_events} />}
           {activeSection === "quests" && <QuestsSection seeds={single.seed_quests} />}
           {activeSection === "ideas" && <IdeasSection seeds={single.seed_ideas} />}

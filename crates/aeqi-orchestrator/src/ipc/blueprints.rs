@@ -150,6 +150,14 @@ pub struct SeedIdeaSpec {
 pub struct SeedQuestSpec {
     #[serde(default = "default_owner_root")]
     pub owner: String,
+    /// Optional stable key used by other seed quests' `parent` field. If
+    /// omitted, the subject is also registered as a reference key.
+    #[serde(default)]
+    pub key: Option<String>,
+    /// Optional parent quest reference. Must match a prior seed quest's
+    /// `key` or `subject`; unknown parents warn and create the quest flat.
+    #[serde(default)]
+    pub parent: Option<String>,
     pub subject: String,
     #[serde(default)]
     pub description: String,
@@ -624,6 +632,8 @@ pub async fn spawn_blueprint(
     // ---- seed quests ----
     let mut created_quests = 0usize;
     if want_quests {
+        let mut quest_refs: std::collections::HashMap<String, String> =
+            std::collections::HashMap::new();
         for q in &blueprint.seed_quests {
             let owner_id = match resolve_owner(&owner_to_agent_id, &q.owner) {
                 Some(id) => id,
@@ -635,6 +645,16 @@ pub async fn spawn_blueprint(
                     continue;
                 }
             };
+            let parent_id = q.parent.as_ref().and_then(|parent| {
+                let resolved = quest_refs.get(parent).cloned();
+                if resolved.is_none() {
+                    warnings.push(format!(
+                        "seed_quest '{}' parent '{}' not found; creating as a top-level quest",
+                        q.subject, parent,
+                    ));
+                }
+                resolved
+            });
             match agent_registry
                 .create_task_v2(
                     owner_id,
@@ -643,11 +663,18 @@ pub async fn spawn_blueprint(
                     &[],
                     &q.labels,
                     &[],
-                    None,
+                    parent_id.as_deref(),
                 )
                 .await
             {
-                Ok(_) => created_quests += 1,
+                Ok(created) => {
+                    created_quests += 1;
+                    let created_id = created.id.to_string();
+                    quest_refs.insert(q.subject.clone(), created_id.clone());
+                    if let Some(key) = q.key.as_ref().filter(|key| !key.trim().is_empty()) {
+                        quest_refs.insert(key.clone(), created_id);
+                    }
+                }
                 Err(err) => {
                     warnings.push(format!("seed_quest '{}' create failed: {err}", q.subject,))
                 }
@@ -1431,12 +1458,16 @@ mod tests {
             seed_quests: vec![
                 SeedQuestSpec {
                     owner: "root".to_string(),
+                    key: Some("theme_setup".to_string()),
+                    parent: None,
                     subject: "Pick themes".to_string(),
                     description: "Pick three editorial themes.".to_string(),
                     labels: vec!["editorial".to_string()],
                 },
                 SeedQuestSpec {
                     owner: "Editor".to_string(),
+                    key: Some("draft_first_piece".to_string()),
+                    parent: Some("theme_setup".to_string()),
                     subject: "Draft first piece".to_string(),
                     description: "Produce first long-form draft.".to_string(),
                     labels: Vec::new(),
@@ -1535,6 +1566,17 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
+        let seeded_tasks = registry.list_tasks(None, None).await.unwrap();
+        let parent_task = seeded_tasks
+            .iter()
+            .find(|task| task.id.0 == "di-001")
+            .expect("root seed quest should use the default agent prefix");
+        let child_task = seeded_tasks
+            .iter()
+            .find(|task| task.id.0 == format!("{}.1", parent_task.id.0))
+            .expect("child seed quest should be nested under parent quest");
+        assert_eq!(child_task.agent_id.as_deref(), Some(editor.id.as_str()));
+
         let editor_ancestors = registry.get_ancestor_ids(&editor.id).await.unwrap();
         let dist_ancestors = registry.get_ancestor_ids(&dist.id).await.unwrap();
         assert!(editor_ancestors.contains(&default_agent.id));

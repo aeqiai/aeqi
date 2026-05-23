@@ -20,7 +20,7 @@ import {
 } from "@/pages/trustSetup/TrustSetupFlow";
 import "@/styles/blueprint-launch-picker.css";
 
-const FIRST_RUN_BLUEPRINT_SLUG = "personal-os";
+const FIRST_RUN_BLUEPRINT_SLUG = DEFAULT_BLUEPRINT_SLUG;
 
 type LaunchEntry = "standard" | "personal";
 type OperationsChoice = "free" | "paid";
@@ -65,7 +65,7 @@ export function defaultTrustName(
 }
 
 function unavailableNameHint(name: string): string {
-  const base = name.trim() || "Janus";
+  const base = name.trim() || "Your TRUST";
   return `Already taken. Try ${base} Labs, ${base} One, or ${base} Trust.`;
 }
 

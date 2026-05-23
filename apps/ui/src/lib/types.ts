@@ -392,6 +392,8 @@ export interface BlueprintSeedIdea {
 
 export interface BlueprintSeedQuest {
   owner?: string;
+  key?: string;
+  parent?: string;
   subject: string;
   description?: string;
   priority?: string;

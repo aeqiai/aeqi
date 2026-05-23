@@ -176,6 +176,7 @@ export default function BlueprintsPage() {
 
   const complexity = useCallback(
     (t: SingleBlueprint) =>
+      1 +
       (t.seed_agents?.length ?? 0) +
       (t.seed_events?.length ?? 0) +
       (t.seed_ideas?.length ?? 0) +
@@ -266,6 +267,7 @@ export default function BlueprintsPage() {
       singleBlueprints.reduce(
         (sum, t) =>
           sum +
+          1 +
           (t.seed_agents?.length ?? 0) +
           (t.seed_events?.length ?? 0) +
           (t.seed_ideas?.length ?? 0) +

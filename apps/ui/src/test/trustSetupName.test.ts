@@ -6,13 +6,16 @@ const standardBlueprint: SingleBlueprint = {
   slug: "operating-company",
   name: "Operating Company",
   root: {
-    name: "Janus",
+    name: "aeqi Assistant",
   },
 };
 
-const personalBlueprint: SingleBlueprint = {
-  slug: "personal-os",
-  name: "Personal OS",
+const defaultBlueprint: SingleBlueprint = {
+  slug: "aeqi",
+  name: "First Company",
+  root: {
+    name: "aeqi Assistant",
+  },
 };
 
 describe("defaultTrustName", () => {
@@ -22,9 +25,9 @@ describe("defaultTrustName", () => {
     ).toBe("Operator TRUST");
   });
 
-  it("keeps the personal first-run launch name personal", () => {
+  it("keeps the default first-run launch name personal", () => {
     expect(
-      defaultTrustName({ name: "Operator", email: "operator@aeqi.local" }, personalBlueprint),
+      defaultTrustName({ name: "Operator", email: "operator@aeqi.local" }, defaultBlueprint),
     ).toBe("Operator's TRUST");
   });
 });

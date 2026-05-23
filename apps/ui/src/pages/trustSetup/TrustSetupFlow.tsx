@@ -57,13 +57,13 @@ export function LaunchShellError({ error, onBack }: { error: string | null; onBa
 
 function blueprintStats(blueprint: Blueprint): string {
   const declaredRoles = blueprint.seed_roles?.length ?? 0;
-  const seedAgents = blueprint.seed_agents?.length ?? 0;
+  const totalAgents = (blueprint.seed_agents?.length ?? 0) + 1;
   const structures = countBlueprintStructures(blueprint);
-  const roles = declaredRoles > 0 ? declaredRoles : seedAgents;
+  const roles = declaredRoles > 0 ? declaredRoles : totalAgents;
   const parts = [
     structures > 1 ? `${structures} structures` : null,
     `${roles} roles`,
-    `${seedAgents} agents`,
+    `${totalAgents} agents`,
   ].filter(Boolean);
   return parts.join(" · ");
 }
@@ -91,7 +91,7 @@ function NameSection({
           error={nameError}
           value={trustName}
           onChange={(e) => onTrustNameChange(e.target.value)}
-          placeholder="Janus"
+          placeholder="Your TRUST"
           size="lg"
         />
       </div>

@@ -268,10 +268,13 @@ mod tests {
     #[test]
     fn company_blueprint_lookup_returns_default_full_spec() {
         let default = company_blueprint(DEFAULT_BLUEPRINT_SLUG).expect("default template present");
-        assert_eq!(default.name, "aeqi");
+        assert_eq!(default.name, "First Company");
+        assert_eq!(default.root.name, "aeqi Assistant");
         assert_eq!(default.seed_agents.len(), 0);
         assert!(default.agent_template_refs.is_empty());
-        assert_eq!(default.seed_quests.len(), 8);
+        assert_eq!(default.seed_events.len(), 8);
+        assert_eq!(default.seed_ideas.len(), 7);
+        assert_eq!(default.seed_quests.len(), 7);
     }
 
     #[test]
@@ -284,11 +287,19 @@ mod tests {
     }
 
     #[test]
-    fn default_blueprint_collapses_to_single_janus() {
+    fn default_blueprint_collapses_to_single_assistant() {
         let default = company_blueprint(DEFAULT_BLUEPRINT_SLUG).expect("default template present");
         assert!(
             default.agent_template_refs.is_empty(),
             "default blueprint must not reference any agent templates after C3 collapse",
+        );
+        assert_eq!(default.root.name, "aeqi Assistant");
+        assert!(
+            default
+                .seed_roles
+                .iter()
+                .any(|role| role.title == "Chief of Staff"),
+            "default blueprint should expose the root agent as a Chief of Staff role",
         );
         assert!(
             !default
@@ -317,7 +328,7 @@ mod tests {
     fn default_blueprint_has_category_and_template() {
         let bp = company_blueprint(DEFAULT_BLUEPRINT_SLUG).expect("default template present");
         assert_eq!(bp.category, "company");
-        assert_eq!(bp.template, "venture");
+        assert_eq!(bp.template, "entity");
     }
 
     #[test]
