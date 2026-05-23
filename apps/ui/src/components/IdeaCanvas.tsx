@@ -25,11 +25,8 @@ import IdeaPropertyChips from "./ideas/IdeaPropertyChips";
 import IdeaChildrenList from "./ideas/IdeaChildrenList";
 import IdeaCanvasToolbar from "./ideas/IdeaCanvasToolbar";
 import IdeaCanvasDecisionPanel from "./ideas/IdeaCanvasDecisionPanel";
+import { isMarkdownFile } from "./ideas/ideaImport";
 import { ImportMenu } from "./blueprints/ImportMenu";
-
-function isMarkdownFile(file: File): boolean {
-  return /\.(md|markdown)$/i.test(file.name) || file.type === "text/markdown";
-}
 
 /**
  * Imperative handle for callers that supply their own toolbar (the
@@ -96,6 +93,13 @@ export interface IdeaCanvasProps {
    */
   embedded?: boolean;
   /**
+   * Hide the tags / references band so an embedding surface can render idea
+   * metadata in a side inspector instead of inside the document body.
+   */
+  hideMetaStrip?: boolean;
+  /** Controlled compose visibility when an embedding surface owns scope UI. */
+  composeScope?: ScopeValue;
+  /**
    * Replace the canvas's default toolbar with caller-supplied chrome. The
    * tags strip / body / refs / links surface stays. Mutually exclusive
    * with `embedded` (which suppresses the toolbar entirely).
@@ -136,6 +140,8 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
     onBack,
     onNew,
     embedded = false,
+    hideMetaStrip = false,
+    composeScope: controlledComposeScope,
     headerSlot,
     onPersisted,
     onCanCommitChange,
@@ -164,7 +170,8 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
   const [name, setName] = useState(idea?.name ?? initialName ?? "");
   const [content, setContent] = useState(idea?.content ?? "");
   const [typedTags, setTypedTags] = useState<string[]>(idea?.tags ?? []);
-  const [composeScope, setComposeScope] = useState<ScopeValue>("self");
+  const [internalComposeScope, setInternalComposeScope] = useState<ScopeValue>("self");
+  const composeScope = controlledComposeScope ?? internalComposeScope;
   // Pending references for compose mode — the idea doesn't exist yet so
   // we collect picker selections locally and replay them as
   // `addIdeaEdge` calls after the idea persists. Compose-mode refs are
@@ -213,10 +220,10 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
     setDecisionError(null);
     setShowRejectPanel(false);
     setRejectRationale("");
-    setComposeScope("self");
+    if (controlledComposeScope == null) setInternalComposeScope("self");
     setPendingRefs([]);
     dirtyRef.current = false;
-  }, [idea?.id, idea?.name, idea?.content, idea?.tags]);
+  }, [controlledComposeScope, idea?.id, idea?.name, idea?.content, idea?.tags]);
 
   // Focus the title when this mount shows the compose canvas. Body
   // autofocus is delegated to the BlockEditor itself via its `autofocus`
@@ -617,7 +624,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
             dirty={dirty}
             idea={idea}
             headerScope={headerScope}
-            setComposeScope={setComposeScope}
+            setComposeScope={setInternalComposeScope}
             saveState={saveState}
             deleteArmed={deleteArmed}
             setDeleteArmed={setDeleteArmed}
@@ -650,46 +657,48 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
       <div className="ideas-canvas-frame">
         <div className="ideas-canvas-paper">
           {error && <div className="ideas-canvas-error">{error}</div>}
-          <div className="ideas-tags-strip ideas-canvas-strip">
-            <TagsEditor
-              tags={inlineTags}
-              typed={typedTags}
-              suggestions={tagSuggestions}
-              onAdd={(t) => {
-                const next = [...typedTags, t];
-                setTypedTags(next);
-                markDirty();
-              }}
-              onRemove={(t) => {
-                if (typedTags.includes(t)) {
-                  const next = typedTags.filter((x) => x !== t);
+          {!hideMetaStrip && (
+            <div className="ideas-tags-strip ideas-canvas-strip">
+              <TagsEditor
+                tags={inlineTags}
+                typed={typedTags}
+                suggestions={tagSuggestions}
+                onAdd={(t) => {
+                  const next = [...typedTags, t];
                   setTypedTags(next);
                   markDirty();
-                }
-              }}
-            />
-            {isEdit && idea ? (
-              <IdeaLinksPanel ideaId={idea.id} agentId={agentId} />
-            ) : (
-              <RefsRow
-                candidates={ideas ?? []}
-                refs={pendingRefs}
-                onAdd={(target) =>
-                  setPendingRefs((prev) =>
-                    prev.some((r) => r.target_id === target.id)
-                      ? prev
-                      : [
-                          ...prev,
-                          { target_id: target.id, name: target.name, relation: "adjacent" },
-                        ],
-                  )
-                }
-                onRemove={({ target_id }) =>
-                  setPendingRefs((prev) => prev.filter((r) => r.target_id !== target_id))
-                }
+                }}
+                onRemove={(t) => {
+                  if (typedTags.includes(t)) {
+                    const next = typedTags.filter((x) => x !== t);
+                    setTypedTags(next);
+                    markDirty();
+                  }
+                }}
               />
-            )}
-          </div>
+              {isEdit && idea ? (
+                <IdeaLinksPanel ideaId={idea.id} agentId={agentId} />
+              ) : (
+                <RefsRow
+                  candidates={ideas ?? []}
+                  refs={pendingRefs}
+                  onAdd={(target) =>
+                    setPendingRefs((prev) =>
+                      prev.some((r) => r.target_id === target.id)
+                        ? prev
+                        : [
+                            ...prev,
+                            { target_id: target.id, name: target.name, relation: "adjacent" },
+                          ],
+                    )
+                  }
+                  onRemove={({ target_id }) =>
+                    setPendingRefs((prev) => prev.filter((r) => r.target_id !== target_id))
+                  }
+                />
+              )}
+            </div>
+          )}
 
           <div className="ideas-canvas-content">
             <input

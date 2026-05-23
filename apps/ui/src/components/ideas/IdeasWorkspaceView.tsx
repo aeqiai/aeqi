@@ -1,14 +1,20 @@
-import { useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useMemo, useRef, useState, type CSSProperties } from "react";
 import { ChevronRight, FileText, Plus } from "lucide-react";
+import * as ideasApi from "@/api/ideas";
+import { ImportMenu } from "@/components/blueprints/ImportMenu";
 import { blockTreeToPlainText } from "@/components/editor/blockEditorContent";
-import IdeaCanvas from "@/components/IdeaCanvas";
-import { formatDateTime } from "@/lib/i18n";
-import type { Idea } from "@/lib/types";
+import IdeaCanvas, { type IdeaCanvasHandle } from "@/components/IdeaCanvas";
+import { useNav } from "@/hooks/useNav";
+import { asStringArray, parseFrontmatter } from "@/lib/frontmatter";
+import type { Idea, ScopeValue } from "@/lib/types";
+import { useAgentIdeasCache } from "@/queries/ideas";
 import { Button, Icon, Tooltip, Loading } from "../ui";
+import IdeaWorkspaceInspector from "./IdeaWorkspaceInspector";
 import IdeasToolbar from "./IdeasToolbar";
 import type { IdeasView } from "./IdeasViewPopover";
+import { importIdeaProperties, importIdeaScope, isMarkdownFile } from "./ideaImport";
 import { buildWorkspaceTree, flattenIdeaTree, type IdeaTreeNode } from "./ideaTree";
-import { type FilterState, type IdeasFilter, SCOPE_LABEL, matchRank, relativeTime } from "./types";
+import { type FilterState, type IdeasFilter, matchRank } from "./types";
 
 export interface IdeasWorkspaceViewProps {
   agentId: string;
@@ -49,11 +55,8 @@ function descendantCount(id: string, ideas: Idea[]): number {
   return walk(id);
 }
 
-function scopeLabel(idea: Idea, agentId: string): string {
-  const resolved =
-    idea.scope ?? (idea.agent_id == null ? "global" : idea.agent_id === agentId ? "self" : null);
-  if (!resolved) return "Inherited";
-  return SCOPE_LABEL[resolved] ?? resolved;
+function scopeValue(idea: Idea, agentId: string): ScopeValue {
+  return idea.scope ?? (idea.agent_id == null || idea.agent_id !== agentId ? "global" : "self");
 }
 
 export default function IdeasWorkspaceView({
@@ -78,10 +81,19 @@ export default function IdeasWorkspaceView({
   rootError,
 }: IdeasWorkspaceViewProps) {
   const searchRef = useRef<HTMLInputElement>(null);
+  const canvasRef = useRef<IdeaCanvasHandle>(null);
+  const { goEntity, trustId } = useNav();
+  const { patchIdea, removeIdea, invalidateIdeas } = useAgentIdeasCache(agentId);
   const [expandedIdeas, setExpandedIdeas] = useState<Record<string, boolean>>({});
+  const [composeScope, setComposeScope] = useState<ScopeValue>("self");
+  const [canvasDirty, setCanvasDirty] = useState(false);
+  const [canCommit, setCanCommit] = useState(false);
+  const [inspectorBusy, setInspectorBusy] = useState(false);
+  const [inspectorError, setInspectorError] = useState<string | null>(null);
   const searchActive = filter.search.trim() !== "";
   const activeIdea = composing ? undefined : (selectedIdea ?? rootIdea ?? undefined);
   const activeParentId = composing ? composeParentId : (activeIdea?.id ?? rootIdea?.id ?? null);
+  const activeScope = activeIdea ? scopeValue(activeIdea, agentId) : composeScope;
 
   const ranked = useMemo(() => {
     if (searchActive) {
@@ -119,9 +131,159 @@ export default function IdeasWorkspaceView({
 
   const selectedTreeId = activeIdea?.id ?? null;
   const noMatchName = filter.search.trim();
+  const tagSuggestions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const idea of ideas) {
+      for (const tag of idea.tags ?? []) counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([tag]) => tag);
+  }, [ideas]);
 
   const toggleIdea = (id: string, defaultExpanded: boolean) =>
     setExpandedIdeas((prev) => ({ ...prev, [id]: !(prev[id] ?? defaultExpanded) }));
+
+  const persistTags = useCallback(
+    async (nextTags: string[]) => {
+      if (!activeIdea) return;
+      setInspectorError(null);
+      try {
+        await ideasApi.updateIdea(activeIdea.id, { tags: nextTags });
+        patchIdea(activeIdea.id, { tags: nextTags });
+      } catch (error) {
+        setInspectorError(error instanceof Error ? error.message : "Tag update failed");
+      }
+    },
+    [activeIdea, patchIdea],
+  );
+
+  const handleScopeChange = useCallback(
+    async (next: ScopeValue) => {
+      if (composing || !activeIdea) {
+        setComposeScope(next);
+        return;
+      }
+      if (next === activeScope) return;
+      setInspectorError(null);
+      setInspectorBusy(true);
+      try {
+        await ideasApi.updateIdea(activeIdea.id, { scope: next });
+        patchIdea(activeIdea.id, { scope: next });
+      } catch (error) {
+        setInspectorError(error instanceof Error ? error.message : "Scope update failed");
+      } finally {
+        setInspectorBusy(false);
+      }
+    },
+    [activeIdea, activeScope, composing, patchIdea],
+  );
+
+  const handleSave = useCallback(async () => {
+    setInspectorError(null);
+    setInspectorBusy(true);
+    try {
+      await canvasRef.current?.commit();
+      setCanvasDirty(false);
+    } catch (error) {
+      setInspectorError(error instanceof Error ? error.message : "Save failed");
+    } finally {
+      setInspectorBusy(false);
+    }
+  }, []);
+
+  const handleCancel = useCallback(() => {
+    if (composing) {
+      if (rootIdea) onSelect(rootIdea.id);
+      return;
+    }
+    canvasRef.current?.revert();
+    setCanvasDirty(false);
+  }, [composing, onSelect, rootIdea]);
+
+  const handleTrackAsQuest = useCallback(() => {
+    if (!activeIdea) return;
+    goEntity(trustId, "quests", "new", {
+      replace: false,
+      search: { fromIdea: activeIdea.id },
+    });
+  }, [activeIdea, goEntity, trustId]);
+
+  const handleDelete = useCallback(async () => {
+    if (!activeIdea || activeIdea.id === rootIdea?.id) return;
+    setInspectorError(null);
+    setInspectorBusy(true);
+    try {
+      const res = await ideasApi.deleteIdea(activeIdea.id);
+      if (!res.ok && res.error === "in_use" && res.quest_ids?.length) {
+        const ids = res.quest_ids;
+        const formatted = ids.length === 1 ? `quest ${ids[0]}` : `${ids.length} quests`;
+        setInspectorError(
+          `In use by ${formatted}. Detach or delete first: ${ids.slice(0, 5).join(", ")}` +
+            (ids.length > 5 ? " ..." : ""),
+        );
+        return;
+      }
+      if (!res.ok) {
+        setInspectorError(res.error ?? "Delete failed");
+        return;
+      }
+      removeIdea(activeIdea.id);
+      if (rootIdea) onSelect(rootIdea.id);
+    } catch (error) {
+      setInspectorError(error instanceof Error ? error.message : "Delete failed");
+    } finally {
+      setInspectorBusy(false);
+    }
+  }, [activeIdea, onSelect, removeIdea, rootIdea]);
+
+  const handleFileImport = useCallback(
+    async (files: FileList | File[]) => {
+      const parentIdeaId = activeIdea?.id ?? rootIdea?.id ?? null;
+      if (!parentIdeaId) return;
+      setInspectorError(null);
+      const failures: string[] = [];
+      for (const file of Array.from(files)) {
+        try {
+          if (isMarkdownFile(file)) {
+            const raw = await file.text();
+            const { body, data } = parseFrontmatter(raw);
+            const name =
+              (typeof data.title === "string" && data.title) ||
+              file.name.replace(/\.(md|markdown)$/i, "") ||
+              "Untitled";
+            const summary = typeof data.summary === "string" ? data.summary.trim() : "";
+            const content =
+              summary && !body.startsWith(summary) ? `${summary}\n\n${body.trim()}` : body.trim();
+            await ideasApi.storeIdea({
+              name,
+              content,
+              tags: asStringArray(data.tags),
+              agent_id: agentId,
+              scope: importIdeaScope(data) ?? activeScope,
+              parent_idea_id: parentIdeaId,
+              properties: importIdeaProperties(data, file.name),
+            });
+          } else {
+            const upload = await ideasApi.uploadFileToIdea({
+              agentId,
+              file,
+              scope: activeScope,
+              parentIdeaId,
+            });
+            if (!upload.ok) throw new Error(upload.error || "upload failed");
+          }
+        } catch (error) {
+          failures.push(
+            `${file.name}: ${error instanceof Error ? error.message : "import failed"}`,
+          );
+        }
+      }
+      await invalidateIdeas();
+      if (failures.length > 0) setInspectorError(failures.join("; "));
+    },
+    [activeIdea?.id, activeScope, agentId, invalidateIdeas, rootIdea?.id],
+  );
 
   return (
     <div className="ideas-workspace">
@@ -229,6 +391,7 @@ export default function IdeasWorkspaceView({
             </div>
           ) : rootIdea ? (
             <IdeaCanvas
+              ref={canvasRef}
               key={composing ? `compose:${activeParentId ?? "root"}` : activeIdea?.id}
               agentId={agentId}
               idea={activeIdea}
@@ -237,6 +400,11 @@ export default function IdeasWorkspaceView({
               onBack={() => onSelect(rootIdea.id)}
               onNew={() => onNew(undefined, activeIdea?.id ?? rootIdea.id)}
               onPersisted={onSelect}
+              embedded
+              hideMetaStrip
+              composeScope={composeScope}
+              onDirtyChange={setCanvasDirty}
+              onCanCommitChange={setCanCommit}
             />
           ) : (
             <div className="empty-state-hero muted">
@@ -248,11 +416,45 @@ export default function IdeasWorkspaceView({
         </main>
 
         <aside className="ideas-workspace-inspector" aria-label="Idea details">
-          {activeIdea ? (
-            <IdeaInspector
+          {activeIdea || composing ? (
+            <IdeaWorkspaceInspector
               idea={activeIdea}
               agentId={agentId}
-              childCount={descendantCount(activeIdea.id, ideas)}
+              composing={composing}
+              childCount={activeIdea ? descendantCount(activeIdea.id, ideas) : 0}
+              scope={activeScope}
+              tagSuggestions={tagSuggestions}
+              dirty={canvasDirty}
+              canCommit={canCommit}
+              busy={inspectorBusy}
+              error={inspectorError}
+              canDelete={Boolean(activeIdea && activeIdea.id !== rootIdea?.id)}
+              importMenu={
+                <ImportMenu
+                  trustId={trustId}
+                  parts={["ideas"]}
+                  blueprintTitle="Import child ideas from a Blueprint"
+                  accept="*/*"
+                  fileLabel="From files"
+                  onMarkdownPicked={(files) => void handleFileImport(files)}
+                  onBlueprintSpawned={() => void invalidateIdeas()}
+                />
+              }
+              onScopeChange={(next) => void handleScopeChange(next)}
+              onTagAdd={(tag) => {
+                if (!activeIdea) return;
+                const key = tag.toLowerCase();
+                if ((activeIdea.tags ?? []).some((item) => item.toLowerCase() === key)) return;
+                void persistTags([...(activeIdea.tags ?? []), key]);
+              }}
+              onTagRemove={(tag) => {
+                if (!activeIdea) return;
+                void persistTags((activeIdea.tags ?? []).filter((item) => item !== tag));
+              }}
+              onTrackAsQuest={handleTrackAsQuest}
+              onDelete={() => void handleDelete()}
+              onSave={() => void handleSave()}
+              onCancel={handleCancel}
             />
           ) : (
             <div className="ideas-workspace-inspector-empty">
@@ -263,62 +465,5 @@ export default function IdeasWorkspaceView({
         </aside>
       </div>
     </div>
-  );
-}
-
-function IdeaInspector({
-  idea,
-  agentId,
-  childCount,
-}: {
-  idea: Idea;
-  agentId: string;
-  childCount: number;
-}) {
-  const words = blockTreeToPlainText(idea.content).trim().split(/\s+/).filter(Boolean).length;
-  const updated = relativeTime(idea.created_at);
-  return (
-    <>
-      <div className="ideas-workspace-inspector-head">
-        <span>Details</span>
-        <small title={idea.created_at ? formatDateTime(idea.created_at) : undefined}>
-          {updated || "now"}
-        </small>
-      </div>
-      <dl className="quest-detail-meta ideas-workspace-meta">
-        <div className="quest-detail-meta-row">
-          <dt>scope</dt>
-          <dd>
-            <span className="quest-detail-value">{scopeLabel(idea, agentId)}</span>
-          </dd>
-        </div>
-        <div className="quest-detail-meta-row">
-          <dt>children</dt>
-          <dd>{childCount}</dd>
-        </div>
-        <div className="quest-detail-meta-row">
-          <dt>words</dt>
-          <dd>{words}</dd>
-        </div>
-        <div className="quest-detail-meta-row">
-          <dt>kind</dt>
-          <dd>{idea.kind ?? "note"}</dd>
-        </div>
-      </dl>
-      <div className="quest-detail-context ideas-workspace-tags">
-        <h2>Tags</h2>
-        {idea.tags && idea.tags.length > 0 ? (
-          <div className="ideas-list-tags">
-            {idea.tags.map((tag) => (
-              <span key={tag} className="ideas-tag-chip">
-                #{tag}
-              </span>
-            ))}
-          </div>
-        ) : (
-          <p>No tags yet.</p>
-        )}
-      </div>
-    </>
   );
 }
