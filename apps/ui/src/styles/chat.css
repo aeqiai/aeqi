@@ -725,6 +725,31 @@
   font-weight: 600;
 }
 
+/* GFM tables — keep the semantics intact but let wide tables scroll
+   inside the message column instead of breaking the layout. */
+.asv-msg-assistant .asv-msg-content .asv-markdown-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 12px 0;
+}
+.asv-msg-assistant .asv-msg-content table {
+  width: 100%;
+  min-width: max-content;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.asv-msg-assistant .asv-msg-content th,
+.asv-msg-assistant .asv-msg-content td {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  vertical-align: top;
+  text-align: left;
+}
+.asv-msg-assistant .asv-msg-content th {
+  background: var(--bg-subtle);
+  font-weight: 600;
+}
+
 /* Inline code — 13px mono next to 14px sans reads as proportional
    weight; 12px felt pinched. Radius is sm (not xs) so the pill
    doesn't look like a dental filling next to flowing prose. */

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { Idea } from "@/lib/types";
 import { IdeaMention, IdeaEmbed } from "./IdeaRef";
 import { PrimitivePreview } from "./PrimitivePreview";
@@ -57,6 +58,13 @@ function buildComponents(
     pre({ children }: any) {
       return withCodeBlock ? <>{children}</> : <pre>{children}</pre>;
     },
+    table({ children, ...props }: any) {
+      return (
+        <div className="asv-markdown-table-wrap">
+          <table {...props}>{children}</table>
+        </div>
+      );
+    },
     "idea-mention"({ name }: any) {
       return <IdeaMention name={String(name ?? "")} ideasByName={ideasByName} agentId={agentId} />;
     },
@@ -98,7 +106,7 @@ export function RichMarkdown({
     [variant, ideasByName, agentId],
   );
   return (
-    <Markdown rehypePlugins={REHYPE_PLUGINS} components={components}>
+    <Markdown remarkPlugins={[remarkGfm]} rehypePlugins={REHYPE_PLUGINS} components={components}>
       {body}
     </Markdown>
   );

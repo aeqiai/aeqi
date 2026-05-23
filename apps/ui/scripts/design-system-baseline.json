@@ -3,14 +3,10 @@
   "rules": {
     "rawButton": {
       "label": "raw <button>",
-      "count": 178,
+      "count": 171,
       "topFiles": [
         {
           "file": "apps/ui/src/components/events/EventCanvasEditor.tsx",
-          "count": 9
-        },
-        {
-          "file": "apps/ui/src/pages/StartPage.tsx",
           "count": 9
         },
         {
@@ -36,12 +32,16 @@
         {
           "file": "apps/ui/src/components/ideas/IdeasFilterPopover.tsx",
           "count": 4
+        },
+        {
+          "file": "apps/ui/src/components/quests/QuestList.tsx",
+          "count": 4
         }
       ]
     },
     "rawInput": {
       "label": "raw <input>",
-      "count": 53,
+      "count": 45,
       "topFiles": [
         {
           "file": "apps/ui/src/components/AgentEventsTab.tsx",
@@ -60,10 +60,6 @@
           "count": 3
         },
         {
-          "file": "apps/ui/src/pages/AgentSettingsPage.tsx",
-          "count": 3
-        },
-        {
           "file": "apps/ui/src/components/AgentChannelsTab.tsx",
           "count": 2
         },
@@ -73,6 +69,10 @@
         },
         {
           "file": "apps/ui/src/components/events/EventDetail.tsx",
+          "count": 2
+        },
+        {
+          "file": "apps/ui/src/components/ModelPicker.tsx",
           "count": 2
         }
       ]
@@ -89,17 +89,21 @@
     },
     "rawTable": {
       "label": "raw <table>",
-      "count": 1,
+      "count": 2,
       "topFiles": [
         {
           "file": "apps/ui/src/components/ideas/IdeasTableView.tsx",
+          "count": 1
+        },
+        {
+          "file": "apps/ui/src/components/markdown/RichMarkdown.tsx",
           "count": 1
         }
       ]
     },
     "inlineStyle": {
       "label": "inline style object",
-      "count": 349,
+      "count": 332,
       "topFiles": [
         {
           "file": "apps/ui/src/pages/RoleDetailPage.tsx",
@@ -147,19 +151,19 @@
     },
     "literalHex": {
       "label": "literal hex color",
-      "count": 75,
+      "count": 59,
       "topFiles": [
         {
-          "file": "apps/ui/src/styles/events.css",
-          "count": 24
+          "file": "apps/ui/src/styles/layout.css",
+          "count": 17
         },
         {
-          "file": "apps/ui/src/styles/layout.css",
-          "count": 20
+          "file": "apps/ui/src/styles/events.css",
+          "count": 14
         },
         {
           "file": "apps/ui/src/styles/pages.css",
-          "count": 12
+          "count": 9
         },
         {
           "file": "apps/ui/src/styles/chat.css",
@@ -185,11 +189,11 @@
     },
     "literalRgb": {
       "label": "literal rgb/rgba color",
-      "count": 116,
+      "count": 97,
       "topFiles": [
         {
           "file": "apps/ui/src/styles/layout.css",
-          "count": 35
+          "count": 24
         },
         {
           "file": "apps/ui/src/styles/chat.css",
@@ -197,11 +201,11 @@
         },
         {
           "file": "apps/ui/src/styles/pages.css",
-          "count": 19
+          "count": 17
         },
         {
           "file": "apps/ui/src/styles/events.css",
-          "count": 17
+          "count": 9
         },
         {
           "file": "apps/ui/src/styles/components.css",
@@ -212,11 +216,11 @@
           "count": 4
         },
         {
-          "file": "apps/ui/src/components/BlockAvatar.tsx",
-          "count": 2
+          "file": "apps/ui/src/styles/inbox.css",
+          "count": 3
         },
         {
-          "file": "apps/ui/src/components/editor/blockEditor.theme.css",
+          "file": "apps/ui/src/components/BlockAvatar.tsx",
           "count": 2
         }
       ]
@@ -248,19 +252,15 @@
       "count": 10,
       "topFiles": [
         {
+          "file": "apps/ui/src/styles/layout.css",
+          "count": 4
+        },
+        {
           "file": "apps/ui/src/styles/pages.css",
           "count": 4
         },
         {
-          "file": "apps/ui/src/styles/layout.css",
-          "count": 3
-        },
-        {
           "file": "apps/ui/src/styles/chat.css",
-          "count": 1
-        },
-        {
-          "file": "apps/ui/src/styles/inbox.css",
           "count": 1
         },
         {
