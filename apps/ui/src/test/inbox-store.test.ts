@@ -1,5 +1,11 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { selectInboxCount, selectVisibleItems, useInboxStore } from "@/store/inbox";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  __resetInboxProbeForTests,
+  probeDismissEndpoint,
+  selectInboxCount,
+  selectVisibleItems,
+  useInboxStore,
+} from "@/store/inbox";
 import type { InboxItem } from "@/lib/api";
 
 function makeItem(
@@ -21,12 +27,39 @@ function makeItem(
 
 describe("inbox store", () => {
   beforeEach(() => {
+    vi.unstubAllGlobals();
+    localStorage.clear();
+    window.history.replaceState({}, "", "/");
+    __resetInboxProbeForTests();
     useInboxStore.setState({
       items: [],
       loading: false,
       error: null,
       lastFetchedAt: null,
       pendingDismissal: new Set<string>(),
+    });
+  });
+
+  describe("probeDismissEndpoint", () => {
+    it("does not fire a speculative network request on inbox mount", async () => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+      localStorage.setItem("aeqi_token", "token");
+      localStorage.setItem("aeqi_entity", "trust-1");
+
+      await expect(probeDismissEndpoint()).resolves.toBe(true);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("stays unavailable until auth and entity scope exist", async () => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+
+      await expect(probeDismissEndpoint()).resolves.toBe(false);
+      localStorage.setItem("aeqi_token", "token");
+      await expect(probeDismissEndpoint()).resolves.toBe(false);
+
+      expect(fetchMock).not.toHaveBeenCalled();
     });
   });
 

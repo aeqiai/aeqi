@@ -22,21 +22,16 @@ export interface InboxState {
   clearInbox: () => void;
 }
 
-// Module-level probe: attempt HEAD on the dismiss endpoint once per deploy.
-// If it 404s, the endpoint isn't deployed yet — gate the archive button.
-//
-// Cached in localStorage keyed by deploy hash so:
-//  (a) every fresh tab on the same deploy is a cache hit (no probe fire)
-//  (b) a new deploy invalidates automatically — cache key changes when the
-//      hashed `index-XXXX.js` filename changes
-// The bearer token is forwarded so the probe matches the same auth-required
-// surface the real dismiss POST hits.
+// Module-level availability gate for the archive affordance. Earlier builds
+// fired a speculative HEAD probe on page mount; Chromium reports the platform's
+// aborted HEAD as a request failure, so the investor-facing inbox looked noisy
+// in route audits even though the page rendered. Gate only on local auth/entity
+// state and let the real archive POST surface action failures.
 const PROBE_CACHE_KEY_PREFIX = "aeqi_inbox_probe_v2_";
 
 // Derive the current deploy hash from the live `index-<hash>.js` script tag
 // vite emits. Falls back to a stable string when the script tag isn't found
-// (dev server, SSR, or a future bundler shape) — the probe still runs once
-// per cache wipe in that case.
+// (dev server, SSR, or a future bundler shape).
 function getDeployHash(): string {
   try {
     const scripts = document.querySelectorAll<HTMLScriptElement>("script[src*=index-]");
@@ -57,9 +52,9 @@ export async function probeDismissEndpoint(): Promise<boolean> {
   const cacheKey = PROBE_CACHE_KEY_PREFIX + getDeployHash();
   try {
     const cached = localStorage.getItem(cacheKey);
-    if (cached === "1" || cached === "0") {
-      dismissEndpointAvailable = cached === "1";
-      return dismissEndpointAvailable;
+    if (cached === "1") {
+      dismissEndpointAvailable = true;
+      return true;
     }
   } catch {
     // localStorage unavailable (private mode, etc.) — fall through to live probe.
@@ -84,38 +79,17 @@ export async function probeDismissEndpoint(): Promise<boolean> {
     return false;
   }
 
+  dismissEndpointAvailable = true;
   try {
-    // Use a dummy session ID; a 404 from the route itself vs. a 405/200
-    // tells us whether the endpoint exists at all. The platform returns 404
-    // for unknown session IDs on real endpoints, but returns a generic 404
-    // when the route doesn't exist at all — indistinguishable here, so we
-    // treat any non-network-error / non-401 as "endpoint deployed" and let
-    // the store handle 404 per-call gracefully.
-    const resp = await fetch("/api/inbox/__probe__/dismiss", {
-      method: "HEAD",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "X-Trust": trustId,
-      },
-    });
-    // 401 = auth failed (transient — don't cache). 400 = entity scope rejected
-    // (also transient; the localStorage entity may have been pruned by a sign-out
-    // race). Network failures (resp.status === 0) are transient too. 404/405/2xx
-    // = route registered → cache the verdict for this deploy.
-    if (resp.status === 401 || resp.status === 400 || resp.status === 0) {
-      return false;
-    }
-    dismissEndpointAvailable = true;
-    try {
-      localStorage.setItem(cacheKey, "1");
-    } catch {
-      // localStorage write failure — non-fatal, we'll re-probe next mount.
-    }
-    return true;
+    localStorage.setItem(cacheKey, "1");
   } catch {
-    // Network error / fetch threw — don't cache; retry next session.
-    return false;
+    // localStorage write failure — non-fatal.
   }
+  return true;
+}
+
+export function __resetInboxProbeForTests(): void {
+  dismissEndpointAvailable = null;
 }
 
 // MVP server emits a full snapshot on signature change; v2 may layer
