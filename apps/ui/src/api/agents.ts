@@ -6,8 +6,13 @@ export interface AgentsResponse {
   agents?: Agent[];
 }
 
-export function listScopedAgents(params?: { root?: boolean }): Promise<AgentsResponse> {
-  return apiRequest<AgentsResponse>(params?.root ? "/agents?root=true" : "/agents");
+export function listScopedAgents(
+  params?: { root?: boolean },
+  scopedEntity?: string | null,
+): Promise<AgentsResponse> {
+  return apiRequest<AgentsResponse>(params?.root ? "/agents?root=true" : "/agents", {
+    scopedEntity,
+  });
 }
 
 export function buildAgentDirectory(
@@ -32,8 +37,8 @@ export function buildAgentDirectory(
   return Array.from(byId.values());
 }
 
-export async function listAgentDirectory(): Promise<Agent[]> {
-  const scopeEntityId = getScopedEntity() || undefined;
-  const agentsData = await listScopedAgents().catch(() => null);
+export async function listAgentDirectory(scopedEntity?: string | null): Promise<Agent[]> {
+  const scopeEntityId = scopedEntity ?? getScopedEntity() ?? undefined;
+  const agentsData = await listScopedAgents(undefined, scopeEntityId).catch(() => null);
   return buildAgentDirectory(null, agentsData, scopeEntityId);
 }

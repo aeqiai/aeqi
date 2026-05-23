@@ -6,10 +6,12 @@ import type { Agent, Quest, Role, RoleEdge } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
 import { entityPathFromId } from "@/lib/entityPath";
 import { formatCurrency } from "@/lib/i18n";
+import { useAgentsQuery } from "@/queries/agents";
 import "@/styles/roles.css"; // shared trust-snapshot card primitives
 import {
   Button,
   Icon,
+  Loading,
   PrimitivePageHeader,
   PrimitiveSearchField,
   Tooltip,
@@ -90,14 +92,7 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
     ? (statusRaw as LivenessFilter)
     : "all";
 
-  // `s.agents` is a directory union (every company-root from
-  // /api/entities + the active scope's /api/agents subtree); without
-  // this filter the tab renders the sidebar entity switcher.
-  const allAgents = useDaemonStore((s) => s.agents);
-  const entityAgents = useMemo(
-    () => allAgents.filter((a) => a.trust_id === trustId),
-    [allAgents, trustId],
-  );
+  const { data: entityAgents = [], isLoading: agentsLoading } = useAgentsQuery(trustId);
 
   // Snapshot metrics — mirrors the Roles page snapshot grammar
   // (total / "alive" tier / running work / cost). Spend is lifetime,
@@ -382,7 +377,11 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
             <span className="trust-agents-register-count">{filtered.length} visible</span>
           </header>
           <div className="trust-agents-register-body">
-            {entityAgents.length === 0 ? (
+            {agentsLoading && entityAgents.length === 0 ? (
+              <div className="ideas-list-body">
+                <Loading size="sm" />
+              </div>
+            ) : entityAgents.length === 0 ? (
               <div className="ideas-list-body">
                 <AgentsEmptyState onNew={openPicker} />
               </div>

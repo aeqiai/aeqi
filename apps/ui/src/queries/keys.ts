@@ -27,7 +27,8 @@ export const entityKeys = trustKeys;
 
 export const agentKeys = {
   all: ["agents"] as const,
-  directory: ["agents", "directory"] as const,
+  directory: (scopedEntity?: string | null) =>
+    ["agents", "directory", scopedEntity ?? "global"] as const,
 };
 
 export const questKeys = {

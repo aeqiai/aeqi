@@ -1,13 +1,30 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import TrustAgentsTab from "@/components/TrustAgentsTab";
 import { api } from "@/lib/api";
+import { agentKeys } from "@/queries/keys";
 import { useDaemonStore } from "@/store/daemon";
+
+let queryClient: QueryClient;
 
 describe("TrustAgentsTab", () => {
   beforeEach(() => {
     vi.spyOn(api, "getRoles").mockResolvedValue({ ok: true, roles: [], edges: [] });
+    queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    queryClient.setQueryData(agentKeys.directory("root-1"), [
+      {
+        id: "janus",
+        name: "Janus",
+        status: "active",
+        trust_id: "root-1",
+        model: "gpt-5",
+        created_at: "2026-05-22T00:00:00Z",
+      },
+    ]);
     useDaemonStore.setState({
       entities: [
         {
@@ -19,16 +36,7 @@ describe("TrustAgentsTab", () => {
           trust_address: "root-1",
         },
       ],
-      agents: [
-        {
-          id: "janus",
-          name: "Janus",
-          status: "active",
-          trust_id: "root-1",
-          model: "gpt-5",
-          created_at: "2026-05-22T00:00:00Z",
-        },
-      ] as never,
+      agents: [],
       quests: [],
       events: [],
       workerEvents: [],
@@ -40,14 +48,23 @@ describe("TrustAgentsTab", () => {
     vi.restoreAllMocks();
   });
 
-  it("places the search toolbar in the primitive header first row", () => {
+  function renderTab() {
     render(
       <MemoryRouter initialEntries={["/trust/root-1/agents"]}>
-        <Routes>
-          <Route path="/trust/:trustAddress/agents" element={<TrustAgentsTab trustId="root-1" />} />
-        </Routes>
+        <QueryClientProvider client={queryClient}>
+          <Routes>
+            <Route
+              path="/trust/:trustAddress/agents"
+              element={<TrustAgentsTab trustId="root-1" />}
+            />
+          </Routes>
+        </QueryClientProvider>
       </MemoryRouter>,
     );
+  }
+
+  it("places the search toolbar in the primitive header first row", () => {
+    renderTab();
 
     const heading = screen.getByRole("heading", { name: /Agents/ });
     const search = screen.getByPlaceholderText("Search agents");
@@ -61,13 +78,7 @@ describe("TrustAgentsTab", () => {
   });
 
   it("renders the agents register and suggestions as full-width slabs without an inspector rail", () => {
-    render(
-      <MemoryRouter initialEntries={["/trust/root-1/agents"]}>
-        <Routes>
-          <Route path="/trust/:trustAddress/agents" element={<TrustAgentsTab trustId="root-1" />} />
-        </Routes>
-      </MemoryRouter>,
-    );
+    renderTab();
 
     const snapshot = screen.getByRole("region", { name: "Agent snapshot" });
     const register = screen.getByRole("region", { name: "Agents register" });
@@ -81,13 +92,7 @@ describe("TrustAgentsTab", () => {
   });
 
   it("opens the blueprint picker from an entire suggestion card", () => {
-    render(
-      <MemoryRouter initialEntries={["/trust/root-1/agents"]}>
-        <Routes>
-          <Route path="/trust/:trustAddress/agents" element={<TrustAgentsTab trustId="root-1" />} />
-        </Routes>
-      </MemoryRouter>,
-    );
+    renderTab();
 
     fireEvent.click(screen.getByRole("button", { name: "Add Research Agent" }));
 

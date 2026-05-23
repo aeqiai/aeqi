@@ -53,7 +53,8 @@ function withQueryClient(ui: React.ReactElement) {
   });
   const daemonState = useDaemonStore.getState();
   queryClient.setQueryData(entityKeys.all, daemonState.entities);
-  queryClient.setQueryData(agentKeys.directory, daemonState.agents);
+  queryClient.setQueryData(agentKeys.directory(), daemonState.agents);
+  queryClient.setQueryData(agentKeys.directory("root-1"), daemonState.agents);
   queryClient.setQueryData(runtimeKeys.cost, daemonState.cost);
   return <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>;
 }
