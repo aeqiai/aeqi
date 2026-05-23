@@ -228,16 +228,15 @@ export default function EventsOverview({ events, onSelect, onNew }: EventsOvervi
   if (events.length === 0) {
     return (
       <div className="empty-state-hero">
-        <span className="empty-state-hero-eyebrow">a blank canvas</span>
-        <h3 className="empty-state-hero-title">No pipelines yet.</h3>
+        <span className="empty-state-hero-eyebrow">agent loop</span>
+        <h3 className="empty-state-hero-title">No event handlers yet.</h3>
         <p className="empty-state-hero-body">
-          Events are when-and-then. A pattern fires — a session starts, a webhook lands, a cron
-          ticks — and the event runs an ordered chain of tool calls. This is where you replace
-          n8n-style automation, scoped to this agent.
+          A handler starts with a runtime pattern, passes through gates, and can run an ordered
+          chain of tool calls before the agent continues.
         </p>
         <div className="empty-state-hero-actions">
           <Button variant="primary" size="sm" onClick={onNew}>
-            Wire the first event
+            Add first handler
           </Button>
           <span className="empty-state-hero-kbd" aria-hidden>
             or press <kbd>N</kbd>

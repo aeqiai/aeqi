@@ -13,9 +13,10 @@ import ProvisionRuntimeUpsell, {
 const TrustOverviewTab = lazy(() => import("@/components/TrustOverviewTab"));
 const MeInboxPage = lazy(() => import("@/pages/MeInboxPage"));
 // Trust-scope primitive tabs. `TrustAgentsTab` is entity-typed (takes
-// trustId, filters the directory). Events still render against the default
-// agent, while Quests and Ideas ask their shared components for entity-wide
-// data so sibling-agent work remains visible on `/trust/<addr>/...`.
+// trustId, filters the directory). Events render through an agent lens rail
+// so the same page can inspect each agent's loop handlers. Quests and Ideas
+// ask their shared components for entity-wide data so sibling-agent work
+// remains visible on `/trust/<addr>/...`.
 const TrustAgentsTab = lazy(() => import("@/components/TrustAgentsTab"));
 const TrustAppsTab = lazy(() => import("@/components/TrustAppsTab"));
 const TrustRolesTab = lazy(() => import("@/components/TrustRolesTab"));
@@ -49,7 +50,7 @@ interface TrustTabPageProps {
  *   /trust/:trustAddress/roles         → TrustRolesTab (org chart)
  *   /trust/:trustAddress/agents        → TrustAgentsTab (LIST)
  *   /trust/:trustAddress/apps          → TrustAppsTab (channel-backed apps)
- *   /trust/:trustAddress/events        → AgentEventsTab(defaultAgent)
+ *   /trust/:trustAddress/events        → AgentEventsTab(agent lens rail)
  *   /trust/:trustAddress/quests        → AgentQuestsTab(entity scope)
  *   /trust/:trustAddress/ideas         → AgentIdeasTab(entity scope)
  *
@@ -224,7 +225,7 @@ export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTab
   if (tab === "events") {
     return (
       <Suspense>
-        <AgentEventsTab agentId={agentId} />
+        <AgentEventsTab agentId={agentId} agentRail />
       </Suspense>
     );
   }

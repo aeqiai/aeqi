@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { useNav } from "@/hooks/useNav";
 import * as eventsApi from "@/api/events";
-import { useAgentEvents, useAgentEventsCache } from "@/queries/events";
-import type { AgentEvent, ScopeValue } from "@/lib/types";
+import { useAgentEventCounts, useAgentEvents, useAgentEventsCache } from "@/queries/events";
+import type { Agent, AgentEvent, ScopeValue } from "@/lib/types";
+import { useDaemonStore } from "@/store/daemon";
 import { Button, Icon, Select, Loading, Tooltip } from "./ui";
 import { Events as TrackEvents, useTrack } from "@/lib/analytics";
 import EventsToolbar from "./events/EventsToolbar";
@@ -19,6 +20,7 @@ import { eventLifecycle } from "./events/lifecycle";
 import EventsOverview from "./EventsOverview";
 import EventDetail from "./events/EventDetail";
 import { SCOPE_LABEL, SCOPE_PICKER_VALUES } from "./ideas/types";
+import AgentAvatar from "./AgentAvatar";
 
 const NO_EVENTS: AgentEvent[] = [];
 
@@ -33,7 +35,7 @@ const TRANSPORT_PRESETS: TransportPreset[] = [
   {
     id: "session",
     label: "session · lifecycle",
-    desc: "Fires at a moment in this agent's own reasoning loop.",
+    desc: "Defines what enters the agent loop at lifecycle moments.",
     patterns: [
       { value: "session:start", label: "session starts" },
       { value: "session:step_start", label: "before every step" },
@@ -46,38 +48,19 @@ const TRANSPORT_PRESETS: TransportPreset[] = [
   {
     id: "context",
     label: "context · budget",
-    desc: "Fires when context limits trip — the compaction hook.",
+    desc: "Controls compaction when context limits trip.",
     patterns: [{ value: "context:budget:exceeded", label: "context budget exceeded" }],
   },
   {
     id: "loop",
     label: "loop · guardrail",
-    desc: "Middleware-detected pattern — auto-intervene when the agent loops.",
+    desc: "Lets the runtime intervene when reasoning gets stuck.",
     patterns: [{ value: "loop:detected", label: "loop detected" }],
-  },
-  {
-    id: "webhook",
-    label: "webhook · external http",
-    desc: "Fires when an HTTP request lands on this agent's webhook URL.",
-    patterns: [
-      { value: "webhook:generic", label: "any incoming webhook" },
-      { value: "webhook:github", label: "GitHub webhook" },
-      { value: "webhook:stripe", label: "Stripe webhook" },
-    ],
-  },
-  {
-    id: "telegram",
-    label: "telegram · chat",
-    desc: "Fires when a user messages this agent on Telegram.",
-    patterns: [
-      { value: "telegram:update", label: "any telegram update" },
-      { value: "telegram:command", label: "only /-commands" },
-    ],
   },
   {
     id: "schedule",
     label: "schedule · cron",
-    desc: "Fires on a clock — a cron expression drives the cadence.",
+    desc: "Runs this agent's loop on a clock.",
     patterns: [
       { value: "schedule:0 9 * * *", label: "daily at 09:00" },
       { value: "schedule:0 9 * * 1", label: "weekly Monday 09:00" },
@@ -87,7 +70,7 @@ const TRANSPORT_PRESETS: TransportPreset[] = [
   {
     id: "custom",
     label: "custom · free-form",
-    desc: "Anything else — type the pattern yourself.",
+    desc: "Use a runtime pattern that is already emitted elsewhere.",
     patterns: [],
   },
 ];
@@ -111,13 +94,57 @@ function parseGroup(raw: string | null): EventsGroup {
   return EVENTS_GROUP_VALUES.includes(raw as EventsGroup) ? (raw as EventsGroup) : "all";
 }
 
-export default function AgentEventsTab({ agentId }: { agentId: string }) {
-  const { goEntity, trustId } = useNav();
+function agentLivenessLabel(agent: Agent | null | undefined): string {
+  if (!agent) return "agent";
+  if (agent.status === "active") return "online";
+  if (agent.status === "stopped") return "offline";
+  return "idle";
+}
+
+function handlerCountLabel(count: number): string {
+  return `${count} handler${count === 1 ? "" : "s"}`;
+}
+
+function paramsRecord(params: URLSearchParams): Record<string, string> {
+  const out: Record<string, string> = {};
+  params.forEach((value, key) => {
+    if (value) out[key] = value;
+  });
+  return out;
+}
+
+export default function AgentEventsTab({
+  agentId,
+  agentRail = false,
+}: {
+  agentId: string;
+  agentRail?: boolean;
+}) {
+  const { goEntity, trustId, entityPath } = useNav();
   const { itemId } = useParams<{ itemId?: string }>();
   const selectedId = itemId || null;
   const [searchParams, setSearchParams] = useSearchParams();
   const track = useTrack();
   const composing = searchParams.get("compose") === "1";
+  const allAgents = useDaemonStore((s) => s.agents);
+  const entityAgents = useMemo(
+    () => (agentRail && trustId ? allAgents.filter((a) => a.trust_id === trustId) : []),
+    [agentRail, allAgents, trustId],
+  );
+  const entityAgentIds = useMemo(() => entityAgents.map((agent) => agent.id), [entityAgents]);
+  const { counts: eventCounts } = useAgentEventCounts(agentRail ? entityAgentIds : []);
+  const selectedAgentParam = searchParams.get("agent");
+  const activeAgentId = useMemo(() => {
+    if (!agentRail) return agentId;
+    if (selectedAgentParam && entityAgents.some((a) => a.id === selectedAgentParam)) {
+      return selectedAgentParam;
+    }
+    return agentId;
+  }, [agentRail, agentId, selectedAgentParam, entityAgents]);
+  const activeAgent = useMemo(
+    () => allAgents.find((a) => a.id === activeAgentId) ?? null,
+    [allAgents, activeAgentId],
+  );
 
   const filter: EventsFilterState = {
     scope: parseScope(searchParams.get("scope")),
@@ -154,8 +181,8 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
     [patchParams],
   );
 
-  const { data: events = NO_EVENTS, isLoading: eventsLoading } = useAgentEvents(agentId);
-  const { invalidateEvents, patchEvent, removeEvent } = useAgentEventsCache(agentId);
+  const { data: events = NO_EVENTS, isLoading: eventsLoading } = useAgentEvents(activeAgentId);
+  const { invalidateEvents, patchEvent, removeEvent } = useAgentEventsCache(activeAgentId);
 
   useEffect(() => {
     const handler = () => patchParams((p) => p.set("compose", "1"));
@@ -171,11 +198,11 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
     for (const ev of events) {
       c.all += 1;
       if (ev.agent_id == null) c.global += 1;
-      else if (ev.agent_id === agentId) c.self += 1;
-      if (isInherited(ev, agentId)) c.inherited += 1;
+      else if (ev.agent_id === activeAgentId) c.self += 1;
+      if (isInherited(ev, activeAgentId)) c.inherited += 1;
     }
     return c;
-  }, [events, agentId]);
+  }, [events, activeAgentId]);
 
   const groupCounts = useMemo<Record<EventsGroup, number>>(() => {
     const c: Record<EventsGroup, number> = { all: 0, runtime: 0, webhooks: 0, routines: 0 };
@@ -190,7 +217,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
   const filteredEvents = useMemo(() => {
     const q = filter.search.trim().toLowerCase();
     return events.filter((ev) => {
-      if (!matchesScope(ev, filter.scope, agentId)) return false;
+      if (!matchesScope(ev, filter.scope, activeAgentId)) return false;
       if (filter.group !== "all" && eventLifecycle(ev) !== filter.group) return false;
       if (q) {
         const hay = `${ev.name} ${ev.pattern}`.toLowerCase();
@@ -198,10 +225,26 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
       }
       return true;
     });
-  }, [events, filter.scope, filter.group, filter.search, agentId]);
+  }, [events, filter.scope, filter.group, filter.search, activeAgentId]);
 
   const openCompose = useCallback(() => patchParams((p) => p.set("compose", "1")), [patchParams]);
   const closeCompose = useCallback(() => patchParams((p) => p.delete("compose")), [patchParams]);
+  const switchAgent = useCallback(
+    (nextAgentId: string) => {
+      if (!agentRail || !trustId) return;
+      const params = new URLSearchParams(searchParams);
+      params.set("agent", nextAgentId);
+      params.delete("compose");
+      if (selectedId) {
+        goEntity(trustId, "events", undefined, {
+          search: paramsRecord(params),
+        });
+      } else {
+        setSearchParams(params, { replace: true });
+      }
+    },
+    [agentRail, goEntity, searchParams, selectedId, setSearchParams, trustId],
+  );
 
   /* ── Add form state (full-bleed overlay) ─────────────────────── */
   const [newName, setNewName] = useState("");
@@ -234,7 +277,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
     setSaving(true);
     try {
       const payload: Record<string, unknown> = {
-        agent_id: agentId,
+        agent_id: activeAgentId,
         name: newName.trim(),
         pattern: newPattern.trim(),
         scope: newScope,
@@ -256,18 +299,47 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
     }
   };
 
+  const listHref = useMemo(() => {
+    if (!agentRail || !trustId) return undefined;
+    const params = new URLSearchParams(searchParams);
+    params.set("agent", activeAgentId);
+    params.delete("compose");
+    const qs = params.toString();
+    return `${entityPath(trustId, "events")}${qs ? `?${qs}` : ""}`;
+  }, [activeAgentId, agentRail, entityPath, searchParams, trustId]);
+
+  const frame = useCallback(
+    (content: ReactNode) => {
+      if (!agentRail) return content;
+      return (
+        <div className="events-workbench">
+          <EventAgentRail
+            agents={entityAgents}
+            activeAgentId={activeAgentId}
+            eventCounts={eventCounts}
+            onSelect={switchAgent}
+          />
+          <div className="events-workbench-main">{content}</div>
+        </div>
+      );
+    },
+    [activeAgentId, agentRail, entityAgents, eventCounts, switchAgent],
+  );
+
   /* ── Render branches ─────────────────────────────────────────── */
 
   if (composing) {
     const preset = TRANSPORT_PRESETS.find((t) => t.id === newTransport) ?? TRANSPORT_PRESETS[0];
-    return (
+    return frame(
       <div className="asv-main events-surface">
         <div className="events-surface-body">
           <div className="events-addform">
             <div className="events-addform-head">
               <div>
-                <div className="events-addform-eyebrow">new event</div>
-                <div className="events-addform-title">Wire a new pipeline</div>
+                <div className="events-addform-eyebrow">new handler</div>
+                <div className="events-addform-title">
+                  Add to {activeAgent?.name ?? "agent"} loop
+                </div>
               </div>
               <button
                 type="button"
@@ -376,7 +448,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
                 variant="primary"
                 onClick={handleCreateEvent}
                 loading={saving}
-                disabled={saving}
+                disabled={saving || !activeAgentId}
               >
                 Create event
               </Button>
@@ -386,7 +458,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
             </div>
           </div>
         </div>
-      </div>
+      </div>,
     );
   }
 
@@ -396,11 +468,12 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
     // EventDetail can claim full available height — mirrors the
     // IdeaCanvas shape. The `.events-surface-body` auto-scroll wrapper
     // only fits the list/compose branches.
-    return (
+    return frame(
       <div className="asv-main events-surface">
         <EventDetail
           event={selected}
-          agentId={agentId}
+          agentId={activeAgentId}
+          backHref={listHref}
           onSave={async (fields) => {
             await eventsApi.updateEvent(selected.id, fields as Record<string, unknown>);
             patchEvent(selected.id, fields);
@@ -408,15 +481,22 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
           onDelete={async () => {
             await eventsApi.deleteEvent(selected.id);
             removeEvent(selected.id);
-            goEntity(trustId, "events", undefined, { replace: true });
+            if (agentRail) {
+              goEntity(trustId, "events", undefined, {
+                replace: true,
+                search: { agent: activeAgentId },
+              });
+            } else {
+              goEntity(trustId, "events", undefined, { replace: true });
+            }
           }}
         />
-      </div>
+      </div>,
     );
   }
 
   if (eventsLoading) {
-    return (
+    return frame(
       <div className="asv-main events-surface">
         <div
           className="events-surface-body"
@@ -424,27 +504,38 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
         >
           <Loading size="md" />
         </div>
-      </div>
+      </div>,
     );
   }
 
-  return (
+  return frame(
     <div className="asv-main events-surface">
       {/* Page header — matches the Quests-page pattern: display title on
          the left, primary CTA on the right, then the toolbar row beneath
          (search + filter). Anchors the surface with a destination label
          instead of jumping straight into the search field. */}
       <header className="events-list-header">
-        <h1 className="events-list-title">Events</h1>
+        <div className="events-list-title-block">
+          <h1 className="events-list-title">Events</h1>
+          {agentRail && (
+            <div className="events-list-context">
+              <span>Agent loop</span>
+              <strong>{activeAgent?.name ?? "Select an agent"}</strong>
+              <span>{agentLivenessLabel(activeAgent)}</span>
+              <span>{handlerCountLabel(events.length)}</span>
+            </div>
+          )}
+        </div>
         <div className="events-list-header-actions">
-          <Tooltip content="New event (N)">
+          <Tooltip content="New handler (N)">
             <Button
               variant="primary"
               size="md"
               onClick={openCompose}
+              disabled={!activeAgentId}
               leadingIcon={<Icon icon={Plus} size="sm" />}
             >
-              New
+              New handler
             </Button>
           </Tooltip>
         </div>
@@ -459,10 +550,60 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
       <div className="events-surface-body">
         <EventsOverview
           events={filteredEvents}
-          onSelect={(id) => goEntity(trustId, "events", id)}
+          onSelect={(id) => {
+            if (agentRail) {
+              goEntity(trustId, "events", id, { search: { agent: activeAgentId } });
+            } else {
+              goEntity(trustId, "events", id);
+            }
+          }}
           onNew={openCompose}
         />
       </div>
-    </div>
+    </div>,
+  );
+}
+
+function EventAgentRail({
+  agents,
+  activeAgentId,
+  eventCounts,
+  onSelect,
+}: {
+  agents: Agent[];
+  activeAgentId: string;
+  eventCounts: Map<string, number>;
+  onSelect: (agentId: string) => void;
+}) {
+  return (
+    <aside className="events-agent-rail" aria-label="Event agent lens">
+      <header className="events-agent-rail-head">
+        <span className="events-agent-rail-kicker">Agent lens</span>
+        <span className="events-agent-rail-count">{agents.length}</span>
+      </header>
+      <div className="events-agent-rail-list">
+        {agents.map((agent) => {
+          const active = agent.id === activeAgentId;
+          const count = eventCounts.get(agent.id) ?? 0;
+          return (
+            <button
+              key={agent.id}
+              type="button"
+              className={`events-agent-rail-row${active ? " is-active" : ""}`}
+              onClick={() => onSelect(agent.id)}
+              aria-current={active ? "true" : undefined}
+            >
+              <AgentAvatar name={agent.name} src={agent.avatar} />
+              <span className="events-agent-rail-row-main">
+                <span className="events-agent-rail-row-name">{agent.name}</span>
+                <span className="events-agent-rail-row-meta">
+                  {agentLivenessLabel(agent)} · {handlerCountLabel(count)}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </aside>
   );
 }

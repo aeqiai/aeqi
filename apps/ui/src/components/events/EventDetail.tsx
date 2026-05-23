@@ -11,6 +11,7 @@ import { SCOPE_LABEL } from "../ideas/types";
 interface EventDetailProps {
   event: AgentEvent;
   agentId: string;
+  backHref?: string;
   onSave: (fields: SaveFields) => Promise<void>;
   onDelete: () => Promise<void>;
 }
@@ -27,10 +28,16 @@ function deepEqualToolCalls(a: ToolCall[], b: ToolCall[]): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-export default function EventDetail({ event, agentId, onSave, onDelete }: EventDetailProps) {
+export default function EventDetail({
+  event,
+  agentId,
+  backHref,
+  onSave,
+  onDelete,
+}: EventDetailProps) {
   const navigate = useNavigate();
   const { entityPath, trustId } = useNav();
-  const backHref = trustId ? entityPath(trustId, "events") : "/";
+  const resolvedBackHref = backHref ?? (trustId ? entityPath(trustId, "events") : "/");
   const isGlobal = event.agent_id == null;
   const isSystem = event.system === true;
   const readOnly = isGlobal || isSystem;
@@ -114,7 +121,7 @@ export default function EventDetail({ event, agentId, onSave, onDelete }: EventD
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => navigate(backHref)}
+              onClick={() => navigate(resolvedBackHref)}
               leadingIcon={
                 <svg
                   width="13"
