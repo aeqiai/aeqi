@@ -677,7 +677,7 @@ export const api = {
 
   // Platform-side launch — mints the canonical trust_id (UUID) on the
   // platform host and provisions a sandbox runtime. Callable by users with
-  // subscription_status="invited" (sandbox tier), "active" (paid), or admins
+  // subscription_status="invited" (invite tier), "active" (paid), or admins
   // explicitly requesting plan="sandbox". Anyone else gets 402 and goes
   // through Stripe via createCheckoutSession instead.
   startLaunch: (data: {
