@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { setIdeaProperties } from "@/api/ideas";
-import { ideaKeys } from "@/queries/keys";
+import { invalidateIdeaQueriesForScope } from "@/queries/ideas";
 import { Select } from "../ui";
 
 /**
@@ -25,6 +25,7 @@ import { Select } from "../ui";
  */
 export interface IdeaPropertyChipsProps {
   ideaId: string;
+  scopedEntity?: string | null;
   properties: Record<string, unknown> | null | undefined;
 }
 
@@ -39,7 +40,11 @@ function chipValue(value: unknown): string {
   return JSON.stringify(value);
 }
 
-export default function IdeaPropertyChips({ ideaId, properties }: IdeaPropertyChipsProps) {
+export default function IdeaPropertyChips({
+  ideaId,
+  scopedEntity,
+  properties,
+}: IdeaPropertyChipsProps) {
   const queryClient = useQueryClient();
   const props = (properties ?? {}) as Record<string, unknown>;
   const entries = Object.entries(props);
@@ -66,8 +71,8 @@ export default function IdeaPropertyChips({ ideaId, properties }: IdeaPropertyCh
     setSaving(true);
     setError(null);
     try {
-      await setIdeaProperties(ideaId, patch);
-      await queryClient.invalidateQueries({ queryKey: ideaKeys.all });
+      await setIdeaProperties(ideaId, patch, scopedEntity);
+      await invalidateIdeaQueriesForScope(queryClient, scopedEntity);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed");
     } finally {

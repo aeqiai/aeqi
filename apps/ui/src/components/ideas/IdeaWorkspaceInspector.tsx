@@ -13,6 +13,7 @@ import { SCOPE_HINT, SCOPE_LABEL, SCOPE_PICKER_VALUES, relativeTime } from "./ty
 export interface IdeaWorkspaceInspectorProps {
   idea?: Idea;
   agentId: string;
+  scopedEntity?: string | null;
   composing: boolean;
   childCount: number;
   scope: ScopeValue;
@@ -37,6 +38,7 @@ export interface IdeaWorkspaceInspectorProps {
 export default function IdeaWorkspaceInspector({
   idea,
   agentId,
+  scopedEntity,
   composing,
   childCount,
   scope,
@@ -184,7 +186,11 @@ export default function IdeaWorkspaceInspector({
       {hasProperties && (
         <div className="quest-detail-context ideas-workspace-section ideas-workspace-properties">
           <h2>Properties</h2>
-          <IdeaPropertyChips ideaId={idea.id} properties={idea.properties} />
+          <IdeaPropertyChips
+            ideaId={idea.id}
+            scopedEntity={scopedEntity}
+            properties={idea.properties}
+          />
         </div>
       )}
       <div className="quest-detail-context ideas-workspace-section ideas-workspace-tags">

@@ -1,10 +1,16 @@
 import { useCallback, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import * as ideasApi from "@/api/ideas";
 import type { Idea } from "@/lib/types";
 import { ideaKeys } from "./keys";
 
 const EMPTY_IDEAS: Idea[] = [];
+
+function matchesScopedIdeaQuery(scopedEntity: string | null | undefined) {
+  const scopeKey = scopedEntity ?? "global";
+  return ({ queryKey }: { queryKey: readonly unknown[] }) =>
+    queryKey.length > 0 && queryKey[0] === "ideas" && queryKey[queryKey.length - 1] === scopeKey;
+}
 
 export function useVisibleIdeas(enabled = true, scopedEntity?: string | null) {
   return useQuery({
@@ -82,4 +88,13 @@ export function useAgentIdeasCache(agentId: string, scopedEntity?: string | null
   );
 
   return { invalidateIdeas, patchIdea, addIdea, removeIdea };
+}
+
+export function invalidateIdeaQueriesForScope(
+  queryClient: QueryClient,
+  scopedEntity?: string | null,
+) {
+  return queryClient.invalidateQueries({
+    predicate: matchesScopedIdeaQuery(scopedEntity),
+  });
 }

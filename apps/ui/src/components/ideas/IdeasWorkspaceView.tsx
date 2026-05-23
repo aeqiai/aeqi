@@ -432,6 +432,7 @@ export default function IdeasWorkspaceView({
             <IdeaWorkspaceInspector
               idea={activeIdea}
               agentId={agentId}
+              scopedEntity={trustId}
               composing={composing}
               childCount={activeIdea ? descendantCount(activeIdea.id, ideas) : 0}
               scope={activeScope}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { listIdeaChildren, storeIdea } from "@/api/ideas";
-import { ideaKeys } from "@/queries/keys";
+import { invalidateIdeaQueriesForScope } from "@/queries/ideas";
 import type { Idea, ScopeValue } from "@/lib/types";
 import { useNav } from "@/hooks/useNav";
 import { Button, Loading, Modal, Input } from "../ui";
@@ -67,7 +67,7 @@ export default function IdeaChildrenList({ ideaId, agentId, scope }: IdeaChildre
   async function refresh() {
     const res = await listIdeaChildren(ideaId, trustId);
     setChildren(res.ideas ?? []);
-    await queryClient.invalidateQueries({ queryKey: ideaKeys.all });
+    await invalidateIdeaQueriesForScope(queryClient, trustId);
   }
 
   const hasChildren = children.length > 0;

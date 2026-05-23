@@ -717,7 +717,11 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
             )}
 
             {isEdit && idea && !hideMetaStrip ? (
-              <IdeaPropertyChips ideaId={idea.id} properties={idea.properties} />
+              <IdeaPropertyChips
+                ideaId={idea.id}
+                scopedEntity={trustId}
+                properties={idea.properties}
+              />
             ) : null}
 
             <div className="ideas-canvas-body ideas-canvas-body-block">
