@@ -926,6 +926,10 @@
   padding: var(--space-5);
 }
 
+.trust-public-card--wide {
+  grid-column: 1 / -1;
+}
+
 .trust-public-head {
   display: flex;
   align-items: center;
@@ -962,6 +966,11 @@
   flex: 1;
   flex-direction: column;
   gap: var(--space-3);
+}
+
+.trust-public-body--grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .trust-public-body--empty {
@@ -1171,6 +1180,10 @@
   .trust-cockpit-inner-grid--split,
   .trust-cockpit-secondary-row,
   .trust-public-row {
+    grid-template-columns: 1fr;
+  }
+
+  .trust-public-body--grid {
     grid-template-columns: 1fr;
   }
 

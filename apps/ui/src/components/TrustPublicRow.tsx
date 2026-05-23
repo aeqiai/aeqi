@@ -1,10 +1,13 @@
 import { Link } from "react-router-dom";
 import {
+  Activity,
   CheckCircle2,
+  ClipboardList,
   FileText,
   FolderOpen,
   GitBranch,
   Megaphone,
+  Rocket,
   ShieldCheck,
 } from "lucide-react";
 
@@ -33,6 +36,35 @@ const operatingProof = [
   },
 ];
 
+const operatingNow = [
+  {
+    label: "What is moving",
+    detail: "Launch quests track the cut line, demo script, dogfood ritual, and hardening work.",
+    to: "/quests",
+    icon: ClipboardList,
+  },
+  {
+    label: "What shipped",
+    detail:
+      "Route fixes, proof rows, launch smoke, deploys, and checkpoints are recorded as ideas.",
+    to: "/ideas",
+    icon: Rocket,
+  },
+  {
+    label: "What agents learned",
+    detail:
+      "Durable decisions and operating traps stay in memory so the next session resumes cleanly.",
+    to: "/ideas",
+    icon: Activity,
+  },
+  {
+    label: "What changed in prod",
+    detail: "Production changes carry health, bundle-hash, screenshot, and smoke evidence.",
+    to: "/ideas",
+    icon: CheckCircle2,
+  },
+];
+
 const dataRoom = [
   {
     label: "Fundraising proof trail",
@@ -55,7 +87,7 @@ const dataRoom = [
 ];
 
 /**
- * Bottom half/half row for the Trust overview: Operating Proof + Data Room.
+ * Bottom proof row for the Trust overview.
  *
  * The launch demo needs to show the company operating itself now, not an
  * empty publishing surface. The rows point at existing AEQI primitives so
@@ -63,7 +95,21 @@ const dataRoom = [
  */
 export default function TrustPublicRow({ basePath }: TrustPublicRowProps) {
   return (
-    <section className="trust-public-row" aria-label="Operating proof and data room">
+    <section className="trust-public-row" aria-label="Operating dashboard, proof, and data room">
+      <article className="trust-card trust-public-card trust-public-card--wide">
+        <header className="trust-public-head">
+          <span className="trust-public-icon" aria-hidden>
+            <Activity size={16} strokeWidth={1.5} />
+          </span>
+          <h3 className="trust-public-title">Operating now</h3>
+        </header>
+        <div className="trust-public-body trust-public-body--grid">
+          {operatingNow.map((item) => (
+            <TrustPublicItem key={item.label} item={item} basePath={basePath} />
+          ))}
+        </div>
+      </article>
+
       <article className="trust-card trust-public-card">
         <header className="trust-public-head">
           <span className="trust-public-icon" aria-hidden>
