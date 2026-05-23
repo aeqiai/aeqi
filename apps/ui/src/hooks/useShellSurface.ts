@@ -27,9 +27,9 @@ export interface ShellSurface {
   /** `/economy/*` — top-level marketplace / inference / billing destination
    *  introduced as part of the "Global" sidebar group on 2026-05-18. */
   isEconomy: boolean;
-  /** `/inbox` — top-level cross-trust inbox, lifted out of
-   *  /trust/<addr>/inbox 2026-05-18 so the user's notifications live at
-   *  one URL regardless of which (or no) trust is in scope. */
+  /** Legacy top-level `/inbox` alias. The canonical inbox now lives under
+   *  `/trust/<addr>/inbox`; this flag stays so AppLayout can redirect old
+   *  bookmarks and routes without mounting a second inbox surface. */
   isInbox: boolean;
   /** `/start` — welcome / first-experience page. Hero image + four
    *  preview cards. Distinct from `/` (the dominion picker) so the

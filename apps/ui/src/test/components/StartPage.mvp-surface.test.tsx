@@ -246,6 +246,7 @@ describe("StartPage MVP surface", () => {
     expect(reviewInbox).toBeInTheDocument();
     expect(launchTrust).toBeInTheDocument();
     expect(browseBlueprints).toBeInTheDocument();
+    expect(reviewInbox).toHaveAttribute("href", "/trust/alpha/inbox");
     expect(
       screen.getByText(/operating container for ownership, agents, quests, and ideas/i),
     ).toBeInTheDocument();

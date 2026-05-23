@@ -180,7 +180,6 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
   // Top-level public rows.
   const isEconomy = path === "/economy" || path.startsWith("/economy/");
   const isBlueprints = path === "/blueprints" || path.startsWith("/blueprints/");
-  const isInbox = path === "/inbox" || path.startsWith("/inbox/");
   const isStart = path === "/" || path === "/start" || path.startsWith("/start/");
 
   const navItem = (
@@ -330,13 +329,12 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
 
       <div className="left-sidebar-body">
         {/* ── Start rail — global personal surfaces stay directly under Home.
-            Search is still owned by the Home row; Inbox is a first-order
-            destination, not a trust-scoped tab. ── */}
+            Search is still owned by the Home row. Trust-owned surfaces live
+            inside the trust group below. ── */}
         <nav className="sidebar-surface-nav sidebar-zone" aria-label="Start">
           {topLevelItem("/", "Home", <HomeIcon />, isStart, {
             action: rowAction("Search", <SearchIcon />, openPalette, `${isMac ? "⌘" : "Ctrl"}K`),
           })}
-          {topLevelItem("/inbox", "Inbox", <InboxIcon />, isInbox)}
           {topLevelItem("/economy", "Economy", <EconomyIcon />, isEconomy)}
           {topLevelItem("/blueprints", "Blueprints", <BlueprintsIcon />, isBlueprints)}
         </nav>
@@ -368,6 +366,7 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
                   <span className="sidebar-nav-label">Overview</span>
                 </a>
               </div>
+              {navItem("inbox", "Inbox", <InboxIcon />)}
               {/* Roles — the org-chart / authority graph. Sits inside the
                   Trust group alongside Overview; both describe what the
                   Trust IS rather than what it owns or what it does. */}

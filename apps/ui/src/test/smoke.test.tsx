@@ -429,7 +429,7 @@ describe("shell components smoke", () => {
           <MemoryRouter initialEntries={["/trust/root-1"]}>
             <Routes>
               <Route
-                path="c/:trustId/*"
+                path="/trust/:trustId/*"
                 element={<LeftSidebar trustId="root-1" path="/trust/root-1" />}
               />
             </Routes>
@@ -440,6 +440,25 @@ describe("shell components smoke", () => {
     expect(errors.find(isLoopError)).toBeUndefined();
   });
 
+  it("LeftSidebar exposes Inbox only under the Trust group", () => {
+    const { getAllByRole } = render(
+      withQueryClient(
+        <StrictMode>
+          <MemoryRouter initialEntries={["/trust/root-1"]}>
+            <Routes>
+              <Route
+                path="/trust/:trustId/*"
+                element={<LeftSidebar trustId="root-1" path="/trust/root-1" />}
+              />
+            </Routes>
+          </MemoryRouter>
+        </StrictMode>,
+      ),
+    );
+
+    expect(getAllByRole("link", { name: "Inbox" })).toHaveLength(1);
+  });
+
   it("LeftSidebar renders with a drilled-in child agent", () => {
     const errors = captureRenderErrors(
       withQueryClient(
@@ -447,7 +466,7 @@ describe("shell components smoke", () => {
           <MemoryRouter initialEntries={["/trust/root-1/agents/child-1/inbox"]}>
             <Routes>
               <Route
-                path="c/:trustId/*"
+                path="/trust/:trustId/*"
                 element={<LeftSidebar trustId="root-1" path="/trust/root-1/agents/child-1/inbox" />}
               />
             </Routes>
@@ -456,6 +475,49 @@ describe("shell components smoke", () => {
       ),
     );
     expect(errors.find(isLoopError)).toBeUndefined();
+  });
+
+  it("redirects the legacy top-level inbox route to the active trust inbox", async () => {
+    useDaemonStore.setState({
+      status: null,
+      dashboard: null,
+      cost: null,
+      entities: [
+        {
+          id: "root-1",
+          name: "Root",
+          type: "trust",
+          status: "active",
+          created_at: "2026-04-28T00:00:00Z",
+          trust_address: "0xabc123",
+        },
+      ],
+      agents: [{ id: "root-1", name: "Root", status: "active", trust_id: "root-1" }] as never,
+      quests: [],
+      events: [],
+      workerEvents: [],
+      wsConnected: false,
+      loading: false,
+      initialLoaded: true,
+    });
+    useUIStore.setState({ activeEntity: "root-1" });
+
+    render(
+      withQueryClient(
+        <StrictMode>
+          <MemoryRouter initialEntries={["/inbox"]}>
+            <Routes>
+              <Route index element={<ShellUnderTest />} />
+              <Route path="*" element={<ShellUnderTest />} />
+            </Routes>
+          </MemoryRouter>
+        </StrictMode>,
+      ),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("location").textContent).toBe("/trust/0xabc123/inbox"),
+    );
   });
 
   it("ComposerRow renders without a mounted chat (pending-message path)", () => {

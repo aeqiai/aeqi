@@ -127,8 +127,7 @@ export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTab
   }
 
   // Inbox is the company-scoped action queue. Visually it's MeInbox
-  // for now (Phase-1 cross-company aggregation lives at top-level
-  // /inbox in WS-57).
+  // for now; the legacy top-level /inbox path is only a redirect alias.
   if (tab === "inbox") {
     return (
       <Suspense>

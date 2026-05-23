@@ -155,6 +155,7 @@ export default function StartPage() {
           entities={entities}
           inboxItems={inboxPreview}
           trustNameById={trustNameById}
+          activeTrust={activeTrust}
         />
         <EconomyCard />
       </section>
@@ -199,14 +200,21 @@ interface InboxPreviewCardProps {
   entities: ReadonlyArray<Trust>;
   inboxItems: ReadonlyArray<InboxItem>;
   trustNameById: ReadonlyMap<string, string>;
+  activeTrust: Trust | null;
 }
 
-function InboxPreviewCard({ entities, inboxItems, trustNameById }: InboxPreviewCardProps) {
+function InboxPreviewCard({
+  entities,
+  inboxItems,
+  trustNameById,
+  activeTrust,
+}: InboxPreviewCardProps) {
+  const inboxHref = activeTrust ? entityPath(activeTrust, "inbox") : "/trust";
   return (
     <article className="home-card home-card--inbox">
       <header className="home-inbox-head">
         <h2 className="home-inbox-title">Inbox</h2>
-        <Link to="/inbox" className="home-inbox-cta">
+        <Link to={inboxHref} className="home-inbox-cta">
           Inbox
           <ArrowRight size={14} strokeWidth={1.8} />
         </Link>

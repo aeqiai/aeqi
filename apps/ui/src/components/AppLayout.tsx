@@ -15,6 +15,7 @@ import { isRateLimited } from "@/lib/rateLimit";
 import RateLimitBanner from "./shell/RateLimitBanner";
 import { useCurrentTrust } from "@/hooks/useCurrentTrust";
 import type { Agent, Trust } from "@/lib/types";
+import { entityPathFromId } from "@/lib/entityPath";
 
 const CommandPalette = lazy(() => import("./CommandPalette"));
 const AgentPage = lazy(() => import("./AgentPage"));
@@ -28,7 +29,6 @@ const TrustSetupPage = lazy(() => import("@/pages/TrustSetupPage"));
 const BlueprintsPage = lazy(() => import("@/pages/BlueprintsPage"));
 const EconomyPage = lazy(() => import("@/pages/EconomyPage"));
 const TrustPage = lazy(() => import("@/pages/TrustPage"));
-const MeInboxPage = lazy(() => import("@/pages/MeInboxPage"));
 const StartPage = lazy(() => import("@/pages/StartPage"));
 const BlueprintDetailPage = lazy(() => import("@/pages/BlueprintDetailPage"));
 const TrustTabPage = lazy(() => import("@/pages/TrustTabPage"));
@@ -308,6 +308,15 @@ export default function AppLayout() {
     return <Navigate to="/" replace />;
   }
 
+  // Legacy top-level inbox route — the canonical inbox now lives under the
+  // active TRUST, so keep `/inbox` as a compatibility alias only.
+  if (isInbox) {
+    if (!trustId) {
+      return <Navigate to="/trust" replace />;
+    }
+    return <Navigate to={`${entityPathFromId(entities, trustId, "inbox")}${search}`} replace />;
+  }
+
   // Bare `/trust/<addr>` doesn't render independently — `effectiveTab`
   // defaults to "overview" so TrustTabPage handles the bare URL with
   // tab="overview". The "Company" sidebar row points at this bare URL
@@ -382,7 +391,6 @@ export default function AppLayout() {
     if (isAdmin) return <AdminPage />;
     if (isAccount) return <ProfilePage />;
     if (isEconomy) return <EconomyPage />;
-    if (isInbox) return <MeInboxPage />;
     // `/` is the Start surface (welcome + previews). The legacy `/start`
     // URL keeps working as an alias for any link already in circulation.
     if (isHome || isStart) return <StartPage />;
@@ -429,7 +437,7 @@ export default function AppLayout() {
 
   // The chat composer + sessions rail belong on the drilled-agent
   // default surface (`/trust/<addr>/agents/<id>/[inbox/<sid>]`). The
-  // entity-scope inbox (`/trust/<addr>/inbox`) embeds
+  // trust-scoped inbox (`/trust/<addr>/inbox`) embeds
   // `<SessionDetail>` (which mounts its own composer against the
   // inbox-store POST path) — it must not also mount the AppLayout
   // chat composer or it stacks visually over the inbox detail. Same
@@ -445,7 +453,6 @@ export default function AppLayout() {
     !isLaunch &&
     !isBlueprints &&
     !isEconomy &&
-    !isInbox &&
     !isStart &&
     !isTrustsPicker &&
     isAgentChatDefault;
