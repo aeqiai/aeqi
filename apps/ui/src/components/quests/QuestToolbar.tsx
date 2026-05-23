@@ -1,4 +1,5 @@
 import type React from "react";
+import { ChevronLeft, Plus } from "lucide-react";
 import { Button, Loading, Tooltip } from "../ui";
 import type { QuestPriority, QuestStatus, ScopeValue, User } from "@/lib/types";
 import QuestStatusPopover from "./QuestStatusPopover";
@@ -92,65 +93,56 @@ export default function QuestToolbar({
   onDueOpenChange?: (next: boolean) => void;
 }) {
   void agentId;
+  const isDetailToolbar = !showLifecycleControls && !!breadcrumbLabel;
+  const newQuestButton = onNew ? (
+    <Tooltip content="New quest (N)">
+      <Button
+        variant="primary"
+        size="sm"
+        onClick={onNew}
+        leadingIcon={<Plus size={13} strokeWidth={1.5} />}
+      >
+        New
+      </Button>
+    </Tooltip>
+  ) : null;
+
   return (
-    <div className="ideas-toolbar ideas-canvas-toolbar">
+    <div
+      className={`ideas-toolbar ideas-canvas-toolbar${isDetailToolbar ? " quest-detail-toolbar" : ""}`}
+    >
       <Tooltip content="Back to quests">
         <Button
           variant="secondary"
-          size="md"
+          size="sm"
           onClick={onBack}
-          leadingIcon={
-            <svg
-              width="13"
-              height="13"
-              viewBox="0 0 13 13"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-            >
-              <path d="M8 3 L4.5 6.5 L8 10" />
-            </svg>
-          }
+          leadingIcon={<ChevronLeft size={13} strokeWidth={1.5} />}
         >
           Quests
         </Button>
       </Tooltip>
       {breadcrumbLabel && (
-        <span className="quest-detail-breadcrumb" aria-label="Quest detail">
-          <span className="quest-detail-breadcrumb-sep" aria-hidden>
-            /
-          </span>
-          <span className="quest-detail-breadcrumb-item">{breadcrumbLabel}</span>
+        <span
+          className={isDetailToolbar ? "quest-detail-toolbar-context" : "quest-detail-breadcrumb"}
+          aria-label="Quest detail"
+          title={breadcrumbLabel}
+        >
+          {isDetailToolbar ? (
+            <>
+              <span className="quest-detail-toolbar-context-label">Quest</span>
+              <span className="quest-detail-toolbar-context-title">{breadcrumbLabel}</span>
+            </>
+          ) : (
+            <>
+              <span className="quest-detail-breadcrumb-sep" aria-hidden>
+                /
+              </span>
+              <span className="quest-detail-breadcrumb-item">{breadcrumbLabel}</span>
+            </>
+          )}
         </span>
       )}
-      {onNew && (
-        <Tooltip content="New quest (N)">
-          <Button
-            variant="primary"
-            size="md"
-            onClick={onNew}
-            leadingIcon={
-              <svg
-                width="13"
-                height="13"
-                viewBox="0 0 13 13"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                aria-hidden
-              >
-                <path d="M6.5 2.5v8M2.5 6.5h8" />
-              </svg>
-            }
-          >
-            New
-          </Button>
-        </Tooltip>
-      )}
+      {!isDetailToolbar && newQuestButton}
       {linkedIdeaSlot}
       {showLifecycleControls && (
         <>
@@ -215,13 +207,15 @@ export default function QuestToolbar({
           <IdeasScopePopover scope={scope} onChange={onScopeChange} />
         </>
       )}
-      {trailingSlot}
+      {!isDetailToolbar && trailingSlot}
       <div className="ideas-toolbar-spacer" aria-hidden />
       {saving && (
         <span className="quest-detail-savestate">
           <Loading size="sm" /> Saving
         </span>
       )}
+      {isDetailToolbar && trailingSlot}
+      {isDetailToolbar && newQuestButton}
       {showCancelSave && (
         <>
           <Tooltip content={cancelTitle}>
