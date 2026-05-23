@@ -29,6 +29,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -224,6 +225,21 @@ const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer(
     setSlashActive(0);
   }, []);
 
+  const resizeTextarea = useCallback((el: HTMLTextAreaElement) => {
+    el.style.height = "auto";
+    if (el.value.length === 0) {
+      el.style.height = "";
+      return;
+    }
+    el.style.height = `${Math.min(el.scrollHeight, 360)}px`;
+  }, []);
+
+  useLayoutEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    resizeTextarea(el);
+  }, [resizeTextarea, textareaRef, value]);
+
   const runSlashCommand = useCallback(
     (cmd: SlashCommand) => {
       // Strip the slash token we just consumed so the textarea isn't left
@@ -357,8 +373,7 @@ const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer(
       onChange(next);
 
       const el = e.target;
-      el.style.height = "auto";
-      el.style.height = `${Math.min(el.scrollHeight, 360)}px`;
+      resizeTextarea(el);
 
       const caret = el.selectionStart ?? next.length;
       const before = next.slice(0, caret);
@@ -397,7 +412,7 @@ const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer(
         }
       }
     },
-    [onChange, slashEnabled, slashOpen, dismissSlash, hasMentions],
+    [onChange, resizeTextarea, slashEnabled, slashOpen, dismissSlash, hasMentions],
   );
 
   const handleKeyDown = useCallback(

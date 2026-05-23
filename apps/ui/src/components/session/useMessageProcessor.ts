@@ -12,243 +12,322 @@ import {
   questSnapshotFromMeta,
 } from "./types";
 
-export function useMessageProcessor() {
-  return useCallback((rawMessages: Array<Record<string, unknown>>): Message[] => {
-    const processed: Message[] = [];
-    let pendingTools: MessageSegment[] = [];
-    let currentAgent: Message | null = null;
-    let stepCount = 0;
-    let sawStoredStepMarkers = false;
-    // Tracks whether the current assistant turn has been sealed by an
-    // `assistant_complete` row. Reset on every new user message and on
-    // flush. If the turn flushes without a seal, it's a still-streaming
-    // turn reconstructed mid-flight — flag it as draft so the live-attach
-    // path can drop it before the StreamingMessage replays the content.
-    let currentCompleted = false;
+const LEGACY_TOOL_NAMES = new Set([
+  "agents",
+  "roles",
+  "quests",
+  "events",
+  "ideas",
+  "code",
+  "read_file",
+  "write_file",
+  "edit_file",
+  "list_dir",
+  "glob",
+  "grep",
+  "shell",
+  "web_search",
+  "web_fetch",
+]);
 
-    const flushAgent = () => {
-      if (currentAgent) {
-        if (!currentAgent.stepCount) {
-          currentAgent.stepCount = countStepSegments(currentAgent.segments);
-        }
-        if (!currentCompleted) {
-          currentAgent.draft = true;
-        }
-        processed.push(currentAgent);
-        currentAgent = null;
+function classifyLegacyAssistantRow(
+  text: string,
+):
+  | { kind: "step"; step?: number }
+  | { kind: "tool"; name: string }
+  | { kind: "status"; text: string }
+  | null {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+
+  const stepMatch = trimmed.match(/^step\s+(\d+)$/i);
+  if (stepMatch) return { kind: "step", step: Number(stepMatch[1]) };
+
+  const normalizedTool = trimmed.toLowerCase().replace(/\s+/g, "_");
+  if (LEGACY_TOOL_NAMES.has(normalizedTool)) {
+    return { kind: "tool", name: normalizedTool };
+  }
+
+  if (
+    /^(recalling|searching|reading|writing|running|checking|updating|creating|loading)\b/i.test(
+      trimmed,
+    )
+  ) {
+    return { kind: "status", text: trimmed };
+  }
+
+  return null;
+}
+
+export function processRawSessionMessages(rawMessages: Array<Record<string, unknown>>): Message[] {
+  const processed: Message[] = [];
+  let pendingTools: MessageSegment[] = [];
+  let currentAgent: Message | null = null;
+  let stepCount = 0;
+  let sawStoredStepMarkers = false;
+  // Tracks whether the current assistant turn has been sealed by an
+  // `assistant_complete` row. Reset on every new user message and on
+  // flush. If the turn flushes without a seal, it's a still-streaming
+  // turn reconstructed mid-flight — flag it as draft so the live-attach
+  // path can drop it before the StreamingMessage replays the content.
+  let currentCompleted = false;
+
+  const flushAgent = () => {
+    if (currentAgent) {
+      if (!currentAgent.stepCount) {
+        currentAgent.stepCount = countStepSegments(currentAgent.segments);
       }
-      currentCompleted = false;
-    };
+      if (!currentCompleted) {
+        currentAgent.draft = true;
+      }
+      processed.push(currentAgent);
+      currentAgent = null;
+    }
+    currentCompleted = false;
+  };
 
-    const ensureCurrentAgent = (timestamp: number) => {
-      if (!currentAgent) {
+  const ensureCurrentAgent = (timestamp: number) => {
+    if (!currentAgent) {
+      currentAgent = {
+        role: "assistant",
+        content: "",
+        segments: [],
+        timestamp,
+      };
+    }
+    return currentAgent;
+  };
+
+  const startStep = (_step: number | undefined, timestamp: number) => {
+    const message = ensureCurrentAgent(timestamp);
+    stepCount += 1;
+    message.stepCount = Math.max(message.stepCount || 0, stepCount);
+    message.segments!.push({ kind: "step", step: stepCount });
+    return message;
+  };
+
+  const applyMetaToCurrentAssistant = (meta: Record<string, unknown>) => {
+    if (currentAgent) {
+      applyAssistantMeta(currentAgent, meta);
+      return;
+    }
+    for (let i = processed.length - 1; i >= 0; i--) {
+      if (processed[i].role === "assistant") {
+        applyAssistantMeta(processed[i], meta);
+        return;
+      }
+    }
+  };
+
+  for (const m of rawMessages) {
+    const eventType = String(m.event_type || "message");
+    const ts = m.created_at ? new Date(String(m.created_at)).getTime() : Date.now();
+
+    if (eventType === "tool_complete") {
+      const meta = (m.metadata || {}) as Record<string, unknown>;
+      pendingTools.push({
+        kind: "tool",
+        event: {
+          type: "complete",
+          name: String(meta.tool_name || m.content || "tool"),
+          id: meta.tool_use_id ? String(meta.tool_use_id) : undefined,
+          success: meta.success !== false,
+          input_preview: meta.input_preview as string | undefined,
+          output_preview: meta.output_preview as string | undefined,
+          duration_ms: meta.duration_ms as number | undefined,
+          timestamp: ts,
+        },
+      });
+    } else if (eventType === "step_start") {
+      const meta = (m.metadata || {}) as Record<string, unknown>;
+      sawStoredStepMarkers = true;
+      if (pendingTools.length > 0 && currentAgent) {
+        currentAgent.segments!.push(...pendingTools);
+        pendingTools = [];
+      }
+      startStep(numberFromMeta(meta.step), ts);
+    } else if (eventType === "assistant_complete") {
+      currentCompleted = true;
+      if (currentAgent && typeof m.id === "number") {
+        currentAgent.messageId = m.id;
+      }
+      if (!currentAgent && pendingTools.length > 0) {
         currentAgent = {
           role: "assistant",
           content: "",
           segments: [],
-          timestamp,
+          timestamp: ts,
         };
-      }
-      return currentAgent;
-    };
-
-    const startStep = (_step: number | undefined, timestamp: number) => {
-      const message = ensureCurrentAgent(timestamp);
-      stepCount += 1;
-      message.stepCount = Math.max(message.stepCount || 0, stepCount);
-      message.segments!.push({ kind: "step", step: stepCount });
-      return message;
-    };
-
-    const applyMetaToCurrentAssistant = (meta: Record<string, unknown>) => {
-      if (currentAgent) {
-        applyAssistantMeta(currentAgent, meta);
-        return;
-      }
-      for (let i = processed.length - 1; i >= 0; i--) {
-        if (processed[i].role === "assistant") {
-          applyAssistantMeta(processed[i], meta);
-          return;
+        if (!sawStoredStepMarkers) {
+          startStep(undefined, ts);
         }
+        currentAgent.segments!.push(...pendingTools);
+        pendingTools = [];
       }
-    };
-
-    for (const m of rawMessages) {
-      const eventType = String(m.event_type || "message");
-      const ts = m.created_at ? new Date(String(m.created_at)).getTime() : Date.now();
-
-      if (eventType === "tool_complete") {
-        const meta = (m.metadata || {}) as Record<string, unknown>;
-        pendingTools.push({
-          kind: "tool",
-          event: {
-            type: "complete",
-            name: String(meta.tool_name || m.content || "tool"),
-            id: meta.tool_use_id ? String(meta.tool_use_id) : undefined,
-            success: meta.success !== false,
-            input_preview: meta.input_preview as string | undefined,
-            output_preview: meta.output_preview as string | undefined,
-            duration_ms: meta.duration_ms as number | undefined,
-            timestamp: ts,
-          },
-        });
-      } else if (eventType === "step_start") {
-        const meta = (m.metadata || {}) as Record<string, unknown>;
+      applyMetaToCurrentAssistant((m.metadata || {}) as Record<string, unknown>);
+      // Seal the turn now. Without this, lifecycle event_fired rows for
+      // the NEXT turn (session:execution_start fires before the next
+      // user message lands) get appended to the previous turn's segments
+      // instead of being held for fold-into-next-trail.
+      flushAgent();
+      stepCount = 0;
+      sawStoredStepMarkers = false;
+    } else if (m.role === "quest_event" || eventType.startsWith("quest_")) {
+      if (pendingTools.length > 0 && currentAgent) {
+        currentAgent.segments!.push(...pendingTools);
+        pendingTools = [];
+      }
+      flushAgent();
+      stepCount = 0;
+      sawStoredStepMarkers = false;
+      const meta = (m.metadata || {}) as Record<string, unknown>;
+      const quest = questSnapshotFromMeta(meta);
+      processed.push({
+        role: "quest_event",
+        content: String(m.content || quest.subject || eventType.replace(/_/g, " ")),
+        timestamp: ts,
+        eventType,
+        taskId: quest.id ?? questIdFromMeta(meta) ?? questIdFromText(String(m.content || "")),
+        quest,
+      });
+    } else if (m.role === "assistant") {
+      const text = String(m.content || "");
+      const rawSource = typeof m.source === "string" ? m.source : null;
+      const legacy =
+        eventType === "message" && rawSource !== "question.ask"
+          ? classifyLegacyAssistantRow(text)
+          : null;
+      if (legacy?.kind === "step") {
         sawStoredStepMarkers = true;
         if (pendingTools.length > 0 && currentAgent) {
           currentAgent.segments!.push(...pendingTools);
           pendingTools = [];
         }
-        startStep(numberFromMeta(meta.step), ts);
-      } else if (eventType === "assistant_complete") {
-        currentCompleted = true;
-        if (currentAgent && typeof m.id === "number") {
-          currentAgent.messageId = m.id;
-        }
-        if (!currentAgent && pendingTools.length > 0) {
-          currentAgent = {
-            role: "assistant",
-            content: "",
-            segments: [],
-            timestamp: ts,
-          };
-          if (!sawStoredStepMarkers) {
-            startStep(undefined, ts);
-          }
-          currentAgent.segments!.push(...pendingTools);
-          pendingTools = [];
-        }
-        applyMetaToCurrentAssistant((m.metadata || {}) as Record<string, unknown>);
-        // Seal the turn now. Without this, lifecycle event_fired rows for
-        // the NEXT turn (session:execution_start fires before the next
-        // user message lands) get appended to the previous turn's segments
-        // instead of being held for fold-into-next-trail.
-        flushAgent();
-        stepCount = 0;
-        sawStoredStepMarkers = false;
-      } else if (m.role === "quest_event" || eventType.startsWith("quest_")) {
-        if (pendingTools.length > 0 && currentAgent) {
-          currentAgent.segments!.push(...pendingTools);
-          pendingTools = [];
-        }
-        flushAgent();
-        stepCount = 0;
-        sawStoredStepMarkers = false;
-        const meta = (m.metadata || {}) as Record<string, unknown>;
-        const quest = questSnapshotFromMeta(meta);
-        processed.push({
-          role: "quest_event",
-          content: String(m.content || quest.subject || eventType.replace(/_/g, " ")),
-          timestamp: ts,
-          eventType,
-          taskId: quest.id ?? questIdFromMeta(meta) ?? questIdFromText(String(m.content || "")),
-          quest,
-        });
-      } else if (m.role === "assistant") {
-        const agent = !sawStoredStepMarkers ? startStep(undefined, ts) : ensureCurrentAgent(ts);
-        if (agent.timestamp == null) {
-          agent.timestamp = ts;
-        } else {
-          agent.timestamp = Math.min(agent.timestamp, ts);
-        }
-        // Carry from_kind / from_id from the DB row (Wave 2 schema fields).
-        if (m.from_kind != null && agent.from_kind == null) {
-          agent.from_kind = m.from_kind as "user" | "agent" | "position" | "system";
-        }
-        if (m.from_id != null && agent.from_id == null) {
-          agent.from_id = String(m.from_id);
-        }
-        if (pendingTools.length > 0) {
-          agent.segments!.push(...pendingTools);
-          pendingTools = [];
-        }
-        const text = String(m.content || "");
-        if (text) {
-          agent.segments!.push({ kind: "text", text });
-          agent.content += (agent.content ? "\n\n" : "") + text;
-        }
-        // `source = "question.ask"` flags this message as a director-ask
-        // for the renderer. The companion `metadata.subject` carries the
-        // inbox row preview line. Stamp them on the assistant Message so
-        // MessageItem can drape an ink panel around the bubble.
-        const rawSource = typeof m.source === "string" ? m.source : null;
-        if (rawSource === "question.ask") {
-          agent.source = "question.ask";
-          const meta = (m.metadata || {}) as Record<string, unknown>;
-          if (typeof meta.subject === "string") {
-            agent.askSubject = meta.subject;
-          }
-        }
-        applyAssistantMeta(agent, (m.metadata || {}) as Record<string, unknown>);
-      } else if (eventType === "event_fired") {
-        const meta = (m.metadata || {}) as Record<string, unknown>;
-        const fire = {
-          eventId: String(meta.event_id ?? ""),
-          eventName: String(meta.event_name ?? ""),
-          pattern: String(meta.pattern ?? ""),
-          scope: typeof meta.scope === "string" && meta.scope.length > 0 ? meta.scope : "self",
-        };
-        // Mid-turn fires (the agent is already producing output) inline at
-        // their firing point. Between-turn fires (session:start before any
-        // user message, session:execution_start before the first segment of
-        // a turn) are emitted as standalone event_fire rows; the post-pass
-        // below folds them into the next assistant turn's trail.
-        if (currentAgent && currentAgent.segments!.length > 0) {
-          if (pendingTools.length > 0) {
-            currentAgent.segments!.push(...pendingTools);
-            pendingTools = [];
-          }
-          currentAgent.segments!.push({ kind: "event_fire", fire });
-        } else {
-          processed.push({
-            role: "event_fire",
-            content: "",
-            timestamp: ts,
-            eventFire: fire,
-          });
-        }
-      } else if (m.role === "user" || m.role === "User") {
-        if (pendingTools.length > 0 && currentAgent) {
-          currentAgent.segments!.push(...pendingTools);
-          pendingTools = [];
-        }
-        flushAgent();
-        stepCount = 0;
-        sawStoredStepMarkers = false;
-        processed.push({
-          role: "user",
-          from_kind:
-            m.from_kind != null
-              ? (m.from_kind as "user" | "agent" | "position" | "system")
-              : undefined,
-          from_id: m.from_id != null ? String(m.from_id) : undefined,
-          content: String(m.content || ""),
-          timestamp: ts,
-          messageId: typeof m.id === "number" ? m.id : undefined,
-        });
+        startStep(legacy.step, ts);
+        continue;
       }
-    }
-    // Flush remaining
-    if (pendingTools.length > 0 && currentAgent) {
-      currentAgent.segments!.push(...pendingTools);
-    } else if (pendingTools.length > 0) {
-      const firstTool = pendingTools.find(
-        (seg): seg is { kind: "tool"; event: ToolEvent } => seg.kind === "tool",
-      );
-      currentAgent = {
-        role: "assistant",
-        content: "",
-        segments: [],
-        timestamp: firstTool?.event.timestamp || Date.now(),
+
+      const agent = !sawStoredStepMarkers ? startStep(undefined, ts) : ensureCurrentAgent(ts);
+      if (agent.timestamp == null) {
+        agent.timestamp = ts;
+      } else {
+        agent.timestamp = Math.min(agent.timestamp, ts);
+      }
+      // Carry from_kind / from_id from the DB row (Wave 2 schema fields).
+      if (m.from_kind != null && agent.from_kind == null) {
+        agent.from_kind = m.from_kind as "user" | "agent" | "position" | "system";
+      }
+      if (m.from_id != null && agent.from_id == null) {
+        agent.from_id = String(m.from_id);
+      }
+      if (pendingTools.length > 0) {
+        agent.segments!.push(...pendingTools);
+        pendingTools = [];
+      }
+      if (legacy?.kind === "tool") {
+        agent.segments!.push({
+          kind: "tool",
+          event: {
+            type: "complete",
+            name: legacy.name,
+            success: true,
+            timestamp: ts,
+          },
+        });
+        continue;
+      }
+      if (legacy?.kind === "status") {
+        agent.segments!.push({ kind: "status", text: legacy.text });
+        continue;
+      }
+      if (text) {
+        agent.segments!.push({ kind: "text", text });
+        agent.content += (agent.content ? "\n\n" : "") + text;
+      }
+      // `source = "question.ask"` flags this message as a director-ask
+      // for the renderer. The companion `metadata.subject` carries the
+      // inbox row preview line. Stamp them on the assistant Message so
+      // MessageItem can drape an ink panel around the bubble.
+      if (rawSource === "question.ask") {
+        agent.source = "question.ask";
+        const meta = (m.metadata || {}) as Record<string, unknown>;
+        if (typeof meta.subject === "string") {
+          agent.askSubject = meta.subject;
+        }
+      }
+      applyAssistantMeta(agent, (m.metadata || {}) as Record<string, unknown>);
+    } else if (eventType === "event_fired") {
+      const meta = (m.metadata || {}) as Record<string, unknown>;
+      const fire = {
+        eventId: String(meta.event_id ?? ""),
+        eventName: String(meta.event_name ?? ""),
+        pattern: String(meta.pattern ?? ""),
+        scope: typeof meta.scope === "string" && meta.scope.length > 0 ? meta.scope : "self",
       };
-      if (!sawStoredStepMarkers) {
-        startStep(undefined, currentAgent.timestamp || Date.now());
+      // Mid-turn fires (the agent is already producing output) inline at
+      // their firing point. Between-turn fires (session:start before any
+      // user message, session:execution_start before the first segment of
+      // a turn) are emitted as standalone event_fire rows; the post-pass
+      // below folds them into the next assistant turn's trail.
+      if (currentAgent && currentAgent.segments!.length > 0) {
+        if (pendingTools.length > 0) {
+          currentAgent.segments!.push(...pendingTools);
+          pendingTools = [];
+        }
+        currentAgent.segments!.push({ kind: "event_fire", fire });
+      } else {
+        processed.push({
+          role: "event_fire",
+          content: "",
+          timestamp: ts,
+          eventFire: fire,
+        });
       }
-      currentAgent.segments!.push(...pendingTools);
+    } else if (m.role === "user" || m.role === "User") {
+      if (pendingTools.length > 0 && currentAgent) {
+        currentAgent.segments!.push(...pendingTools);
+        pendingTools = [];
+      }
+      flushAgent();
+      stepCount = 0;
+      sawStoredStepMarkers = false;
+      processed.push({
+        role: "user",
+        from_kind:
+          m.from_kind != null
+            ? (m.from_kind as "user" | "agent" | "position" | "system")
+            : undefined,
+        from_id: m.from_id != null ? String(m.from_id) : undefined,
+        content: String(m.content || ""),
+        timestamp: ts,
+        messageId: typeof m.id === "number" ? m.id : undefined,
+      });
     }
-    flushAgent();
-    return foldEventFiresIntoTrails(processed);
-  }, []);
+  }
+  // Flush remaining
+  if (pendingTools.length > 0 && currentAgent) {
+    currentAgent.segments!.push(...pendingTools);
+  } else if (pendingTools.length > 0) {
+    const firstTool = pendingTools.find(
+      (seg): seg is { kind: "tool"; event: ToolEvent } => seg.kind === "tool",
+    );
+    currentAgent = {
+      role: "assistant",
+      content: "",
+      segments: [],
+      timestamp: firstTool?.event.timestamp || Date.now(),
+    };
+    if (!sawStoredStepMarkers) {
+      startStep(undefined, currentAgent.timestamp || Date.now());
+    }
+    currentAgent.segments!.push(...pendingTools);
+  }
+  flushAgent();
+  return foldEventFiresIntoTrails(processed);
+}
+
+export function useMessageProcessor() {
+  return useCallback(processRawSessionMessages, []);
 }
 
 /**

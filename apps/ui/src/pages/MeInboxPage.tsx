@@ -269,7 +269,7 @@ export default function MeInboxPage() {
     let cancelled = false;
     setContextLoading(true);
     api
-      .getSessionMessages(selectedRow.id, 10, trustId || undefined)
+      .getSessionMessages(selectedRow.id, 100, trustId || undefined)
       .then((raw: Record<string, unknown>) => {
         if (cancelled) return;
         setContextMessages(inboxMessagesAdapter(raw, selectedRow.from.name));
