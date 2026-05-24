@@ -113,10 +113,12 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
       )
         return;
       set({ entities: nextEntities, initialLoaded: true });
-      // Trust roots are cached locally so route-scoped fetches can resolve
-      // `/trust/:trustAddress` to the canonical trust id before setting
-      // X-Trust. Clear any stale map from pre-migration browser sessions so
-      // the first page after deploy doesn't 404 on a now-invalid lookup.
+      // Trust-first migration (2026-05-17): the route slug is the
+      // on-chain trust address, but the API often wants the canonical
+      // entity id. `getScopedEntity` resolves the slug through this cached
+      // entity list when possible. Clear any stale map from pre-migration
+      // browser sessions so the first page after deploy doesn't 404 on a
+      // now-invalid lookup.
       try {
         localStorage.removeItem("aeqi_trust_to_entity");
       } catch {

@@ -9,28 +9,21 @@ export function isPlatformAppMode(mode: AppMode | null | undefined): mode is "pl
   return mode === "platform";
 }
 
-type CachedTrust = {
-  id: string;
-  trust_address?: string | null;
-};
-
-function readCachedTrusts(): CachedTrust[] {
+function resolveTrustAddress(trustAddress: string): string | null {
   try {
     const raw = localStorage.getItem("aeqi_daemon_entities");
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as CachedTrust[]) : [];
-  } catch {
-    return [];
-  }
-}
+    if (!raw) return null;
+    const entities = JSON.parse(raw) as Array<{ id?: string; trust_address?: string | null }>;
+    if (!Array.isArray(entities)) return null;
 
-function resolveTrustAddress(trustAddress: string): string | null {
-  const trusts = readCachedTrusts();
-  const match =
-    trusts.find((entity) => entity.trust_address === trustAddress) ??
-    trusts.find((entity) => entity.id === trustAddress);
-  return match?.id ?? null;
+    const entity = entities.find((item) => item?.trust_address === trustAddress) ?? null;
+    if (entity?.id) return entity.id;
+
+    const sameId = entities.find((item) => item?.id === trustAddress) ?? null;
+    return sameId?.id ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -39,10 +32,9 @@ function resolveTrustAddress(trustAddress: string): string | null {
  * (`/account`, `/launch`, `/sessions/:id`, …) return "" so the caller falls
  * back to the cached active entity.
  *
- * The URL slug after `/trust/` is the trust address in the browser route,
- * while the backend proxy expects the canonical trust id. The hydrated trust
- * cache carries both, so resolve the slug to the canonical id when possible
- * and fall back to the slug only when the cache has not loaded yet.
+ * The route slug is the on-chain TRUST address. The backend usually wants the
+ * canonical entity id, so resolve the slug through the cached entity list when
+ * possible and fall back to the slug only when the cache has not hydrated yet.
  */
 export function getScopedEntity(): string {
   const path = window.location.pathname;

@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { getScopedEntity } from "@/lib/appMode";
 
-const TRUST_ID = "dc0eee7a-7e47-4ba0-8fc4-f9615fd72fb7";
 const TRUST_ADDRESS = "F9s1sSJRm2CobSLkd1BN1Vj4UigRo9zpZhb6raXsQzPq";
+const TRUST_ID = "dc0eee7a-7e47-4ba0-8fc4-f9615fd72fb7";
 
 function setPath(path: string) {
-  window.history.replaceState({}, "", path);
+  window.history.pushState({}, "", path);
 }
 
 describe("getScopedEntity", () => {
@@ -14,16 +14,12 @@ describe("getScopedEntity", () => {
     setPath("/");
   });
 
-  it("resolves a trust route slug to the cached canonical trust id", () => {
+  it("resolves /trust/:trustAddress through cached entities to the canonical trust id", () => {
     localStorage.setItem(
       "aeqi_daemon_entities",
       JSON.stringify([
         {
           id: TRUST_ID,
-          name: "Sandbox Trust",
-          type: "trust",
-          status: "active",
-          created_at: "2026-05-01T00:00:00Z",
           trust_address: TRUST_ADDRESS,
         },
       ]),
@@ -39,9 +35,9 @@ describe("getScopedEntity", () => {
     expect(getScopedEntity()).toBe(TRUST_ADDRESS);
   });
 
-  it("returns the stored active entity on non-trust routes", () => {
+  it("returns the stored entity on non-trust routes", () => {
     localStorage.setItem("aeqi_entity", TRUST_ID);
-    setPath("/quests");
+    setPath("/inbox");
 
     expect(getScopedEntity()).toBe(TRUST_ID);
   });
