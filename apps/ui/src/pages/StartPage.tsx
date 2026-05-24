@@ -211,9 +211,9 @@ function InboxPreviewCard({
     <article className="home-card home-card--inbox home-card--recessed">
       <header className="home-inbox-head">
         <h2 className="home-inbox-title">Inbox</h2>
-        <Link to={inboxHref} className="home-inbox-cta">
-          Inbox
-          <ArrowRight size={14} strokeWidth={1.8} />
+        <Link to={inboxHref} className="home-inbox-cta" aria-label="View all inbox items">
+          View all
+          <ArrowRight size={14} strokeWidth={1.8} aria-hidden="true" />
         </Link>
       </header>
       {inboxItems.length > 0 ? (
@@ -292,6 +292,12 @@ function EconomyCard() {
   return (
     <article className="home-card home-card--economy">
       <div className="home-economy-media">
+        <header className="home-economy-head">
+          <span className="home-economy-label">
+            <Globe size={15} strokeWidth={1.7} aria-hidden="true" />
+            Economy
+          </span>
+        </header>
         <img
           src="/home/economy-mood.png"
           alt=""
@@ -300,12 +306,6 @@ function EconomyCard() {
         />
       </div>
       <div className="home-economy-content">
-        <header className="home-economy-head">
-          <span className="home-economy-label">
-            <Globe size={15} strokeWidth={1.7} aria-hidden="true" />
-            Economy
-          </span>
-        </header>
         <div className="home-economy-body">
           <p className="home-economy-lede">Unlock the agent economy.</p>
           <p className="home-economy-aside">

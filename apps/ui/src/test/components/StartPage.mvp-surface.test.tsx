@@ -70,6 +70,17 @@ const AWAITING_INBOX_ITEM: InboxItem = {
   last_active: "2026-05-21T10:05:00Z",
 };
 
+function makeOverflowInboxItem(index: number): InboxItem {
+  return {
+    ...AWAITING_INBOX_ITEM,
+    session_id: `session-review-${index}`,
+    session_name: `Launch review ${index}`,
+    awaiting_subject: `Review overflow ${index}`,
+    awaiting_at: `2026-05-21T10:0${index}:00Z`,
+    last_active: `2026-05-21T10:0${index}:30Z`,
+  };
+}
+
 const ALPHA_AGENT: Agent = {
   id: "agent-alpha",
   name: "Janus",
@@ -238,7 +249,7 @@ describe("StartPage MVP surface", () => {
     expect(screen.queryByText(/Beta Trust/i)).not.toBeInTheDocument();
 
     const yourTrusts = screen.getByRole("link", { name: /your trusts/i });
-    const reviewInbox = screen.getByRole("link", { name: /^inbox$/i });
+    const reviewInbox = screen.getByRole("link", { name: /view all inbox items/i });
     const launchTrust = screen.getByRole("link", { name: /^launch$/i });
     const browseBlueprints = screen.getByRole("link", { name: /browse blueprints/i });
 
@@ -247,6 +258,7 @@ describe("StartPage MVP surface", () => {
     expect(launchTrust).toBeInTheDocument();
     expect(browseBlueprints).toBeInTheDocument();
     expect(reviewInbox).toHaveAttribute("href", "/trust/alpha/inbox");
+    expect(screen.getByText("View all")).toBeInTheDocument();
     expect(
       screen.getByText(/operating container for ownership, agents, quests, and ideas/i),
     ).toBeInTheDocument();
@@ -263,5 +275,18 @@ describe("StartPage MVP surface", () => {
 
     fireEvent.click(yourTrusts);
     expect(screen.getByTestId("location")).toHaveTextContent("/trust");
+  });
+
+  it("caps the startpage inbox preview at four rows", () => {
+    primeStartPage(
+      [ALPHA_TRUST, BETA_TRUST],
+      [1, 2, 3, 4, 5].map((index) => makeOverflowInboxItem(index)),
+    );
+
+    const { container } = renderStartPage();
+
+    expect(container.querySelectorAll(".home-inbox-item")).toHaveLength(4);
+    expect(screen.getByText("Review overflow 4")).toBeInTheDocument();
+    expect(screen.queryByText("Review overflow 5")).not.toBeInTheDocument();
   });
 });
