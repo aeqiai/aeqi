@@ -45,7 +45,7 @@ export default function TrustContextInspector({
                 trailingIconMode="forward"
                 onClick={() => onEnter(selected)}
               >
-                Enter
+                Activate
               </Button>
             }
           />

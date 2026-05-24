@@ -99,6 +99,15 @@ export default function StartPage() {
     return agents.filter((agent) => !agent.trust_id || agent.trust_id === activeTrust.id);
   }, [activeTrust, agents]);
 
+  const agentCountByTrustId = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const agent of agents) {
+      if (!agent.trust_id) continue;
+      map.set(agent.trust_id, (map.get(agent.trust_id) ?? 0) + 1);
+    }
+    return map;
+  }, [agents]);
+
   const agentNames = useMemo(() => {
     const map = new Map<string, string>();
     for (const agent of currentAgents) map.set(agent.id, agent.name);
@@ -144,9 +153,21 @@ export default function StartPage() {
           activeTrust={activeTrust}
           activeRole={activeRole}
           rolesLoading={rolesLoading}
+          metrics={[
+            { label: "Roles", value: rolesLoading ? "…" : roles.length },
+            { label: "Agents", value: currentAgents.length },
+            { label: "Status", value: activeTrust?.status ?? "—" },
+          ]}
           agentNames={agentNames}
           onSelectRole={handleSelectRole}
+          ctaLabel={null}
           className="home-card--recessed"
+        />
+        <YourTrustsCard
+          trusts={entities}
+          activeTrust={activeTrust}
+          agentCountByTrustId={agentCountByTrustId}
+          activeRoleCount={rolesLoading ? null : roles.length}
         />
         <LaunchTrustCard />
       </section>
@@ -163,6 +184,80 @@ export default function StartPage() {
 
       <LearnAeqiSection />
     </div>
+  );
+}
+
+function YourTrustsCard({
+  trusts,
+  activeTrust,
+  agentCountByTrustId,
+  activeRoleCount,
+}: {
+  trusts: ReadonlyArray<Trust>;
+  activeTrust: Trust | null;
+  agentCountByTrustId: ReadonlyMap<string, number>;
+  activeRoleCount: number | null;
+}) {
+  const preview = trusts.slice(0, 4);
+
+  return (
+    <article className="home-card home-card--trust-list home-card--recessed">
+      <header className="home-trust-list-head">
+        <h2 className="home-trust-list-title">Your TRUSTs</h2>
+        <Link to="/trust" className="home-trust-list-cta" aria-label="View all TRUSTs">
+          View all
+          <ArrowRight size={14} strokeWidth={1.8} aria-hidden="true" />
+        </Link>
+      </header>
+      {preview.length > 0 ? (
+        <ul className="home-trust-list" aria-label="TRUST preview">
+          {preview.map((trust) => {
+            const isActive = activeTrust?.id === trust.id;
+            const agentsInTrust = agentCountByTrustId.get(trust.id) ?? 0;
+            const roleCount = isActive && activeRoleCount !== null ? activeRoleCount : null;
+            return (
+              <li key={trust.id}>
+                <Link
+                  to={entityPath(trust)}
+                  className={isActive ? "home-trust-row is-active" : "home-trust-row"}
+                  aria-current={isActive ? "page" : undefined}
+                >
+                  <TrustMiniMark name={trust.name} active={isActive} />
+                  <span className="home-trust-row-copy">
+                    <span className="home-trust-row-name">{trust.name}</span>
+                    <span className="home-trust-row-meta">
+                      {[
+                        isActive ? "Active" : trust.status,
+                        roleCount !== null
+                          ? `${roleCount} ${roleCount === 1 ? "role" : "roles"}`
+                          : null,
+                        `${agentsInTrust} ${agentsInTrust === 1 ? "agent" : "agents"}`,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
+                  </span>
+                  <ArrowRight size={14} strokeWidth={1.8} aria-hidden="true" />
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <div className="home-trust-list-empty">
+          <span>No TRUSTs yet</span>
+          <Link to="/launch">Launch first</Link>
+        </div>
+      )}
+    </article>
+  );
+}
+
+function TrustMiniMark({ name, active }: { name: string; active: boolean }) {
+  return (
+    <span className={active ? "home-trust-mini-mark is-active" : "home-trust-mini-mark"}>
+      {name.slice(0, 1).toUpperCase()}
+    </span>
   );
 }
 

@@ -271,7 +271,7 @@ export default function RoleInspector({
             className="role-inspector-action role-inspector-action--primary"
           >
             <Mail size={13} strokeWidth={1.7} />
-            {isVacant ? "Invite" : "Reassign"}
+            {isVacant ? "Invite to role" : "Reassign role"}
           </Link>
         </div>
       </header>

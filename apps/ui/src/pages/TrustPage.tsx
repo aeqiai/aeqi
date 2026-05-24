@@ -5,7 +5,9 @@ import { useNavigate } from "react-router-dom";
 import { ArrowDownAZ, Filter, LayoutGrid, Network, Plus, ShieldCheck } from "lucide-react";
 import TrustAvatar from "@/components/TrustAvatar";
 import TrustContextInspector from "@/components/trust/TrustContextInspector";
+import TrustContextOverview from "@/components/trust/TrustContextOverview";
 import TrustGraphZoomViewport from "@/components/trust/TrustGraphZoomViewport";
+import TrustMapEdgePath from "@/components/trust/TrustMapEdgePath";
 import TrustRoleOptionCard from "@/components/trust/TrustRoleOptionCard";
 import {
   Button,
@@ -26,7 +28,6 @@ import {
   SELF_NODE_ID,
   type RoleBundle,
   type RoleContextOption,
-  type TrustMapEdge,
   type TrustMapNode,
 } from "@/lib/trustRoleContext";
 import type { Trust } from "@/lib/types";
@@ -199,6 +200,14 @@ export default function TrustPage() {
         }
       />
 
+      <TrustContextOverview
+        selected={selected}
+        holder={selectedHolder}
+        relation={selectedRelation}
+        visibleCount={filteredContexts.length}
+        totalCount={visibleRoleContexts.length}
+      />
+
       <main className="trust-context-workbench">
         <section className="trust-context-canvas" aria-label="TRUST role map">
           {bundlesQuery.isLoading ? (
@@ -323,8 +332,7 @@ function TrustContextMap({
         <svg
           className="trust-context-map-edges"
           viewBox={`0 0 ${layout.width} ${layout.height}`}
-          aria-hidden="true"
-          focusable="false"
+          aria-label="TRUST role connections"
         >
           {layout.edges.map((edge) => (
             <TrustMapEdgePath
@@ -332,6 +340,7 @@ function TrustContextMap({
               edge={edge}
               layout={layout.byId}
               active={Boolean(activeId && edge.routeIds.includes(activeId))}
+              onSelect={edge.routeIds[0] ? () => onSelect(edge.routeIds[0]) : undefined}
             />
           ))}
         </svg>
@@ -361,37 +370,6 @@ function TrustContextMap({
         })}
       </div>
     </TrustGraphZoomViewport>
-  );
-}
-
-function TrustMapEdgePath({
-  edge,
-  layout,
-  active,
-}: {
-  edge: TrustMapEdge;
-  layout: Map<string, TrustMapNode>;
-  active: boolean;
-}) {
-  const from = layout.get(edge.from);
-  const to = layout.get(edge.to);
-  if (!from || !to) return null;
-  const startX = from.x + from.width;
-  const startY = from.y + from.height / 2;
-  const endX = to.x;
-  const endY = to.y + to.height / 2;
-  return (
-    <path
-      className={[
-        "trust-context-map-edge",
-        `trust-context-map-edge--${edge.relation}`,
-        edge.role ? "trust-context-map-edge--role" : "trust-context-map-edge--identity",
-        active ? "is-active" : "",
-      ]
-        .filter(Boolean)
-        .join(" ")}
-      d={`M ${startX} ${startY} C ${startX + 92} ${startY}, ${endX - 92} ${endY}, ${endX} ${endY}`}
-    />
   );
 }
 
@@ -442,7 +420,7 @@ function TrustMapNodeButton({
           .filter(Boolean)
           .join(" ")}
         style={nodeStyle}
-        aria-label="You, operator root"
+        aria-label="You, current actor"
         onClick={onSelect}
         onDoubleClick={onEnter}
         onMouseEnter={() => onPreview(true)}
@@ -452,7 +430,7 @@ function TrustMapNodeButton({
       >
         <span className="trust-context-map-node-kicker">Operator</span>
         <span className="trust-context-map-node-title">You</span>
-        <span className="trust-context-map-node-meta">Account root</span>
+        <span className="trust-context-map-node-meta">Current actor</span>
       </button>
     );
   }

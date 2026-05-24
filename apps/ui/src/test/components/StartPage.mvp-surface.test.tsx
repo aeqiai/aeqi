@@ -244,11 +244,11 @@ describe("StartPage MVP surface", () => {
     expect(screen.queryByText("Quests")).not.toBeInTheDocument();
     expect(screen.queryByText("Ideas")).not.toBeInTheDocument();
     expect(screen.queryByText("Events")).not.toBeInTheDocument();
-    expect(screen.queryByText("Agents")).not.toBeInTheDocument();
+    expect(screen.getByText("Agents")).toBeInTheDocument();
     expect(screen.queryByText(/Latest activity:/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/Beta Trust/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Beta Trust/i)).toBeInTheDocument();
 
-    const yourTrusts = screen.getByRole("link", { name: /your trusts/i });
+    const yourTrusts = screen.getByRole("link", { name: /view all trusts/i });
     const reviewInbox = screen.getByRole("link", { name: /view all inbox items/i });
     const launchTrust = screen.getByRole("link", { name: /^launch$/i });
     const browseBlueprints = screen.getByRole("link", { name: /browse blueprints/i });
@@ -258,7 +258,8 @@ describe("StartPage MVP surface", () => {
     expect(launchTrust).toBeInTheDocument();
     expect(browseBlueprints).toBeInTheDocument();
     expect(reviewInbox).toHaveAttribute("href", "/trust/alpha/inbox");
-    expect(screen.getByText("View all")).toBeInTheDocument();
+    expect(yourTrusts).toHaveAttribute("href", "/trust");
+    expect(screen.getAllByText("View all")).toHaveLength(2);
     expect(
       screen.getByText(/operating container for ownership, agents, quests, and ideas/i),
     ).toBeInTheDocument();

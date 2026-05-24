@@ -21,7 +21,7 @@ interface OperatingContextCardProps {
   agentNames?: ReadonlyMap<string, string>;
   onSelectRole?: (role: Role) => void;
   ctaTo?: string;
-  ctaLabel?: string;
+  ctaLabel?: string | null;
   emptyActionTo?: string;
   emptyActionLabel?: string;
   inlineLabel?: string;
@@ -104,10 +104,12 @@ export default function OperatingContextCard({
       <section className="home-context-panel" aria-label="Current TRUST">
         <header className="home-context-head">
           <h2 className="home-context-heading">TRUST</h2>
-          <Link to={ctaTo} className="home-context-cta">
-            {ctaLabel}
-            <ArrowRight size={14} strokeWidth={1.8} />
-          </Link>
+          {ctaLabel ? (
+            <Link to={ctaTo} className="home-context-cta">
+              {ctaLabel}
+              <ArrowRight size={14} strokeWidth={1.8} />
+            </Link>
+          ) : null}
         </header>
         <div className="home-context-representation" aria-label="Active TRUST role representation">
           {contextRole ? (

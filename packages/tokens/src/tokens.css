@@ -164,8 +164,8 @@
      architectural hero renders. Used sparingly for "alive" moments —
      activity pulses, the portal glow on hover, special-state
      highlights. Never as a surface fill. */
-  --color-warmth: #c89860;
-  --color-warmth-bg: rgba(200, 152, 96, 0.08);
+  --color-warmth: #d58a2f;
+  --color-warmth-bg: rgba(213, 138, 47, 0.1);
 
   /* Status — backgrounds (10-14% opacity, tuned for light surfaces) */
   --color-success-bg: rgba(46, 143, 113, 0.1);

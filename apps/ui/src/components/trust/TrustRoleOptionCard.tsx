@@ -66,6 +66,11 @@ export default function TrustRoleOptionCard({
           <span className="trust-role-option-card-kicker">{trustLabel}</span>
           <h3>{trust.name}</h3>
         </span>
+        <span className="trust-role-option-card-stats">
+          {terminalCount > 0
+            ? `${terminalCount} ${terminalCount === 1 ? "role" : "roles"}`
+            : `${routeCount} ${routeCount === 1 ? "path" : "paths"}`}
+        </span>
       </header>
       <RoleContextCard
         variant={variant === "map" ? "map" : "card"}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Mail, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Role, RoleEdge } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
@@ -314,24 +314,14 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
         title="Roles"
         aria-label="Role controls"
         actions={
-          <>
-            <Button
-              variant="secondary"
-              size="md"
-              onClick={() => navigate(entityPathFromId(entities, trustId, "roles", "invite"))}
-              leadingIcon={<Mail size={14} strokeWidth={1.6} />}
-            >
-              Invite
-            </Button>
-            <Button
-              variant="primary"
-              size="md"
-              onClick={() => navigate(entityPathFromId(entities, trustId, "roles", "new"))}
-              leadingIcon={<Plus size={14} strokeWidth={1.8} />}
-            >
-              Role
-            </Button>
-          </>
+          <Button
+            variant="primary"
+            size="md"
+            onClick={() => navigate(entityPathFromId(entities, trustId, "roles", "new"))}
+            leadingIcon={<Plus size={14} strokeWidth={1.8} />}
+          >
+            Role
+          </Button>
         }
       >
         <div className="ideas-toolbar trust-roles-toolbar">
@@ -370,7 +360,7 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
               singular: "Owner",
               plural: "Owners",
               value: snapshot.owners.total,
-              sublabel: "Ownership authority",
+              sublabel: "Ownership authority only",
               breakdown: breakdownText(
                 snapshot.owners.agents,
                 snapshot.owners.humans,
@@ -381,7 +371,7 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
               singular: "Director",
               plural: "Directors",
               value: snapshot.directors.total,
-              sublabel: "Stewardship authority",
+              sublabel: "Ownership + operations",
               breakdown: breakdownText(
                 snapshot.directors.agents,
                 snapshot.directors.humans,
@@ -392,7 +382,7 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
               singular: "Operator",
               plural: "Operators",
               value: snapshot.operators.total,
-              sublabel: "Operations authority",
+              sublabel: "Operational authority only",
               breakdown: breakdownText(
                 snapshot.operators.agents,
                 snapshot.operators.humans,
@@ -483,7 +473,7 @@ function RoleSnapshotBand({ total, items }: { total: number; items: SnapshotItem
   return (
     <section className="trust-roles-snapshot" aria-label="Role snapshot">
       <header className="trust-roles-snapshot-header">
-        <span className="trust-roles-snapshot-header-label">Authority map</span>
+        <span className="trust-roles-snapshot-header-label">Authority ramp</span>
         <span className="trust-roles-snapshot-header-count">
           {total} {total === 1 ? "seat" : "seats"}
         </span>
