@@ -267,8 +267,10 @@ export default function AppLayout() {
       : false;
     const entityListSettled = initialLoaded && entities.length > 0;
     if (entityListSettled && !entityKnown) {
-      localStorage.removeItem("aeqi_entity");
-      return <Navigate to="/" replace />;
+      // Keep the trust shell mounted instead of kicking the user back to
+      // the home picker. A stale cache or slow trust hydration should not
+      // hide the actual detail route.
+      return <BootLoader />;
     }
     if (!initialLoaded || entities.length === 0) {
       // Daemon store still hydrating, or the entities request 502'd
