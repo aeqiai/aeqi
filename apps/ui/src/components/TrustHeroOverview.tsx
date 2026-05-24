@@ -5,6 +5,7 @@ import { useDaemonStore } from "@/store/daemon";
 import { useRuntimeStatus } from "@/hooks/useRuntimeStatus";
 import { useIncorporation } from "@/hooks/useIncorporation";
 import { formatCount } from "@/lib/i18n";
+import { formatCents } from "@/lib/pricing";
 import SolanaMark from "./SolanaMark";
 
 interface TrustHeroOverviewProps {
@@ -72,6 +73,9 @@ export default function TrustHeroOverview({
     : runtime.hasRuntime
       ? "Runtime attached"
       : "No runtime";
+  const budgetLabel = runtime.budget
+    ? `LLM budget ${formatCents(runtime.budget.limitCents)}/mo · ${formatCents(runtime.budget.usedCents)} spent · ${formatCents(runtime.budget.remainingCents)} left`
+    : null;
   const agentLabel =
     subtreeAgents.length === 0
       ? null
@@ -98,20 +102,23 @@ export default function TrustHeroOverview({
   return (
     <div className="trust-hero-bar">
       <div className="trust-hero-bar-left">
-        <span className="trust-hero-bar-dot" data-tone={runtimeTone} aria-hidden />
-        <span className="trust-hero-bar-headline">{runtimeLabel}</span>
-        {agentLabel && (
-          <>
-            <span className="trust-hero-bar-sep" aria-hidden>
-              ·
-            </span>
-            <span className="trust-hero-bar-text">{agentLabel}</span>
-          </>
-        )}
-        <Link to={ctaPath} className="trust-hero-bar-cta" data-tone={runtimeTone}>
-          {ctaLabel}
-          <ArrowRight size={12} strokeWidth={1.8} />
-        </Link>
+        <div className="trust-hero-bar-main">
+          <span className="trust-hero-bar-dot" data-tone={runtimeTone} aria-hidden />
+          <span className="trust-hero-bar-headline">{runtimeLabel}</span>
+          {agentLabel && (
+            <>
+              <span className="trust-hero-bar-sep" aria-hidden>
+                ·
+              </span>
+              <span className="trust-hero-bar-text">{agentLabel}</span>
+            </>
+          )}
+          <Link to={ctaPath} className="trust-hero-bar-cta" data-tone={runtimeTone}>
+            {ctaLabel}
+            <ArrowRight size={12} strokeWidth={1.8} />
+          </Link>
+        </div>
+        {budgetLabel && <span className="trust-hero-bar-budget">{budgetLabel}</span>}
       </div>
 
       <div className="trust-hero-bar-right">

@@ -1625,6 +1625,12 @@ export const api = {
       ok: boolean;
       has_runtime: boolean;
       plan: string | null;
+      budget: {
+        period_start: string;
+        limit_cents: number;
+        used_cents: number;
+        remaining_cents: number;
+      } | null;
       tier: string;
       host_active: boolean;
       placement_type: string;

@@ -205,6 +205,20 @@
   min-width: 0;
 }
 
+.trust-hero-bar-left {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.trust-hero-bar-main {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .trust-hero-bar-dot {
   flex: 0 0 auto;
   width: 7px;
@@ -227,6 +241,12 @@
 }
 
 .trust-hero-bar-text {
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.trust-hero-bar-budget {
+  padding-left: 15px;
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
 }

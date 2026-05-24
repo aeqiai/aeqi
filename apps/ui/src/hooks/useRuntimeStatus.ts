@@ -27,9 +27,17 @@ const STALE_TIME_MS = 30_000;
  */
 export type RuntimePlan = "standard" | "pro" | "sandbox";
 
+export interface RuntimeBudget {
+  periodStart: string;
+  limitCents: number;
+  usedCents: number;
+  remainingCents: number;
+}
+
 export interface UseRuntimeStatusResult {
   hasRuntime: boolean;
   plan: RuntimePlan | null;
+  budget: RuntimeBudget | null;
   hostActive: boolean;
   isLoading: boolean;
   error: Error | null;
@@ -65,10 +73,19 @@ export function useRuntimeStatus(trustId: string | null | undefined): UseRuntime
         ? "pro"
         : "standard"
     : null;
+  const budget = data?.budget
+    ? {
+        periodStart: data.budget.period_start,
+        limitCents: data.budget.limit_cents,
+        usedCents: data.budget.used_cents,
+        remainingCents: data.budget.remaining_cents,
+      }
+    : null;
 
   return {
     hasRuntime: !!data?.has_runtime,
     plan,
+    budget,
     hostActive: !!data?.host_active,
     isLoading: enabled && query.isLoading,
     error: (query.error as Error | null) ?? null,
