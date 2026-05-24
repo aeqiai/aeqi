@@ -4465,7 +4465,7 @@
   min-height: 0;
   flex-direction: column;
   overflow: hidden;
-  background: var(--color-card-muted, var(--bg-surface));
+  background: var(--color-card-subtle, var(--bg-surface));
   border: 1px solid var(--border-subtle, var(--border-faint));
   border-radius: var(--radius-md);
 }
@@ -7129,7 +7129,7 @@
   min-height: 0;
   flex-direction: column;
   overflow: hidden;
-  background: var(--color-card-muted, var(--bg-surface));
+  background: var(--color-card-subtle, var(--bg-surface));
   border: 1px solid var(--border-subtle, var(--border-faint));
   border-radius: var(--radius-md);
 }
@@ -7294,7 +7294,7 @@
   max-height: 100%;
   overflow-y: auto;
   padding: 0 0 12px;
-  background: var(--color-card-muted, var(--bg-surface));
+  background: var(--color-card-subtle, var(--bg-surface));
   border: 1px solid var(--border-subtle, var(--border-faint));
   border-radius: var(--radius-md);
 }

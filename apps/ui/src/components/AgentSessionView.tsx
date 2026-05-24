@@ -19,6 +19,34 @@ import { sessionLabel } from "./session/types";
 
 const EMPTY_QUEUED_DRAFTS: PendingMessage[] = [];
 
+function mergeQueuedDrafts(drafts: PendingMessage[]): PendingMessage {
+  const text = drafts
+    .map((draft) => draft.text.trim())
+    .filter(Boolean)
+    .join("\n\n");
+  const filesByName = new Map<string, { name: string; content: string; size: number }>();
+  const ideas = new Set<string>();
+  let task: { id: string; name: string } | undefined;
+  for (const draft of drafts) {
+    for (const file of draft.files || []) {
+      filesByName.set(file.name, file);
+    }
+    for (const idea of draft.ideas || []) {
+      ideas.add(idea);
+    }
+    if (draft.task) {
+      task = draft.task;
+    }
+  }
+  return {
+    id: createDraftId(),
+    text,
+    files: filesByName.size > 0 ? [...filesByName.values()] : undefined,
+    ideas: ideas.size > 0 ? [...ideas] : undefined,
+    task,
+  };
+}
+
 // ── Origin helper ─────────────────────────────────────────────────────────
 //
 // Mirrors the prior shell/SessionsRail.tsx prefix-stripping rules: surface
@@ -317,9 +345,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
   }, [agentId, token, activeSessionId, consumePendingMessage, sendDraft]);
 
   // Session-scoped queued drafts remain visible below the thinking panel and
-  // are dispatched one at a time once the current turn finishes. Each draft
-  // stays a distinct user message so multiple queued sends do not collapse
-  // into one combined turn.
+  // are drained in-order once the current turn finishes.
   const queuedDrafts = useChatStore((s) =>
     activeSessionId
       ? s.queuedDraftsBySession[activeSessionId] || EMPTY_QUEUED_DRAFTS
@@ -328,10 +354,10 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
   useEffect(() => {
     if (!activeSessionId || streaming) return;
     if (queuedDrafts.length === 0) return;
-    const draft = useChatStore.getState().consumeQueuedDraft(activeSessionId);
-    if (!draft) return;
-    sendDraft(draft);
-  }, [activeSessionId, streaming, queuedDrafts, sendDraft]);
+    const drafts = drainQueuedDrafts(activeSessionId);
+    if (drafts.length === 0) return;
+    sendDraft(mergeQueuedDrafts(drafts));
+  }, [activeSessionId, streaming, queuedDrafts, drainQueuedDrafts, sendDraft]);
 
   // Drop queued drafts (rendered separately in the trailing slot) and,
   // while streaming, the trailing draft assistant row from the DB poll —
