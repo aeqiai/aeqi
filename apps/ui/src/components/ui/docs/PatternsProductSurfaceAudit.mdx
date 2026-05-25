@@ -1,0 +1,219 @@
+import { Meta } from "@storybook/blocks";
+
+<Meta title="Patterns/Product Surface Audit" />
+
+# Product Surface Audit
+
+This is the working requirements doc for making the aeqi dashboard feel
+cohesive, calm, and easy to scan on desktop. It turns the current design
+system into a product-wide target state so every surface is judged the same
+way before any visual change ships.
+
+The objective is not to invent a new UI language. The objective is to make
+the existing one consistent enough that a user can move across the app
+without re-learning the interface on every page.
+
+## Design system contract
+
+The app already has the grammar. The redesign must keep using it:
+
+- **Page stack**: title/action row, toolbar row, context strip, work surface,
+  inspector.
+- **Surface ladder**: shell paper, page card, raised controls, recessed work
+  surfaces.
+- **Toolbar rule**: search left, filters/sort/view beside it, actions right.
+- **Object clarity**: every page must make the object, state, and next action
+  obvious.
+- **Primitive-first**: use `Button`, `Card`, `PageHeader`, `PageToolbar`,
+  `MetricGrid`, `PageRail`, `SurfaceHeader`, and the existing page-level
+  patterns before writing new layout code.
+
+This design system is the source of truth, not decoration. If a page cannot be
+described with the existing grammar, the page model is wrong.
+
+## Target surface families
+
+| Surface         | Job                                    | Primary object          | Primary action                  | Shape                                  |
+| --------------- | -------------------------------------- | ----------------------- | ------------------------------- | -------------------------------------- |
+| Home            | Decide what to do next                 | Active TRUST            | Open TRUST or launch            | Full-width overview bands              |
+| Trust overview  | Show one company’s operating state     | TRUST                   | Create quest / open active work | Hero + status + grouped rows           |
+| Inbox           | Review and act on incoming items       | Inbox item              | Open / answer / archive         | Two-pane queue + detail                |
+| Agent detail    | Talk to one agent and tune model/tools | Agent                   | Start session / change settings | Shared header + chat + narrow settings |
+| Account         | Manage user-scoped settings            | Account                 | Save settings                   | Page rail + detail pane                |
+| Launch          | Create a new TRUST                     | Blueprint / launch flow | Launch TRUST                    | Wizard / reveal flow                   |
+| Blueprints      | Discover reusable company shapes       | Blueprint               | Launch / import                 | Searchable catalog                     |
+| Economy         | Browse network activity                | Listing                 | Open / inspect / apply          | List + filter + metrics                |
+| Admin / control | Maintain platform state                | Administrative object   | Perform admin action            | Dense utility page                     |
+
+If a page does not fit one of these rows, it needs a product-model decision
+before it needs a visual polish pass.
+
+## Interaction inventory
+
+These are the interaction classes that should feel smooth across the whole app.
+
+1. **Navigation**
+   - Sidebar destinations
+   - Back links
+   - Breadcrumb headers
+   - Page rails
+   - Trust switching
+   - Deep-link recovery
+
+2. **Retrieval**
+   - Search
+   - Sort
+   - Filter
+   - Scope
+   - View toggles
+   - Tag / chip refinement
+
+3. **Selection**
+   - List rows
+   - Split-pane detail selection
+   - Drilled routes
+   - Active tabs and rails
+
+4. **Creation**
+   - Launch company
+   - New quest
+   - New idea
+   - New session
+   - New role
+   - Invite / share flows
+
+5. **Editing**
+   - Inline text edits
+   - Settings panels
+   - Model/tool configuration
+   - Toggle states
+   - Commit / save actions
+
+6. **Status**
+   - Loading
+   - Empty
+   - Blocked
+   - Error
+   - Runtime unavailable
+   - Permission denied
+
+7. **Recovery**
+   - Stale routes
+   - Missing data
+   - Redirects
+   - Legacy URLs
+   - Hydration lag
+
+The app feels confusing when these interaction classes are mixed together
+without a clear visual hierarchy. The fix is to keep each class visually and
+structurally separated.
+
+## Rules for a smoother desktop experience
+
+- Keep the top row stable across pages. The title/action row should not
+  reflow wildly between states.
+- Put search in the toolbar row on every list-like surface.
+- Put metrics below the toolbar, never above it.
+- Use one dominant object per page. Secondary objects can exist, but they
+  should not compete for the first read.
+- Prefer a single inset work surface over multiple competing card stacks.
+- Use split panes only when selection and detail are both first-class jobs.
+- Keep settings surfaces narrow. `Agent settings` should mean model and tools,
+  not a second copy of the whole agent app.
+- Make all full-row cards and list rows entirely clickable when the row is the
+  object.
+- Keep the page root itself calm. Let the content surface do the visual work.
+
+## What to hide or defer
+
+These should not be front-and-center in the MVP experience unless the user is
+already inside the relevant surface:
+
+- Redundant top-level routes that mirror another surface without adding value
+- Deep settings and admin details on the overview screens
+- Secondary tabs that duplicate a list page already visible elsewhere
+- Marketing-style copy inside working surfaces
+- Multiple competing action zones on one page
+- Nested cards for whole-page sections
+
+## Page-by-page priority
+
+### Phase 1
+
+Stabilize the shell and the daily surfaces:
+
+- Home
+- Trust overview
+- Inbox
+- Agent detail
+- Account
+
+These are the surfaces users see constantly. They must feel obvious,
+consistent, and low-friction.
+
+### Phase 2
+
+Normalize creation and discovery:
+
+- Launch
+- Blueprints
+- Trust / role discovery
+- Economy
+
+These surfaces need stronger filtering, clearer hierarchy, and less visual
+noise.
+
+### Phase 3
+
+Polish the power-user surfaces:
+
+- Admin
+- Events
+- Quests
+- Ideas
+- Settings sub-surfaces
+
+These need to stay dense, but they should still obey the same grammar.
+
+## Acceptance checklist
+
+Before a redesign pass is considered ready, each target surface should satisfy
+the following:
+
+1. The page job is readable in five seconds.
+2. The primary object is obvious.
+3. The next action is obvious.
+4. Search sits in the toolbar, not in the content body.
+5. Metrics sit below the toolbar.
+6. Empty, loading, blocked, and error states are honest.
+7. The page uses the shared design system primitives.
+8. The page reads as one system, not a patched collection of cards.
+9. Desktop screenshots feel balanced at common work widths.
+10. Mobile fallback does not break route meaning or action discovery.
+
+## Verification plan
+
+The redesign pass should be judged with screenshots and route checks, not by
+code shape alone.
+
+- Capture desktop baselines for the five phase-1 routes.
+- Compare the same routes after each meaningful change.
+- Check that list-like pages keep toolbar height stable.
+- Check that object/detail pages keep a single clear header grammar.
+- Check that the screenshot reads as coherent from shell to content.
+- Refuse changes that improve one page by making the shared grammar worse.
+
+## Canonical direction
+
+The app should feel like one operational system with a small number of
+repeated patterns:
+
+- a stable shell
+- a clear page header
+- a canonical toolbar
+- a single work surface
+- a narrow detail area only where selection warrants it
+
+That is the target state for the redesign. Anything that does not make the
+surface easier to scan, easier to act on, or easier to recover from should
+be deferred.
