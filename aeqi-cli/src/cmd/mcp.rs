@@ -1231,6 +1231,56 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                     "health": health,
                                 }))
                             }
+                            "audit" => {
+                                let mut reports = Vec::new();
+
+                                for project_cfg in &config.agent_spawns {
+                                    let project_name = project_cfg.name.as_str();
+                                    let graph_dir = config.data_dir().join("codegraph");
+                                    let project_db_path =
+                                        graph_dir.join(format!("{project_name}.db"));
+                                    let store = aeqi_graph::GraphStore::open(&project_db_path)?;
+                                    let repo = resolve_code_repo_path(
+                                        &args,
+                                        &config,
+                                        project_name,
+                                        Some(&store),
+                                    )?;
+
+                                    let report = match repo {
+                                        Some(repo) => {
+                                            match aeqi_graph::Indexer::new().health(&repo, &store) {
+                                                Ok(health) => serde_json::json!({
+                                                    "ok": true,
+                                                    "project": project_name,
+                                                    "repo_path": repo.to_string_lossy(),
+                                                    "health": health,
+                                                }),
+                                                Err(error) => serde_json::json!({
+                                                    "ok": false,
+                                                    "project": project_name,
+                                                    "repo_path": repo.to_string_lossy(),
+                                                    "error": error.to_string(),
+                                                }),
+                                            }
+                                        }
+                                        None => serde_json::json!({
+                                            "ok": false,
+                                            "project": project_name,
+                                            "error": code_project_not_found(project_name).to_string(),
+                                        }),
+                                    };
+
+                                    reports.push(report);
+                                }
+
+                                Ok(serde_json::json!({
+                                    "ok": true,
+                                    "project": project,
+                                    "project_count": reports.len(),
+                                    "projects": reports,
+                                }))
+                            }
                             "diff_impact" => {
                                 let depth =
                                     args.get("depth").and_then(|v| v.as_u64()).unwrap_or(3) as u32;

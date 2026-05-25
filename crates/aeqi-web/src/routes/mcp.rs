@@ -770,6 +770,49 @@ async fn call_code(
                 "health": health,
             }))
         }
+        "audit" => {
+            let mut reports = Vec::new();
+
+            for project_cfg in &state.mcp_projects {
+                let project_name = project_cfg.name.as_str();
+                let graph_dir = state.data_dir.join("codegraph");
+                let project_db_path = graph_dir.join(format!("{project_name}.db"));
+                let store = aeqi_graph::GraphStore::open(&project_db_path)?;
+                let repo =
+                    resolve_code_repo_path(&args, &state.mcp_projects, project_name, Some(&store))?;
+
+                let report = match repo {
+                    Some(repo) => match aeqi_graph::Indexer::new().health(&repo, &store) {
+                        Ok(health) => serde_json::json!({
+                            "ok": true,
+                            "project": project_name,
+                            "repo_path": repo.to_string_lossy(),
+                            "health": health,
+                        }),
+                        Err(error) => serde_json::json!({
+                            "ok": false,
+                            "project": project_name,
+                            "repo_path": repo.to_string_lossy(),
+                            "error": error.to_string(),
+                        }),
+                    },
+                    None => serde_json::json!({
+                        "ok": false,
+                        "project": project_name,
+                        "error": code_project_not_found(project_name).to_string(),
+                    }),
+                };
+
+                reports.push(report);
+            }
+
+            Ok(serde_json::json!({
+                "ok": true,
+                "project": project,
+                "project_count": reports.len(),
+                "projects": reports,
+            }))
+        }
         "diff_impact" => {
             let store = aeqi_graph::GraphStore::open(&db_path)?;
             let repo = resolve_code_repo_path(&args, &state.mcp_projects, &project, Some(&store))?
@@ -1392,7 +1435,7 @@ fn tool_defs() -> serde_json::Value {
         {
             "name": "code",
             "title": "AEQI Code Graph",
-            "description": "Code intelligence graph for configured company repositories. Use search to find symbols, context for callers/callees/implementors, impact or diff_impact before edits, file/file_summary for file-level understanding, stats to inspect index health and freshness/coverage hints, and index/incremental to refresh the graph.",
+            "description": "Code intelligence graph for configured company repositories. Use search to find symbols, context for callers/callees/implementors, impact or diff_impact before edits, file/file_summary for file-level understanding, stats or health to inspect index health and freshness/coverage hints, audit to inspect all available roots, and index/incremental to refresh the graph.",
             "annotations": {
                 "title": "AEQI Code Graph",
                 "readOnlyHint": false,
@@ -1403,7 +1446,7 @@ fn tool_defs() -> serde_json::Value {
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "action": {"type": "string", "enum": ["search", "context", "impact", "file", "stats", "health", "index", "diff_impact", "file_summary", "incremental"], "description": "search/context/impact/file/stats/health/diff_impact/file_summary are read actions; index and incremental refresh the graph."},
+                    "action": {"type": "string", "enum": ["search", "context", "impact", "file", "stats", "health", "audit", "index", "diff_impact", "file_summary", "incremental"], "description": "search/context/impact/file/stats/health/audit/diff_impact/file_summary are read actions; index and incremental refresh the graph."},
                     "project": {"type": "string", "description": "Configured project name, for example aeqi or aeqi-platform."},
                     "repo_path": {"type": "string", "description": "Optional checkout path for index, incremental, or diff_impact. Successful refreshes store it for future project-only calls."},
                     "query": {"type": "string", "description": "Symbol/name search query for search."},
@@ -1737,6 +1780,20 @@ mod tests {
                 .contains("callers/callees/implementors")
         );
         assert!(code["inputSchema"]["properties"].get("node_id").is_some());
+        let actions = code["inputSchema"]["properties"]["action"]["enum"]
+            .as_array()
+            .cloned()
+            .unwrap();
+        assert!(
+            actions
+                .iter()
+                .any(|action| action.as_str() == Some("health"))
+        );
+        assert!(
+            actions
+                .iter()
+                .any(|action| action.as_str() == Some("audit"))
+        );
     }
 
     #[test]
