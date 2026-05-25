@@ -739,7 +739,7 @@ async fn call_code(
         "stats" => {
             let store = aeqi_graph::GraphStore::open(&db_path)?;
             let stats = store.stats()?;
-            let health = graph_health_snapshot(&store)?;
+            let dirty_files = graph_dirty_files(&store)?;
             let repo_path =
                 resolve_code_repo_path(&args, &state.mcp_projects, &project, Some(&store))
                     .ok()
@@ -751,11 +751,10 @@ async fn call_code(
                 "nodes": stats.node_count,
                 "edges": stats.edge_count,
                 "files": stats.file_count,
-                "indexed_at": health.indexed_at,
-                "last_commit": health.last_commit,
-                "dirty_files": health.dirty_files.len(),
-                "dirty_file_paths": health.dirty_files,
-                "health": health,
+                "indexed_at": store.get_meta("indexed_at")?.unwrap_or_default(),
+                "last_commit": store.get_meta("last_commit")?.unwrap_or_default(),
+                "dirty_files": dirty_files.len(),
+                "dirty_file_paths": dirty_files,
             }))
         }
         "health" => {
@@ -770,49 +769,7 @@ async fn call_code(
                 "health": health,
             }))
         }
-        "audit" => {
-            let mut reports = Vec::new();
-
-            for project_cfg in &state.mcp_projects {
-                let project_name = project_cfg.name.as_str();
-                let graph_dir = state.data_dir.join("codegraph");
-                let project_db_path = graph_dir.join(format!("{project_name}.db"));
-                let store = aeqi_graph::GraphStore::open(&project_db_path)?;
-                let repo =
-                    resolve_code_repo_path(&args, &state.mcp_projects, project_name, Some(&store))?;
-
-                let report = match repo {
-                    Some(repo) => match aeqi_graph::Indexer::new().health(&repo, &store) {
-                        Ok(health) => serde_json::json!({
-                            "ok": true,
-                            "project": project_name,
-                            "repo_path": repo.to_string_lossy(),
-                            "health": health,
-                        }),
-                        Err(error) => serde_json::json!({
-                            "ok": false,
-                            "project": project_name,
-                            "repo_path": repo.to_string_lossy(),
-                            "error": error.to_string(),
-                        }),
-                    },
-                    None => serde_json::json!({
-                        "ok": false,
-                        "project": project_name,
-                        "error": code_project_not_found(project_name).to_string(),
-                    }),
-                };
-
-                reports.push(report);
-            }
-
-            Ok(serde_json::json!({
-                "ok": true,
-                "project": project,
-                "project_count": reports.len(),
-                "projects": reports,
-            }))
-        }
+        "audit" => code_graph_audit_report(&state.data_dir, &state.mcp_projects, &args),
         "diff_impact" => {
             let store = aeqi_graph::GraphStore::open(&db_path)?;
             let repo = resolve_code_repo_path(&args, &state.mcp_projects, &project, Some(&store))?
@@ -882,153 +839,145 @@ fn graph_dirty_files(store: &aeqi_graph::GraphStore) -> anyhow::Result<Vec<Strin
         .collect())
 }
 
-fn graph_health_snapshot(store: &aeqi_graph::GraphStore) -> anyhow::Result<GraphHealthSnapshot> {
-    let mut health = GraphHealthSnapshot {
-        repo_path: store.get_meta("repo_path")?,
-        indexed_at: store.get_meta("indexed_at")?,
-        last_commit: store.get_meta("last_commit")?,
-        indexed_files: parse_u32_meta(&store.get_meta("indexed_files")?),
-        expected_files: parse_u32_meta(&store.get_meta("expected_files")?),
-        coverage_ratio: parse_f64_meta(&store.get_meta("coverage_ratio")?),
-        missing_files: parse_string_list(store.get_meta("missing_files")?),
-        missing_subtrees: parse_string_list(store.get_meta("missing_subtrees")?),
-        dirty_files: parse_string_list(store.get_meta("dirty_files")?),
-        freshness_state: store.get_meta("freshness_state")?,
-    };
+fn code_graph_audit_report(
+    data_dir: &std::path::Path,
+    projects: &[aeqi_core::config::AgentSpawnConfig],
+    args: &serde_json::Value,
+) -> anyhow::Result<serde_json::Value> {
+    let graph_dir = data_dir.join("codegraph");
+    std::fs::create_dir_all(&graph_dir)?;
 
-    if let Some(blob) = read_graph_health_blob(store)? {
-        if health.repo_path.is_none() {
-            health.repo_path = blob.repo_path;
+    let requested_project = args
+        .get("project")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|project| !project.is_empty());
+    let target_projects: Vec<String> = requested_project
+        .map(|project| vec![project.to_string()])
+        .unwrap_or_else(|| {
+            let configured: Vec<String> = projects
+                .iter()
+                .map(|project| project.name.clone())
+                .collect();
+            if configured.is_empty() {
+                discover_graph_projects(&graph_dir)
+            } else {
+                configured
+            }
+        });
+
+    if target_projects.is_empty() {
+        return Ok(serde_json::json!({
+            "ok": true,
+            "count": 0,
+            "projects": [],
+            "message": format!("No graph DBs found in {}", graph_dir.display()),
+        }));
+    }
+
+    let mut audit_args = args.clone();
+    if let Some(obj) = audit_args.as_object_mut() {
+        obj.remove("repo_path");
+        obj.remove("repo");
+        obj.remove("project");
+    }
+
+    let mut projects_report = Vec::with_capacity(target_projects.len());
+    for project in target_projects {
+        let db_path = graph_dir.join(format!("{project}.db"));
+        let db_path_str = db_path.to_string_lossy().to_string();
+        if !db_path.exists() {
+            projects_report.push(serde_json::json!({
+                "project": project,
+                "db_path": db_path_str,
+                "ok": false,
+                "error": format!("missing graph DB at {}", db_path.display()),
+            }));
+            continue;
         }
-        if health.indexed_at.is_none() {
-            health.indexed_at = blob.indexed_at;
-        }
-        if health.last_commit.is_none() {
-            health.last_commit = blob.last_commit;
-        }
-        if health.indexed_files.is_none() {
-            health.indexed_files = blob.indexed_files;
-        }
-        if health.expected_files.is_none() {
-            health.expected_files = blob.expected_files;
-        }
-        if health.coverage_ratio.is_none() {
-            health.coverage_ratio = blob.coverage_ratio;
-        }
-        if health.missing_files.is_empty() {
-            health.missing_files = blob.missing_files.unwrap_or_default();
-        }
-        if health.missing_subtrees.is_empty() {
-            health.missing_subtrees = blob.missing_subtrees.unwrap_or_default();
-        }
-        if health.dirty_files.is_empty() {
-            health.dirty_files = blob.dirty_files.unwrap_or_default();
-        }
-        if health.freshness_state.is_none() {
-            health.freshness_state = blob.freshness_state;
+
+        let store = match aeqi_graph::GraphStore::open(&db_path) {
+            Ok(store) => store,
+            Err(err) => {
+                projects_report.push(serde_json::json!({
+                    "project": project,
+                    "db_path": db_path_str,
+                    "ok": false,
+                    "error": err.to_string(),
+                }));
+                continue;
+            }
+        };
+
+        let repo = match resolve_code_repo_path(&audit_args, projects, &project, Some(&store)) {
+            Ok(Some(repo)) => repo,
+            Ok(None) => {
+                projects_report.push(serde_json::json!({
+                    "project": project,
+                    "db_path": db_path_str,
+                    "ok": false,
+                    "error": code_project_not_found(&project).to_string(),
+                }));
+                continue;
+            }
+            Err(err) => {
+                projects_report.push(serde_json::json!({
+                    "project": project,
+                    "db_path": db_path_str,
+                    "ok": false,
+                    "error": err.to_string(),
+                }));
+                continue;
+            }
+        };
+
+        match aeqi_graph::Indexer::new().health(&repo, &store) {
+            Ok(health) => projects_report.push(serde_json::json!({
+                "project": project,
+                "db_path": db_path_str,
+                "repo_path": repo.to_string_lossy(),
+                "ok": true,
+                "health": health,
+            })),
+            Err(err) => projects_report.push(serde_json::json!({
+                "project": project,
+                "db_path": db_path_str,
+                "repo_path": repo.to_string_lossy(),
+                "ok": false,
+                "error": err.to_string(),
+            })),
         }
     }
 
-    Ok(health)
+    Ok(serde_json::json!({
+        "ok": true,
+        "count": projects_report.len(),
+        "projects": projects_report,
+    }))
 }
 
-fn read_graph_health_blob(
-    store: &aeqi_graph::GraphStore,
-) -> anyhow::Result<Option<GraphHealthBlob>> {
-    for key in ["graph_health", "coverage_report", "health"] {
-        if let Some(raw) = store.get_meta(key)? {
-            if let Ok(blob) = serde_json::from_str::<GraphHealthBlob>(&raw) {
-                return Ok(Some(blob));
+fn discover_graph_projects(graph_dir: &std::path::Path) -> Vec<String> {
+    let mut projects = Vec::new();
+    let entries = match std::fs::read_dir(graph_dir) {
+        Ok(entries) => entries,
+        Err(_) => return projects,
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|ext| ext.to_str()) != Some("db") {
+            continue;
+        }
+        if let Some(stem) = path.file_stem().and_then(|stem| stem.to_str()) {
+            if !stem.is_empty() {
+                projects.push(stem.to_string());
             }
         }
     }
-    Ok(None)
-}
 
-fn parse_string_list(raw: Option<String>) -> Vec<String> {
-    let Some(raw) = raw else {
-        return Vec::new();
-    };
-    let trimmed = raw.trim();
-    if trimmed.is_empty() {
-        return Vec::new();
-    }
-
-    if let Ok(value) = serde_json::from_str::<serde_json::Value>(trimmed) {
-        if let Some(items) = value.as_array() {
-            return items
-                .iter()
-                .filter_map(|item| item.as_str().map(str::to_string))
-                .filter(|item| !item.trim().is_empty())
-                .collect();
-        }
-        if let Some(item) = value.as_str() {
-            return vec![item.to_string()];
-        }
-    }
-
-    trimmed
-        .lines()
-        .map(str::trim)
-        .filter(|line| !line.is_empty())
-        .map(str::to_string)
-        .collect()
-}
-
-fn parse_u32_meta(raw: &Option<String>) -> Option<u32> {
-    raw.as_deref()?.trim().parse::<u32>().ok()
-}
-
-fn parse_f64_meta(raw: &Option<String>) -> Option<f64> {
-    raw.as_deref()?.trim().parse::<f64>().ok()
-}
-
-#[derive(Debug, Clone, Default, Serialize)]
-struct GraphHealthSnapshot {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    repo_path: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    indexed_at: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    last_commit: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    indexed_files: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    expected_files: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    coverage_ratio: Option<f64>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    missing_files: Vec<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    missing_subtrees: Vec<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    dirty_files: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    freshness_state: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct GraphHealthBlob {
-    #[serde(default)]
-    repo_path: Option<String>,
-    #[serde(default)]
-    indexed_at: Option<String>,
-    #[serde(default)]
-    last_commit: Option<String>,
-    #[serde(default)]
-    indexed_files: Option<u32>,
-    #[serde(default)]
-    expected_files: Option<u32>,
-    #[serde(default)]
-    coverage_ratio: Option<f64>,
-    #[serde(default)]
-    missing_files: Option<Vec<String>>,
-    #[serde(default)]
-    missing_subtrees: Option<Vec<String>>,
-    #[serde(default)]
-    dirty_files: Option<Vec<String>>,
-    #[serde(default)]
-    freshness_state: Option<String>,
+    projects.sort();
+    projects.dedup();
+    projects
 }
 
 fn resolve_code_repo_path(
@@ -1435,7 +1384,7 @@ fn tool_defs() -> serde_json::Value {
         {
             "name": "code",
             "title": "AEQI Code Graph",
-            "description": "Code intelligence graph for configured company repositories. Use search to find symbols, context for callers/callees/implementors, impact or diff_impact before edits, file/file_summary for file-level understanding, stats or health to inspect index health and freshness/coverage hints, audit to inspect all available roots, and index/incremental to refresh the graph.",
+            "description": "Code intelligence graph for configured company repositories. Use search to find symbols, context for callers/callees/implementors, impact or diff_impact before edits, file/file_summary for file-level understanding, stats or health to inspect index health, audit to inspect all configured roots, and index/incremental to refresh the graph.",
             "annotations": {
                 "title": "AEQI Code Graph",
                 "readOnlyHint": false,
@@ -1721,6 +1670,80 @@ mod tests {
             .unwrap();
 
         assert_eq!(resolved, std::fs::canonicalize(repo.path()).unwrap());
+    }
+
+    #[test]
+    fn http_mcp_code_audit_discovers_projects_from_graph_dir_when_config_is_empty() {
+        use std::process::Command;
+
+        fn init_repo(path: &std::path::Path, file_name: &str, function_name: &str) {
+            std::fs::create_dir_all(path.join("src")).unwrap();
+            std::fs::write(
+                path.join("src").join(file_name),
+                format!("pub fn {function_name}() -> u32 {{ 1 }}\n"),
+            )
+            .unwrap();
+
+            let init_status = Command::new("git")
+                .arg("init")
+                .current_dir(path)
+                .status()
+                .unwrap();
+            assert!(init_status.success());
+
+            let add_status = Command::new("git")
+                .args(["add", "."])
+                .current_dir(path)
+                .status()
+                .unwrap();
+            assert!(add_status.success());
+
+            let commit_status = Command::new("git")
+                .args([
+                    "-c",
+                    "user.name=AEQI Test",
+                    "-c",
+                    "user.email=test@example.com",
+                    "commit",
+                    "-m",
+                    "graph audit fixture",
+                ])
+                .current_dir(path)
+                .status()
+                .unwrap();
+            assert!(commit_status.success());
+        }
+
+        let data_dir = tempfile::tempdir().unwrap();
+        let repo_one = tempfile::tempdir().unwrap();
+        let repo_two = tempfile::tempdir().unwrap();
+        init_repo(repo_one.path(), "one.rs", "one");
+        init_repo(repo_two.path(), "two.rs", "two");
+
+        let graph_dir = data_dir.path().join("codegraph");
+        std::fs::create_dir_all(&graph_dir).unwrap();
+
+        let store_one = aeqi_graph::GraphStore::open(&graph_dir.join("one.db")).unwrap();
+        aeqi_graph::Indexer::new()
+            .index(repo_one.path(), &store_one)
+            .unwrap();
+        let store_two = aeqi_graph::GraphStore::open(&graph_dir.join("two.db")).unwrap();
+        aeqi_graph::Indexer::new()
+            .index(repo_two.path(), &store_two)
+            .unwrap();
+
+        let audit = code_graph_audit_report(data_dir.path(), &[], &serde_json::json!({})).unwrap();
+
+        assert_eq!(audit["ok"], true);
+        assert_eq!(audit["count"], 2);
+        let entries = audit["projects"].as_array().unwrap();
+        assert_eq!(entries.len(), 2);
+        assert!(
+            entries
+                .iter()
+                .all(|entry| entry["ok"].as_bool() == Some(true))
+        );
+        assert!(entries.iter().all(|entry| entry.get("health").is_some()));
     }
 
     #[test]
