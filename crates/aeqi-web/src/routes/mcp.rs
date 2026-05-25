@@ -739,7 +739,7 @@ async fn call_code(
         "stats" => {
             let store = aeqi_graph::GraphStore::open(&db_path)?;
             let stats = store.stats()?;
-            let dirty_files = graph_dirty_files(&store)?;
+            let health = graph_health_snapshot(&store)?;
             let repo_path =
                 resolve_code_repo_path(&args, &state.mcp_projects, &project, Some(&store))
                     .ok()
@@ -751,10 +751,11 @@ async fn call_code(
                 "nodes": stats.node_count,
                 "edges": stats.edge_count,
                 "files": stats.file_count,
-                "indexed_at": store.get_meta("indexed_at")?.unwrap_or_default(),
-                "last_commit": store.get_meta("last_commit")?.unwrap_or_default(),
-                "dirty_files": dirty_files.len(),
-                "dirty_file_paths": dirty_files,
+                "indexed_at": health.indexed_at,
+                "last_commit": health.last_commit,
+                "dirty_files": health.dirty_files.len(),
+                "dirty_file_paths": health.dirty_files,
+                "health": health,
             }))
         }
         "health" => {
@@ -836,6 +837,155 @@ fn graph_dirty_files(store: &aeqi_graph::GraphStore) -> anyhow::Result<Vec<Strin
         .filter(|line| !line.is_empty())
         .map(ToOwned::to_owned)
         .collect())
+}
+
+fn graph_health_snapshot(store: &aeqi_graph::GraphStore) -> anyhow::Result<GraphHealthSnapshot> {
+    let mut health = GraphHealthSnapshot {
+        repo_path: store.get_meta("repo_path")?,
+        indexed_at: store.get_meta("indexed_at")?,
+        last_commit: store.get_meta("last_commit")?,
+        indexed_files: parse_u32_meta(&store.get_meta("indexed_files")?),
+        expected_files: parse_u32_meta(&store.get_meta("expected_files")?),
+        coverage_ratio: parse_f64_meta(&store.get_meta("coverage_ratio")?),
+        missing_files: parse_string_list(store.get_meta("missing_files")?),
+        missing_subtrees: parse_string_list(store.get_meta("missing_subtrees")?),
+        dirty_files: parse_string_list(store.get_meta("dirty_files")?),
+        freshness_state: store.get_meta("freshness_state")?,
+    };
+
+    if let Some(blob) = read_graph_health_blob(store)? {
+        if health.repo_path.is_none() {
+            health.repo_path = blob.repo_path;
+        }
+        if health.indexed_at.is_none() {
+            health.indexed_at = blob.indexed_at;
+        }
+        if health.last_commit.is_none() {
+            health.last_commit = blob.last_commit;
+        }
+        if health.indexed_files.is_none() {
+            health.indexed_files = blob.indexed_files;
+        }
+        if health.expected_files.is_none() {
+            health.expected_files = blob.expected_files;
+        }
+        if health.coverage_ratio.is_none() {
+            health.coverage_ratio = blob.coverage_ratio;
+        }
+        if health.missing_files.is_empty() {
+            health.missing_files = blob.missing_files.unwrap_or_default();
+        }
+        if health.missing_subtrees.is_empty() {
+            health.missing_subtrees = blob.missing_subtrees.unwrap_or_default();
+        }
+        if health.dirty_files.is_empty() {
+            health.dirty_files = blob.dirty_files.unwrap_or_default();
+        }
+        if health.freshness_state.is_none() {
+            health.freshness_state = blob.freshness_state;
+        }
+    }
+
+    Ok(health)
+}
+
+fn read_graph_health_blob(
+    store: &aeqi_graph::GraphStore,
+) -> anyhow::Result<Option<GraphHealthBlob>> {
+    for key in ["graph_health", "coverage_report", "health"] {
+        if let Some(raw) = store.get_meta(key)? {
+            if let Ok(blob) = serde_json::from_str::<GraphHealthBlob>(&raw) {
+                return Ok(Some(blob));
+            }
+        }
+    }
+    Ok(None)
+}
+
+fn parse_string_list(raw: Option<String>) -> Vec<String> {
+    let Some(raw) = raw else {
+        return Vec::new();
+    };
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Vec::new();
+    }
+
+    if let Ok(value) = serde_json::from_str::<serde_json::Value>(trimmed) {
+        if let Some(items) = value.as_array() {
+            return items
+                .iter()
+                .filter_map(|item| item.as_str().map(str::to_string))
+                .filter(|item| !item.trim().is_empty())
+                .collect();
+        }
+        if let Some(item) = value.as_str() {
+            return vec![item.to_string()];
+        }
+    }
+
+    trimmed
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+fn parse_u32_meta(raw: &Option<String>) -> Option<u32> {
+    raw.as_deref()?.trim().parse::<u32>().ok()
+}
+
+fn parse_f64_meta(raw: &Option<String>) -> Option<f64> {
+    raw.as_deref()?.trim().parse::<f64>().ok()
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+struct GraphHealthSnapshot {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    repo_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    indexed_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    last_commit: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    indexed_files: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    expected_files: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    coverage_ratio: Option<f64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    missing_files: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    missing_subtrees: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    dirty_files: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    freshness_state: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GraphHealthBlob {
+    #[serde(default)]
+    repo_path: Option<String>,
+    #[serde(default)]
+    indexed_at: Option<String>,
+    #[serde(default)]
+    last_commit: Option<String>,
+    #[serde(default)]
+    indexed_files: Option<u32>,
+    #[serde(default)]
+    expected_files: Option<u32>,
+    #[serde(default)]
+    coverage_ratio: Option<f64>,
+    #[serde(default)]
+    missing_files: Option<Vec<String>>,
+    #[serde(default)]
+    missing_subtrees: Option<Vec<String>>,
+    #[serde(default)]
+    dirty_files: Option<Vec<String>>,
+    #[serde(default)]
+    freshness_state: Option<String>,
 }
 
 fn resolve_code_repo_path(
@@ -1242,7 +1392,7 @@ fn tool_defs() -> serde_json::Value {
         {
             "name": "code",
             "title": "AEQI Code Graph",
-            "description": "Code intelligence graph for configured company repositories. Use search to find symbols, context for callers/callees/implementors, impact or diff_impact before edits, file/file_summary for file-level understanding, stats to inspect index health, and index/incremental to refresh the graph.",
+            "description": "Code intelligence graph for configured company repositories. Use search to find symbols, context for callers/callees/implementors, impact or diff_impact before edits, file/file_summary for file-level understanding, stats to inspect index health and freshness/coverage hints, and index/incremental to refresh the graph.",
             "annotations": {
                 "title": "AEQI Code Graph",
                 "readOnlyHint": false,
