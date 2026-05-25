@@ -596,7 +596,11 @@ async fn call_events(
                 "name": args.get("name").and_then(|v| v.as_str()).unwrap_or(""),
                 "pattern": event_pattern(&args, "session:start"),
             });
-            copy_fields(&args, &mut req, &["agent_id", "cooldown_secs", "tool_calls"]);
+            copy_fields(
+                &args,
+                &mut req,
+                &["agent_id", "cooldown_secs", "tool_calls"],
+            );
             ipc(state, ctx, req).await
         }
         "list" => {
@@ -614,37 +618,12 @@ async fn call_events(
             ipc(
                 state,
                 ctx,
-                serde_json::json!({
-                    "cmd": "update_event",
-                    "event_id": args.get("event_id").and_then(|v| v.as_str()).unwrap_or(""),
-                    "enabled": action == "enable",
-                }),
+                events_update_ipc_request(&args, action == "enable"),
             )
             .await
         }
-        "delete" => {
-            ipc(
-                state,
-                ctx,
-                serde_json::json!({
-                    "cmd": "delete_event",
-                    "event_id": args.get("event_id").and_then(|v| v.as_str()).unwrap_or(""),
-                }),
-            )
-            .await
-        }
-        "trigger" => {
-            ipc(
-                state,
-                ctx,
-                serde_json::json!({
-                    "cmd": "trigger_event",
-                    "agent": args.get("agent").and_then(|v| v.as_str()).or(ctx.agent.as_deref()).unwrap_or(""),
-                    "pattern": event_pattern(&args, "session:start"),
-                }),
-            )
-            .await
-        }
+        "delete" => ipc(state, ctx, events_delete_ipc_request(&args)).await,
+        "trigger" => ipc(state, ctx, events_trigger_ipc_request(&args, ctx)).await,
         "trace" => {
             if let Some(invocation_id) = args.get("invocation_id").and_then(|v| v.as_i64()) {
                 ipc(
@@ -1019,6 +998,44 @@ fn event_pattern(args: &serde_json::Value, default: &str) -> String {
             .unwrap_or(default)
             .to_string()
     }
+}
+
+fn events_update_ipc_request(args: &serde_json::Value, enabled: bool) -> serde_json::Value {
+    serde_json::json!({
+        "cmd": "update_event",
+        "id": args
+            .get("event_id")
+            .or_else(|| args.get("id"))
+            .and_then(|v| v.as_str())
+            .unwrap_or(""),
+        "enabled": enabled,
+    })
+}
+
+fn events_delete_ipc_request(args: &serde_json::Value) -> serde_json::Value {
+    serde_json::json!({
+        "cmd": "delete_event",
+        "id": args
+            .get("event_id")
+            .or_else(|| args.get("id"))
+            .and_then(|v| v.as_str())
+            .unwrap_or(""),
+    })
+}
+
+fn events_trigger_ipc_request(args: &serde_json::Value, ctx: &McpHttpContext) -> serde_json::Value {
+    let mut req = serde_json::json!({
+        "cmd": "trigger_event",
+        "pattern": event_pattern(args, "session:start"),
+    });
+    if let Some(agent_id) = args.get("agent_id").cloned() {
+        req["agent_id"] = agent_id;
+    } else if let Some(agent) = args.get("agent").cloned() {
+        req["agent"] = agent;
+    } else if let Some(agent) = ctx.agent.as_deref() {
+        req["agent"] = serde_json::json!(agent);
+    }
+    req
 }
 
 fn expand_tilde(path: &str) -> String {

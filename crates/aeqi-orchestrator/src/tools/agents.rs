@@ -75,9 +75,36 @@ impl AgentsTool {
         if let (Some(store), Some(prompt)) = (self.idea_store.as_ref(), system_prompt) {
             let idea_name = format!("Persona — {}", agent.name);
             let tags = persona_idea_tags(&agent.id);
-            let _ = store
+            match store
                 .store(&idea_name, prompt, &tags, Some(&agent.id))
-                .await;
+                .await
+            {
+                Ok(idea_id) => {
+                    if let Some(event_store) = self.event_handler_store.as_ref()
+                        && let Err(err) =
+                            crate::identity_subscription::sync_identity_session_start_event(
+                                event_store,
+                                &agent.id,
+                                &idea_id,
+                            )
+                            .await
+                    {
+                        tracing::warn!(
+                            agent_id = %agent.id,
+                            idea_id,
+                            error = %err,
+                            "identity event sync failed after agent hire"
+                        );
+                    }
+                }
+                Err(err) => {
+                    tracing::warn!(
+                        agent_id = %agent.id,
+                        error = %err,
+                        "identity idea store failed after agent hire"
+                    );
+                }
+            }
         }
 
         let _ = self

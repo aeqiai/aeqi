@@ -33,9 +33,8 @@ pub struct DefaultAgentSpec {
     pub color: Option<String>,
     #[serde(default)]
     pub avatar: Option<String>,
-    /// Persona / instructions for this agent. Stored as an idea tagged
-    /// `identity` so the runtime's assemble_ideas path injects it at
-    /// session:start without any new plumbing.
+    /// Persona / instructions for this agent. Stored as an identity idea and
+    /// activated by a self-scoped `session:start` event.
     #[serde(default)]
     pub system_prompt: Option<String>,
     /// Optional spawn-time greeting. When present, the blueprint
@@ -476,11 +475,12 @@ pub async fn spawn_blueprint(
     )
     .await;
 
-    // Persist persona as an identity idea so assemble_ideas picks it up on
-    // session:start. No separate persona table needed.
+    // Persist persona as an identity idea, then create the session:start event
+    // that activates it. No separate persona table needed.
     if let (Some(store), Some(prompt)) = (idea_store, blueprint.root.system_prompt.as_ref()) {
         store_identity_idea(
             store.as_ref(),
+            Some(event_store),
             &default_agent.id,
             &default_agent.name,
             prompt,
@@ -531,8 +531,15 @@ pub async fn spawn_blueprint(
             )
             .await;
             if let (Some(store), Some(prompt)) = (idea_store, seed.system_prompt.as_ref()) {
-                store_identity_idea(store.as_ref(), &child.id, &seed.name, prompt, &mut warnings)
-                    .await;
+                store_identity_idea(
+                    store.as_ref(),
+                    Some(event_store),
+                    &child.id,
+                    &seed.name,
+                    prompt,
+                    &mut warnings,
+                )
+                .await;
             }
             owner_to_agent_id.insert(seed.name.clone(), child.id.clone());
             spawned_agents.push(SpawnedAgent {
@@ -865,25 +872,36 @@ async fn apply_visual_identity(
 
 async fn store_identity_idea(
     idea_store: &dyn aeqi_core::traits::IdeaStore,
+    event_store: Option<&EventHandlerStore>,
     agent_id: &str,
     name: &str,
     system_prompt: &str,
     warnings: &mut Vec<String>,
 ) {
     let idea_name = format!("Persona — {name}");
-    // The `personality:<agent_id>` tag is the deterministic per-agent
-    // lookup key the Personality tab on the agent rail reads from. It
-    // co-exists with the legacy `identity` tag so the existing
-    // session:start tag-policy assembly path keeps working unchanged —
-    // identity-tagged ideas are pulled into the system prompt today,
-    // and the new tag is purely a UI handle. See `tools/mod.rs` for the
-    // shared helper used by every persona-creation surface.
+    // The `personality:<agent_id>` tag is the deterministic per-agent lookup
+    // key the Personality tab reads from. Runtime activation comes from the
+    // event created below, not from tags by themselves.
     let tags = crate::tools::persona_idea_tags(agent_id);
-    if let Err(err) = idea_store
+    match idea_store
         .store(&idea_name, system_prompt, &tags, Some(agent_id))
         .await
     {
-        warnings.push(format!("identity idea for '{name}' store failed: {err}"));
+        Ok(idea_id) => match event_store {
+            Some(store) => {
+                if let Err(err) = crate::identity_subscription::sync_identity_session_start_event(
+                    store, agent_id, &idea_id,
+                )
+                .await
+                {
+                    warnings.push(format!("identity event for '{name}' sync failed: {err}"));
+                }
+            }
+            None => warnings.push(format!(
+                "identity idea for '{name}' stored but event handler store unavailable"
+            )),
+        },
+        Err(err) => warnings.push(format!("identity idea for '{name}' store failed: {err}")),
     }
 }
 

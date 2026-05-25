@@ -585,7 +585,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                     "action": {
                         "type": "string",
                         "enum": ["create", "list", "enable", "disable", "delete", "trigger", "trace"],
-                        "description": "create: new handler (needs name plus pattern or schedule; optional tool_calls/idea_ids). list: show handlers. enable/disable: toggle (needs event_id). delete: remove (needs event_id). trigger: fire an event pattern and return the assembled ideas context — same context the runtime injects during its lifecycle (optional pattern, defaults to session:start). trace: query event invocation history — pass session_id + optional limit to list invocations, or invocation_id for full step detail."
+                        "description": "create: new handler (needs name plus pattern or schedule; optional tool_calls). list: show handlers. enable/disable: toggle (needs event_id). delete: remove (needs event_id). trigger: fire an event pattern and return the assembled ideas context — same context the runtime injects during its lifecycle (optional pattern, defaults to session:start). trace: query event invocation history — pass session_id + optional limit to list invocations, or invocation_id for full step detail."
                     },
                     "agent": {"type": "string", "description": "Agent name or ID"},
                     "agent_id": {"type": "string", "description": "Explicit agent ID. Required for schedule:* events unless `agent` resolves to an active agent."},
@@ -594,7 +594,6 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                     "schedule": {"type": "string", "description": "Cron expression — shorthand for pattern 'schedule:<expr>'"},
                     "event_pattern": {"type": "string", "description": "Session event — shorthand for pattern 'session:<event>' (e.g. 'start', 'quest_start', 'quest_end', 'quest_result')"},
                     "cooldown_secs": {"type": "integer", "description": "Minimum seconds between fires"},
-                    "idea_ids": {"type": "array", "items": {"type": "string"}, "description": "Idea IDs to reference (for create)"},
                     "tool_calls": {"type": "array", "items": {"type": "object"}, "description": "Event tool calls to execute when the handler fires, e.g. session.spawn or ideas.search."},
                     "event_id": {"type": "string", "description": "Event handler ID (for enable/disable/delete)"},
                     "session_id": {"type": "string", "description": "Session ID — list invocations for this session (for trace)"},
@@ -1010,9 +1009,6 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 if let Some(cooldown) = args.get("cooldown_secs") {
                                     ipc["cooldown_secs"] = cooldown.clone();
                                 }
-                                if let Some(idea_ids) = args.get("idea_ids") {
-                                    ipc["idea_ids"] = idea_ids.clone();
-                                }
                                 if let Some(tool_calls) = args.get("tool_calls") {
                                     ipc["tool_calls"] = tool_calls.clone();
                                 }
@@ -1034,7 +1030,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                     args.get("event_id").and_then(|v| v.as_str()).unwrap_or("");
                                 call_ipc(&serde_json::json!({
                                     "cmd": "update_event",
-                                    "event_id": event_id,
+                                    "id": event_id,
                                     "enabled": action == "enable",
                                 }))
                             }
@@ -1043,7 +1039,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                     args.get("event_id").and_then(|v| v.as_str()).unwrap_or("");
                                 call_ipc(&serde_json::json!({
                                     "cmd": "delete_event",
-                                    "event_id": event_id,
+                                    "id": event_id,
                                 }))
                             }
                             "trigger" => {
@@ -1063,11 +1059,16 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                         .unwrap_or("session:start")
                                         .to_string()
                                 };
-                                call_ipc(&serde_json::json!({
+                                let mut ipc = serde_json::json!({
                                     "cmd": "trigger_event",
                                     "agent": agent,
                                     "pattern": pattern,
-                                }))
+                                });
+                                if let Some(aid) = args.get("agent_id").and_then(|v| v.as_str()) {
+                                    ipc["agent_id"] = serde_json::json!(aid);
+                                    ipc.as_object_mut().unwrap().remove("agent");
+                                }
+                                call_ipc(&ipc)
                             }
                             "trace" => {
                                 // Two modes:

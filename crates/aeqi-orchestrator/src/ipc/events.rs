@@ -123,7 +123,9 @@ pub async fn handle_update_event(
         return serde_json::json!({"ok": false, "error": "event handler store not available"});
     };
 
-    let id = request_field(request, "id").unwrap_or("");
+    let id = request_field(request, "id")
+        .or_else(|| request_field(request, "event_id"))
+        .unwrap_or("");
     if id.is_empty() {
         return serde_json::json!({"ok": false, "error": "id is required"});
     }
@@ -184,7 +186,9 @@ pub async fn handle_get_event(
         return serde_json::json!({"ok": false, "error": "event handler store not available"});
     };
 
-    let id = request_field(request, "id").unwrap_or("");
+    let id = request_field(request, "id")
+        .or_else(|| request_field(request, "event_id"))
+        .unwrap_or("");
     if id.is_empty() {
         return serde_json::json!({"ok": false, "error": "id is required"});
     }
@@ -205,7 +209,9 @@ pub async fn handle_delete_event(
         return serde_json::json!({"ok": false, "error": "event handler store not available"});
     };
 
-    let id = request_field(request, "id").unwrap_or("");
+    let id = request_field(request, "id")
+        .or_else(|| request_field(request, "event_id"))
+        .unwrap_or("");
     if id.is_empty() {
         return serde_json::json!({"ok": false, "error": "id is required"});
     }

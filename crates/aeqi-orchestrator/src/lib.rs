@@ -33,6 +33,7 @@ pub mod file_store;
 pub mod gateway_manager;
 pub mod hook;
 pub mod idea_assembly;
+pub mod identity_subscription;
 pub mod ipc;
 pub mod llm_health;
 pub mod mcp_bootstrap;

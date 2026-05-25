@@ -101,9 +101,8 @@ pub async fn handle_agent_children(
 /// Required: `name`.
 /// Optional: `parent_agent_id` (attaches the new agent's position under the
 /// parent agent's primary position; root otherwise), `model`,
-/// `system_prompt` (persisted as an `identity` + `evergreen` idea owned by
-/// the new agent — matches the shape used by company-template spawns so
-/// `assemble_ideas` picks it up at session:start).
+/// `system_prompt` (persisted as an identity idea owned by the new agent and
+/// activated by a self-scoped `session:start` event).
 pub async fn handle_agent_spawn(
     ctx: &super::CommandContext,
     request: &serde_json::Value,
@@ -177,11 +176,31 @@ pub async fn handle_agent_spawn(
             Some(store) => {
                 let idea_name = format!("Persona — {}", agent.name);
                 let tags = crate::tools::persona_idea_tags(&agent.id);
-                if let Err(err) = store
+                match store
                     .store(&idea_name, prompt, &tags, Some(&agent.id))
                     .await
                 {
-                    warnings.push(format!("identity idea store failed: {err}"));
+                    Ok(idea_id) => {
+                        if let Some(event_store) = ctx.event_handler_store.as_ref()
+                            && let Err(err) =
+                                crate::identity_subscription::sync_identity_session_start_event(
+                                    event_store,
+                                    &agent.id,
+                                    &idea_id,
+                                )
+                                .await
+                        {
+                            warnings.push(format!("identity event sync failed: {err}"));
+                        } else if ctx.event_handler_store.is_none() {
+                            warnings.push(
+                                "identity idea stored but event handler store unavailable"
+                                    .to_string(),
+                            );
+                        }
+                    }
+                    Err(err) => {
+                        warnings.push(format!("identity idea store failed: {err}"));
+                    }
                 }
             }
             None => {

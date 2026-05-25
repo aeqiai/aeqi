@@ -36,6 +36,56 @@ use aeqi_ideas::tag_policy::{EffectivePolicy, POLICY_TAG};
 
 use super::request_field;
 
+fn carries_identity_tag_for_agent(tags: &[String], agent_id: &str) -> bool {
+    let persona_tag = format!("personality:{agent_id}");
+    tags.iter().any(|tag| {
+        tag.eq_ignore_ascii_case(crate::reserved_tags::IDENTITY)
+            || tag.eq_ignore_ascii_case(&persona_tag)
+    })
+}
+
+async fn ensure_identity_subscription_for_idea(
+    ctx: &super::CommandContext,
+    idea_store: &dyn IdeaStore,
+    idea_id: &str,
+) -> Option<String> {
+    let idea = idea_store
+        .get_by_ids(&[idea_id.to_string()])
+        .await
+        .ok()?
+        .into_iter()
+        .next()?;
+
+    let Some(agent_id) = idea.agent_id.as_deref() else {
+        return None;
+    };
+    let Some(event_store) = ctx.event_handler_store.as_ref() else {
+        return Some("identity idea updated but event handler store is unavailable".to_string());
+    };
+
+    let result = if carries_identity_tag_for_agent(&idea.tags, agent_id) {
+        crate::identity_subscription::sync_identity_session_start_event(
+            event_store,
+            agent_id,
+            &idea.id,
+        )
+        .await
+        .map(|_| ())
+    } else {
+        crate::identity_subscription::remove_identity_session_start_event(
+            event_store,
+            agent_id,
+            &idea.id,
+        )
+        .await
+    };
+
+    match result {
+        Ok(()) => None,
+        Err(err) => Some(err.to_string()),
+    }
+}
+
 fn unsupported_capability_response(
     idea_store: &dyn IdeaStore,
     method: &'static str,
@@ -318,6 +368,15 @@ pub async fn handle_store_idea(
         .await
     {
         return error_response;
+    }
+
+    let mut response = response;
+    if response.get("ok").and_then(|v| v.as_bool()) == Some(true)
+        && let Some(target_id) = response.get("id").and_then(|v| v.as_str())
+        && let Some(warning) =
+            ensure_identity_subscription_for_idea(ctx, idea_store.as_ref(), target_id).await
+    {
+        response["identity_event_warning"] = serde_json::json!(warning);
     }
 
     response
@@ -1465,6 +1524,10 @@ pub async fn handle_update_idea(
     let mut payload = serde_json::json!({"ok": true});
     if !unresolved_refs.is_empty() {
         payload["unresolved_refs"] = serde_json::json!(unresolved_refs);
+    }
+    if let Some(warning) = ensure_identity_subscription_for_idea(ctx, idea_store.as_ref(), id).await
+    {
+        payload["identity_event_warning"] = serde_json::json!(warning);
     }
     payload
 }
@@ -3102,7 +3165,13 @@ mod wave2_tests {
         )));
         let ideas: Arc<dyn aeqi_core::traits::IdeaStore> =
             Arc::new(aeqi_ideas::SqliteIdeas::open(&dir.path().join("aeqi.db"), 30.0).unwrap());
-        let ctx = build_ctx(Arc::clone(&registry), Arc::clone(&ss), Arc::clone(&ideas));
+        let event_store = Arc::new(crate::event_handler::EventHandlerStore::new(registry.db()));
+        let ctx = build_ctx(
+            Arc::clone(&registry),
+            Arc::clone(&ss),
+            Arc::clone(&ideas),
+            event_store,
+        );
         (ctx, ss, ideas, dir)
     }
 
@@ -3110,6 +3179,7 @@ mod wave2_tests {
         registry: Arc<crate::agent_registry::AgentRegistry>,
         ss: Arc<crate::session_store::SessionStore>,
         idea_store: Arc<dyn aeqi_core::traits::IdeaStore>,
+        event_store: Arc<crate::event_handler::EventHandlerStore>,
     ) -> CommandContext {
         use crate::dispatch::{DispatchConfig, Dispatcher};
         use crate::ipc::ActivityBuffer;
@@ -3121,7 +3191,7 @@ mod wave2_tests {
             metrics: Arc::new(crate::metrics::AEQIMetrics::new()),
             activity_log: Arc::new(crate::activity_log::ActivityLog::new(registry.db())),
             session_store: Some(ss),
-            event_handler_store: None,
+            event_handler_store: Some(event_store),
             agent_registry: registry.clone(),
             entity_registry: Arc::new(crate::entity_registry::EntityRegistry::open(registry.db())),
             role_registry: Arc::new(crate::role_registry::RoleRegistry::open(registry.db())),

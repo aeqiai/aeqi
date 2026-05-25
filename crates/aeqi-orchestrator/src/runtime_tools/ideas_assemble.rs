@@ -1,8 +1,7 @@
-// design note: ideas.assemble fetches ideas by exact name from the IdeaStore
-// using get_by_name(). It emits a Status event per assembled idea so the user
-// can see what context was injected. The tool returns the joined idea content
-// as its output string; the event dispatcher appends this to the assembled
-// context. This tool is event_only — the LLM cannot call it directly.
+// design note: ideas.assemble fetches ideas by exact id or exact name from the
+// IdeaStore. It returns the joined idea content as its output string; the event
+// dispatcher appends this to the assembled context. This tool is event_only —
+// the LLM cannot call it directly.
 
 use std::sync::Arc;
 
@@ -10,9 +9,9 @@ use aeqi_core::traits::{IdeaStore, Tool, ToolResult, ToolSpec};
 use async_trait::async_trait;
 use tracing::warn;
 
-/// Fetches ideas by name and returns them joined as context.
+/// Fetches ideas by id/name and returns them joined as context.
 ///
-/// Args: `{ "names": Vec<String> }`
+/// Args: `{ "ids": Vec<String>, "names": Vec<String>, "agent_id": Option<String> }`
 ///
 /// Returns: ideas joined with `---` separators. Each fetched idea emits a
 /// `ChatStreamEvent::Status` so the operator can see what was assembled.
@@ -37,7 +36,7 @@ impl Tool for IdeasAssembleTool {
     fn spec(&self) -> ToolSpec {
         ToolSpec {
             name: "ideas.assemble".into(),
-            description: "Fetch ideas by exact name and assemble them into context. \
+            description: "Fetch ideas by exact id or exact name and assemble them into context. \
                           Returns ideas joined with separators. \
                           Each fetched idea emits a status event."
                 .into(),
@@ -49,12 +48,20 @@ impl Tool for IdeasAssembleTool {
                         "items": { "type": "string" },
                         "description": "List of idea names to fetch (exact match)."
                     },
+                    "ids": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "List of idea ids to fetch."
+                    },
                     "agent_id": {
                         "type": "string",
                         "description": "Optional agent_id scope. If omitted, searches global ideas."
                     }
                 },
-                "required": ["names"]
+                "anyOf": [
+                    { "required": ["ids"] },
+                    { "required": ["names"] }
+                ]
             }),
         }
     }
@@ -69,22 +76,59 @@ impl Tool for IdeasAssembleTool {
             }
         };
 
-        let names: Vec<String> = match args.get("names").and_then(|v| v.as_array()) {
-            Some(arr) => arr
-                .iter()
-                .filter_map(|v| v.as_str().map(str::to_string))
-                .collect(),
-            None => {
-                return Ok(ToolResult::error(
-                    "ideas.assemble: missing required field 'names'",
-                ));
-            }
-        };
+        let ids: Vec<String> = args
+            .get("ids")
+            .or_else(|| args.get("idea_ids"))
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(str::to_string))
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        let names: Vec<String> = args
+            .get("names")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(str::to_string))
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        if ids.is_empty() && names.is_empty() {
+            return Ok(ToolResult::error(
+                "ideas.assemble: missing required field 'ids' or 'names'",
+            ));
+        }
 
         let agent_id_opt = args.get("agent_id").and_then(|v| v.as_str());
 
         let mut parts: Vec<String> = Vec::new();
         let mut not_found: Vec<String> = Vec::new();
+
+        if !ids.is_empty() {
+            match store.get_by_ids(&ids).await {
+                Ok(ideas) => {
+                    let found: std::collections::HashSet<String> =
+                        ideas.iter().map(|idea| idea.id.clone()).collect();
+                    for id in &ids {
+                        if !found.contains(id) {
+                            not_found.push(id.clone());
+                        }
+                    }
+                    for idea in ideas {
+                        if !idea.content.is_empty() {
+                            parts.push(idea.content);
+                        }
+                    }
+                }
+                Err(e) => {
+                    warn!(error = %e, "ideas.assemble: failed to fetch ideas by id");
+                }
+            }
+        }
 
         for name in &names {
             match store.get_by_name(name, agent_id_opt).await {
@@ -142,14 +186,17 @@ mod tests {
     use std::sync::Mutex;
 
     struct StubStore {
-        ideas: Mutex<HashMap<String, Idea>>,
+        by_name: Mutex<HashMap<String, Idea>>,
+        by_id: Mutex<HashMap<String, Idea>>,
     }
 
     impl StubStore {
         fn with(ideas: Vec<Idea>) -> Arc<dyn IdeaStore> {
-            let map = ideas.into_iter().map(|i| (i.name.clone(), i)).collect();
+            let by_name = ideas.iter().cloned().map(|i| (i.name.clone(), i)).collect();
+            let by_id = ideas.into_iter().map(|i| (i.id.clone(), i)).collect();
             Arc::new(Self {
-                ideas: Mutex::new(map),
+                by_name: Mutex::new(by_name),
+                by_id: Mutex::new(by_id),
             })
         }
     }
@@ -179,7 +226,12 @@ mod tests {
             name: &str,
             _agent_id: Option<&str>,
         ) -> anyhow::Result<Option<Idea>> {
-            Ok(self.ideas.lock().unwrap().get(name).cloned())
+            Ok(self.by_name.lock().unwrap().get(name).cloned())
+        }
+
+        async fn get_by_ids(&self, ids: &[String]) -> anyhow::Result<Vec<Idea>> {
+            let by_id = self.by_id.lock().unwrap();
+            Ok(ids.iter().filter_map(|id| by_id.get(id).cloned()).collect())
         }
     }
 
@@ -232,6 +284,21 @@ mod tests {
         assert!(result.output.contains("content"));
         assert!(result.output.contains("not found"));
         assert!(result.output.contains("missing-idea"));
+    }
+
+    #[tokio::test]
+    async fn assembles_ideas_by_id() {
+        let first = idea("first", "First context.");
+        let second = idea("second", "Second context.");
+        let store = StubStore::with(vec![first.clone(), second.clone()]);
+        let tool = IdeasAssembleTool::new(Some(store));
+        let result = tool
+            .execute(serde_json::json!({ "ids": [second.id, first.id] }))
+            .await
+            .unwrap();
+        assert!(!result.is_error);
+        assert!(result.output.contains("First context."));
+        assert!(result.output.contains("Second context."));
     }
 
     #[tokio::test]
