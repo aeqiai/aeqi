@@ -1430,6 +1430,62 @@ mod tests {
     }
 
     #[test]
+    fn http_mcp_event_enable_maps_event_id_to_ipc_id() {
+        let req = events_update_ipc_request(
+            &serde_json::json!({
+                "event_id": "evt-123",
+            }),
+            true,
+        );
+
+        assert_eq!(req["cmd"], "update_event");
+        assert_eq!(req["id"], "evt-123");
+        assert_eq!(req["enabled"], true);
+        assert!(req.get("event_id").is_none());
+    }
+
+    #[test]
+    fn http_mcp_event_delete_maps_event_id_to_ipc_id() {
+        let req = events_delete_ipc_request(&serde_json::json!({
+            "event_id": "evt-123",
+        }));
+
+        assert_eq!(req["cmd"], "delete_event");
+        assert_eq!(req["id"], "evt-123");
+        assert!(req.get("event_id").is_none());
+    }
+
+    #[test]
+    fn http_mcp_event_trigger_prefers_explicit_agent_id() {
+        let ctx = McpHttpContext {
+            actor: McpActorContext {
+                kind: "local_operator".to_string(),
+                user_id: None,
+                trust_id: None,
+                roles: Vec::new(),
+                grants: vec!["*".to_string()],
+                source: "test".to_string(),
+            },
+            allowed_roots: Vec::new(),
+            agent: Some("ambient-agent".to_string()),
+            agent_id: None,
+        };
+        let req = events_trigger_ipc_request(
+            &serde_json::json!({
+                "agent_id": "agent-uuid",
+                "agent": "explicit-name",
+                "event_pattern": "start",
+            }),
+            &ctx,
+        );
+
+        assert_eq!(req["cmd"], "trigger_event");
+        assert_eq!(req["agent_id"], "agent-uuid");
+        assert_eq!(req["pattern"], "session:start");
+        assert!(req.get("agent").is_none());
+    }
+
+    #[test]
     fn http_mcp_code_repo_resolution_prefers_explicit_repo_path() {
         let repo = tempfile::tempdir().unwrap();
         let configured = tempfile::tempdir().unwrap();

@@ -721,6 +721,62 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn update_event_accepts_event_id_alias() {
+        let (ctx, _dir, _agent) = test_context().await;
+        let create = handle_create_event(
+            &ctx,
+            &serde_json::json!({
+                "agent": "shadow",
+                "name": "alias-update-event",
+                "pattern": "session:start",
+            }),
+            &None,
+        )
+        .await;
+        let event_id = create["event"]["id"].as_str().unwrap();
+
+        let response = handle_update_event(
+            &ctx,
+            &serde_json::json!({
+                "event_id": event_id,
+                "enabled": false,
+            }),
+            &None,
+        )
+        .await;
+
+        assert_eq!(response["ok"].as_bool(), Some(true), "{response}");
+        assert_eq!(response["event"]["enabled"].as_bool(), Some(false));
+    }
+
+    #[tokio::test]
+    async fn delete_event_accepts_event_id_alias() {
+        let (ctx, _dir, _agent) = test_context().await;
+        let create = handle_create_event(
+            &ctx,
+            &serde_json::json!({
+                "agent": "shadow",
+                "name": "alias-delete-event",
+                "pattern": "session:start",
+            }),
+            &None,
+        )
+        .await;
+        let event_id = create["event"]["id"].as_str().unwrap();
+
+        let response = handle_delete_event(
+            &ctx,
+            &serde_json::json!({
+                "event_id": event_id,
+            }),
+            &None,
+        )
+        .await;
+
+        assert_eq!(response["ok"].as_bool(), Some(true), "{response}");
+    }
+
+    #[tokio::test]
     async fn list_events_resolves_agent_hint() {
         let (ctx, _dir, agent) = test_context().await;
 

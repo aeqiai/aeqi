@@ -3236,6 +3236,51 @@ mod wave2_tests {
     }
 
     #[tokio::test]
+    async fn identity_tagged_agent_idea_creates_session_start_event() {
+        let (ctx, _ss, _idea_store, _dir) = wave2_ctx().await;
+        let agent = ctx
+            .agent_registry
+            .spawn("identity-agent", None, None)
+            .await
+            .unwrap();
+
+        let response = handle_store_idea(
+            &ctx,
+            &serde_json::json!({
+                "name": "Persona — identity-agent",
+                "content": "IDENTITY SENTINEL",
+                "tags": ["identity"],
+                "agent_id": agent.id.clone(),
+            }),
+            &None,
+        )
+        .await;
+
+        assert_eq!(response["ok"].as_bool(), Some(true), "{response}");
+        let idea_id = response["id"].as_str().unwrap();
+        let event_store = ctx.event_handler_store.as_ref().unwrap();
+        let events = event_store
+            .get_events_for_exact_pattern(&agent.id, "session:start")
+            .await;
+        let event = events
+            .iter()
+            .find(|event| {
+                event.name
+                    == crate::identity_subscription::identity_session_start_event_name(idea_id)
+            })
+            .unwrap_or_else(|| panic!("identity event not found in {events:?}"));
+
+        assert_eq!(event.agent_id.as_deref(), Some(agent.id.as_str()));
+        assert_eq!(event.scope, aeqi_core::Scope::SelfScope);
+        assert_eq!(event.tool_calls.len(), 1);
+        assert_eq!(event.tool_calls[0].tool, "ideas.assemble");
+        assert_eq!(
+            event.tool_calls[0].args["ids"],
+            serde_json::json!([idea_id])
+        );
+    }
+
+    #[tokio::test]
     async fn idea_activity_returns_system_messages_after_session_created() {
         let (ctx, ss, idea_store, _dir) = wave2_ctx().await;
 
