@@ -4,7 +4,7 @@
   "template": "entity",
   "name": "First Company",
   "tagline": "One thoughtful assistant, a clean TRUST, and a company that starts by listening.",
-  "description": "First Company is the default aeqi package: a neutral TRUST with one Chief of Staff, a founding Director, lifecycle context, one gentle review routine, and just enough seeded memory and quests to turn the user's first input into an operating structure. It does not assume a market, team shape, treasury policy, or public launch, but it does assume the company should be able to surface a live public website shell once the Director is ready. The first job is to listen, capture the Director's intent, and propose the smallest useful company around it.",
+  "description": "First Company is the default aeqi package: a neutral TRUST with one Chief of Staff, a founding Director, lifecycle context, one gentle review routine, and just enough seeded memory and quests to turn the user's first input into an operating structure. It does not assume a market, team shape, treasury policy, or public launch, but it does assume the company should be able to surface a live public website shell and public route once the Director is ready. The first job is to listen, capture the Director's intent, and propose the smallest useful company around it.",
   "root": {
     "name": "Chief of Staff",
     "model": "deepseek/deepseek-v4-pro",
@@ -324,7 +324,7 @@
       "owner": "default",
       "key": "setup_first_company",
       "subject": "Set up your First Company",
-      "description": "Guide the Director through the first useful shape of this TRUST. Finish with a short company map: the Director's brief, working style, first durable quest, first public website shell, initial role map, whether any agent or human teammate should be added, and the review cadence. Keep the setup small enough that the Director can understand it from the inbox.",
+      "description": "Guide the Director through the first useful shape of this TRUST. Finish with a short company map: the Director's brief, working style, first durable quest, first public website shell and route, initial role map, whether any agent or human teammate should be added, and the review cadence. Keep the setup small enough that the Director can understand it from the inbox.",
       "labels": ["onboarding", "project", "director"]
     },
     {
@@ -355,8 +355,8 @@
       "owner": "default",
       "key": "public_website",
       "parent": "setup_first_company",
-      "subject": "Publish the first public website",
-      "description": "Turn the new TRUST name and tagline into a live public website shell at its public route. Make the website visible from the trust cockpit, confirm the public/live state, and surface the first page-view baseline so the Director can immediately see the company as a live property.",
+      "subject": "Publish the first public website shell",
+      "description": "Turn the new TRUST name and tagline into a live public website shell at its public route. Keep the first version honest and shippable: name, tagline, public/live status, and a zero-view baseline surfaced from the trust cockpit so the Director can see a real public surface today.",
       "labels": ["onboarding", "website", "product"]
     },
     {

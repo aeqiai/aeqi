@@ -340,6 +340,17 @@ mod tests {
                 .any(|idea| idea.name == "First Company operating guide"),
             "default lifecycle events should assemble a top-level operating guide",
         );
+        let public_website = default
+            .seed_quests
+            .iter()
+            .find(|quest| quest.key.as_deref() == Some("public_website"))
+            .expect("default blueprint should seed a public website quest");
+        assert_eq!(public_website.subject, "Publish the first public website shell");
+        assert!(
+            public_website.description.contains("public route")
+                && public_website.description.contains("zero-view baseline"),
+            "public website quest should describe a live, shippable surface rather than an abstract launch plan",
+        );
         assert!(
             default
                 .seed_events
