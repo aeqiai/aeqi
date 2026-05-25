@@ -8,6 +8,8 @@ import AssigneeAvatar from "./AssigneeAvatar";
 import AssigneePicker from "./AssigneePicker";
 import PriorityIcon from "./PriorityIcon";
 import StatusDot from "./StatusDot";
+import type { QuestDiscoveryHit } from "./agentQuestsHelpers";
+import { summarizeQuestDiscoveryReasons } from "./agentQuestsHelpers";
 
 /**
  * One draggable card on the active board. Carries the quest's identity
@@ -33,6 +35,7 @@ export interface QuestActiveCardProps {
   agents: { id: string; name: string }[];
   users: Pick<User, "id" | "name" | "email" | "avatar_url">[];
   childCount?: number;
+  searchMatch?: QuestDiscoveryHit;
   /** When false, the card opts out of HTML5 drag-and-drop. Used by the
    *  scope band, which renders the same card chrome but is itself a
    *  drop target — letting the card be its own drag source would
@@ -59,6 +62,7 @@ export default function QuestActiveCard({
   agents,
   users,
   childCount = 0,
+  searchMatch,
   draggable = true,
   isScope = false,
 }: QuestActiveCardProps) {
@@ -122,6 +126,14 @@ export default function QuestActiveCard({
       <div className="quest-card-meta">
         <span className="quest-card-meta-left">
           <PriorityIcon priority={q.priority} />
+          {searchMatch && (
+            <span
+              className="quest-search-chip"
+              title={`Matched via ${searchMatch.reasons.join(" · ")}`}
+            >
+              via {summarizeQuestDiscoveryReasons(searchMatch.reasons)}
+            </span>
+          )}
         </span>
         <span className="quest-card-meta-right">
           <span

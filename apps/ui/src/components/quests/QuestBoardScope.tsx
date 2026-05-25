@@ -4,6 +4,7 @@ import type { Quest, QuestStatus, User } from "@/lib/types";
 import QuestActiveCard from "./QuestActiveCard";
 import QuestStatusSummary from "./QuestStatusSummary";
 import StatusDot from "./StatusDot";
+import type { QuestDiscoveryHit } from "./agentQuestsHelpers";
 
 type ScopeSummary = {
   columns: Array<{ status: QuestStatus; label: string }>;
@@ -58,6 +59,7 @@ export interface QuestBoardScopeProps {
   onError: (msg: string) => void;
   agents: { id: string; name: string }[];
   users: Pick<User, "id" | "name" | "email" | "avatar_url">[];
+  searchMatches: Map<string, QuestDiscoveryHit>;
 }
 
 export default function QuestBoardScope({
@@ -84,6 +86,7 @@ export default function QuestBoardScope({
   onError,
   agents,
   users,
+  searchMatches,
 }: QuestBoardScopeProps) {
   const shownScopeOptions = scopeOptions.slice(0, 6);
   const hiddenScopeOptions = Math.max(0, scopeOptions.length - shownScopeOptions.length);
@@ -170,6 +173,7 @@ export default function QuestBoardScope({
             agents={agents}
             users={users}
             childCount={childCount}
+            searchMatch={searchMatches.get(scope.id)}
             draggable={false}
           />
         ) : (

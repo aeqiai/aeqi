@@ -4,6 +4,8 @@ import type { Quest, QuestStatus, User } from "@/lib/types";
 import { useRelativeNow } from "@/hooks/useRelativeNow";
 import { dueLabel, isOverdue, timeAgo } from "@/lib/format";
 import { formatDateTime } from "@/lib/i18n";
+import type { QuestDiscoveryHit } from "./agentQuestsHelpers";
+import { summarizeQuestDiscoveryReasons } from "./agentQuestsHelpers";
 import AssigneeAvatar from "./AssigneeAvatar";
 import AssigneePicker from "./AssigneePicker";
 import PriorityIcon from "./PriorityIcon";
@@ -36,6 +38,7 @@ export default function QuestList({
   agents,
   users,
   childCounts,
+  searchMatches,
 }: {
   groups: Array<{ status: QuestStatus; label: string; quests: Quest[] }>;
   collapsedStatuses: Partial<Record<QuestStatus, boolean>>;
@@ -53,6 +56,7 @@ export default function QuestList({
   agents: { id: string; name: string }[];
   users: Pick<User, "id" | "name" | "email" | "avatar_url">[];
   childCounts: Map<string, number>;
+  searchMatches: Map<string, QuestDiscoveryHit>;
 }) {
   // Tick the "X ago" labels on each row once a minute.
   useRelativeNow();
@@ -146,6 +150,10 @@ export default function QuestList({
                     const status = optimistic[q.id] ?? q.status;
                     const isFocused = focusId === q.id;
                     const childCount = childCounts.get(q.id) ?? 0;
+                    const searchMatch = searchMatches.get(q.id);
+                    const searchReason = searchMatch
+                      ? summarizeQuestDiscoveryReasons(searchMatch.reasons)
+                      : "";
                     return (
                       <div
                         key={q.id}
@@ -164,6 +172,14 @@ export default function QuestList({
                           <span className="quest-list-row-main">
                             <StatusDot status={status} />
                             <span className="ideas-list-row-name">{q.idea?.name ?? q.id}</span>
+                            {searchReason && (
+                              <span
+                                className="quest-search-chip"
+                                title={`Matched via ${searchMatch?.reasons.join(" · ") ?? ""}`}
+                              >
+                                via {searchReason}
+                              </span>
+                            )}
                             {childCount > 0 && (
                               <span
                                 className="quest-child-count"

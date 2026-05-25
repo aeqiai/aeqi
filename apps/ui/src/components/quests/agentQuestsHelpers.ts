@@ -158,3 +158,157 @@ export function questAncestors(id: string, quests: Quest[]): Quest[] {
   }
   return ancestors;
 }
+
+export interface QuestDiscoveryHit {
+  quest: Quest;
+  score: number;
+  reasons: string[];
+}
+
+const SEARCH_TOKEN_RE = /[a-z0-9]+/g;
+
+const DIRECT_FIELD_WEIGHTS: Array<{ label: string; weight: number; value: (q: Quest) => string }> =
+  [
+    { label: "title", weight: 70, value: (q) => q.idea?.name ?? "" },
+    { label: "body", weight: 38, value: (q) => q.idea?.content ?? "" },
+    { label: "tags", weight: 46, value: (q) => (q.idea?.tags ?? []).join(" ") },
+    { label: "id", weight: 62, value: (q) => q.id },
+    { label: "assignee", weight: 18, value: (q) => q.assignee ?? "" },
+    { label: "agent", weight: 16, value: (q) => q.agent_id ?? "" },
+    { label: "status", weight: 12, value: (q) => q.status.replaceAll("_", " ") },
+    { label: "priority", weight: 8, value: (q) => q.priority },
+  ];
+
+function normalizeSearch(raw: string): { phrase: string; tokens: string[] } {
+  const lower = raw.trim().toLowerCase();
+  const tokens = Array.from(new Set(lower.match(SEARCH_TOKEN_RE) ?? []));
+  return { phrase: lower, tokens };
+}
+
+function scoreField(value: string, phrase: string, tokens: string[], weight: number): number {
+  if (!value || tokens.length === 0) return 0;
+  const haystack = value.toLowerCase();
+  if (phrase && haystack.includes(phrase)) return weight;
+  const hits = tokens.filter((token) => haystack.includes(token)).length;
+  if (hits === 0) return 0;
+  return Math.max(4, Math.round((weight * hits) / tokens.length / 2));
+}
+
+function addReason(reasons: string[], label: string): void {
+  if (!reasons.includes(label)) reasons.push(label);
+}
+
+function addHit(
+  hits: Map<string, { score: number; reasons: string[] }>,
+  questId: string,
+  score: number,
+  reason: string,
+): void {
+  if (score <= 0) return;
+  const current = hits.get(questId);
+  if (!current) {
+    hits.set(questId, { score, reasons: [reason] });
+    return;
+  }
+  current.score += score;
+  addReason(current.reasons, reason);
+}
+
+/**
+ * Rank quests for the board search box.
+ *
+ * The board stays operational, but search becomes graph-aware:
+ * direct quest fields score highest, then related quests get a smaller
+ * boost when their parent/child/dependency/shared-spec neighbors match.
+ */
+export function rankQuestDiscovery(quests: Quest[], rawSearch: string): QuestDiscoveryHit[] {
+  const { phrase, tokens } = normalizeSearch(rawSearch);
+  if (tokens.length === 0) return [];
+
+  const byId = new Map(quests.map((quest) => [quest.id, quest]));
+  const childrenByParent = new Map<string, Quest[]>();
+  const dependentsByTarget = new Map<string, Quest[]>();
+  for (const quest of quests) {
+    const parentId = questParentId(quest.id);
+    if (!parentId) continue;
+    const list = childrenByParent.get(parentId) ?? [];
+    list.push(quest);
+    childrenByParent.set(parentId, list);
+  }
+  for (const quest of quests) {
+    for (const depId of quest.depends_on ?? []) {
+      const list = dependentsByTarget.get(depId) ?? [];
+      list.push(quest);
+      dependentsByTarget.set(depId, list);
+    }
+  }
+
+  const directHits = new Map<string, { score: number; reasons: string[] }>();
+  for (const quest of quests) {
+    const reasons: string[] = [];
+    let score = 0;
+    for (const field of DIRECT_FIELD_WEIGHTS) {
+      const fieldScore = scoreField(field.value(quest), phrase, tokens, field.weight);
+      if (fieldScore > 0) {
+        score += fieldScore;
+        addReason(reasons, field.label);
+      }
+    }
+    if (score > 0) directHits.set(quest.id, { score, reasons });
+  }
+
+  const ranked = new Map<string, { score: number; reasons: string[] }>();
+  for (const quest of quests) {
+    const direct = directHits.get(quest.id);
+    if (!direct) continue;
+    ranked.set(quest.id, { score: direct.score, reasons: [...direct.reasons] });
+  }
+
+  for (const [questId, direct] of directHits.entries()) {
+    const quest = byId.get(questId);
+    if (!quest) continue;
+    const boost = Math.max(4, Math.round(direct.score * 0.3));
+
+    const parentId = questParentId(quest.id);
+    if (parentId) {
+      addHit(ranked, parentId, boost, "child");
+    }
+
+    for (const child of childrenByParent.get(quest.id) ?? []) {
+      addHit(ranked, child.id, Math.max(4, Math.round(boost * 0.8)), "parent");
+    }
+
+    for (const dependent of dependentsByTarget.get(quest.id) ?? []) {
+      addHit(ranked, dependent.id, Math.max(4, Math.round(boost * 0.9)), "dependency");
+    }
+
+    for (const siblingId of quest.sibling_quest_ids ?? []) {
+      if (byId.has(siblingId)) {
+        addHit(ranked, siblingId, Math.max(4, Math.round(boost * 0.85)), "shared spec");
+      }
+    }
+  }
+
+  return Array.from(ranked.entries())
+    .map(([questId, hit]) => ({
+      quest: byId.get(questId)!,
+      score: hit.score,
+      reasons: hit.reasons,
+    }))
+    .filter((hit) => hit.quest != null)
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        (b.quest.updated_at ?? b.quest.created_at).localeCompare(
+          a.quest.updated_at ?? a.quest.created_at,
+        ) ||
+        a.quest.id.localeCompare(b.quest.id),
+    );
+}
+
+export function summarizeQuestDiscoveryReasons(reasons: string[]): string {
+  const unique = Array.from(new Set(reasons));
+  if (unique.length === 0) return "";
+  if (unique.length === 1) return unique[0];
+  return `${unique[0]} +${unique.length - 1}`;
+}

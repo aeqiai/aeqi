@@ -12,7 +12,7 @@ export default function QuestBoardNoMatches({ onClear, onCompose }: QuestBoardNo
       <div className="empty-state-hero quest-board-empty-hero">
         <h3 className="empty-state-hero-title">No quests match.</h3>
         <p className="empty-state-hero-body">
-          Clear the search to return to the board, or start a new quest from here.
+          Try a broader term, or search by quest title, linked idea, tags, parent, or dependency.
         </p>
         <div className="quest-board-empty-actions">
           <Button variant="secondary" size="sm" onClick={onClear}>

@@ -1,6 +1,7 @@
 import type { Quest, QuestStatus, User } from "@/lib/types";
 import StatusDot from "./StatusDot";
 import QuestActiveCard from "./QuestActiveCard";
+import type { QuestDiscoveryHit } from "./agentQuestsHelpers";
 
 /**
  * Backlog + Cancelled rendered as visible secondary Kanban lanes beneath
@@ -23,6 +24,7 @@ export interface QuestArchiveStripsProps {
   onError: (msg: string) => void;
   agents: { id: string; name: string }[];
   users: Pick<User, "id" | "name" | "email" | "avatar_url">[];
+  searchMatches: Map<string, QuestDiscoveryHit>;
 }
 
 const STRIPS: Array<{ status: QuestStatus; label: string }> = [
@@ -45,6 +47,7 @@ export default function QuestArchiveStrips({
   onError,
   agents,
   users,
+  searchMatches,
 }: QuestArchiveStripsProps) {
   return (
     <div className="quest-secondary-lanes" aria-label="Backlog and cancelled lanes">
@@ -100,6 +103,7 @@ export default function QuestArchiveStrips({
                     onError={onError}
                     agents={agents}
                     users={users}
+                    searchMatch={searchMatches.get(q.id)}
                   />
                 ))
               )}

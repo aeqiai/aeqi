@@ -22,8 +22,10 @@ import {
   QUEST_ALL_COLUMNS,
   importQuestFromMarkdown,
   isDirectChildOf,
+  rankQuestDiscovery,
   questParentId,
   sortQuests,
+  type QuestDiscoveryHit,
   type QuestFilter,
 } from "./agentQuestsHelpers";
 
@@ -96,26 +98,29 @@ export default function QuestBoard({
   // freeze when the board is left open.
   useRelativeNow();
 
-  // Search narrows what's displayed in the columns. Scope filtering
-  // happens upstream (parent AgentQuestsTab) and feeds us `quests`; we
-  // narrow further by subject / description / id substring match.
-  // `allQuests` (unfiltered) stays the source for the scope-tab counts
-  // so the counts don't flicker as the user types.
-  const visibleQuests = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return quests;
-    return quests.filter(
-      (x) =>
-        (x.idea?.name ?? "").toLowerCase().includes(q) ||
-        (x.idea?.content ?? "").toLowerCase().includes(q) ||
-        x.id.toLowerCase().includes(q),
-    );
+  const searchHits = useMemo<QuestDiscoveryHit[]>(() => {
+    const q = search.trim();
+    return q ? rankQuestDiscovery(quests, q) : [];
   }, [quests, search]);
 
-  // Single sorted source feeding both Board grouping and List rendering.
+  const searchMatchById = useMemo(
+    () => new Map(searchHits.map((hit) => [hit.quest.id, hit])),
+    [searchHits],
+  );
+
+  // Search narrows what's displayed in the columns. Scope filtering
+  // happens upstream (parent AgentQuestsTab) and feeds us `quests`; we
+  // either preserve the current sort mode or switch to discovery ranking
+  // when the user is actively searching.
+  const visibleQuests = useMemo(
+    () => (search.trim() ? searchHits.map((hit) => hit.quest) : sortQuests(quests, sort)),
+    [quests, search, searchHits, sort],
+  );
+
+  // Single ordered source feeding both Board grouping and List rendering.
   // Stable sort means within-bucket order in Board reflects the chosen
-  // mode without a secondary sort pass.
-  const sortedVisibleQuests = useMemo(() => sortQuests(visibleQuests, sort), [visibleQuests, sort]);
+  // mode without a secondary pass.
+  const sortedVisibleQuests = visibleQuests;
   const scopeParentId = boardScopeId ? questParentId(boardScopeId) : null;
   const scopeOptions = useMemo(
     () =>
@@ -438,6 +443,7 @@ export default function QuestBoard({
         onError={setErr}
         agents={agents}
         users={users}
+        searchMatches={searchMatchById}
       />
       {err && (
         <Banner kind="error" className="quest-board-error">
@@ -474,6 +480,7 @@ export default function QuestBoard({
           agents={agents}
           users={users}
           childCounts={childCounts}
+          searchMatches={searchMatchById}
         />
       ) : hasSearch && sortedVisibleQuests.length === 0 ? (
         <QuestBoardNoMatches onClear={() => setSearch("")} onCompose={() => onCompose()} />
@@ -598,6 +605,7 @@ export default function QuestBoard({
                                 users={users}
                                 childCount={childCounts.get(q.id) ?? 0}
                                 isScope={q.id === boardScopeId}
+                                searchMatch={searchMatchById.get(q.id)}
                               />
                             ))
                           )}
@@ -626,6 +634,7 @@ export default function QuestBoard({
           onError={setErr}
           agents={agents}
           users={users}
+          searchMatches={searchMatchById}
         />
       )}
     </div>

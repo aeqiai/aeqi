@@ -304,6 +304,19 @@
   font-variant-numeric: tabular-nums;
 }
 
+.quest-search-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-2);
+  border-radius: 999px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  background: color-mix(in oklch, var(--color-card-elevated) 72%, var(--bg-row));
+  color: var(--color-text-secondary);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
 .quest-id {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
