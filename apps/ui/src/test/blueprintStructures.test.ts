@@ -9,8 +9,8 @@ const MULTI: SingleBlueprint = {
     name: "CEO",
   },
   seed_roles: [
-    { key: "ceo", title: "CEO", default_occupant_agent: "root" },
-    { key: "cto", title: "CTO", default_occupant_agent: "root" },
+    { key: "ceo", title: "CEO", default_occupant_agent: "default" },
+    { key: "cto", title: "CTO", default_occupant_agent: "default" },
     { key: "advisory-board", title: "Advisory Board", default_occupant_agent: null },
     { key: "legal-advisor", title: "Legal Advisor", default_occupant_agent: null },
   ],
@@ -47,6 +47,7 @@ describe("blueprintStructures", () => {
     expect(countBlueprintStructures(FALLBACK)).toBe(1);
     expect(structures).toHaveLength(1);
     expect(structures[0].title).toBe("Founder");
+    expect(structures[0].rootKeys).toEqual(["default"]);
     expect(structures[0].layers[0][0].title).toBe("Founder");
   });
 });

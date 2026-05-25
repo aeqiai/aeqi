@@ -22,7 +22,7 @@ interface BlueprintTreePreviewProps {
  * tokens (border tone + category eyebrow chip).
  *
  * Reads declared `seed_roles` + `seed_role_edges` when present; falls
- * back to the implicit root → flat seed_agents shape otherwise.
+ * back to a default role plus flat seed_agents otherwise.
  */
 export function BlueprintTreePreview({ template }: BlueprintTreePreviewProps) {
   const structures = describeBlueprintStructures(template);
@@ -61,6 +61,18 @@ export function BlueprintTreePreview({ template }: BlueprintTreePreviewProps) {
   );
 }
 
+function isDefaultAgentRef(value: string | null | undefined, defaultAgentName: string): boolean {
+  return !value || value === "default" || value === "root" || value === defaultAgentName;
+}
+
+function displayOccupant(
+  value: string | null | undefined,
+  defaultAgentName: string,
+): string | null {
+  if (!value) return null;
+  return isDefaultAgentRef(value, defaultAgentName) ? defaultAgentName : value;
+}
+
 function StructureBlock({
   structure,
   index,
@@ -94,15 +106,10 @@ function StructureBlock({
               {layer.map((role, i) => {
                 const isRoot =
                   structure.rootKeys.includes(role.key) ||
-                  role.default_occupant_agent === "root" ||
-                  role.default_occupant_agent === rootName;
-                const occupantName = role.default_occupant_agent ?? null;
+                  isDefaultAgentRef(role.default_occupant_agent, rootName);
+                const occupantName = displayOccupant(role.default_occupant_agent, rootName);
                 const occupantAgent = occupantName ? agentByName.get(occupantName) : undefined;
-                const subtitle = occupantName
-                  ? isRoot
-                    ? structure.title
-                    : occupantName
-                  : "vacant";
+                const subtitle = occupantName ? occupantName : "vacant";
                 const category = isRoot ? "leadership" : categorizeRole(role.title);
                 const swatchColor = isRoot ? rootColor : (occupantAgent?.color ?? undefined);
                 return (

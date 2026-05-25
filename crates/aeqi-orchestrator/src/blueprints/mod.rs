@@ -1,6 +1,6 @@
 //! Compile-time-embedded company templates.
 //!
-//! A template is a pre-threaded starter kit: one root agent plus seed agents,
+//! A template is a pre-threaded starter kit: a flat agent set plus seed roles,
 //! events, ideas, and quests. Shipped catalog lives under
 //! `presets/blueprints/*.json` and is `include_str!`'d so the runtime is
 //! self-contained regardless of where it launches from.
@@ -10,8 +10,8 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::ipc::blueprints::{
-    AgentTemplateSpec, Blueprint, SeedAgentSpec, SeedEventSpec, SeedIdeaSpec, SeedQuestSpec,
-    SeedRoleEdgeSpec, SeedRoleSpec,
+    AgentTemplateSpec, Blueprint, DEFAULT_AGENT_OWNER, SeedAgentSpec, SeedEventSpec, SeedIdeaSpec,
+    SeedQuestSpec, SeedRoleEdgeSpec, SeedRoleSpec,
 };
 
 /// Slug of the canonical fallback default Blueprint shipped with the
@@ -140,7 +140,7 @@ pub fn expand_catalog_assets(
 }
 
 fn remap_template_owner(owner: &str, template_agent_name: &str) -> String {
-    if owner.is_empty() || owner == "root" {
+    if owner.is_empty() || owner == "root" || owner == DEFAULT_AGENT_OWNER {
         template_agent_name.to_string()
     } else {
         owner.to_string()
@@ -306,7 +306,7 @@ mod tests {
                 .seed_roles
                 .iter()
                 .any(|role| role.title == "Chief of Staff"),
-            "default blueprint should expose the root agent as a Chief of Staff role",
+            "default blueprint should expose the Chief of Staff as an occupied role",
         );
         assert!(
             default.seed_roles.iter().any(|role| {
@@ -319,8 +319,19 @@ mod tests {
             default
                 .seed_role_edges
                 .iter()
-                .any(|edge| edge.parent == "root" && edge.child == "founder-associate"),
+                .any(|edge| edge.parent == "chief-of-staff" && edge.child == "founder-associate"),
             "Founder Associate should sit under the Chief of Staff in the role map",
+        );
+        assert!(
+            !default
+                .seed_events
+                .iter()
+                .any(|event| event.owner == "root"),
+            "default blueprint should use the default owner token instead of legacy root-owned events",
+        );
+        assert!(
+            !default.seed_ideas.iter().any(|idea| idea.owner == "root"),
+            "default blueprint should use the default owner token instead of legacy root-owned ideas",
         );
         assert!(
             default

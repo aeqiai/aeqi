@@ -61,13 +61,13 @@ export function describeBlueprintStructures(
     const title =
       visibleRoots.length === 1
         ? visibleRoots[0].title
-        : `${visibleRoots[0].title} + ${visibleRoots.length - 1} more roots`;
+        : `${visibleRoots[0].title} + ${visibleRoots.length - 1} more top roles`;
     const subtitleParts = [
       `${componentRoles.length} ${componentRoles.length === 1 ? "role" : "roles"}`,
       `${componentEdges.length} ${componentEdges.length === 1 ? "link" : "links"}`,
     ];
     if (visibleRoots.length > 1) {
-      subtitleParts.push(`${visibleRoots.length} roots`);
+      subtitleParts.push(`${visibleRoots.length} top roles`);
     }
     return {
       id: rootKeys.join("+") || componentKeys[0] || "structure",
@@ -84,9 +84,9 @@ export function describeBlueprintStructures(
 function describeFallbackStructure(template: SingleBlueprint): BlueprintStructurePreview {
   const rootName = template.root?.name ?? template.name;
   const root: BlueprintSeedRole = {
-    key: "root",
+    key: "default",
     title: rootName,
-    default_occupant_agent: "root",
+    default_occupant_agent: "default",
   };
   const children: BlueprintSeedRole[] = (template.seed_agents ?? []).map((seed, i) => ({
     key: `seed-${i}`,
@@ -97,7 +97,7 @@ function describeFallbackStructure(template: SingleBlueprint): BlueprintStructur
   return {
     id: root.key,
     title: rootName,
-    subtitle: `1 root · ${children.length} ${children.length === 1 ? "agent" : "agents"}`,
+    subtitle: `1 top role · ${children.length} ${children.length === 1 ? "agent" : "agents"}`,
     rootKeys: [root.key],
     roles,
     edges: [],

@@ -25,9 +25,9 @@ export interface Trust {
   slug?: string;
   /** EOA that created this Trust's on-chain TRUST mirror. */
   creator_address?: string;
-  /** Root agent UUID for this trust. Surfaced by the platform's
+  /** Default agent UUID for this trust. Surfaced by the platform's
    *  `/api/trusts` payload as `agent_id` so trust-scoped surfaces (`/me/*`,
-   *  AgentPage) can resolve the root without an entity-scoped agents fetch. */
+   *  AgentPage) can resolve the entry agent without an entity-scoped fetch. */
   agent_id?: string;
   /** Placement type — `"host"`, `"sandbox"`, `"vps"`, or `"unknown"`. */
   placement_type?: string;
@@ -427,7 +427,7 @@ export interface DefaultAgentSpec {
 export interface BlueprintSeedRole {
   key: string;
   title: string;
-  /** seed_agent name (or "root") that fills this role at spawn time;
+  /** seed_agent name (or "default") that fills this role at spawn time;
    *  null leaves the role vacant for the operator to fill. */
   default_occupant_agent?: string | null;
 }
@@ -484,9 +484,8 @@ export interface SingleBlueprint {
   seed_ideas?: BlueprintSeedIdea[];
   seed_quests?: BlueprintSeedQuest[];
   /** Declared role structure. When present, the org-chart preview
-   *  reads from here; when absent, falls back to the implicit
-   *  root → flat seed_agents shape. Declared roles must mirror the
-   *  agent tree 1:1 to keep the preview honest with what spawns. */
+   *  reads from here; when absent, falls back to one default role plus
+   *  flat seed_agents. Role edges carry hierarchy; agents are occupants. */
   seed_roles?: BlueprintSeedRole[];
   seed_role_edges?: BlueprintSeedRoleEdge[];
 }

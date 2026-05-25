@@ -10,9 +10,9 @@ interface BlueprintSeedCountsProps {
  * hero so the reader gets information scent before the org chart. Each
  * pill is a count + label. The role count comes from declared
  * `seed_roles` when present (the canonical structure), falling back to
- * the implicit root agent plus `seed_agents` for un-ported blueprints.
- * Agent count always includes the implicit root identity so a one-agent
- * starter never reads as empty.
+ * one default role plus `seed_agents` for un-ported blueprints. Agent
+ * count always includes the default agent so a one-agent starter never
+ * reads as empty.
  */
 export function BlueprintSeedCounts({ template }: BlueprintSeedCountsProps) {
   const declaredRoles = template.seed_roles?.length ?? 0;

@@ -31,9 +31,9 @@ interface BlueprintPickerModalProps {
 /**
  * `+ New agent` modal — wraps the shared `BlueprintLaunchPicker` in a
  * `Modal` and routes its spawn into the active entity (the picked
- * blueprint's root attaches under the entity's root agent; seeds nest
- * under that root). Shares the blueprint-picker interaction used by
- * launch; only the destination differs.
+ * blueprint's default agent attaches to the existing entity; seed roles
+ * define the visible authority map). Shares the blueprint-picker interaction
+ * used by launch; only the destination differs.
  *
  * Reused by Ideas / Quests Import-from-blueprint via the `parts` +
  * `onSpawned` props — same picker, narrower scope.

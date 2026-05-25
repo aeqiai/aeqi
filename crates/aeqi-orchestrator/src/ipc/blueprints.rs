@@ -1,7 +1,7 @@
 //! Company blueprint IPC handlers.
 //!
-//! A "blueprint" here is a pre-threaded starter kit for a company: one
-//! default agent plus seed agents, events, ideas, and quests. The shipped
+//! A "blueprint" here is a pre-threaded starter kit for a company: a flat
+//! set of agents plus seed roles, events, ideas, and quests. The shipped
 //! catalog is embedded at compile time (see [`crate::blueprints`]) so the
 //! runtime is self-contained regardless of the cwd it launches from. The
 //! on-disk `presets/blueprints/*.json` files remain the source of truth
@@ -21,9 +21,12 @@ use crate::event_handler::{EventHandlerStore, NewEvent, ToolCall};
 // Schema
 // ---------------------------------------------------------------------------
 
-/// Default-agent definition. The default agent occupies the topmost role
-/// when the company spawns; the entity owns it (and every other seed agent)
-/// through the role tree.
+pub const DEFAULT_AGENT_OWNER: &str = "default";
+const LEGACY_ROOT_OWNER: &str = "root";
+
+/// Default-agent definition. This is the first agent opened after launch,
+/// not a product hierarchy root. Role hierarchy lives in `seed_roles` and
+/// `seed_role_edges`; this agent is simply the default occupant for a role.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DefaultAgentSpec {
     pub name: String,
@@ -59,14 +62,14 @@ pub struct DefaultAgentSpec {
     pub seed_messages: Vec<SeedMessageSpec>,
 }
 
-/// Child agent. `owner` is always "root" for seed_agents — they sit directly
-/// under the blueprint's default agent. ("root" is a stable JSON owner
-/// token, not a structural concept: it names the topmost role in the
-/// blueprint's role tree.) Nested hierarchies are deferred to v2.
+/// Seed agent. `owner` points at the default agent (`"default"`) or another
+/// seed agent for legacy runtime-lineage placement. Product hierarchy must be
+/// modeled with roles and role edges, not agent parentage.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct SeedAgentSpec {
-    /// Currently must be "root". Reserved for future nested templates.
-    #[serde(default = "default_owner_root")]
+    /// Defaults to the blueprint's default agent. Legacy JSON may still use
+    /// `"root"`; spawn normalizes it to `"default"`.
+    #[serde(default = "default_owner_default")]
     pub owner: String,
     /// Stable catalog template this seed was derived from, when any. Inline
     /// seed agents leave this empty.
@@ -88,7 +91,7 @@ pub struct SeedAgentSpec {
     /// Optional spawn-time greeting — see [`DefaultAgentSpec::proactive_greeting`].
     #[serde(default)]
     pub proactive_greeting: Option<String>,
-    /// Additional spawn-time messages — see [`RootAgentSpec::seed_messages`].
+    /// Additional spawn-time messages — see [`DefaultAgentSpec::seed_messages`].
     #[serde(default)]
     pub seed_messages: Vec<SeedMessageSpec>,
 }
@@ -109,14 +112,14 @@ pub struct SeedMessageSpec {
     pub payload_kind: Option<String>,
 }
 
-fn default_owner_root() -> String {
-    "root".to_string()
+fn default_owner_default() -> String {
+    DEFAULT_AGENT_OWNER.to_string()
 }
 
-/// Seed event. `owner` is "root" or the name of a seed_agent.
+/// Seed event. `owner` is `"default"` or the name of a seed_agent.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct SeedEventSpec {
-    #[serde(default = "default_owner_root")]
+    #[serde(default = "default_owner_default")]
     pub owner: String,
     pub name: String,
     pub pattern: String,
@@ -133,10 +136,10 @@ pub struct ToolCallSpec {
     pub args: serde_json::Value,
 }
 
-/// Seed idea. `owner` is "root" or the name of a seed_agent.
+/// Seed idea. `owner` is `"default"` or the name of a seed_agent.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct SeedIdeaSpec {
-    #[serde(default = "default_owner_root")]
+    #[serde(default = "default_owner_default")]
     pub owner: String,
     pub name: String,
     pub content: String,
@@ -144,10 +147,10 @@ pub struct SeedIdeaSpec {
     pub tags: Vec<String>,
 }
 
-/// Seed quest. `owner` is "root" or the name of a seed_agent.
+/// Seed quest. `owner` is `"default"` or the name of a seed_agent.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct SeedQuestSpec {
-    #[serde(default = "default_owner_root")]
+    #[serde(default = "default_owner_default")]
     pub owner: String,
     /// Optional stable key used by other seed quests' `parent` field. If
     /// omitted, the subject is also registered as a reference key.
@@ -199,7 +202,7 @@ pub struct AgentTemplateSpec {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct AgentTemplateRef {
     pub id: String,
-    #[serde(default = "default_owner_root")]
+    #[serde(default = "default_owner_default")]
     pub owner: String,
     #[serde(default)]
     pub name: Option<String>,
@@ -210,7 +213,7 @@ pub struct AgentTemplateRef {
 /// A declared role inside the entity. `key` is a stable identifier
 /// (used by `seed_role_edges` to reference this role); `title` is the
 /// user-visible label ("CTO"). `default_occupant_agent` names a
-/// seed_agent (or "root") to slot into this role at spawn time;
+/// seed_agent (or `"default"`) to slot into this role at spawn time;
 /// when `None`, the role spawns vacant.
 ///
 /// v1 round-trips this through the wire so the UI can render the
@@ -256,7 +259,7 @@ pub struct RoleOverride {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub enum OverrideOccupant {
-    /// Use a seed_agent by name (or "root" for the default agent).
+    /// Use a seed_agent by name (or `"default"` for the default agent).
     Agent { agent: String },
     /// Slot a human user as the occupant. `user_id` is the
     /// platform-side user UUID; usually the operator's own.
@@ -403,11 +406,11 @@ fn parse_role_overrides(request: &serde_json::Value) -> Vec<RoleOverride> {
 /// Spawn a company from a blueprint. Pure logic: everything external is
 /// injected so tests can drive this without the full daemon context.
 ///
-/// When `parent_agent_id` is `Some`, the blueprint's default agent attaches
-/// as a sub-agent under that parent (reusing the parent's entity);
-/// seed_agents nest under the blueprint's default agent just like a normal
-/// spawn. This is the "import blueprint into existing entity" path that
-/// powers `+ New agent`. When `None`, a fresh entity is minted unless
+/// When `parent_agent_id` is `Some`, the blueprint's default agent reuses the
+/// parent's entity; that parent-child link is runtime lineage, not product
+/// hierarchy. Seed roles and role edges define the visible authority map.
+/// This is the "import blueprint into existing entity" path that powers
+/// `+ New agent`. When `None`, a fresh entity is minted unless
 /// `entity_id_override` is supplied — the platform mints the canonical
 /// UUID and passes it through for the `/start/launch` path so the runtime
 /// adopts the platform-side ID instead of minting its own.
@@ -492,7 +495,8 @@ pub async fn spawn_blueprint(
     // ---- seed agents ----
     let mut owner_to_agent_id: std::collections::HashMap<String, String> =
         std::collections::HashMap::new();
-    owner_to_agent_id.insert("root".to_string(), default_agent.id.clone());
+    owner_to_agent_id.insert(DEFAULT_AGENT_OWNER.to_string(), default_agent.id.clone());
+    owner_to_agent_id.insert(LEGACY_ROOT_OWNER.to_string(), default_agent.id.clone());
     owner_to_agent_id.insert(blueprint.root.name.clone(), default_agent.id.clone());
 
     let mut spawned_agents = vec![SpawnedAgent {
@@ -507,7 +511,7 @@ pub async fn spawn_blueprint(
 
     if want_agents {
         for seed in &blueprint.seed_agents {
-            if seed.owner != "root" && seed.owner != blueprint.root.name {
+            if !is_default_agent_ref(&seed.owner, &blueprint.root.name) {
                 warnings.push(format!(
                     "seed_agent '{}' owner '{}' not supported; attaching under the default agent",
                     seed.name, seed.owner,
@@ -851,6 +855,14 @@ fn resolve_owner<'a>(
     owner: &str,
 ) -> Option<&'a str> {
     map.get(owner).map(|s| s.as_str())
+}
+
+fn is_default_agent_ref(value: &str, default_agent_name: &str) -> bool {
+    let value = value.trim();
+    value.is_empty()
+        || value == DEFAULT_AGENT_OWNER
+        || value == LEGACY_ROOT_OWNER
+        || value == default_agent_name
 }
 
 async fn apply_visual_identity(

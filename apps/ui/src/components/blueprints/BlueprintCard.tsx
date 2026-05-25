@@ -20,10 +20,10 @@ const ONCHAIN_MODULES: Record<BlueprintTemplate, string> = {
 };
 
 /** Human-readable runtime summary: "N agents · M events · K ideas · J quests".
- *  Always counts the implicit root agent so cards are never empty-looking. */
+ *  Counts the default agent plus declared seed agents. */
 function formatRuntimeLine(t: SingleBlueprint): string {
   const parts: string[] = [];
-  const a = (t.seed_agents?.length ?? 0) + 1; // +1 for root
+  const a = (t.seed_agents?.length ?? 0) + 1;
   const e = t.seed_events?.length ?? 0;
   const i = t.seed_ideas?.length ?? 0;
   const q = t.seed_quests?.length ?? 0;

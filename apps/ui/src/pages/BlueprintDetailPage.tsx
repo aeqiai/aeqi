@@ -41,20 +41,35 @@ const EMPTY_SEED_EVENTS: BlueprintSeedEvent[] = [];
 const EMPTY_SEED_QUESTS: BlueprintSeedQuest[] = [];
 const EMPTY_SEED_IDEAS: BlueprintSeedIdea[] = [];
 
+const DEFAULT_AGENT_OWNER = "default";
+const LEGACY_ROOT_OWNER = "root";
+
+function isDefaultAgentRef(value: string | null | undefined, defaultAgentName: string): boolean {
+  return (
+    !value ||
+    value === DEFAULT_AGENT_OWNER ||
+    value === LEGACY_ROOT_OWNER ||
+    value === defaultAgentName
+  );
+}
+
 function blueprintAgents(template: SingleBlueprint): BlueprintSeedAgent[] {
-  const rootName = template.root?.name ?? template.name;
-  const rootRole = template.seed_roles?.find(
-    (role) => role.default_occupant_agent === "root" || role.default_occupant_agent === rootName,
+  const defaultAgentName = template.root?.name ?? template.name;
+  const rootRole = template.seed_roles?.find((role) =>
+    isDefaultAgentRef(role.default_occupant_agent, defaultAgentName),
   );
   const rootAgent: BlueprintSeedAgent = {
-    name: rootName,
+    name: defaultAgentName,
     role: rootRole?.title,
     system_prompt: template.root?.system_prompt,
     model: template.root?.model,
     color: template.root?.color,
   };
 
-  return [rootAgent, ...(template.seed_agents ?? []).filter((agent) => agent.name !== rootName)];
+  return [
+    rootAgent,
+    ...(template.seed_agents ?? []).filter((agent) => agent.name !== defaultAgentName),
+  ];
 }
 
 /**
@@ -278,8 +293,8 @@ function OverviewSection({ template }: { template: SingleBlueprint }) {
 
       {/* Stats sit directly under the hero — immediate information
           scent before the user digs into the org chart. Counts answer
-          "what's in this Blueprint" at a glance: roles, default
-          agents, ideas, events, quests. */}
+          "what's in this Blueprint" at a glance: roles, agents,
+          ideas, events, quests. */}
       <BlueprintSeedCounts template={template} />
 
       <section className="bp-detail-section">

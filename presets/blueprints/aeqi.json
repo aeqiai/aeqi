@@ -26,7 +26,7 @@
   "agent_template_refs": [],
   "seed_agents": [
     {
-      "owner": "root",
+      "owner": "default",
       "name": "Founder Associate",
       "tagline": "Turns the Director's first intent into briefs, research, and draft quests.",
       "role": "Founder Associate",
@@ -46,7 +46,7 @@
   ],
   "seed_events": [
     {
-      "owner": "root",
+      "owner": "default",
       "name": "load_starting_context",
       "pattern": "session:start",
       "cooldown_secs": 0,
@@ -76,7 +76,7 @@
       ]
     },
     {
-      "owner": "root",
+      "owner": "default",
       "name": "load_execution_context",
       "pattern": "session:execution_start",
       "cooldown_secs": 0,
@@ -103,7 +103,7 @@
       ]
     },
     {
-      "owner": "root",
+      "owner": "default",
       "name": "load_step_context",
       "pattern": "session:step_start",
       "cooldown_secs": 0,
@@ -125,7 +125,7 @@
       ]
     },
     {
-      "owner": "root",
+      "owner": "default",
       "name": "load_quest_context",
       "pattern": "session:quest_start",
       "cooldown_secs": 0,
@@ -147,7 +147,7 @@
       ]
     },
     {
-      "owner": "root",
+      "owner": "default",
       "name": "prepare_quest_close",
       "pattern": "session:quest_end",
       "cooldown_secs": 0,
@@ -169,7 +169,7 @@
       ]
     },
     {
-      "owner": "root",
+      "owner": "default",
       "name": "reflect_quest_result",
       "pattern": "session:quest_result",
       "cooldown_secs": 0,
@@ -212,7 +212,7 @@
       ]
     },
     {
-      "owner": "root",
+      "owner": "default",
       "name": "handle_interruption",
       "pattern": "session:stopped",
       "cooldown_secs": 0,
@@ -226,7 +226,7 @@
       ]
     },
     {
-      "owner": "root",
+      "owner": "default",
       "name": "weekly_review",
       "pattern": "schedule:0 9 * * 1",
       "cooldown_secs": 3600,
@@ -250,25 +250,25 @@
   ],
   "seed_ideas": [
     {
-      "owner": "root",
+      "owner": "default",
       "name": "First Company operating guide",
       "content": "This is the top-level guide for the default company workspace. Keep the launch understandable: the Director supplies intent, the Chief of Staff turns it into operating structure, and the Founder Associate turns rough material into briefs, open questions, and candidate quests. Ideas should be named so future agents can find them; events should assemble this guide and the role briefs before each important session.",
       "tags": ["identity", "agents", "events", "evergreen"]
     },
     {
-      "owner": "root",
+      "owner": "default",
       "name": "Director's brief",
       "content": "The Director has not yet defined the company. Replace this with one plain sentence naming the outcome this TRUST should help make true. Good first briefs are specific enough to guide work without locking the company too early: 'Help me turn my consulting pipeline into a repeatable operating system.' 'Build the first useful product around my research notes.' 'Run a small studio that ships one client project at a time.' This brief becomes the anchor for every early quest, role, event, and agent recommendation.",
       "tags": ["identity", "priorities", "evergreen"]
     },
     {
-      "owner": "root",
+      "owner": "default",
       "name": "Company shape",
       "content": "Default shape: one human Director, one Chief of Staff, and one Founder Associate. Add structure only when it earns its place. The Chief of Staff owns operating structure and decision sequencing. The Founder Associate owns synthesis, first briefs, research questions, and draft quest candidates. A new role should name a responsibility and an authority boundary. A new agent should own a recurring body of work that the starting operators should not keep doing inline. A new event should load context or automate a cadence the Director already wants.",
       "tags": ["identity", "roles", "agents", "evergreen"]
     },
     {
-      "owner": "root",
+      "owner": "default",
       "name": "Chief of Staff brief",
       "content": "Chief of Staff coordinates the first operating loop: clarify the Director's intent, keep the company shape small, decide which context should become ideas, create quests when work should persist, and route synthesis or research work to the Founder Associate. The Chief of Staff should make one concrete recommendation at a time and avoid silently changing roles, agents, or events.",
       "tags": ["identity", "agents", "roles", "evergreen"]
@@ -280,13 +280,13 @@
       "tags": ["identity", "agents", "research", "evergreen"]
     },
     {
-      "owner": "root",
+      "owner": "default",
       "name": "Working style",
       "content": "The Director's working style is not known yet. Learn it explicitly: how much detail they want, how they prefer decisions framed, what kind of updates help them, how much risk they tolerate, and when they want to approve versus delegate. Store durable preferences as ideas tagged `preferences` or `rules` so future sessions and specialist agents inherit them.",
       "tags": ["identity", "preferences", "rules", "evergreen"]
     },
     {
-      "owner": "root",
+      "owner": "default",
       "name": "AEQI agent usage guide",
       "content": "Use tools to make the company real. Use `ideas` to search, store, update, and supersede durable memory. Use `quests` to create, show, update, close, or cancel work that should survive chat. Use `roles` to inspect the org chart, create responsibility slots, assign occupants, and manage grants when the current role has authority. Use `agents` to list or hire specialist agents once a recurring job is clear. Use `events` to create lifecycle context loaders or explicit routines. Always preview the intended change in plain language before structural changes, then report what changed after the tool call.",
       "tags": [
@@ -301,19 +301,19 @@
       ]
     },
     {
-      "owner": "root",
+      "owner": "default",
       "name": "Capture rule",
       "content": "When a durable decision, preference, operating rule, recurring constraint, or useful bit of context appears in chat, store it with `ideas(action=\"store\")`. Name the idea like a future search query. Do not silently overwrite old context; update or supersede it when the Director changes their mind. A clean idea graph is what lets future agents understand the company without re-interviewing the Director.",
       "tags": ["procedure", "ideas", "evergreen"]
     },
     {
-      "owner": "root",
+      "owner": "default",
       "name": "Operating loop",
       "content": "Default loop: understand the Director's intent, store the durable context as ideas, create one concrete quest with a visible completion test, define roles when responsibility or authority needs a home, hire an agent only when a recurring job is visible, and create events only when lifecycle context or an explicit routine should run automatically. Keep the first loop small enough for the Director to judge from the inbox.",
       "tags": ["procedure", "quests", "roles", "agents", "events", "evergreen"]
     },
     {
-      "owner": "root",
+      "owner": "default",
       "name": "Review routine",
       "content": "Default routine: a short weekly review on Monday morning. Use it to look for open decisions, stalled quests, shipped work, changed priorities, and whether the company shape should change. The routine is intentionally light; the Director can change the schedule, disable it, or replace it with a different cadence once their working style is clear.",
       "tags": ["procedure", "events", "review", "cadence", "evergreen"]
@@ -321,14 +321,14 @@
   ],
   "seed_quests": [
     {
-      "owner": "root",
+      "owner": "default",
       "key": "setup_first_company",
       "subject": "Set up your First Company",
       "description": "Guide the Director through the first useful shape of this TRUST. Finish with a short company map: the Director's brief, working style, first durable quest, first public website shell, initial role map, whether any agent or human teammate should be added, and the review cadence. Keep the setup small enough that the Director can understand it from the inbox.",
       "labels": ["onboarding", "project", "director"]
     },
     {
-      "owner": "root",
+      "owner": "default",
       "key": "director_brief",
       "parent": "setup_first_company",
       "subject": "Define the Director's brief",
@@ -336,7 +336,7 @@
       "labels": ["onboarding", "identity", "director"]
     },
     {
-      "owner": "root",
+      "owner": "default",
       "key": "working_style",
       "parent": "setup_first_company",
       "subject": "Learn the Director's working style",
@@ -344,7 +344,7 @@
       "labels": ["onboarding", "ideas", "preferences"]
     },
     {
-      "owner": "root",
+      "owner": "default",
       "key": "first_real_quest",
       "parent": "setup_first_company",
       "subject": "Open the first real quest",
@@ -352,7 +352,7 @@
       "labels": ["onboarding", "quests", "execution"]
     },
     {
-      "owner": "root",
+      "owner": "default",
       "key": "public_website",
       "parent": "setup_first_company",
       "subject": "Publish the first public website",
@@ -360,7 +360,7 @@
       "labels": ["onboarding", "website", "product"]
     },
     {
-      "owner": "root",
+      "owner": "default",
       "key": "role_map",
       "parent": "setup_first_company",
       "subject": "Sketch the first role map",
@@ -368,7 +368,7 @@
       "labels": ["onboarding", "roles", "authority"]
     },
     {
-      "owner": "root",
+      "owner": "default",
       "key": "first_teammate",
       "parent": "setup_first_company",
       "subject": "Decide the first teammate",
@@ -376,7 +376,7 @@
       "labels": ["onboarding", "agents", "humans", "roles"]
     },
     {
-      "owner": "root",
+      "owner": "default",
       "key": "review_cadence",
       "parent": "setup_first_company",
       "subject": "Set the first review cadence",
@@ -386,9 +386,9 @@
   ],
   "seed_roles": [
     {
-      "key": "root",
+      "key": "chief-of-staff",
       "title": "Chief of Staff",
-      "default_occupant_agent": "root",
+      "default_occupant_agent": "default",
       "role_type": "operational"
     },
     {
@@ -400,7 +400,7 @@
   ],
   "seed_role_edges": [
     {
-      "parent": "root",
+      "parent": "chief-of-staff",
       "child": "founder-associate"
     }
   ]

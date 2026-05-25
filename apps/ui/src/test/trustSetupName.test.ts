@@ -19,7 +19,7 @@ const defaultBlueprint: SingleBlueprint = {
 };
 
 describe("defaultTrustName", () => {
-  it("uses the operator identity for standard launch instead of the reusable blueprint root", () => {
+  it("uses the operator identity for standard launch instead of the reusable default agent", () => {
     expect(
       defaultTrustName({ name: "Operator", email: "operator@aeqi.local" }, standardBlueprint),
     ).toBe("Operator TRUST");
