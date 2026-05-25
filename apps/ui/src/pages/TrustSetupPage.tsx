@@ -64,6 +64,25 @@ export function defaultTrustName(
   return `${base}'s TRUST`;
 }
 
+export function launchNameCandidates(
+  user: { name?: string | null; email?: string | null } | null,
+  blueprint: Blueprint | null,
+): string[] {
+  const base = defaultTrustName(user, blueprint);
+  const root = base.replace(/\s+TRUST$/i, "").trim() || base.trim() || "Your TRUST";
+  const candidates = [
+    base,
+    `${root} TRUST Labs`,
+    `${root} TRUST Studio`,
+    `${root} TRUST One`,
+    `${root} TRUST Works`,
+    `${root} TRUST Build`,
+    `${root} TRUST HQ`,
+  ];
+
+  return [...new Set(candidates.map((candidate) => candidate.trim()).filter(Boolean))];
+}
+
 function unavailableNameHint(name: string): string {
   const base = name.trim() || "Your TRUST";
   return `Already taken. Try ${base} Labs, ${base} One, or ${base} Trust.`;
@@ -89,6 +108,8 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [provisioning, setProvisioning] = useState(false);
+  const [launchWebsiteUrl, setLaunchWebsiteUrl] = useState<string | null>(null);
+  const [launchWebsiteDomain, setLaunchWebsiteDomain] = useState<string | null>(null);
   const [trustName, setTrustName] = useState("");
   const [trustNameTouched, setTrustNameTouched] = useState(false);
   const [operations, setOperations] = useState<OperationsChoice>("paid");
@@ -97,6 +118,8 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
   const [nameCheck, setNameCheck] = useState<NameCheckState>({ status: "idle" });
 
   const nameCheckSeq = useRef(0);
+  const launchNameSeedRef = useRef<string | null>(null);
+  const trustNameTouchedRef = useRef(false);
   const activeLaunchEntity = useMemo(
     () => (launchId ? (entities.find((entity) => entity.id === launchId) ?? null) : null),
     [entities, launchId],
@@ -165,6 +188,45 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
   }, [blueprint, trustNameTouched, user]);
 
   useEffect(() => {
+    trustNameTouchedRef.current = trustNameTouched;
+  }, [trustNameTouched]);
+
+  useEffect(() => {
+    if (trustNameTouched || !blueprint) {
+      launchNameSeedRef.current = null;
+      return;
+    }
+
+    const seed = defaultTrustName(user, blueprint);
+    if (launchNameSeedRef.current === seed) return;
+    launchNameSeedRef.current = seed;
+
+    let cancelled = false;
+    const pickAvailableLaunchName = async () => {
+      for (const candidate of launchNameCandidates(user, blueprint)) {
+        try {
+          const resp = await api.checkLaunchName(candidate);
+          if (cancelled) return;
+          if (resp.available) {
+            setTrustName((current) => {
+              if (trustNameTouchedRef.current) return current;
+              return current.trim() === candidate.trim() ? current : candidate;
+            });
+            return;
+          }
+        } catch {
+          return;
+        }
+      }
+    };
+
+    void pickAvailableLaunchName();
+    return () => {
+      cancelled = true;
+    };
+  }, [blueprint, trustNameTouched, user]);
+
+  useEffect(() => {
     if (isAdmin && !operationsTouched) {
       setOperations("sandbox");
       return;
@@ -200,7 +262,7 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
       case "available":
         return "Name is available.";
       case "error":
-        return nameCheck.message;
+        return "We'll verify this while launching.";
       case "taken":
         return unavailableNameHint(trustName);
       case "idle":
@@ -210,7 +272,7 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
   }, [nameCheck, trustName]);
 
   const nameError = useMemo(() => {
-    if (nameCheck.status === "error") {
+    if (nameCheck.status === "taken") {
       return nameCheck.message;
     }
     return undefined;
@@ -248,13 +310,18 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
 
   useEffect(() => {
     setProvisioning(Boolean(launchId));
-    if (launchId) setSubmitError(null);
+    if (launchId) {
+      setSubmitError(null);
+    } else {
+      setLaunchWebsiteUrl(null);
+      setLaunchWebsiteDomain(null);
+    }
   }, [launchId]);
 
   const handleFreeTrust = useCallback(async () => {
     if (!blueprint) return;
     const displayName = trustName.trim();
-    if (!displayName || nameCheck.status !== "available") return;
+    if (!displayName || nameCheck.status === "taken") return;
 
     setSubmitError(null);
     setSubmitting(true);
@@ -268,8 +335,13 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
       const trustId = created.trust?.id || created.id;
       if (!trustId) throw new Error("The TRUST was created without an id.");
 
+      try {
+        await api.updateEntity(trustId, { public: true });
+        await fetchEntities();
+      } catch (publishError) {
+        console.error("failed to publish website after trust creation", publishError);
+      }
       setActiveEntity(trustId);
-      await fetchEntities();
       const refreshed = useDaemonStore.getState().entities.find((entity) => entity.id === trustId);
       if (refreshed?.trust_address) {
         navigate(`/trust/${encodeURIComponent(refreshed.trust_address)}`, { replace: true });
@@ -285,7 +357,7 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
   const handlePaidLaunch = useCallback(async () => {
     if (!blueprint) return;
     const displayName = trustName.trim();
-    if (!displayName || nameCheck.status !== "available") return;
+    if (!displayName || nameCheck.status === "taken") return;
 
     setSubmitError(null);
     setSubmitting(true);
@@ -298,6 +370,8 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
           mission: "",
           plan: "sandbox",
         });
+        setLaunchWebsiteUrl(resp.website_url ?? null);
+        setLaunchWebsiteDomain(resp.website_domain ?? null);
 
         setSearchParams(
           new URLSearchParams({
@@ -360,11 +434,14 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
       <LaunchingReveal
         trustId={launchId}
         fallbackDisplayName={activeLaunchEntity?.name || trustName.trim() || undefined}
+        websiteUrl={launchWebsiteUrl}
+        websiteDomain={launchWebsiteDomain}
       />
     );
   }
 
-  const canSubmit = trustName.trim().length > 1 && nameCheck.status === "available";
+  const canSubmit =
+    trustName.trim().length > 1 && nameCheck.status !== "checking" && nameCheck.status !== "taken";
 
   return (
     <TrustSetupFlow

@@ -686,7 +686,13 @@ export const api = {
     mission?: string;
     plan?: LaunchPlanId | string;
   }) =>
-    request<{ ok: boolean; trust_id: string; display_name: string }>("/start/launch", {
+    request<{
+      ok: boolean;
+      trust_id: string;
+      display_name: string;
+      website_domain?: string | null;
+      website_url?: string | null;
+    }>("/start/launch", {
       method: "POST",
       body: JSON.stringify(data),
     }),

@@ -26,7 +26,7 @@ describe("LaunchingReveal", () => {
     useUIStore.setState({ activeEntity: "" } as never);
   });
 
-  it("automatically enters the launched TRUST when the placement is ready", async () => {
+  it("shows the launched TRUST and live website handoff when the placement is ready", async () => {
     getLaunchStatus.mockResolvedValue({
       placement_status: "ready",
       display_name: "Janus TRUST",
@@ -41,12 +41,22 @@ describe("LaunchingReveal", () => {
             path="/launch"
             element={<LaunchingReveal trustId="ent_123" fallbackDisplayName="Janus TRUST" />}
           />
-          <Route path="/trust/:trustAddress" element={<div>Trust shell</div>} />
         </Routes>
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText("Trust shell")).toBeInTheDocument();
+    expect(
+      await screen.findByText("The TRUST exists and the public website shell is live."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Website")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open Website" })).toHaveAttribute(
+      "href",
+      "/9AlphaTrust111111111111111111111111111111111",
+    );
+    expect(screen.getByRole("link", { name: "Enter Trust" })).toHaveAttribute(
+      "href",
+      "/trust/9AlphaTrust111111111111111111111111111111111",
+    );
     await waitFor(() =>
       expect(useUIStore.getState().activeEntity).toBe(
         "9AlphaTrust111111111111111111111111111111111",

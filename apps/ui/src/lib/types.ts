@@ -21,6 +21,8 @@ export interface Trust {
   trust_id?: string;
   /** On-chain TRUST proxy address. NULL until indexer-confirmed. */
   trust_address?: string;
+  /** Public-profile slug. When present, `/<slug>` resolves to the public website. */
+  slug?: string;
   /** EOA that created this Trust's on-chain TRUST mirror. */
   creator_address?: string;
   /** Root agent UUID for this trust. Surfaced by the platform's

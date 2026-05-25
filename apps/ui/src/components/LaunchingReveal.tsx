@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { useNavigate } from "react-router-dom";
 
 import { ProgressList, type ProgressStep } from "@/components/ui";
 import { api } from "@/lib/api";
+import { publicWebsitePath } from "@/lib/publicWebsite";
 import { LaunchShell } from "@/pages/trustSetup/LaunchShell";
+import { useDaemonStore } from "@/store/daemon";
 import { useUIStore } from "@/store/ui";
 
 import "@/styles/launching-reveal.css";
@@ -41,21 +42,24 @@ function truncate(addr: string): string {
  * every 1s and lights each of four steps as the placement transitions
  * through the spawn flow.
  *
- * Owns the launch interstitial and takes the user into the launched
- * TRUST once the placement becomes ready.
+ * Owns the launch interstitial and exposes the launched TRUST plus the
+ * public website handoff once the placement becomes ready.
  */
 export function LaunchingReveal({
   trustId,
   fallbackDisplayName,
+  websiteUrl,
+  websiteDomain,
 }: {
   trustId: string;
   fallbackDisplayName?: string;
+  websiteUrl?: string | null;
+  websiteDomain?: string | null;
 }) {
   const [status, setStatus] = useState<LaunchStatus | null>(null);
   const [pollError, setPollError] = useState<string | null>(null);
-  const navigate = useNavigate();
+  const fetchEntities = useDaemonStore((s) => s.fetchEntities);
   const setActiveEntity = useUIStore((s) => s.setActiveEntity);
-  const didEnterRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -91,6 +95,11 @@ export function LaunchingReveal({
   const displayName = status?.display_name || fallbackDisplayName || "Your TRUST";
   const isReady = ["ready", "complete"].includes(status?.placement_status ?? "");
   const hasError = Boolean(trustError || runtimeError);
+  const websitePath =
+    trustAddress !== null ? publicWebsitePath({ id: trustId, trust_address: trustAddress }) : null;
+  const launchWebsiteUrl = websiteUrl ?? null;
+  const launchWebsiteLabel =
+    websiteDomain ?? launchWebsiteUrl?.replace(/^https?:\/\//, "") ?? websitePath ?? null;
   const reachedSteps = STEPS.map((step) => {
     const milestone = milestones?.[step.key as MilestoneKey];
     return isReady || (milestone?.reached ?? false);
@@ -134,11 +143,20 @@ export function LaunchingReveal({
   const busy = !isReady && !hasError;
 
   useEffect(() => {
-    if (!isReady || hasError || !trustAddress || didEnterRef.current) return;
-    didEnterRef.current = true;
-    setActiveEntity(trustAddress);
-    navigate(`/trust/${encodeURIComponent(trustAddress)}`, { replace: true });
-  }, [hasError, isReady, navigate, setActiveEntity, trustAddress]);
+    if (!isReady || hasError || !trustAddress) return;
+    void (async () => {
+      try {
+        await api.updateEntity(trustId, { public: true });
+        await fetchEntities();
+      } catch (e) {
+        if (import.meta.env.MODE !== "test") {
+          console.error("failed to publish website on launch", e);
+        }
+      } finally {
+        setActiveEntity(trustAddress);
+      }
+    })();
+  }, [fetchEntities, hasError, isReady, setActiveEntity, trustAddress, trustId]);
 
   return (
     <LaunchShell
@@ -156,7 +174,7 @@ export function LaunchingReveal({
       </h1>
       <p className="auth-subheading">
         {isReady
-          ? "The TRUST exists. Enter it when you are ready."
+          ? "The TRUST exists and the public website shell is live."
           : "Payment confirmed. aeqi is creating the TRUST, registering it on Solana, and starting its runtime."}
       </p>
 
@@ -164,9 +182,48 @@ export function LaunchingReveal({
 
       {isReady && trustAddress && (
         <div className="launching-reveal__complete">
-          <Link className="launching-reveal__cta" to={`/trust/${encodeURIComponent(trustAddress)}`}>
-            Enter Trust
-          </Link>
+          <div className="launching-reveal__website">
+            <div className="launching-reveal__website-meta">
+              <span className="launching-reveal__website-label">Website</span>
+              <span className="launching-reveal__website-route">
+                {launchWebsiteLabel ?? websitePath}
+              </span>
+            </div>
+            <div className="launching-reveal__website-stats" aria-label="Website status">
+              <span className="launching-reveal__website-stat">
+                <strong>Live</strong>
+                <span>Status</span>
+              </span>
+              <span className="launching-reveal__website-stat">
+                <strong>0</strong>
+                <span>Views</span>
+              </span>
+            </div>
+          </div>
+          <div className="launching-reveal__actions">
+            <Link
+              className="launching-reveal__cta"
+              to={`/trust/${encodeURIComponent(trustAddress)}`}
+            >
+              Enter Trust
+            </Link>
+            {launchWebsiteUrl ? (
+              <a
+                className="launching-reveal__secondary"
+                href={launchWebsiteUrl}
+                target="_self"
+                rel="noreferrer"
+              >
+                Open Website
+              </a>
+            ) : (
+              websitePath && (
+                <Link className="launching-reveal__secondary" to={websitePath}>
+                  Open Website
+                </Link>
+              )
+            )}
+          </div>
         </div>
       )}
 

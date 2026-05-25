@@ -274,7 +274,7 @@ mod tests {
         assert!(default.agent_template_refs.is_empty());
         assert_eq!(default.seed_events.len(), 9);
         assert_eq!(default.seed_ideas.len(), 10);
-        assert_eq!(default.seed_quests.len(), 7);
+        assert_eq!(default.seed_quests.len(), 8);
     }
 
     #[test]

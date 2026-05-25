@@ -709,6 +709,56 @@
   box-shadow: var(--card-elevation);
 }
 
+.trust-website-card {
+  gap: var(--space-4);
+}
+
+.trust-website-card-header {
+  align-items: flex-start;
+}
+
+.trust-website-title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.trust-website-subtitle {
+  max-width: 42rem;
+}
+
+.trust-website-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.trust-website-route-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.trust-website-route {
+  overflow: hidden;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--bg-row);
+  border-radius: 999px;
+}
+
+.trust-website-stats {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .trust-app-card-icon {
   display: inline-flex;
   flex: 0 0 auto;
@@ -1198,6 +1248,15 @@
 
   .trust-apps-page > .trust-cockpit-card {
     margin-inline: var(--space-4);
+  }
+
+  .trust-website-route-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .trust-website-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .trust-activity-grid,

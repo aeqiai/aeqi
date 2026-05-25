@@ -168,6 +168,20 @@ export default function PublicProfilePage() {
         }}
       />
 
+      <section
+        aria-label="Website status"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+          gap: "var(--space-3)",
+          margin: "var(--space-5) 0 var(--space-6)",
+        }}
+      >
+        <PublicMetric label="Status" value="Live" />
+        <PublicMetric label="Route" value={`/${slug}`} />
+        <PublicMetric label="Page views" value="0" />
+      </section>
+
       <PublicRolesSection roles={profile.roles} />
       <PublicIdeasSection ideas={profile.ideas} />
 
@@ -176,6 +190,45 @@ export default function PublicProfilePage() {
         onStart={() => navigate("/signup")}
       />
     </main>
+  );
+}
+
+function PublicMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div
+      style={{
+        minWidth: 0,
+        padding: "var(--space-4)",
+        background: "var(--color-card)",
+        borderRadius: "var(--radius-md)",
+      }}
+    >
+      <div
+        style={{
+          fontSize: "10px",
+          fontWeight: 600,
+          textTransform: "uppercase",
+          letterSpacing: "0.1em",
+          color: "var(--color-text-muted)",
+        }}
+      >
+        {label}
+      </div>
+      <div
+        style={{
+          marginTop: "4px",
+          overflow: "hidden",
+          fontFamily: "var(--font-display)",
+          fontSize: "var(--font-size-lg)",
+          fontWeight: 500,
+          color: "var(--color-text-primary)",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {value}
+      </div>
+    </div>
   );
 }
 

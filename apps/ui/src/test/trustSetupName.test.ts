@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultTrustName } from "@/pages/TrustSetupPage";
+import { defaultTrustName, launchNameCandidates } from "@/pages/TrustSetupPage";
 import type { SingleBlueprint } from "@/lib/types";
 
 const standardBlueprint: SingleBlueprint = {
@@ -29,5 +29,19 @@ describe("defaultTrustName", () => {
     expect(
       defaultTrustName({ name: "Operator", email: "operator@aeqi.local" }, defaultBlueprint),
     ).toBe("Operator's TRUST");
+  });
+
+  it("derives a short list of fallback launch names from the same base identity", () => {
+    expect(
+      launchNameCandidates({ name: "Operator", email: "operator@aeqi.local" }, standardBlueprint),
+    ).toEqual([
+      "Operator TRUST",
+      "Operator TRUST Labs",
+      "Operator TRUST Studio",
+      "Operator TRUST One",
+      "Operator TRUST Works",
+      "Operator TRUST Build",
+      "Operator TRUST HQ",
+    ]);
   });
 });
