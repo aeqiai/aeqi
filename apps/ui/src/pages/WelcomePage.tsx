@@ -67,14 +67,16 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
   const [walletDetected, setWalletDetected] = useState<{ name: string } | null>(null);
   const [passkeyAvailable, setPasskeyAvailable] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  // URL invite wins; otherwise signup can carry a typed invite code.
+  // URL referral code wins; otherwise signup can carry a typed code.
   const [inviteInput, setInviteInput] = useState("");
-  const getInviteCode = (): string | undefined => {
-    const fromUrl = searchParams.get("invite");
+  const getReferralCode = (): string | undefined => {
+    const fromUrl = searchParams.get("invite") ?? searchParams.get("invite_code");
     if (fromUrl) return fromUrl;
     const typed = inviteInput.trim();
     return typed || undefined;
   };
+  const getInvitationToken = (): string | undefined =>
+    searchParams.get("invitation") ?? searchParams.get("invitation_token") ?? undefined;
   const getSignupName = (): string | undefined => {
     if (mode !== "signup") return undefined;
     const name = displayName.trim();
@@ -231,7 +233,8 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
     setErrorMsg(null);
     setSteps(buildWelcomeSteps());
     try {
-      const inviteCode = getInviteCode();
+      const inviteCode = getReferralCode();
+      const invitationToken = getInvitationToken();
       const startRes = await fetch(`${SOLANA_API_URL}/api/auth/welcome/wallet-start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -252,6 +255,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
           message: start.message,
           signature_b58: signatureB58,
           invite_code: inviteCode,
+          invitation_token: invitationToken,
           name: getSignupName(),
         }),
       });
@@ -275,14 +279,20 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
     setStage("check-email");
     setErrorMsg(null);
     try {
-      const inviteCode = getInviteCode();
+      const inviteCode = getReferralCode();
+      const invitationToken = getInvitationToken();
       const name = getSignupName();
       if (name) localStorage.setItem(PENDING_SIGNUP_NAME_KEY, name);
       else localStorage.removeItem(PENDING_SIGNUP_NAME_KEY);
       const startRes = await fetch(`${SOLANA_API_URL}/api/auth/welcome/email-start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: emailAddress, invite_code: inviteCode, name }),
+        body: JSON.stringify({
+          email: emailAddress,
+          invite_code: inviteCode,
+          invitation_token: invitationToken,
+          name,
+        }),
       });
       if (!startRes.ok) {
         // 403 with invite_code error → fall through to the waitlist
@@ -329,7 +339,12 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
       const verifyRes = await fetch(`${SOLANA_API_URL}/api/auth/welcome/email-verify-code`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: emailAddress, code, name: getSignupName() }),
+        body: JSON.stringify({
+          email: emailAddress,
+          code,
+          invitation_token: getInvitationToken(),
+          name: getSignupName(),
+        }),
       });
       if (!verifyRes.ok) {
         throw new Error(`verify-code ${verifyRes.status}: ${await verifyRes.text()}`);
@@ -441,7 +456,8 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
         body: JSON.stringify({
           ceremony_id: regStart.ceremony_id,
           credential: encodeRegistrationCredential(registration),
-          invite_code: getInviteCode(),
+          invite_code: getReferralCode(),
+          invitation_token: getInvitationToken(),
           name: getSignupName(),
         }),
       });
@@ -481,9 +497,11 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
   }
 
   function startOAuth(provider: "google" | "github") {
-    const inviteCode = getInviteCode();
+    const inviteCode = getReferralCode();
+    const invitationToken = getInvitationToken();
     const qs = new URLSearchParams();
     if (inviteCode) qs.set("invite_code", inviteCode);
+    if (invitationToken) qs.set("invitation", invitationToken);
     const name = getSignupName();
     if (name) qs.set("name", name);
     const query = qs.toString() ? `?${qs.toString()}` : "";
@@ -492,13 +510,15 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
 
   async function resendEmailCode() {
     const lower = email.trim().toLowerCase();
-    const inviteCode = getInviteCode();
+    const inviteCode = getReferralCode();
+    const invitationToken = getInvitationToken();
     await fetch(`${SOLANA_API_URL}/api/auth/welcome/email-start`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         email: lower,
         invite_code: inviteCode,
+        invitation_token: invitationToken,
         name: getSignupName(),
       }),
     });
@@ -522,7 +542,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
     displayName,
     email,
     errorMsg,
-    inviteFromUrl: searchParams.get("invite"),
+    inviteFromUrl: searchParams.get("invite") ?? searchParams.get("invite_code"),
     inviteInput,
     mode,
     outcome,
@@ -563,11 +583,16 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
     <WelcomeAccountShell
       {...shellProps}
       authModeLoaded
-      onContinue={() =>
+      onContinue={() => {
+        const invitationToken = getInvitationToken();
+        if (invitationToken) {
+          navigate(`/invitations/${encodeURIComponent(invitationToken)}`, { replace: true });
+          return;
+        }
         navigate(outcome?.already_existed ? "/" : "/launch?blueprint=personal-os", {
           replace: true,
-        })
-      }
+        });
+      }}
     />
   );
 }

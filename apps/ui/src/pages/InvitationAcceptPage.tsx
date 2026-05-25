@@ -321,11 +321,21 @@ export default function InvitationAcceptPage() {
                         color: "var(--color-text-secondary)",
                       }}
                     >
-                      You have no companies to accept with. Create one first at{" "}
-                      <Link to="/launch" style={{ color: "var(--accent)" }}>
-                        /launch
-                      </Link>
-                      .
+                      You have no companies to accept with yet. Create your personal trust first,
+                      then come back and claim the role.
+                      <div style={{ marginTop: "var(--space-3)" }}>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() =>
+                            navigate(
+                              `/launch?blueprint=personal-os&invitation=${encodeURIComponent(token)}`,
+                            )
+                          }
+                        >
+                          Create trust and continue
+                        </Button>
+                      </div>
                     </div>
                   )}
 

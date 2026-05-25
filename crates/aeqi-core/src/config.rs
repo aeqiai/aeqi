@@ -677,13 +677,13 @@ pub struct AuthConfig {
     /// Enable waitlist mode — signup requires an invite code.
     #[serde(default)]
     pub waitlist: bool,
-    /// Number of invite codes each user gets on signup.
+    /// Number of referral codes each user gets on signup.
     #[serde(default = "default_invite_codes")]
     pub invite_codes_per_user: u32,
 }
 
 fn default_invite_codes() -> u32 {
-    3
+    1
 }
 
 /// OAuth provider configuration (works for Google, GitHub, etc.).

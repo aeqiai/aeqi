@@ -23,6 +23,18 @@ describe("buildAuthSwitchHref", () => {
     expect(buildAuthSwitchHref("/signup", new URLSearchParams("invite=founder"))).toBe(
       "/signup?invite=founder",
     );
+    expect(buildAuthSwitchHref("/signup", new URLSearchParams("invite_code=founder"))).toBe(
+      "/signup?invite=founder",
+    );
     expect(buildAuthSwitchHref("/login", new URLSearchParams("invite=founder"))).toBe("/login");
+  });
+
+  it("preserves invitation tokens across auth switches", () => {
+    expect(buildAuthSwitchHref("/signup", new URLSearchParams("invitation=token-1"))).toBe(
+      "/signup?invitation=token-1",
+    );
+    expect(buildAuthSwitchHref("/login", new URLSearchParams("invitation_token=token-1"))).toBe(
+      "/login?invitation=token-1",
+    );
   });
 });

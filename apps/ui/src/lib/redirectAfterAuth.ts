@@ -14,11 +14,13 @@ export function buildAuthSwitchHref(baseHref: string, params: URLSearchParams): 
   if (!baseHref) return "";
 
   const next = getRedirectAfterAuth(params, "");
-  const invite = params.get("invite");
+  const invite = params.get("invite") ?? params.get("invite_code");
+  const invitation = params.get("invitation") ?? params.get("invitation_token");
   const nextParams = new URLSearchParams();
 
   if (next) nextParams.set("next", next);
   if (baseHref === "/signup" && invite) nextParams.set("invite", invite);
+  if (invitation) nextParams.set("invitation", invitation);
 
   const query = nextParams.toString();
   return query ? `${baseHref}?${query}` : baseHref;

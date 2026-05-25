@@ -12,13 +12,13 @@ export interface DoorViewProps {
   showNameField: boolean;
   email: string;
   setEmail: (s: string) => void;
-  /** Manual invite-code input value (signup mode only). */
+  /** Manual referral-code input value (signup mode only). */
   inviteInput: string;
   setInviteInput: (s: string) => void;
-  /** Invite code already supplied via `?invite=` URL param — when set,
+  /** Referral code already supplied via `?invite=` or `?invite_code=` URL param — when set,
    *  the manual input is hidden because the URL wins. */
   inviteFromUrl: string | null;
-  /** Render the invite-code input. False on `/login` (existing users
+  /** Render the referral-code input. False on `/login` (existing users
    *  don't need to redeem a code). */
   showInviteField: boolean;
   walletDetected: { name: string } | null;
@@ -84,8 +84,8 @@ export default function DoorView({
                 autoComplete="off"
                 autoCapitalize="characters"
                 spellCheck={false}
-                placeholder="Invite code"
-                aria-label="Invite code"
+                placeholder="Referral code"
+                aria-label="Referral code"
                 value={inviteInput}
                 onChange={(e) => setInviteInput(e.target.value)}
               />

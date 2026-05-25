@@ -93,6 +93,7 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
   const { blueprintId: blueprintIdParam = "" } = useParams<{ blueprintId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const launchId = searchParams.get("launch");
+  const invitationToken = searchParams.get("invitation") ?? searchParams.get("invitation_token");
   const requestedBlueprint = searchParams.get("blueprint") || blueprintIdParam;
   const isFirstRun = entry === "personal" || requestedBlueprint === FIRST_RUN_BLUEPRINT_SLUG;
 
@@ -342,6 +343,10 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
         console.error("failed to publish website after trust creation", publishError);
       }
       setActiveEntity(trustId);
+      if (invitationToken) {
+        navigate(`/invitations/${encodeURIComponent(invitationToken)}`, { replace: true });
+        return;
+      }
       const refreshed = useDaemonStore.getState().entities.find((entity) => entity.id === trustId);
       if (refreshed?.trust_address) {
         navigate(`/trust/${encodeURIComponent(refreshed.trust_address)}`, { replace: true });
@@ -352,7 +357,16 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
       setSubmitError(e instanceof Error ? e.message : "Could not create this TRUST.");
       setSubmitting(false);
     }
-  }, [blueprint, fetchEntities, nameCheck.status, navigate, setActiveEntity, trustName, user]);
+  }, [
+    blueprint,
+    fetchEntities,
+    invitationToken,
+    nameCheck.status,
+    navigate,
+    setActiveEntity,
+    trustName,
+    user,
+  ]);
 
   const handlePaidLaunch = useCallback(async () => {
     if (!blueprint) return;

@@ -57,6 +57,19 @@ describe("WelcomePage signup name capture", () => {
     expect(url.searchParams.get("name")).toBeNull();
   });
 
+  it("accepts invite_code as a referral-code alias", () => {
+    render(
+      <MemoryRouter initialEntries={["/signup?invite_code=INVITE-2"]}>
+        <WelcomePage mode="signup" />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Google" }));
+
+    const url = new URL(goExternal.mock.calls[0][0], "https://app.aeqi.ai");
+    expect(url.searchParams.get("invite_code")).toBe("INVITE-2");
+  });
+
   it("sends an optional signup name to Google start when provided", () => {
     renderSignup();
 

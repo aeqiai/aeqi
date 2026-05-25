@@ -98,7 +98,7 @@ worker_timeout_secs = 1800
 # mode = "secret"              # "none", "secret", or "accounts"
 # base_url = "https://your-domain.com"
 # waitlist = false             # require invite code to sign up
-# invite_codes_per_user = 3   # referral codes each user gets
+# invite_codes_per_user = 1   # referral codes each user gets
 #
 # # Google OAuth (only for accounts mode)
 # [web.auth.google]
