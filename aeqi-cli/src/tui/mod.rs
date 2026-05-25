@@ -455,7 +455,9 @@ async fn platform_get_json(
     );
     let mut request = client.get(url).bearer_auth(api_key);
     if let Some(trust_id) = trust_id {
-        request = request.header("x-entity", trust_id);
+        request = request
+            .header("x-trust", trust_id)
+            .header("x-entity", trust_id);
     }
     let response = request.send().await?.error_for_status()?;
     Ok(response.json().await?)
@@ -606,10 +608,10 @@ async fn run_remote_chat(
             .map(|s| s.to_string())
     };
 
-    let agents_json =
-        platform_get_json(&client, &api_url, &api_key, "/api/agents", Some(&trust_id))
-            .await
-            .context("list platform agents")?;
+    let agents_path = format!("/api/agents?trust_id={}", urlencoding::encode(&trust_id));
+    let agents_json = platform_get_json(&client, &api_url, &api_key, &agents_path, Some(&trust_id))
+        .await
+        .context("list platform agents")?;
     let agents_all = agents_json
         .get("agents")
         .and_then(|v| v.as_array())
