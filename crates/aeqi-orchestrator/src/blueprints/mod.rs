@@ -269,11 +269,11 @@ mod tests {
     fn company_blueprint_lookup_returns_default_full_spec() {
         let default = company_blueprint(DEFAULT_BLUEPRINT_SLUG).expect("default template present");
         assert_eq!(default.name, "First Company");
-        assert_eq!(default.root.name, "aeqi Assistant");
-        assert_eq!(default.seed_agents.len(), 0);
+        assert_eq!(default.root.name, "Chief of Staff");
+        assert_eq!(default.seed_agents.len(), 1);
         assert!(default.agent_template_refs.is_empty());
-        assert_eq!(default.seed_events.len(), 8);
-        assert_eq!(default.seed_ideas.len(), 7);
+        assert_eq!(default.seed_events.len(), 9);
+        assert_eq!(default.seed_ideas.len(), 10);
         assert_eq!(default.seed_quests.len(), 7);
     }
 
@@ -287,19 +287,55 @@ mod tests {
     }
 
     #[test]
-    fn default_blueprint_collapses_to_single_assistant() {
+    fn default_blueprint_seeds_chief_of_staff_and_founder_associate() {
         let default = company_blueprint(DEFAULT_BLUEPRINT_SLUG).expect("default template present");
         assert!(
             default.agent_template_refs.is_empty(),
-            "default blueprint must not reference any agent templates after C3 collapse",
+            "default blueprint keeps first-company operators inline rather than hidden behind reusable templates",
         );
-        assert_eq!(default.root.name, "aeqi Assistant");
+        assert_eq!(default.root.name, "Chief of Staff");
+        assert!(
+            default
+                .seed_agents
+                .iter()
+                .any(|agent| agent.name == "Founder Associate"),
+            "default blueprint should seed the Founder Associate as the second operator",
+        );
         assert!(
             default
                 .seed_roles
                 .iter()
                 .any(|role| role.title == "Chief of Staff"),
             "default blueprint should expose the root agent as a Chief of Staff role",
+        );
+        assert!(
+            default.seed_roles.iter().any(|role| {
+                role.title == "Founder Associate"
+                    && role.default_occupant_agent.as_deref() == Some("Founder Associate")
+            }),
+            "default blueprint should expose the Founder Associate as an occupied role",
+        );
+        assert!(
+            default
+                .seed_role_edges
+                .iter()
+                .any(|edge| edge.parent == "root" && edge.child == "founder-associate"),
+            "Founder Associate should sit under the Chief of Staff in the role map",
+        );
+        assert!(
+            default
+                .seed_ideas
+                .iter()
+                .any(|idea| idea.name == "First Company operating guide"),
+            "default lifecycle events should assemble a top-level operating guide",
+        );
+        assert!(
+            default
+                .seed_events
+                .iter()
+                .any(|event| event.owner == "Founder Associate"
+                    && event.name == "load_founder_associate_context"),
+            "Founder Associate should have its own lifecycle context loader",
         );
         assert!(
             !default

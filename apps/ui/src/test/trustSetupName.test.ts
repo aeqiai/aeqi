@@ -14,7 +14,7 @@ const defaultBlueprint: SingleBlueprint = {
   slug: "aeqi",
   name: "First Company",
   root: {
-    name: "aeqi Assistant",
+    name: "Chief of Staff",
   },
 };
 
