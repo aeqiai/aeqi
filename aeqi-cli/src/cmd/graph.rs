@@ -10,8 +10,7 @@ pub(crate) async fn cmd_graph(config_path: &Option<PathBuf>, action: GraphAction
     match action {
         GraphAction::Index { root, full } => cmd_graph_index(config_path, &root, full),
         GraphAction::Stats { root } => cmd_graph_stats(config_path, &root),
-        GraphAction::Health { root } => cmd_graph_health(config_path, &root),
-        GraphAction::Audit => cmd_graph_audit(config_path),
+        GraphAction::Audit { .. } => cmd_graph_audit(config_path),
     }
 }
 
