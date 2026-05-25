@@ -68,8 +68,10 @@
 .launch-form-side {
   min-width: 0;
   align-items: center;
-  justify-content: center;
-  gap: var(--space-5);
+  justify-content: flex-start;
+  gap: var(--space-4);
+  padding-top: var(--space-8);
+  padding-bottom: var(--space-8);
   overflow-y: auto;
 }
 
@@ -79,13 +81,13 @@
 }
 
 .launch-flow-card {
-  width: min(100%, 480px);
-  max-width: 480px;
-  padding: var(--space-10) var(--space-8);
+  width: min(100%, 560px);
+  max-width: 560px;
+  padding: var(--space-8) var(--space-7);
 }
 
 .launch-logo {
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-4);
 }
 
 .launch-flow-exit {
@@ -145,7 +147,7 @@
 .launch-compact-form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: var(--space-5);
 }
 
 .launch-form-step {
@@ -160,7 +162,7 @@
 }
 
 .launch-form-step-body {
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
 .launch-form-step-head {
@@ -243,7 +245,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  padding: var(--space-4);
+  padding: var(--space-3) var(--space-4);
   border: 1px solid var(--color-border-faint);
   border-radius: var(--radius-lg);
   background: var(--color-card-muted);
@@ -271,8 +273,8 @@
 }
 
 .launch-operations-grid {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-2);
   padding: var(--space-2);
   border: 1px solid var(--color-border-faint);
@@ -288,8 +290,8 @@
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-3);
-  min-height: 66px;
-  padding: var(--space-3) var(--space-4);
+  min-height: 72px;
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--color-border-faint);
   border-radius: var(--radius-md);
   background: var(--color-card);
@@ -364,7 +366,7 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: var(--space-1);
+  gap: 2px;
 }
 
 .launch-operation-side {
@@ -400,7 +402,7 @@
 }
 
 .launch-actions {
-  margin-top: var(--space-8);
+  margin-top: var(--space-6);
 }
 
 .launch-page {
@@ -764,6 +766,12 @@
 
   .launch-flow-exit {
     display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .launch-operations-grid {
+    grid-template-columns: 1fr;
   }
 }
 
