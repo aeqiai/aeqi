@@ -211,6 +211,22 @@ impl GraphStore {
         Ok(source_files)
     }
 
+    pub fn source_file_paths(&self) -> Result<Vec<String>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT DISTINCT file_path
+             FROM code_nodes
+             WHERE file_path != ''
+               AND label NOT IN ('community', 'process')
+             ORDER BY file_path",
+        )?;
+        let files = stmt
+            .query_map([], |row| row.get::<_, String>(0))?
+            .filter_map(|row| row.ok())
+            .filter(|path| is_supported_source_path(path))
+            .collect();
+        Ok(files)
+    }
+
     pub fn clear(&self) -> Result<()> {
         self.conn.execute_batch(
             "DELETE FROM code_edges;
@@ -638,6 +654,40 @@ pub struct GraphStats {
     pub node_count: u32,
     pub edge_count: u32,
     pub file_count: u32,
+}
+
+/// Repo-aware code graph health.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GraphHealth {
+    pub project_dir: String,
+    pub repo_path: Option<String>,
+    pub indexed_at: Option<String>,
+    pub last_commit: Option<String>,
+    pub node_count: u32,
+    pub edge_count: u32,
+    pub indexed_file_count: u32,
+    pub expected_file_count: u32,
+    pub missing_file_count: u32,
+    pub missing_files: Vec<String>,
+    pub coverage_ratio: f64,
+    pub dirty_file_count: u32,
+    pub freshness_state: GraphFreshnessState,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum GraphFreshnessState {
+    Fresh,
+    Partial,
+    Stale,
+    Missing,
+}
+
+fn is_supported_source_path(file: &str) -> bool {
+    matches!(
+        Path::new(file).extension().and_then(|ext| ext.to_str()),
+        Some("rs" | "ts" | "tsx" | "js" | "jsx" | "sol")
+    )
 }
 
 // --- Row mapping helpers ---

@@ -286,6 +286,13 @@ pub enum GraphAction {
         #[arg(short = 'r', long = "root")]
         root: String,
     },
+    /// Show repo-aware graph health for a root agent.
+    Health {
+        #[arg(short = 'r', long = "root")]
+        root: String,
+    },
+    /// Audit all configured roots and report graph health at a glance.
+    Audit,
 }
 
 #[derive(Subcommand)]

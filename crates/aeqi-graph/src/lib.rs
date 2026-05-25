@@ -16,4 +16,6 @@ pub use parser::solidity::SolidityProvider;
 pub use parser::typescript::TypeScriptProvider;
 pub use parser::{FileExtraction, LanguageProvider};
 pub use schema::{CodeEdge, CodeNode, EdgeType, NodeLabel, ResolutionTier};
-pub use storage::{GraphStats, GraphStore, ImpactEntry, NodeContext};
+pub use storage::{
+    GraphFreshnessState, GraphHealth, GraphStats, GraphStore, ImpactEntry, NodeContext,
+};

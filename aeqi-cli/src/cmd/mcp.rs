@@ -612,7 +612,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "action": {"type": "string", "enum": ["search", "context", "impact", "file", "stats", "index", "diff_impact", "file_summary", "incremental", "synthesize"], "description": "search: find symbols by name (read). context: 360° view — callers, callees, implementors (read). impact: blast radius from a symbol (read). diff_impact: blast radius from uncommitted changes (read). file: list symbols in a file (read). file_summary: summary of a file (read). stats: graph statistics (read). index: full re-index of project (write). incremental: re-index only changed files (write). synthesize: generate community summary (write)."},
+                    "action": {"type": "string", "enum": ["search", "context", "impact", "file", "stats", "health", "index", "diff_impact", "file_summary", "incremental", "synthesize"], "description": "search: find symbols by name (read). context: 360° view — callers, callees, implementors (read). impact: blast radius from a symbol (read). diff_impact: blast radius from uncommitted changes (read). file: list symbols in a file (read). file_summary: summary of a file (read). stats: graph statistics (read). health: repo-aware coverage/freshness report (read). index: full re-index of project (write). incremental: re-index only changed files (write). synthesize: generate community summary (write)."},
                     "project": {"type": "string", "description": "Project name"},
                     "repo_path": {"type": "string", "description": "Optional repository path override for index, incremental, diff_impact, and stats repo resolution."},
                     "query": {"type": "string", "description": "Search query (for search action)"},
@@ -1233,6 +1233,19 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                     "dirty_file_paths": dirty_files,
                                 }))
                             }
+                            "health" => {
+                                let store = aeqi_graph::GraphStore::open(&db_path)?;
+                                let repo =
+                                    resolve_code_repo_path(&args, &config, project, Some(&store))?
+                                        .ok_or_else(|| code_project_not_found(project))?;
+                                let health = aeqi_graph::Indexer::new().health(&repo, &store)?;
+                                Ok(serde_json::json!({
+                                    "ok": true,
+                                    "project": project,
+                                    "repo_path": repo.to_string_lossy(),
+                                    "health": health,
+                                }))
+                            }
                             "diff_impact" => {
                                 let depth =
                                     args.get("depth").and_then(|v| v.as_u64()).unwrap_or(3) as u32;
@@ -1614,6 +1627,141 @@ fn graph_dirty_files(store: &aeqi_graph::GraphStore) -> anyhow::Result<Vec<Strin
         .filter(|line| !line.is_empty())
         .map(ToOwned::to_owned)
         .collect())
+}
+
+#[allow(dead_code)]
+fn graph_health_snapshot(store: &aeqi_graph::GraphStore) -> anyhow::Result<GraphHealthSnapshot> {
+    let repo_path = store
+        .get_meta("repo_path")?
+        .filter(|value| !value.trim().is_empty());
+    let indexed_at = store
+        .get_meta("indexed_at")?
+        .filter(|value| !value.trim().is_empty());
+    let last_commit = store
+        .get_meta("last_commit")?
+        .filter(|value| !value.trim().is_empty());
+    let dirty_files = graph_dirty_files(store)?;
+
+    if let Some(repo_path_str) = repo_path.as_deref() {
+        let repo_path = PathBuf::from(repo_path_str);
+        if repo_path.is_dir() {
+            let health = aeqi_graph::Indexer::new().health(&repo_path, store)?;
+            return Ok(GraphHealthSnapshot {
+                repo_path: Some(repo_path.to_string_lossy().to_string()),
+                indexed_at,
+                last_commit,
+                dirty_files,
+                missing_files: health.missing_files.clone(),
+                missing_subtrees: derive_missing_subtrees(&health.missing_files),
+                coverage_ratio: Some(health.coverage_ratio),
+                freshness_state: freshness_state_label(health.freshness_state).to_string(),
+            });
+        }
+    }
+
+    let freshness_state = if repo_path.is_some() || indexed_at.is_some() || last_commit.is_some() {
+        "stale"
+    } else {
+        "missing"
+    };
+
+    Ok(GraphHealthSnapshot {
+        repo_path,
+        indexed_at,
+        last_commit,
+        dirty_files,
+        missing_files: Vec::new(),
+        missing_subtrees: Vec::new(),
+        coverage_ratio: None,
+        freshness_state: freshness_state.to_string(),
+    })
+}
+
+#[allow(dead_code)]
+fn derive_missing_subtrees(missing_files: &[String]) -> Vec<String> {
+    let mut subtrees = std::collections::BTreeSet::new();
+    for missing in missing_files {
+        let path = Path::new(missing);
+        if let Some(parent) = path.parent()
+            && let Some(first) = parent.components().next()
+        {
+            subtrees.insert(first.as_os_str().to_string_lossy().to_string());
+        } else if !missing.is_empty() {
+            subtrees.insert(".".to_string());
+        }
+    }
+    subtrees.into_iter().collect()
+}
+
+#[allow(dead_code)]
+fn freshness_state_label(state: aeqi_graph::GraphFreshnessState) -> &'static str {
+    match state {
+        aeqi_graph::GraphFreshnessState::Fresh => "fresh",
+        aeqi_graph::GraphFreshnessState::Partial => "partial",
+        aeqi_graph::GraphFreshnessState::Stale => "stale",
+        aeqi_graph::GraphFreshnessState::Missing => "missing",
+    }
+}
+
+#[allow(dead_code)]
+fn same_path(left: &Path, right: &Path) -> bool {
+    match (std::fs::canonicalize(left), std::fs::canonicalize(right)) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => left == right,
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+struct GraphHealthSnapshot {
+    repo_path: Option<String>,
+    indexed_at: Option<String>,
+    last_commit: Option<String>,
+    dirty_files: Vec<String>,
+    missing_files: Vec<String>,
+    missing_subtrees: Vec<String>,
+    coverage_ratio: Option<f64>,
+    freshness_state: String,
+}
+
+impl GraphHealthSnapshot {
+    #[allow(dead_code)]
+    fn effective_freshness(&self) -> &str {
+        if self.freshness_state.is_empty() {
+            "missing"
+        } else {
+            self.freshness_state.as_str()
+        }
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct GraphRootReport {
+    name: String,
+    configured_repo: String,
+    indexed_repo_path: Option<String>,
+    db_path: String,
+    repo_present: bool,
+    db_present: bool,
+    status: String,
+    freshness_state: String,
+    notes: Vec<String>,
+    stats: Option<aeqi_graph::GraphStats>,
+    health: GraphHealthSnapshot,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct GraphAuditReport {
+    generated_at: String,
+    root_filter: Option<String>,
+    project_count: usize,
+    healthy_count: usize,
+    stale_count: usize,
+    missing_count: usize,
+    error_count: usize,
+    roots: Vec<GraphRootReport>,
 }
 
 #[cfg(test)]

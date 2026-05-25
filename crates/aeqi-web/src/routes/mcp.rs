@@ -757,6 +757,18 @@ async fn call_code(
                 "dirty_file_paths": dirty_files,
             }))
         }
+        "health" => {
+            let store = aeqi_graph::GraphStore::open(&db_path)?;
+            let repo = resolve_code_repo_path(&args, &state.mcp_projects, &project, Some(&store))?
+                .ok_or_else(|| code_project_not_found(&project))?;
+            let health = aeqi_graph::Indexer::new().health(&repo, &store)?;
+            Ok(serde_json::json!({
+                "ok": true,
+                "project": project,
+                "repo_path": repo.to_string_lossy(),
+                "health": health,
+            }))
+        }
         "diff_impact" => {
             let store = aeqi_graph::GraphStore::open(&db_path)?;
             let repo = resolve_code_repo_path(&args, &state.mcp_projects, &project, Some(&store))?
@@ -1241,7 +1253,7 @@ fn tool_defs() -> serde_json::Value {
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "action": {"type": "string", "enum": ["search", "context", "impact", "file", "stats", "index", "diff_impact", "file_summary", "incremental"], "description": "search/context/impact/file/stats/diff_impact/file_summary are read actions; index and incremental refresh the graph."},
+                    "action": {"type": "string", "enum": ["search", "context", "impact", "file", "stats", "health", "index", "diff_impact", "file_summary", "incremental"], "description": "search/context/impact/file/stats/health/diff_impact/file_summary are read actions; index and incremental refresh the graph."},
                     "project": {"type": "string", "description": "Configured project name, for example aeqi or aeqi-platform."},
                     "repo_path": {"type": "string", "description": "Optional checkout path for index, incremental, or diff_impact. Successful refreshes store it for future project-only calls."},
                     "query": {"type": "string", "description": "Symbol/name search query for search."},

@@ -10,7 +10,9 @@ use crate::parser::rust::RustProvider;
 use crate::parser::solidity::SolidityProvider;
 use crate::parser::typescript::TypeScriptProvider;
 use crate::schema::{CodeEdge, CodeNode, EdgeType, NodeLabel};
-use crate::storage::GraphStore;
+use crate::storage::{GraphFreshnessState, GraphHealth, GraphStore};
+
+const MIN_INCREMENTAL_COVERAGE_RATIO: f64 = 1.0;
 
 /// Index a project directory into a code graph.
 pub struct Indexer {
@@ -260,7 +262,24 @@ impl Indexer {
     /// Incremental index: only re-parse files changed since last indexed commit.
     /// Falls back to full index if no previous commit is stored.
     pub fn index_incremental(&self, project_dir: &Path, store: &GraphStore) -> Result<IndexResult> {
-        let last_commit = store.get_meta("last_commit")?;
+        let health = self.health(project_dir, store)?;
+        let repo_path = project_dir.to_string_lossy().to_string();
+        if health.repo_path.as_deref() != Some(repo_path.as_str())
+            || health.last_commit.as_deref().map_or(true, str::is_empty)
+            || health.expected_file_count == 0
+            || health.coverage_ratio < MIN_INCREMENTAL_COVERAGE_RATIO
+        {
+            info!(
+                repo_path = %repo_path,
+                stored_repo_path = health.repo_path.as_deref().unwrap_or(""),
+                coverage = health.coverage_ratio,
+                expected_files = health.expected_file_count,
+                "incremental index unsafe; falling back to full index"
+            );
+            return self.index(project_dir, store);
+        }
+
+        let last_commit = health.last_commit.clone().unwrap_or_default();
         let previous_dirty = parse_file_list_meta(store.get_meta("dirty_files")?.as_deref());
 
         // Get current HEAD
@@ -282,10 +301,10 @@ impl Indexer {
             None => return self.index(project_dir, store), // No git, full index
         };
 
-        let last = match &last_commit {
-            Some(c) if !c.is_empty() => c.as_str(),
-            _ => return self.index(project_dir, store), // No previous index, full
-        };
+        if last_commit.is_empty() {
+            return self.index(project_dir, store); // No previous index, full
+        }
+        let last = last_commit.as_str();
 
         let committed_changes = if last == head_commit {
             Vec::new()
@@ -414,6 +433,65 @@ impl Indexer {
             communities: 0, // Skip community/process re-detection on incremental
             processes: 0,
             unresolved,
+        })
+    }
+
+    pub fn health(&self, project_dir: &Path, store: &GraphStore) -> Result<GraphHealth> {
+        let files = self.collect_files(project_dir)?;
+        let expected_file_count = files.len() as u32;
+        let expected_set: std::collections::BTreeSet<String> = files
+            .iter()
+            .map(|(_, rel_path, _)| rel_path.clone())
+            .collect();
+        let indexed_set: std::collections::BTreeSet<String> =
+            store.source_file_paths()?.into_iter().collect();
+        let indexed_file_count = expected_set
+            .iter()
+            .filter(|path| indexed_set.contains(*path))
+            .count() as u32;
+        let missing_files: Vec<String> = expected_set
+            .iter()
+            .filter(|path| !indexed_set.contains(*path))
+            .cloned()
+            .collect();
+        let missing_file_count = missing_files.len() as u32;
+        let stats = store.stats()?;
+        let repo_path = store.get_meta("repo_path")?;
+        let indexed_at = store.get_meta("indexed_at")?;
+        let last_commit = store.get_meta("last_commit")?;
+        let dirty_file_count = dirty_worktree_files(project_dir).len() as u32;
+        let coverage_ratio = if expected_file_count == 0 {
+            0.0
+        } else {
+            indexed_file_count as f64 / expected_file_count as f64
+        };
+        let project_repo_path = project_dir.to_string_lossy().to_string();
+        let freshness_state = if repo_path.as_deref() != Some(project_repo_path.as_str())
+            || last_commit.as_deref().map_or(true, str::is_empty)
+        {
+            GraphFreshnessState::Stale
+        } else if expected_file_count == 0 {
+            GraphFreshnessState::Missing
+        } else if dirty_file_count > 0 || missing_file_count > 0 {
+            GraphFreshnessState::Partial
+        } else {
+            GraphFreshnessState::Fresh
+        };
+
+        Ok(GraphHealth {
+            project_dir: project_dir.to_string_lossy().to_string(),
+            repo_path,
+            indexed_at,
+            last_commit,
+            node_count: stats.node_count,
+            edge_count: stats.edge_count,
+            indexed_file_count,
+            expected_file_count,
+            missing_file_count,
+            missing_files,
+            coverage_ratio,
+            dirty_file_count,
+            freshness_state,
         })
     }
 
@@ -653,6 +731,53 @@ mod tests {
     }
 
     #[test]
+    fn health_reports_missing_files_and_fallbacks_to_full_index_when_coverage_drops() {
+        let dir = tempfile::tempdir().unwrap();
+        let src = dir.path().join("src");
+        fs::create_dir(&src).unwrap();
+        fs::write(src.join("a.rs"), "pub fn a() -> u32 { 1 }\n").unwrap();
+
+        git(dir.path(), &["init"]);
+        git(dir.path(), &["add", "."]);
+        git(
+            dir.path(),
+            &[
+                "-c",
+                "user.name=AEQI Test",
+                "-c",
+                "user.email=test@example.com",
+                "commit",
+                "-m",
+                "graph health fixture",
+            ],
+        );
+
+        let store = GraphStore::open_in_memory().unwrap();
+        let indexer = Indexer::new();
+        indexer.index(dir.path(), &store).unwrap();
+
+        fs::write(src.join("b.rs"), "pub fn b() -> u32 { 2 }\n").unwrap();
+
+        let health = indexer.health(dir.path(), &store).unwrap();
+        assert_eq!(health.expected_file_count, 2);
+        assert_eq!(health.indexed_file_count, 1);
+        assert_eq!(health.missing_file_count, 1);
+        assert_eq!(health.freshness_state, GraphFreshnessState::Partial);
+        assert!(health.missing_files.iter().any(|file| file == "src/b.rs"));
+
+        let result = indexer.index_incremental(dir.path(), &store).unwrap();
+        assert_eq!(
+            result.files_parsed, 2,
+            "coverage drops below the incremental threshold so the indexer must fall back to a full refresh"
+        );
+
+        let fresh_health = indexer.health(dir.path(), &store).unwrap();
+        assert_eq!(fresh_health.missing_file_count, 0);
+        assert_eq!(fresh_health.dirty_file_count, 1);
+        assert_eq!(fresh_health.freshness_state, GraphFreshnessState::Partial);
+    }
+
+    #[test]
     fn incremental_reindexes_reverse_dependents_to_preserve_callers() {
         let dir = tempfile::tempdir().unwrap();
         let src = dir.path().join("src");
@@ -758,6 +883,94 @@ mod tests {
             .collect();
 
         assert_eq!(changed_names, vec!["first"]);
+    }
+
+    #[test]
+    fn incremental_falls_back_when_repo_path_or_commit_metadata_is_invalid() {
+        let dir = tempfile::tempdir().unwrap();
+        let src = dir.path().join("src");
+        fs::create_dir(&src).unwrap();
+        fs::write(src.join("a.rs"), "pub fn a() -> u32 { 1 }\n").unwrap();
+        fs::write(src.join("b.rs"), "pub fn b() -> u32 { 2 }\n").unwrap();
+
+        git(dir.path(), &["init"]);
+        git(dir.path(), &["add", "."]);
+        git(
+            dir.path(),
+            &[
+                "-c",
+                "user.name=AEQI Test",
+                "-c",
+                "user.email=test@example.com",
+                "commit",
+                "-m",
+                "initial graph fixture",
+            ],
+        );
+
+        let store = GraphStore::open_in_memory().unwrap();
+        let indexer = Indexer::new();
+        indexer.index(dir.path(), &store).unwrap();
+
+        fs::write(src.join("a.rs"), "pub fn a() -> u32 { 3 }\n").unwrap();
+        store.set_meta("repo_path", "/tmp/not-this-repo").unwrap();
+
+        let repo_path_fallback = indexer.index_incremental(dir.path(), &store).unwrap();
+        assert_eq!(
+            repo_path_fallback.files_parsed, 2,
+            "repo path mismatch should force a full reindex"
+        );
+
+        indexer.index(dir.path(), &store).unwrap();
+        fs::write(src.join("a.rs"), "pub fn a() -> u32 { 4 }\n").unwrap();
+        store
+            .conn()
+            .execute("DELETE FROM meta WHERE key = 'last_commit'", [])
+            .unwrap();
+
+        let commit_fallback = indexer.index_incremental(dir.path(), &store).unwrap();
+        assert_eq!(
+            commit_fallback.files_parsed, 2,
+            "missing last_commit should force a full reindex"
+        );
+    }
+
+    #[test]
+    fn incremental_falls_back_when_health_coverage_drops_below_threshold() {
+        let dir = tempfile::tempdir().unwrap();
+        let src = dir.path().join("src");
+        fs::create_dir(&src).unwrap();
+        fs::write(src.join("a.rs"), "pub fn a() -> u32 { 1 }\n").unwrap();
+        fs::write(src.join("b.rs"), "pub fn b() -> u32 { 2 }\n").unwrap();
+
+        git(dir.path(), &["init"]);
+        git(dir.path(), &["add", "."]);
+        git(
+            dir.path(),
+            &[
+                "-c",
+                "user.name=AEQI Test",
+                "-c",
+                "user.email=test@example.com",
+                "commit",
+                "-m",
+                "initial graph fixture",
+            ],
+        );
+
+        let store = GraphStore::open_in_memory().unwrap();
+        let indexer = Indexer::new();
+        indexer.index(dir.path(), &store).unwrap();
+
+        store.delete_file_nodes("src/b.rs").unwrap();
+        fs::write(src.join("a.rs"), "pub fn a() -> u32 { 3 }\n").unwrap();
+
+        let result = indexer.index_incremental(dir.path(), &store).unwrap();
+
+        assert_eq!(
+            result.files_parsed, 2,
+            "coverage below threshold should force a full reindex"
+        );
     }
 
     fn git(dir: &Path, args: &[&str]) {
