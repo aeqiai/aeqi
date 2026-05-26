@@ -60,7 +60,8 @@ export default function TrustWebsitePanel({ trustId, mode = "card" }: TrustWebsi
   const websiteDomain = entity ? publicWebsiteDomain(entity) : "Launch hostname";
   const websiteHref = entity ? publicWebsiteUrl(entity) : null;
   const websiteStatus = entity?.public ? "Live" : "Private";
-  const websiteViews = entity?.public ? "0" : "—";
+  const analyticsStatus = entity?.public ? "Installed" : "Ready";
+  const websiteViews = entity?.public ? "Metric pending" : "—";
 
   const publishWebsite = useCallback(async () => {
     if (!entity || entity.public) return;
@@ -127,7 +128,7 @@ export default function TrustWebsitePanel({ trustId, mode = "card" }: TrustWebsi
         <div className="trust-app-card-stats trust-website-stats">
           <Stat label="Visibility" value={websiteStatus} />
           <Stat label="Subdomain" value={compactText(websiteDomain)} />
-          <Stat label="Public URL" value={compactText(websiteHref ?? websiteDomain)} />
+          <Stat label="Tracking" value={analyticsStatus} />
           <Stat label="Views" value={websiteViews} />
         </div>
 
@@ -162,8 +163,8 @@ export default function TrustWebsitePanel({ trustId, mode = "card" }: TrustWebsi
         <div className="trust-website-privacy-row">
           <ShieldCheck size={15} strokeWidth={1.6} aria-hidden />
           <span>
-            Launch assigns this website from the TRUST name; private org structure stays behind the
-            app shell.
+            Launch assigns this website from the TRUST name; Plausible tracking is installed while
+            dashboard counts are wired.
           </span>
         </div>
       </div>

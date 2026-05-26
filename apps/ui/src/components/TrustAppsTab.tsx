@@ -182,7 +182,8 @@ function WebsiteAppCard({ domain, href, live }: { domain: string; href: string; 
       <div className="trust-app-card-stats trust-app-card-stats--identity">
         <Stat label="Domain" value={domain} />
         <Stat label="Visibility" value={live ? "Public" : "Private"} />
-        <Stat label="Analytics" value={live ? "On" : "Ready"} />
+        <Stat label="Tracking" value={live ? "Installed" : "Ready"} />
+        <Stat label="Views" value={live ? "Pending" : "—"} />
       </div>
       <a className="trust-app-card-action" href={href} target="_blank" rel="noreferrer">
         <ArrowUpRight size={14} strokeWidth={1.5} aria-hidden />
