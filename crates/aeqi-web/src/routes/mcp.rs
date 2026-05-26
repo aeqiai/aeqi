@@ -1201,7 +1201,7 @@ fn integration_tools() -> Vec<Arc<dyn Tool>> {
 
 fn provider_for_integration_tool(tool_name: &str) -> Option<&'static str> {
     match tool_name.split('.').next().unwrap_or_default() {
-        "gmail" | "calendar" | "meet" | "drive" => Some("google"),
+        "google" | "gmail" | "calendar" | "meet" | "drive" => Some("google"),
         "github" => Some("github"),
         "notion" => Some("notion"),
         "slack" => Some("slack"),
@@ -2183,6 +2183,10 @@ mod tests {
             integrations["inputSchema"]["properties"]
                 .get("credential_scope_kind")
                 .is_some()
+        );
+        assert_eq!(
+            provider_for_integration_tool("google.request"),
+            Some("google")
         );
     }
 
