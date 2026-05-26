@@ -40,6 +40,7 @@ export function normalizeTrustRoots(data: TrustsResponse | null | undefined): Tr
       last_active: optionalString(trust.last_active),
       trust_id: optionalString(trust.trust_id),
       trust_address: optionalString(trust.trust_address),
+      slug: optionalString(trust.slug),
       creator_address: optionalString(trust.creator_address),
       agent_id: optionalString(trust.agent_id),
       placement_type: optionalString(trust.placement_type),

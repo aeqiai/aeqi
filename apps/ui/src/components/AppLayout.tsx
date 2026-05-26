@@ -75,6 +75,7 @@ const COMPANY_PAGE_TABS = new Set([
   "overview",
   "inbox",
   "health",
+  "website",
   // AEQI ownership grammar: assets · equity · quorum · incorporation.
   "assets",
   "equity",

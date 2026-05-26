@@ -1,12 +1,9 @@
-import { useCallback, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowUpRight, Globe, MessageCircle, Send, Smartphone } from "lucide-react";
+import { MessageCircle, Send, Smartphone } from "lucide-react";
 
-import { api } from "@/lib/api";
 import { useTrustApps } from "@/hooks/useTrustApps";
 import { entityBasePath } from "@/lib/entityPath";
 import { formatInteger } from "@/lib/i18n";
-import { publicWebsitePath } from "@/lib/publicWebsite";
 import type { TrustAppKind, TrustAppSummary } from "@/lib/trustApps";
 import { useDaemonStore } from "@/store/daemon";
 import { Button } from "./ui";
@@ -20,10 +17,8 @@ const APP_ICONS: Record<TrustAppKind, React.ReactNode> = {
 export default function TrustAppsTab({ trustId }: { trustId: string }) {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const [publishingWebsite, setPublishingWebsite] = useState(false);
   const selectedKind = params.get("app");
   const entities = useDaemonStore((s) => s.entities);
-  const fetchEntities = useDaemonStore((s) => s.fetchEntities);
   const entity = entities.find((item) => item.id === trustId);
   const basePath = entity ? entityBasePath(entity) : "/launch";
   const { defaultAgent, installed, isLoading, summaries, trustAgents } = useTrustApps(trustId);
@@ -31,23 +26,6 @@ export default function TrustAppsTab({ trustId }: { trustId: string }) {
     ? `${basePath}/agents/${encodeURIComponent(defaultAgent.id)}/settings/channels`
     : `${basePath}/agents`;
   const channelActionLabel = defaultAgent ? "Open Channels" : "Open Agents";
-  const websitePath = entity ? publicWebsitePath(entity) : "/";
-  const websiteStatus = entity?.public ? "Live" : "Private";
-  const websiteViews = entity?.public ? "0" : "—";
-
-  const publishWebsite = useCallback(async () => {
-    if (!entity || entity.public) return;
-    setPublishingWebsite(true);
-    try {
-      await api.updateEntity(entity.id, { public: true });
-      await fetchEntities();
-    } catch (e) {
-      console.error("failed to publish trust website", e);
-    } finally {
-      setPublishingWebsite(false);
-    }
-  }, [entity, fetchEntities]);
-
   return (
     <div className="trust-overview trust-apps-page">
       <header className="trust-apps-page-header">
@@ -72,59 +50,6 @@ export default function TrustAppsTab({ trustId }: { trustId: string }) {
           </Button>
         </div>
       </header>
-
-      <section
-        className="trust-cockpit-card trust-cockpit-card--wide trust-website-card"
-        aria-labelledby="website-heading"
-      >
-        <header className="trust-cockpit-card-header trust-website-card-header">
-          <div className="trust-website-title-block">
-            <h2 id="website-heading" className="trust-cockpit-card-title">
-              Website
-            </h2>
-            <p className="trust-cockpit-card-sub trust-website-subtitle">
-              Public trust website and live route.
-            </p>
-          </div>
-          <span
-            className="trust-app-status-pill"
-            data-status={entity?.public ? "connected" : undefined}
-          >
-            {websiteStatus}
-          </span>
-        </header>
-
-        <div className="trust-website-body">
-          <div className="trust-website-route-row">
-            <span className="trust-website-route">{websitePath}</span>
-            <Button
-              variant={entity?.public ? "secondary" : "primary"}
-              size="md"
-              onClick={entity?.public ? () => navigate(websitePath) : publishWebsite}
-              leadingIcon={
-                entity?.public ? (
-                  <ArrowUpRight size={14} strokeWidth={1.6} />
-                ) : (
-                  <Globe size={14} strokeWidth={1.6} />
-                )
-              }
-            >
-              {entity?.public
-                ? "Open website"
-                : publishingWebsite
-                  ? "Publishing"
-                  : "Publish website"}
-            </Button>
-          </div>
-
-          <div className="trust-app-card-stats trust-website-stats">
-            <Stat label="Visibility" value={websiteStatus} />
-            <Stat label="Views" value={websiteViews} />
-            <Stat label="Route" value={compactPath(websitePath)} />
-            <Stat label="Surface" value="Website" />
-          </div>
-        </div>
-      </section>
 
       <section
         className="trust-cockpit-card trust-cockpit-card--wide"
@@ -152,11 +77,6 @@ export default function TrustAppsTab({ trustId }: { trustId: string }) {
       </section>
     </div>
   );
-}
-
-function compactPath(path: string): string {
-  if (path.length <= 24) return path;
-  return `${path.slice(0, 10)}…${path.slice(-8)}`;
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
