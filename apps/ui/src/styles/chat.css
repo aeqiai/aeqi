@@ -1109,30 +1109,32 @@
   padding: 0;
 }
 
-/* ── Collapsed trail (completed assistant turns) ──
-   A single quiet row that hides the intermediate tool calls, steps, and
-   thinking text of a finished turn so the final response can hold focus.
-   Uses --bg-row (one-step-darker paper) against the white message card —
-   the token system's explicit "raised row on white" tint. One gesture:
-   chevron rotates, detail unfolds inline, no nested card chrome. */
+/* ── Thought trail (completed and live assistant turns) ──
+   The agent's intermediate thinking/tool trace gets the ink treatment.
+   This is intentionally scoped to the message trail; inbox/session rails
+   stay light and navigational. */
 .asv-trail {
   margin: 4px 0 2px;
-  background: var(--color-card-subtle);
-  border: 1px solid var(--border-faint);
+  background: var(--color-ink-card);
+  border: 1px solid var(--color-ink-card-border);
   border-radius: var(--radius-sm);
+  color: var(--color-ink-card-text);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
   transition:
     background var(--transition-normal),
     border-color var(--transition-normal);
 }
 .asv-trail:hover {
-  border-color: var(--border);
+  border-color: rgba(255, 255, 255, 0.18);
 }
 .asv-trail--fail {
   border-color: var(--accent-bar-blocked);
 }
 .asv-trail--live {
-  background: var(--color-card);
-  border-color: var(--border);
+  background: var(--color-ink-card);
+  border-color: rgba(255, 255, 255, 0.16);
 }
 .asv-trail-toggle {
   display: flex;
@@ -1145,7 +1147,7 @@
   cursor: pointer;
   font-family: var(--font-sans);
   font-size: var(--font-size-micro);
-  color: var(--color-text-muted);
+  color: var(--color-ink-card-text-muted);
   text-align: left;
   border-radius: var(--radius-sm);
   transition:
@@ -1153,8 +1155,8 @@
     color var(--transition-normal);
 }
 .asv-trail-toggle:hover {
-  background: var(--state-hover);
-  color: var(--color-text-secondary);
+  background: var(--color-ink-card-elevated);
+  color: var(--color-ink-card-text);
 }
 .asv-trail-chevron {
   display: inline-block;
@@ -1184,11 +1186,28 @@
   padding: 2px 12px 8px;
   border-top: none;
   margin-top: var(--space-1);
+  color: var(--color-ink-card-text-muted);
 }
 /* Inside the expanded trail, nested tool groups lose their own border-left
    since the parent trail already owns the vertical accent. */
 .asv-trail-detail .asv-tools-group {
-  border-left-color: var(--border-faint);
+  border-left-color: var(--color-ink-card-border);
+}
+.asv-trail .asv-step-sep,
+.asv-trail .asv-tool-name,
+.asv-trail .asv-tool-dur,
+.asv-trail .asv-tool-status-msg,
+.asv-trail .asv-status-line,
+.asv-trail .session-tool-output,
+.asv-trail .asv-thinking-text {
+  color: var(--color-ink-card-text-muted);
+}
+.asv-trail .asv-step-sep::before,
+.asv-trail .asv-step-sep::after {
+  background: var(--color-ink-card-border);
+}
+.asv-trail .asv-tool-dot {
+  background: var(--color-ink-card-text-muted);
 }
 
 /* Breathing room between the collapsed trail and the final response so
