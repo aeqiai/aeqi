@@ -97,6 +97,7 @@ export function LaunchingReveal({
   const hasError = Boolean(trustError || runtimeError);
   const websitePath =
     trustAddress !== null ? publicWebsitePath({ id: trustId, trust_address: trustAddress }) : null;
+  const trustToolsPath = trustAddress ? `/trust/${encodeURIComponent(trustAddress)}` : null;
   const launchWebsiteUrl = websiteUrl ?? null;
   const launchWebsiteLabel =
     websiteDomain ?? launchWebsiteUrl?.replace(/^https?:\/\//, "") ?? websitePath ?? null;
@@ -201,12 +202,11 @@ export function LaunchingReveal({
             </div>
           </div>
           <div className="launching-reveal__actions">
-            <Link
-              className="launching-reveal__cta"
-              to={`/trust/${encodeURIComponent(trustAddress)}`}
-            >
-              Enter Trust
-            </Link>
+            {trustToolsPath && (
+              <Link className="launching-reveal__cta" to={trustToolsPath}>
+                Trust tools
+              </Link>
+            )}
             {launchWebsiteUrl ? (
               <a
                 className="launching-reveal__secondary"

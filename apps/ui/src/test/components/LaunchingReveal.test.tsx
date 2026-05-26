@@ -53,7 +53,7 @@ describe("LaunchingReveal", () => {
       "href",
       "/9AlphaTrust111111111111111111111111111111111",
     );
-    expect(screen.getByRole("link", { name: "Enter Trust" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Trust tools" })).toHaveAttribute(
       "href",
       "/trust/9AlphaTrust111111111111111111111111111111111",
     );
