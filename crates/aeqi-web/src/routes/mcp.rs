@@ -5,9 +5,20 @@ use axum::{
     response::{IntoResponse, Response},
     routing::post,
 };
+use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
+use std::sync::{Arc, Mutex};
 
 use crate::{auth::UserScope, extractors::Scope, server::AppState};
+use aeqi_core::credentials::{
+    CredentialCipher, CredentialLifecycle, CredentialResolver, CredentialStore, ResolutionScope,
+    lifecycles::{
+        DeviceSessionLifecycle, GithubAppLifecycle, OAuth2Lifecycle, ServiceAccountLifecycle,
+        StaticSecretLifecycle,
+    },
+};
+use aeqi_core::tool_registry::{CallerKind, ExecutionContext, ToolRegistry};
+use aeqi_core::traits::Tool;
 
 #[derive(Debug, Deserialize)]
 struct McpRequest {
@@ -53,6 +64,7 @@ struct McpHttpContext {
     allowed_roots: Vec<String>,
     agent: Option<String>,
     agent_id: Option<String>,
+    role_id: Option<String>,
 }
 
 const MCP_PROTOCOL_LATEST: &str = "2025-06-18";
@@ -149,6 +161,7 @@ async fn mcp_post(
                     "transport": "http",
                     "agent": ctx.agent.as_deref().unwrap_or("default"),
                     "agent_id": ctx.agent_id.as_deref().unwrap_or(""),
+                    "role_id": ctx.role_id.as_deref().unwrap_or(""),
                     "actor": ctx.actor,
                     "root": ctx.allowed_roots.first(),
                     "mode": if scope.is_some() { "http_scoped" } else { "self_hosted_local" },
@@ -256,6 +269,8 @@ fn accepts(headers: &HeaderMap, media_type: &str) -> bool {
 fn mcp_context(scope: Option<&UserScope>, headers: &HeaderMap) -> McpHttpContext {
     let agent = header_string(headers, "x-aeqi-agent");
     let agent_id = header_string(headers, "x-aeqi-agent-id");
+    let role_id = header_string(headers, "x-aeqi-role-id")
+        .or_else(|| header_string(headers, "x-aeqi-as-role-id"));
     let allowed_roots = scope.map(|s| s.roots.clone()).unwrap_or_default();
     let trust_id = scope.and_then(|_| allowed_roots.first().cloned());
     let user_id = scope.and_then(|s| s.user_id.clone());
@@ -286,6 +301,7 @@ fn mcp_context(scope: Option<&UserScope>, headers: &HeaderMap) -> McpHttpContext
         allowed_roots,
         agent,
         agent_id,
+        role_id,
     }
 }
 
@@ -335,6 +351,7 @@ async fn call_tool(
             "user_id": ctx.actor.user_id,
             "allowed_roots": ctx.allowed_roots,
             "actor": ctx.actor,
+            "role_id": ctx.role_id,
             "runtime": {"type": "http"},
         })),
         "ideas" => call_ideas(state, ctx, args).await,
@@ -342,7 +359,106 @@ async fn call_tool(
         "agents" => call_agents(state, ctx, args).await,
         "events" => call_events(state, ctx, args).await,
         "code" => call_code(state, ctx, args).await,
+        "integrations" => call_integrations(state, ctx, args).await,
         _ => anyhow::bail!("unknown tool: {tool_name}"),
+    }
+}
+
+async fn call_integrations(
+    state: &AppState,
+    ctx: &McpHttpContext,
+    args: serde_json::Value,
+) -> anyhow::Result<serde_json::Value> {
+    let action = args
+        .get("action")
+        .and_then(|v| v.as_str())
+        .unwrap_or("list_tools");
+    match action {
+        "list_tools" => {
+            let provider = args
+                .get("provider")
+                .and_then(|v| v.as_str())
+                .map(str::trim)
+                .filter(|s| !s.is_empty());
+            let tools = integration_tools()
+                .into_iter()
+                .filter_map(|tool| {
+                    let spec = tool.spec();
+                    let inferred_provider = provider_for_integration_tool(&spec.name);
+                    if provider.is_some() && provider != inferred_provider {
+                        return None;
+                    }
+                    Some(serde_json::json!({
+                        "provider": inferred_provider,
+                        "name": spec.name,
+                        "description": spec.description,
+                        "input_schema": spec.input_schema,
+                    }))
+                })
+                .collect::<Vec<_>>();
+            Ok(serde_json::json!({
+                "ok": true,
+                "count": tools.len(),
+                "tools": tools,
+            }))
+        }
+        "call" => {
+            let tool_name = args
+                .get("tool")
+                .or_else(|| args.get("tool_name"))
+                .and_then(|v| v.as_str())
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| anyhow::anyhow!("tool is required for integrations.call"))?;
+            let provider = args
+                .get("provider")
+                .and_then(|v| v.as_str())
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .or_else(|| provider_for_integration_tool(tool_name))
+                .ok_or_else(|| {
+                    anyhow::anyhow!("provider is required when the tool name cannot be inferred")
+                })?;
+            let tool_args = args
+                .get("arguments")
+                .or_else(|| args.get("args"))
+                .cloned()
+                .unwrap_or_else(|| serde_json::json!({}));
+
+            let role_auth = authorize_integration_role(state, ctx, &args, provider, tool_name)?;
+            let registry = ToolRegistry::new(integration_tools());
+            let store = open_mcp_credential_store(state)?;
+            let resolver = build_mcp_credential_resolver(store);
+            let credential_scope =
+                credential_resolution_scope(ctx, &args, role_auth.role_id.as_deref());
+            let exec_ctx = ExecutionContext {
+                session_id: args
+                    .get("session_id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("mcp-http")
+                    .to_string(),
+                agent_id: credential_scope.agent_id.clone().unwrap_or_default(),
+                caller_role_id: role_auth.role_id.clone(),
+                credential_resolver: Some(resolver),
+                credential_scope,
+                ..Default::default()
+            };
+
+            let result = registry
+                .invoke(tool_name, tool_args, CallerKind::System, &exec_ctx)
+                .await?;
+            Ok(serde_json::json!({
+                "ok": !result.is_error,
+                "provider": provider,
+                "tool": tool_name,
+                "role_id": role_auth.role_id,
+                "grants": role_auth.grants,
+                "output": result.output,
+                "data": result.data,
+                "is_error": result.is_error,
+            }))
+        }
+        other => anyhow::bail!("unknown integrations action: {other}"),
     }
 }
 
@@ -1068,6 +1184,214 @@ fn default_agent_name(ctx: &McpHttpContext, req: &mut serde_json::Value) {
     }
 }
 
+#[derive(Debug, Clone)]
+struct IntegrationRoleAuth {
+    role_id: Option<String>,
+    grants: Vec<String>,
+}
+
+fn integration_tools() -> Vec<Arc<dyn Tool>> {
+    let mut tools = Vec::new();
+    tools.extend(aeqi_pack_google_workspace::all_tools());
+    tools.extend(aeqi_pack_github::all_tools());
+    tools.extend(aeqi_pack_notion::all_tools());
+    tools.extend(aeqi_pack_slack::all_tools());
+    tools
+}
+
+fn provider_for_integration_tool(tool_name: &str) -> Option<&'static str> {
+    match tool_name.split('.').next().unwrap_or_default() {
+        "gmail" | "calendar" | "meet" | "drive" => Some("google"),
+        "github" => Some("github"),
+        "notion" => Some("notion"),
+        "slack" => Some("slack"),
+        _ => None,
+    }
+}
+
+fn open_mcp_credential_store(state: &AppState) -> anyhow::Result<CredentialStore> {
+    let aeqi_db = state.data_dir.join("aeqi.db");
+    let conn = Connection::open(&aeqi_db)?;
+    CredentialStore::initialize_schema(&conn)?;
+    let secrets_dir = state.data_dir.join("secrets");
+    let cipher = CredentialCipher::open(&secrets_dir)?;
+    Ok(CredentialStore::new(Arc::new(Mutex::new(conn)), cipher))
+}
+
+fn build_mcp_credential_resolver(store: CredentialStore) -> CredentialResolver {
+    let lifecycles: Vec<Arc<dyn CredentialLifecycle>> = vec![
+        Arc::new(StaticSecretLifecycle),
+        Arc::new(OAuth2Lifecycle),
+        Arc::new(DeviceSessionLifecycle),
+        Arc::new(GithubAppLifecycle),
+        Arc::new(ServiceAccountLifecycle),
+    ];
+    CredentialResolver::new(store, lifecycles)
+}
+
+fn credential_resolution_scope(
+    ctx: &McpHttpContext,
+    args: &serde_json::Value,
+    role_id: Option<&str>,
+) -> ResolutionScope {
+    let requested_kind = args
+        .get("credential_scope_kind")
+        .or_else(|| args.get("scope_kind"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("agent");
+    let requested_id = args
+        .get("credential_scope_id")
+        .or_else(|| args.get("credential_agent_id"))
+        .or_else(|| args.get("agent_id"))
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(ToOwned::to_owned);
+
+    let mut scope = ResolutionScope {
+        user_id: ctx.actor.user_id.clone(),
+        ..Default::default()
+    };
+    match requested_kind {
+        "global" => {}
+        "user" => {
+            if let Some(user_id) = requested_id.or_else(|| ctx.actor.user_id.clone()) {
+                scope.user_id = Some(user_id);
+            }
+        }
+        "installation" => {
+            scope.installation_id = requested_id;
+        }
+        "channel" => {
+            scope.channel_id = requested_id;
+        }
+        _ => {
+            scope.agent_id = requested_id
+                .or_else(|| ctx.agent_id.clone())
+                .or_else(|| role_id.map(ToOwned::to_owned));
+        }
+    }
+    scope
+}
+
+fn authorize_integration_role(
+    state: &AppState,
+    ctx: &McpHttpContext,
+    args: &serde_json::Value,
+    provider: &str,
+    tool_name: &str,
+) -> anyhow::Result<IntegrationRoleAuth> {
+    if ctx.allowed_roots.is_empty() {
+        return Ok(IntegrationRoleAuth {
+            role_id: ctx.role_id.clone(),
+            grants: vec!["*".to_string()],
+        });
+    }
+
+    let trust_id = args
+        .get("trust_id")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .or(ctx.actor.trust_id.as_deref())
+        .ok_or_else(|| anyhow::anyhow!("trust_id is required for scoped integration calls"))?;
+    if !ctx.allowed_roots.iter().any(|root| root == trust_id) {
+        anyhow::bail!("forbidden: trust_id is outside the MCP allowed roots");
+    }
+
+    let db_path = state.data_dir.join("aeqi.db");
+    let conn = Connection::open(&db_path)?;
+    let role_id = args
+        .get("role_id")
+        .or_else(|| args.get("as_role_id"))
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(ToOwned::to_owned)
+        .or_else(|| ctx.role_id.clone())
+        .or(infer_single_occupied_role(&conn, trust_id, ctx)?)
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "role_id is required for scoped integration calls when no single occupied role can be inferred"
+            )
+        })?;
+
+    let (occupant_kind, occupant_id): (String, Option<String>) = conn
+        .query_row(
+            "SELECT occupant_kind, occupant_id FROM roles WHERE id = ?1 AND trust_id = ?2",
+            params![role_id, trust_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .optional()?
+        .ok_or_else(|| anyhow::anyhow!("role not found in trust: {role_id}"))?;
+    match (occupant_kind.as_str(), occupant_id.as_deref()) {
+        ("human", Some(id)) if ctx.actor.user_id.as_deref() == Some(id) => {}
+        ("agent", Some(id)) if ctx.agent_id.as_deref() == Some(id) => {}
+        _ => anyhow::bail!("forbidden: MCP actor does not occupy role {role_id}"),
+    }
+
+    let grants = role_grants(&conn, &role_id)?;
+    let allowed = integration_grant_candidates(provider, tool_name)
+        .iter()
+        .any(|candidate| grants.iter().any(|grant| grant == candidate));
+    if !allowed {
+        anyhow::bail!(
+            "forbidden: role {role_id} lacks an integration grant for provider={provider} tool={tool_name}"
+        );
+    }
+
+    Ok(IntegrationRoleAuth {
+        role_id: Some(role_id),
+        grants,
+    })
+}
+
+fn infer_single_occupied_role(
+    conn: &Connection,
+    trust_id: &str,
+    ctx: &McpHttpContext,
+) -> anyhow::Result<Option<String>> {
+    let (kind, occupant_id) = if let Some(user_id) = ctx.actor.user_id.as_deref() {
+        ("human", user_id)
+    } else if let Some(agent_id) = ctx.agent_id.as_deref() {
+        ("agent", agent_id)
+    } else {
+        return Ok(None);
+    };
+    let mut stmt = conn.prepare(
+        "SELECT id FROM roles
+         WHERE trust_id = ?1 AND occupant_kind = ?2 AND occupant_id = ?3
+         ORDER BY created_at ASC",
+    )?;
+    let roles = stmt
+        .query_map(params![trust_id, kind, occupant_id], |row| {
+            row.get::<_, String>(0)
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(if roles.len() == 1 {
+        roles.into_iter().next()
+    } else {
+        None
+    })
+}
+
+fn role_grants(conn: &Connection, role_id: &str) -> anyhow::Result<Vec<String>> {
+    let mut stmt =
+        conn.prepare("SELECT grant FROM role_grants WHERE role_id = ?1 ORDER BY grant")?;
+    Ok(stmt
+        .query_map(params![role_id], |row| row.get::<_, String>(0))?
+        .collect::<Result<Vec<_>, _>>()?)
+}
+
+fn integration_grant_candidates(provider: &str, tool_name: &str) -> Vec<String> {
+    vec![
+        "integrations.use".to_string(),
+        "integrations.*.use".to_string(),
+        format!("integrations.{provider}.use"),
+        format!("integrations.{provider}.{tool_name}.use"),
+    ]
+}
+
 fn quests_create_ipc_request(args: &serde_json::Value, default_project: &str) -> serde_json::Value {
     let mut req = args.clone();
     req["cmd"] = serde_json::json!("create_quest");
@@ -1406,6 +1730,32 @@ fn tool_defs() -> serde_json::Value {
                 },
                 "required": ["action", "project"]
             }
+        },
+        {
+            "name": "integrations",
+            "title": "AEQI Integration Proxy",
+            "description": "Universal TRUST-role proxy for connected integrations. Use list_tools to inspect provider-pack tools, then call any integration tool through the credential substrate. Scoped calls require the acting role to occupy the TRUST and hold an integration grant such as integrations.google.use or integrations.use.",
+            "annotations": {
+                "title": "AEQI Integration Proxy",
+                "readOnlyHint": false,
+                "destructiveHint": true,
+                "idempotentHint": false,
+                "openWorldHint": true
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["list_tools", "call"], "description": "list_tools returns callable provider-pack tool specs; call dispatches one tool through role authorization and credential resolution."},
+                    "provider": {"type": "string", "description": "Integration provider key, for example google, github, notion, or slack. Required when the provider cannot be inferred from the tool name."},
+                    "tool": {"type": "string", "description": "Provider-pack tool name for call, for example drive.list_files or gmail.search."},
+                    "arguments": {"type": "object", "description": "Arguments passed unchanged to the provider-pack tool."},
+                    "trust_id": {"type": "string", "description": "TRUST/entity id to authorize against. Defaults to the MCP allowed root."},
+                    "role_id": {"type": "string", "description": "Role/chair the MCP actor is occupying. May also be supplied as x-aeqi-role-id."},
+                    "credential_scope_kind": {"type": "string", "enum": ["agent", "global", "user", "channel", "installation"], "description": "Credential lookup scope. Defaults to agent, which still falls back to global per the credential resolver."},
+                    "credential_scope_id": {"type": "string", "description": "Optional credential scope id; for agent scope this is usually the agent id that owns the connected provider account."}
+                },
+                "required": ["action"]
+            }
         }
     ])
 }
@@ -1439,6 +1789,7 @@ mod tests {
     fn http_mcp_context_builds_user_actor_from_scope() {
         let mut headers = HeaderMap::new();
         headers.insert("x-aeqi-agent", "architect".parse().unwrap());
+        headers.insert("x-aeqi-role-id", "role-director".parse().unwrap());
         let scope = UserScope {
             roots: vec!["entity-1".to_string()],
             user_id: Some("user-1".to_string()),
@@ -1450,6 +1801,7 @@ mod tests {
         assert_eq!(ctx.actor.user_id.as_deref(), Some("user-1"));
         assert_eq!(ctx.actor.trust_id.as_deref(), Some("entity-1"));
         assert_eq!(ctx.agent.as_deref(), Some("architect"));
+        assert_eq!(ctx.role_id.as_deref(), Some("role-director"));
         assert_eq!(ctx.allowed_roots, vec!["entity-1"]);
     }
 
@@ -1623,6 +1975,7 @@ mod tests {
             allowed_roots: Vec::new(),
             agent: Some("ambient-agent".to_string()),
             agent_id: None,
+            role_id: None,
         };
         let req = events_trigger_ipc_request(
             &serde_json::json!({
@@ -1816,6 +2169,20 @@ mod tests {
             actions
                 .iter()
                 .any(|action| action.as_str() == Some("audit"))
+        );
+
+        let integrations = by_name("integrations");
+        assert_eq!(integrations["title"], "AEQI Integration Proxy");
+        assert!(
+            integrations["description"]
+                .as_str()
+                .unwrap()
+                .contains("TRUST-role proxy")
+        );
+        assert!(
+            integrations["inputSchema"]["properties"]
+                .get("credential_scope_kind")
+                .is_some()
         );
     }
 

@@ -13,6 +13,10 @@ embed-ui = ["dep:rust-embed", "dep:mime_guess"]
 aeqi-core = { workspace = true }
 aeqi-graph = { workspace = true }
 aeqi-hosting = { workspace = true }
+aeqi-pack-github = { workspace = true }
+aeqi-pack-google-workspace = { workspace = true }
+aeqi-pack-notion = { workspace = true }
+aeqi-pack-slack = { workspace = true }
 aeqi-providers = { workspace = true }
 aeqi-quests = { workspace = true }
 aeqi-wallets = { workspace = true }
