@@ -359,15 +359,17 @@ async fn call_tool(
         "agents" => call_agents(state, ctx, args).await,
         "events" => call_events(state, ctx, args).await,
         "code" => call_code(state, ctx, args).await,
-        "integrations" => call_integrations(state, ctx, args).await,
+        "apps" => call_apps(state, ctx, args, "apps").await,
+        "integrations" => call_apps(state, ctx, args, "integrations").await,
         _ => anyhow::bail!("unknown tool: {tool_name}"),
     }
 }
 
-async fn call_integrations(
+async fn call_apps(
     state: &AppState,
     ctx: &McpHttpContext,
     args: serde_json::Value,
+    surface: &str,
 ) -> anyhow::Result<serde_json::Value> {
     let action = args
         .get("action")
@@ -409,7 +411,7 @@ async fn call_integrations(
                 .and_then(|v| v.as_str())
                 .map(str::trim)
                 .filter(|s| !s.is_empty())
-                .ok_or_else(|| anyhow::anyhow!("tool is required for integrations.call"))?;
+                .ok_or_else(|| anyhow::anyhow!("tool is required for {surface}.call"))?;
             let provider = args
                 .get("provider")
                 .and_then(|v| v.as_str())
@@ -425,7 +427,7 @@ async fn call_integrations(
                 .cloned()
                 .unwrap_or_else(|| serde_json::json!({}));
 
-            let role_auth = authorize_integration_role(state, ctx, &args, provider, tool_name)?;
+            let role_auth = authorize_app_role(state, ctx, &args, provider, tool_name)?;
             let registry = ToolRegistry::new(integration_tools());
             let store = open_mcp_credential_store(state)?;
             let resolver = build_mcp_credential_resolver(store);
@@ -458,7 +460,7 @@ async fn call_integrations(
                 "is_error": result.is_error,
             }))
         }
-        other => anyhow::bail!("unknown integrations action: {other}"),
+        other => anyhow::bail!("unknown {surface} action: {other}"),
     }
 }
 
@@ -1185,7 +1187,7 @@ fn default_agent_name(ctx: &McpHttpContext, req: &mut serde_json::Value) {
 }
 
 #[derive(Debug, Clone)]
-struct IntegrationRoleAuth {
+struct AppRoleAuth {
     role_id: Option<String>,
     grants: Vec<String>,
 }
@@ -1274,15 +1276,15 @@ fn credential_resolution_scope(
     scope
 }
 
-fn authorize_integration_role(
+fn authorize_app_role(
     state: &AppState,
     ctx: &McpHttpContext,
     args: &serde_json::Value,
     provider: &str,
     tool_name: &str,
-) -> anyhow::Result<IntegrationRoleAuth> {
+) -> anyhow::Result<AppRoleAuth> {
     if ctx.allowed_roots.is_empty() {
-        return Ok(IntegrationRoleAuth {
+        return Ok(AppRoleAuth {
             role_id: ctx.role_id.clone(),
             grants: vec!["*".to_string()],
         });
@@ -1294,7 +1296,7 @@ fn authorize_integration_role(
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .or(ctx.actor.trust_id.as_deref())
-        .ok_or_else(|| anyhow::anyhow!("trust_id is required for scoped integration calls"))?;
+        .ok_or_else(|| anyhow::anyhow!("trust_id is required for scoped app calls"))?;
     if !ctx.allowed_roots.iter().any(|root| root == trust_id) {
         anyhow::bail!("forbidden: trust_id is outside the MCP allowed roots");
     }
@@ -1312,7 +1314,7 @@ fn authorize_integration_role(
         .or(infer_single_occupied_role(&conn, trust_id, ctx)?)
         .ok_or_else(|| {
             anyhow::anyhow!(
-                "role_id is required for scoped integration calls when no single occupied role can be inferred"
+                "role_id is required for scoped app calls when no single occupied role can be inferred"
             )
         })?;
 
@@ -1331,16 +1333,16 @@ fn authorize_integration_role(
     }
 
     let grants = role_grants(&conn, &role_id)?;
-    let allowed = integration_grant_candidates(provider, tool_name)
+    let allowed = app_grant_candidates(provider, tool_name)
         .iter()
         .any(|candidate| grants.iter().any(|grant| grant == candidate));
     if !allowed {
         anyhow::bail!(
-            "forbidden: role {role_id} lacks an integration grant for provider={provider} tool={tool_name}"
+            "forbidden: role {role_id} lacks an app grant for provider={provider} tool={tool_name}"
         );
     }
 
-    Ok(IntegrationRoleAuth {
+    Ok(AppRoleAuth {
         role_id: Some(role_id),
         grants,
     })
@@ -1383,8 +1385,12 @@ fn role_grants(conn: &Connection, role_id: &str) -> anyhow::Result<Vec<String>> 
         .collect::<Result<Vec<_>, _>>()?)
 }
 
-fn integration_grant_candidates(provider: &str, tool_name: &str) -> Vec<String> {
+fn app_grant_candidates(provider: &str, tool_name: &str) -> Vec<String> {
     vec![
+        "apps.use".to_string(),
+        "apps.*.use".to_string(),
+        format!("apps.{provider}.use"),
+        format!("apps.{provider}.{tool_name}.use"),
         "integrations.use".to_string(),
         "integrations.*.use".to_string(),
         format!("integrations.{provider}.use"),
@@ -1732,9 +1738,35 @@ fn tool_defs() -> serde_json::Value {
             }
         },
         {
+            "name": "apps",
+            "title": "AEQI Apps Proxy",
+            "description": "Universal TRUST-role proxy for connected apps. Use list_tools to inspect app capabilities, then call any app tool through the credential substrate. Scoped calls require the acting role to occupy the TRUST and hold an app grant such as apps.google.use or apps.use.",
+            "annotations": {
+                "title": "AEQI Apps Proxy",
+                "readOnlyHint": false,
+                "destructiveHint": true,
+                "idempotentHint": false,
+                "openWorldHint": true
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["list_tools", "call"], "description": "list_tools returns callable app/provider-pack tool specs; call dispatches one tool through role authorization and credential resolution."},
+                    "provider": {"type": "string", "description": "App/provider key, for example google, github, notion, or slack. Required when the provider cannot be inferred from the tool name."},
+                    "tool": {"type": "string", "description": "App tool name for call, for example google.request, drive.list_files, or gmail.search."},
+                    "arguments": {"type": "object", "description": "Arguments passed unchanged to the app tool."},
+                    "trust_id": {"type": "string", "description": "TRUST/entity id to authorize against. Defaults to the MCP allowed root."},
+                    "role_id": {"type": "string", "description": "Role/chair the MCP actor is occupying. May also be supplied as x-aeqi-role-id."},
+                    "credential_scope_kind": {"type": "string", "enum": ["agent", "global", "user", "channel", "installation"], "description": "Credential lookup scope. Defaults to agent, which still falls back to global per the credential resolver."},
+                    "credential_scope_id": {"type": "string", "description": "Optional credential scope id; for agent scope this is usually the agent id that owns the connected app account."}
+                },
+                "required": ["action"]
+            }
+        },
+        {
             "name": "integrations",
             "title": "AEQI Integration Proxy",
-            "description": "Universal TRUST-role proxy for connected integrations. Use list_tools to inspect provider-pack tools, then call any integration tool through the credential substrate. Scoped calls require the acting role to occupy the TRUST and hold an integration grant such as integrations.google.use or integrations.use.",
+            "description": "Compatibility alias for AEQI Apps. Prefer apps for new clients. Existing integration grants still work, and apps.* grants are also accepted.",
             "annotations": {
                 "title": "AEQI Integration Proxy",
                 "readOnlyHint": false,
@@ -1745,10 +1777,10 @@ fn tool_defs() -> serde_json::Value {
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "action": {"type": "string", "enum": ["list_tools", "call"], "description": "list_tools returns callable provider-pack tool specs; call dispatches one tool through role authorization and credential resolution."},
+                    "action": {"type": "string", "enum": ["list_tools", "call"], "description": "list_tools returns callable app/provider-pack tool specs; call dispatches one tool through role authorization and credential resolution."},
                     "provider": {"type": "string", "description": "Integration provider key, for example google, github, notion, or slack. Required when the provider cannot be inferred from the tool name."},
-                    "tool": {"type": "string", "description": "Provider-pack tool name for call, for example drive.list_files or gmail.search."},
-                    "arguments": {"type": "object", "description": "Arguments passed unchanged to the provider-pack tool."},
+                    "tool": {"type": "string", "description": "App tool name for call, for example google.request, drive.list_files, or gmail.search."},
+                    "arguments": {"type": "object", "description": "Arguments passed unchanged to the app tool."},
                     "trust_id": {"type": "string", "description": "TRUST/entity id to authorize against. Defaults to the MCP allowed root."},
                     "role_id": {"type": "string", "description": "Role/chair the MCP actor is occupying. May also be supplied as x-aeqi-role-id."},
                     "credential_scope_kind": {"type": "string", "enum": ["agent", "global", "user", "channel", "installation"], "description": "Credential lookup scope. Defaults to agent, which still falls back to global per the credential resolver."},
@@ -2171,13 +2203,27 @@ mod tests {
                 .any(|action| action.as_str() == Some("audit"))
         );
 
+        let apps = by_name("apps");
+        assert_eq!(apps["title"], "AEQI Apps Proxy");
+        assert!(
+            apps["description"]
+                .as_str()
+                .unwrap()
+                .contains("TRUST-role proxy")
+        );
+        assert!(
+            apps["inputSchema"]["properties"]
+                .get("credential_scope_kind")
+                .is_some()
+        );
+
         let integrations = by_name("integrations");
         assert_eq!(integrations["title"], "AEQI Integration Proxy");
         assert!(
             integrations["description"]
                 .as_str()
                 .unwrap()
-                .contains("TRUST-role proxy")
+                .contains("Compatibility alias")
         );
         assert!(
             integrations["inputSchema"]["properties"]
@@ -2204,6 +2250,23 @@ mod tests {
         assert_eq!(ctx.actor.trust_id, None);
         assert_eq!(ctx.actor.grants, vec!["*"]);
         assert!(ctx.allowed_roots.is_empty());
+    }
+
+    #[test]
+    fn app_grants_accept_canonical_and_legacy_names() {
+        let candidates = app_grant_candidates("google", "google.request");
+        assert!(candidates.iter().any(|grant| grant == "apps.use"));
+        assert!(candidates.iter().any(|grant| grant == "apps.google.use"));
+        assert!(
+            candidates
+                .iter()
+                .any(|grant| grant == "apps.google.google.request.use")
+        );
+        assert!(
+            candidates
+                .iter()
+                .any(|grant| grant == "integrations.google.use")
+        );
     }
 
     #[test]
