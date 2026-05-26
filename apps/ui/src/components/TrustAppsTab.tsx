@@ -16,6 +16,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { integrationsApi } from "@/api/integrations";
 import { useTrustApps } from "@/hooks/useTrustApps";
+import { api } from "@/lib/api";
 import { entityBasePath } from "@/lib/entityPath";
 import { formatInteger } from "@/lib/i18n";
 import { goExternal } from "@/lib/navigation";
@@ -43,6 +44,12 @@ export default function TrustAppsTab({ trustId }: { trustId: string }) {
     queryKey: ["trust-google-status", trustId],
     queryFn: () => integrationsApi.getTrustGoogleStatus(trustId),
     enabled: Boolean(trustId),
+    staleTime: 20_000,
+  });
+  const emailStatus = useQuery({
+    queryKey: ["trust-email-messages", trustId],
+    queryFn: () => api.getTrustEmailMessages(trustId),
+    enabled: Boolean(entity),
     staleTime: 20_000,
   });
   const googleConnected = googleStatus.data?.connected === true;
@@ -100,7 +107,12 @@ export default function TrustAppsTab({ trustId }: { trustId: string }) {
               href={publicWebsiteUrl(entity)}
               live={entity.public === true}
             />
-            <TrustEmailCard email={trustEmailAddress(entity)} domain={trustEmailDomain(entity)} />
+            <TrustEmailCard
+              email={trustEmailAddress(entity)}
+              domain={trustEmailDomain(entity)}
+              loading={emailStatus.isLoading}
+              status={emailStatus.data}
+            />
           </div>
         </section>
       )}
@@ -180,8 +192,25 @@ function WebsiteAppCard({ domain, href, live }: { domain: string; href: string; 
   );
 }
 
-function TrustEmailCard({ domain, email }: { domain: string; email: string }) {
+function TrustEmailCard({
+  domain,
+  email,
+  loading,
+  status,
+}: {
+  domain: string;
+  email: string;
+  loading: boolean;
+  status?: Awaited<ReturnType<typeof api.getTrustEmailMessages>>;
+}) {
   const [copied, setCopied] = useState(false);
+  const messages = status?.messages ?? [];
+  const latest = messages[0];
+  const routingLabel = loading
+    ? "Checking"
+    : status?.routing_status === "maildrop"
+      ? "Active"
+      : "Ready";
 
   async function copyEmail() {
     try {
@@ -203,13 +232,21 @@ function TrustEmailCard({ domain, email }: { domain: string; email: string }) {
           <h3 className="trust-app-card-title">Email</h3>
           <p className="trust-app-card-summary">Canonical inbox identity for this TRUST</p>
         </div>
-        <span className="trust-app-status-pill">Reserved</span>
+        <span
+          className="trust-app-status-pill"
+          data-status={status?.routing_status === "maildrop" ? "connected" : undefined}
+        >
+          {routingLabel}
+        </span>
       </header>
       <div className="trust-app-card-stats trust-app-card-stats--email">
         <Stat label="Address" value={email} />
         <Stat label="Domain" value={domain} />
-        <Stat label="Routing" value="Pending" />
-        <Stat label="Owner" value="Trust" />
+        <Stat label="Inbox" value={formatInteger(status?.message_count ?? messages.length)} />
+        <Stat
+          label="Latest"
+          value={latest?.received_at ? formatInboxTime(latest.received_at) : "None"}
+        />
       </div>
       <Button
         className="trust-app-card-button"
@@ -282,6 +319,19 @@ function GoogleWorkspaceCard({
       </Button>
     </article>
   );
+}
+
+function formatInboxTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "Received";
+  }
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }
 
 function Stat({ label, value }: { label: string; value: string }) {

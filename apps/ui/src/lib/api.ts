@@ -738,6 +738,25 @@ export const api = {
       } | null;
     }>(`/start/launch/status/${encodeURIComponent(trustId)}`),
 
+  getTrustEmailMessages: (trustId: string) =>
+    request<{
+      ok: boolean;
+      trust_id: string;
+      address?: string | null;
+      routing_status: "maildrop" | string;
+      message_count: number;
+      messages: Array<{
+        id: string;
+        trust_id: string;
+        recipient: string;
+        sender?: string | null;
+        subject?: string | null;
+        preview?: string | null;
+        raw_size: number;
+        received_at: string;
+      }>;
+    }>(`/trusts/${encodeURIComponent(trustId)}/email/messages`),
+
   tryUnifuturesFirstBuy: (data: { entity_id: string }) =>
     request<{
       ok: boolean;
