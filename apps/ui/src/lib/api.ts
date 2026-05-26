@@ -692,6 +692,7 @@ export const api = {
       display_name: string;
       website_domain?: string | null;
       website_url?: string | null;
+      email_address?: string | null;
     }>("/start/launch", {
       method: "POST",
       body: JSON.stringify(data),
@@ -713,6 +714,7 @@ export const api = {
       ok: boolean;
       trust_id: string;
       display_name: string;
+      email_address?: string | null;
       placement_status: string;
       trust_status: string;
       trust_address: string | null;

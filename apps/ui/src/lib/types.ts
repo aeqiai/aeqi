@@ -23,6 +23,8 @@ export interface Trust {
   trust_address?: string;
   /** Public website slug. When present, `https://<slug>.aeqi.ai/` is the public site. */
   slug?: string;
+  /** Canonical trust email identity, usually `hello@<slug>.aeqi.ai`. */
+  email_address?: string;
   /** EOA that created this Trust's on-chain TRUST mirror. */
   creator_address?: string;
   /** Default agent UUID for this trust. Surfaced by the platform's

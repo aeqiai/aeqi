@@ -3,6 +3,8 @@ import type { Trust } from "@/lib/types";
 type PublicWebsiteTrust = Pick<Trust, "id" | "trust_address" | "slug"> &
   Partial<Pick<Trust, "name">>;
 
+export type { PublicWebsiteTrust };
+
 /**
  * Canonical public website identity for a trust.
  *

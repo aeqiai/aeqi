@@ -1,7 +1,17 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Cloud, MessageCircle, Send, Smartphone } from "lucide-react";
+import {
+  ArrowUpRight,
+  Check,
+  Cloud,
+  Copy,
+  Globe,
+  Mail,
+  MessageCircle,
+  Send,
+  Smartphone,
+} from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 import { integrationsApi } from "@/api/integrations";
@@ -9,10 +19,11 @@ import { useTrustApps } from "@/hooks/useTrustApps";
 import { entityBasePath } from "@/lib/entityPath";
 import { formatInteger } from "@/lib/i18n";
 import { goExternal } from "@/lib/navigation";
+import { publicWebsiteDomain, publicWebsiteUrl } from "@/lib/publicWebsite";
+import { trustEmailAddress, trustEmailDomain } from "@/lib/trustEmail";
 import type { TrustAppKind, TrustAppSummary } from "@/lib/trustApps";
 import { useDaemonStore } from "@/store/daemon";
 import { Button } from "./ui";
-import TrustWebsitePanel from "./TrustWebsitePanel";
 import "@/styles/overview.css";
 
 const APP_ICONS: Record<TrustAppKind, ReactNode> = {
@@ -35,6 +46,7 @@ export default function TrustAppsTab({ trustId }: { trustId: string }) {
     staleTime: 20_000,
   });
   const googleConnected = googleStatus.data?.connected === true;
+  const identityApps = entity ? 2 : 0;
   const connectedApps = installed.connectedApps + (googleConnected ? 1 : 0);
   const agentChannelsPath = defaultAgent
     ? `${basePath}/agents/${encodeURIComponent(defaultAgent.id)}/settings/channels`
@@ -49,6 +61,8 @@ export default function TrustAppsTab({ trustId }: { trustId: string }) {
             {isLoading
               ? "Loading app status"
               : `${formatInteger(connectedApps)} connected · ${formatInteger(
+                  identityApps,
+                )} identity · ${formatInteger(
                   installed.enabledChannels,
                 )} channels · ${formatInteger(trustAgents.length)} agents${
                   entity?.public ? " · website live" : ""
@@ -65,7 +79,31 @@ export default function TrustAppsTab({ trustId }: { trustId: string }) {
         </div>
       </header>
 
-      <TrustWebsitePanel trustId={trustId} />
+      {entity && (
+        <section
+          className="trust-cockpit-card trust-cockpit-card--wide"
+          aria-labelledby="launch-apps-heading"
+        >
+          <header className="trust-cockpit-card-header">
+            <div>
+              <h2 id="launch-apps-heading" className="trust-cockpit-card-title">
+                Launch apps
+              </h2>
+              <p className="trust-cockpit-card-sub">
+                The public company surface every TRUST gets at formation.
+              </p>
+            </div>
+          </header>
+          <div className="trust-apps-grid trust-apps-grid--launch">
+            <WebsiteAppCard
+              domain={publicWebsiteDomain(entity)}
+              href={publicWebsiteUrl(entity)}
+              live={entity.public === true}
+            />
+            <TrustEmailCard email={trustEmailAddress(entity)} domain={trustEmailDomain(entity)} />
+          </div>
+        </section>
+      )}
 
       <section
         className="trust-cockpit-card trust-cockpit-card--wide"
@@ -111,6 +149,80 @@ export default function TrustAppsTab({ trustId }: { trustId: string }) {
         </div>
       </section>
     </div>
+  );
+}
+
+function WebsiteAppCard({ domain, href, live }: { domain: string; href: string; live: boolean }) {
+  return (
+    <article className="trust-app-card trust-app-card--identity" data-selected="true">
+      <header className="trust-app-card-header">
+        <span className="trust-app-card-icon" aria-hidden>
+          <Globe size={18} strokeWidth={1.5} />
+        </span>
+        <div className="trust-app-card-title-block">
+          <h3 className="trust-app-card-title">Website</h3>
+          <p className="trust-app-card-summary">Public TRUST website and launch page</p>
+        </div>
+        <span className="trust-app-status-pill" data-status={live ? "connected" : undefined}>
+          {live ? "Live" : "Private"}
+        </span>
+      </header>
+      <div className="trust-app-card-stats trust-app-card-stats--identity">
+        <Stat label="Domain" value={domain} />
+        <Stat label="Visibility" value={live ? "Public" : "Private"} />
+        <Stat label="Analytics" value={live ? "On" : "Ready"} />
+      </div>
+      <a className="trust-app-card-action" href={href} target="_blank" rel="noreferrer">
+        <ArrowUpRight size={14} strokeWidth={1.5} aria-hidden />
+        Open Website
+      </a>
+    </article>
+  );
+}
+
+function TrustEmailCard({ domain, email }: { domain: string; email: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copyEmail() {
+    try {
+      await navigator.clipboard?.writeText(email);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1400);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  return (
+    <article className="trust-app-card trust-app-card--identity" data-selected="true">
+      <header className="trust-app-card-header">
+        <span className="trust-app-card-icon" aria-hidden>
+          <Mail size={18} strokeWidth={1.5} />
+        </span>
+        <div className="trust-app-card-title-block">
+          <h3 className="trust-app-card-title">Email</h3>
+          <p className="trust-app-card-summary">Canonical inbox identity for this TRUST</p>
+        </div>
+        <span className="trust-app-status-pill">Reserved</span>
+      </header>
+      <div className="trust-app-card-stats trust-app-card-stats--email">
+        <Stat label="Address" value={email} />
+        <Stat label="Domain" value={domain} />
+        <Stat label="Routing" value="Pending" />
+        <Stat label="Owner" value="Trust" />
+      </div>
+      <Button
+        className="trust-app-card-button"
+        variant="secondary"
+        size="md"
+        onClick={copyEmail}
+        leadingIcon={
+          copied ? <Check size={14} strokeWidth={1.5} /> : <Copy size={14} strokeWidth={1.5} />
+        }
+      >
+        {copied ? "Copied" : "Copy Email"}
+      </Button>
+    </article>
   );
 }
 

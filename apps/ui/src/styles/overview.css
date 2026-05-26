@@ -858,6 +858,10 @@
   gap: var(--space-3);
 }
 
+.trust-apps-grid--launch {
+  grid-template-columns: repeat(2, minmax(280px, 1fr));
+}
+
 .trust-app-card {
   display: flex;
   flex-direction: column;
@@ -867,6 +871,12 @@
   background: var(--color-card-elevated);
   border-radius: var(--radius-md);
   box-shadow: var(--card-elevation);
+}
+
+.trust-app-card--identity {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(0, 0, 0, 0.012)),
+    var(--color-card-elevated);
 }
 
 .trust-app-card[data-selected="true"] {
@@ -936,11 +946,21 @@
   grid-template-columns: minmax(0, 1.5fr) repeat(2, minmax(0, 1fr));
 }
 
+.trust-app-card-stats--identity {
+  grid-template-columns: minmax(0, 1.8fr) repeat(2, minmax(0, 1fr));
+}
+
+.trust-app-card-stats--email {
+  grid-template-columns: minmax(0, 1.8fr) minmax(0, 1.4fr) repeat(2, minmax(0, 0.9fr));
+}
+
 .trust-app-card-stats .trust-apps-stat {
   min-width: 0;
 }
 
-.trust-app-card-stats--workspace .trust-apps-stat:first-child .trust-apps-stat-value {
+.trust-app-card-stats--workspace .trust-apps-stat:first-child .trust-apps-stat-value,
+.trust-app-card-stats--identity .trust-apps-stat:first-child .trust-apps-stat-value,
+.trust-app-card-stats--email .trust-apps-stat:nth-child(-n + 2) .trust-apps-stat-value {
   overflow: hidden;
   font-family: var(--font-sans);
   font-size: var(--font-size-sm);
@@ -1237,7 +1257,8 @@
 
 @media (max-width: 980px) {
   .trust-cockpit-row,
-  .trust-apps-grid {
+  .trust-apps-grid,
+  .trust-apps-grid--launch {
     grid-template-columns: 1fr;
   }
 

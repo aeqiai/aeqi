@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { ProgressList, type ProgressStep } from "@/components/ui";
 import { api } from "@/lib/api";
 import { publicWebsiteUrl } from "@/lib/publicWebsite";
+import { trustEmailAddress } from "@/lib/trustEmail";
 import { LaunchShell } from "@/pages/trustSetup/LaunchShell";
 import { useDaemonStore } from "@/store/daemon";
 import { useUIStore } from "@/store/ui";
@@ -50,11 +51,13 @@ export function LaunchingReveal({
   fallbackDisplayName,
   websiteUrl,
   websiteDomain,
+  emailAddress,
 }: {
   trustId: string;
   fallbackDisplayName?: string;
   websiteUrl?: string | null;
   websiteDomain?: string | null;
+  emailAddress?: string | null;
 }) {
   const [status, setStatus] = useState<LaunchStatus | null>(null);
   const [pollError, setPollError] = useState<string | null>(null);
@@ -103,6 +106,12 @@ export function LaunchingReveal({
   const launchWebsiteUrl = websiteUrl ?? generatedWebsiteUrl;
   const launchWebsiteLabel =
     websiteDomain ?? launchWebsiteUrl?.replace(/^https?:\/\//, "").replace(/\/$/, "") ?? null;
+  const launchEmailAddress =
+    emailAddress ??
+    status?.email_address ??
+    (trustAddress !== null
+      ? trustEmailAddress({ id: trustId, name: displayName, trust_address: trustAddress })
+      : null);
   const reachedSteps = STEPS.map((step) => {
     const milestone = milestones?.[step.key as MilestoneKey];
     return isReady || (milestone?.reached ?? false);
@@ -203,6 +212,24 @@ export function LaunchingReveal({
               </span>
             </div>
           </div>
+          {launchEmailAddress && (
+            <div className="launching-reveal__website">
+              <div className="launching-reveal__website-meta">
+                <span className="launching-reveal__website-label">Email</span>
+                <span className="launching-reveal__website-route">{launchEmailAddress}</span>
+              </div>
+              <div className="launching-reveal__website-stats" aria-label="Email status">
+                <span className="launching-reveal__website-stat">
+                  <strong>Reserved</strong>
+                  <span>Status</span>
+                </span>
+                <span className="launching-reveal__website-stat">
+                  <strong>Trust</strong>
+                  <span>Owner</span>
+                </span>
+              </div>
+            </div>
+          )}
           <div className="launching-reveal__actions">
             {trustToolsPath && (
               <Link className="launching-reveal__cta" to={trustToolsPath}>

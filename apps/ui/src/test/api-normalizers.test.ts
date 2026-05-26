@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildAgentDirectory } from "@/api/agents";
 import { normalizeTrustRoots } from "@/api/trusts";
 import { publicWebsitePath, publicWebsiteUrl, publicWebsiteSlug } from "@/lib/publicWebsite";
+import { trustEmailAddress } from "@/lib/trustEmail";
 
 describe("trust API normalization", () => {
   it("maps trust roots into UI trusts and drops invalid rows", () => {
@@ -33,6 +34,7 @@ describe("trust API normalization", () => {
         trust_address: undefined,
         slug: undefined,
         creator_address: undefined,
+        email_address: undefined,
         agent_id: undefined,
         placement_type: undefined,
         tagline: undefined,
@@ -69,6 +71,22 @@ describe("public website identity", () => {
 
   it("keeps the legacy slash path separate from the public subdomain URL", () => {
     expect(publicWebsitePath({ id: "trust_1", name: "Horizon Labs" })).toBe("/horizon-labs");
+  });
+
+  it("derives the trust email from the website slug", () => {
+    expect(trustEmailAddress({ id: "trust_1", name: "Horizon Labs" })).toBe(
+      "hello@horizon-labs.aeqi.ai",
+    );
+  });
+
+  it("uses backend-provided trust email when present", () => {
+    expect(
+      trustEmailAddress({
+        id: "trust_1",
+        name: "Horizon Labs",
+        email_address: "founders@horizon-labs.aeqi.ai",
+      }),
+    ).toBe("founders@horizon-labs.aeqi.ai");
   });
 });
 

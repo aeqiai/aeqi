@@ -93,6 +93,7 @@ describe("EconomyPage", () => {
       ok: true,
       trust_id: trustId,
       display_name: trustId,
+      email_address: `hello@${trustId}.aeqi.ai`,
       placement_status: "active",
       trust_status: "active",
       trust_address: trustId === "alpha" ? (TRUSTS[0].trust_address ?? null) : null,

@@ -30,6 +30,7 @@ describe("LaunchingReveal", () => {
     getLaunchStatus.mockResolvedValue({
       placement_status: "ready",
       display_name: "Janus TRUST",
+      email_address: "hello@janus-trust.aeqi.ai",
       trust_address: "9AlphaTrust111111111111111111111111111111111",
       milestones: {},
     });
@@ -49,6 +50,8 @@ describe("LaunchingReveal", () => {
       await screen.findByText("The TRUST exists and the public website shell is live."),
     ).toBeInTheDocument();
     expect(screen.getByText("Website")).toBeInTheDocument();
+    expect(screen.getByText("Email")).toBeInTheDocument();
+    expect(screen.getByText("hello@janus-trust.aeqi.ai")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open Website" })).toHaveAttribute(
       "href",
       "https://janus-trust.aeqi.ai/",

@@ -111,6 +111,7 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
   const [provisioning, setProvisioning] = useState(false);
   const [launchWebsiteUrl, setLaunchWebsiteUrl] = useState<string | null>(null);
   const [launchWebsiteDomain, setLaunchWebsiteDomain] = useState<string | null>(null);
+  const [launchEmailAddress, setLaunchEmailAddress] = useState<string | null>(null);
   const [trustName, setTrustName] = useState("");
   const [trustNameTouched, setTrustNameTouched] = useState(false);
   const [operations, setOperations] = useState<OperationsChoice>("paid");
@@ -386,6 +387,7 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
         });
         setLaunchWebsiteUrl(resp.website_url ?? null);
         setLaunchWebsiteDomain(resp.website_domain ?? null);
+        setLaunchEmailAddress(resp.email_address ?? null);
 
         setSearchParams(
           new URLSearchParams({
@@ -450,6 +452,7 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
         fallbackDisplayName={activeLaunchEntity?.name || trustName.trim() || undefined}
         websiteUrl={launchWebsiteUrl}
         websiteDomain={launchWebsiteDomain}
+        emailAddress={launchEmailAddress}
       />
     );
   }
