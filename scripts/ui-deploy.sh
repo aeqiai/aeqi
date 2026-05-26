@@ -29,7 +29,11 @@ if [ ! -d "$TARGET" ]; then
 fi
 
 cd "$UI_DIR"
-npm run build
+if node "$REPO_ROOT/scripts/ui-verify-stamp.mjs" --check --quiet; then
+  echo "verified dist matches source - reusing apps/ui/dist"
+else
+  npm run build
+fi
 
 if [ ! -f "$UI_DIR/dist/index.html" ]; then
   echo "build did not produce dist/index.html — refusing to rsync" >&2

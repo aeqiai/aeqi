@@ -874,9 +874,10 @@
 }
 
 .trust-app-card--identity {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(0, 0, 0, 0.012)),
-    var(--color-card-elevated);
+  background: var(--color-card-elevated);
+  box-shadow:
+    var(--card-elevation),
+    inset 0 0 0 1px var(--color-border-faint);
 }
 
 .trust-app-card[data-selected="true"] {

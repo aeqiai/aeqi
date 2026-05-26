@@ -18,7 +18,7 @@ import { integrationsApi } from "@/api/integrations";
 import { useTrustApps } from "@/hooks/useTrustApps";
 import { api } from "@/lib/api";
 import { entityBasePath } from "@/lib/entityPath";
-import { formatInteger } from "@/lib/i18n";
+import { formatDateTime, formatInteger } from "@/lib/i18n";
 import { goExternal } from "@/lib/navigation";
 import { publicWebsiteDomain, publicWebsiteUrl } from "@/lib/publicWebsite";
 import { trustEmailAddress, trustEmailDomain } from "@/lib/trustEmail";
@@ -322,16 +322,7 @@ function GoogleWorkspaceCard({
 }
 
 function formatInboxTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "Received";
-  }
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
+  return formatDateTime(value, { fallback: "Received" });
 }
 
 function Stat({ label, value }: { label: string; value: string }) {

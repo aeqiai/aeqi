@@ -30,7 +30,7 @@
     "perf:check": "node scripts/perf-baseline.mjs",
     "perf:update-baseline": "node scripts/perf-baseline.mjs --update-baseline",
     "verify-url-contract": "node scripts/verify-url-contract.mjs",
-    "verify": "npm run check && npm run lint && npm run test && npm run hygiene && npm run design-system:audit && npm run i18n:audit && npm run build",
+    "verify": "node ../../scripts/ui-verify-stamp.mjs --clear && npm run check && npm run lint && npm run test && npm run hygiene && npm run design-system:audit && npm run i18n:audit && npm run build && node ../../scripts/ui-verify-stamp.mjs --write",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,mdx}\"",
     "test": "vitest run",
     "test:watch": "vitest",

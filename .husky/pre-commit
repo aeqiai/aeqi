@@ -8,6 +8,10 @@ set -e
 # Only run the UI checks when apps/ui files are staged — otherwise the
 # hook is a no-op and rust-only commits stay fast.
 if git diff --cached --name-only | grep -q '^apps/ui/'; then
+  if node scripts/ui-verify-stamp.mjs --check --quiet; then
+    echo "[pre-commit] apps/ui changed - reusing matching npm run verify stamp"
+    exit 0
+  fi
   echo "[pre-commit] apps/ui changed — running hygiene + design-system audit + check + lint + test"
   node apps/ui/scripts/hygiene-check.mjs --staged
   npm --prefix apps/ui run design-system:audit
