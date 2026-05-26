@@ -131,7 +131,7 @@ fn build_foundation_blueprint(brief: &str) -> serde_json::Value {
         "template": STUB_TEMPLATE,
         "root": {
             "name": "founder",
-            "model": "deepseek/deepseek-v4-pro",
+            "model": "z-ai/glm-4.5-air:free",
             "color": "#0a0a0b",
             "system_prompt": format!(
                 "You are the founder's primary agent inside a freshly drafted Foundation \

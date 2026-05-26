@@ -151,7 +151,7 @@ pub struct OpenRouterConfig {
 }
 
 fn default_openrouter_model() -> String {
-    "xiaomi/mimo-v2-pro".to_string()
+    "z-ai/glm-4.5-air:free".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2105,6 +2105,28 @@ repo = "/tmp/aeqi"
         assert_eq!(
             config.execution_mode_for_agent("leader"),
             ExecutionMode::Agent
+        );
+    }
+
+    #[test]
+    fn test_openrouter_default_model_uses_free_tier() {
+        let toml = r#"
+[aeqi]
+name = "test"
+
+[providers.openrouter]
+api_key = "${OPENROUTER_API_KEY}"
+
+[[agents]]
+name = "leader"
+prefix = "ld"
+role = "orchestrator"
+"#;
+        let config = AEQIConfig::parse(toml).unwrap();
+
+        assert_eq!(
+            config.default_model_for_provider(ProviderKind::OpenRouter),
+            "z-ai/glm-4.5-air:free".to_string()
         );
     }
 

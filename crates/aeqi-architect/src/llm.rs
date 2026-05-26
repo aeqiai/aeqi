@@ -668,7 +668,7 @@ Output STRICTLY this JSON shape, no prose, no code fences:
     "template": "<entity|venture>",
     "root": {
       "name": "founder",
-      "model": "deepseek/deepseek-v4-pro",
+      "model": "z-ai/glm-4.5-air:free",
       "color": "#0a0a0b",
       "system_prompt": "<persona for the founder's primary agent: 3-5 sentences, references the brief>",
       "proactive_greeting": "<one-line greeting the agent posts in the founder's inbox>"
@@ -842,7 +842,7 @@ fn normalize_blueprint(mut bp: Value, brief: &str) -> Value {
                 "root".to_string(),
                 json!({
                     "name": "founder",
-                    "model": "deepseek/deepseek-v4-pro",
+                    "model": "z-ai/glm-4.5-air:free",
                     "color": "#0a0a0b",
                     "system_prompt": format!("You are the founder's primary agent. The founder's brief: {brief}"),
                     "proactive_greeting": "Hi — your Architect drafted this Company from your brief."
