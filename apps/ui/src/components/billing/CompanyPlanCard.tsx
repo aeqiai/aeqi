@@ -75,10 +75,7 @@ export function CompanyPlanCard({
             <Badge variant={statusBadge.variant} size="sm" dot>
               {statusBadge.label}
             </Badge>
-            <Badge
-              variant={plan.id === "growth" && planName !== "Sandbox" ? "accent" : "neutral"}
-              size="sm"
-            >
+            <Badge variant={plan.id === "growth" ? "accent" : "neutral"} size="sm">
               {planName}
             </Badge>
           </div>

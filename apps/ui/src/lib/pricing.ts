@@ -133,12 +133,12 @@ export function launchPlanById(planId?: string | null): LaunchPlan {
 }
 
 export function launchPlanDisplayName(planId?: string | null): string {
-  if ((planId || "").toLowerCase() === "sandbox") return "Sandbox";
+  if ((planId || "").toLowerCase() === "sandbox") return "Admin sandbox";
   return launchPlanById(planId).name;
 }
 
 export function launchPlanBillingLine(planId?: string | null): string {
-  if ((planId || "").toLowerCase() === "sandbox") return "Sandbox runtime. No Stripe billing.";
+  if ((planId || "").toLowerCase() === "sandbox") return "Internal runtime. No Stripe billing.";
   const plan = launchPlanById(planId);
   if (plan.id === "growth") return "$69 first month, $149/mo after.";
   return "$49/mo.";

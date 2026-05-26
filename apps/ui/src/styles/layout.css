@@ -1300,8 +1300,12 @@
 .content-body-row:has(.sessions-rail-col):has(.asv .session-detail--recessed) .sessions-rail-col {
   width: clamp(300px, 32vw, 420px);
   min-width: 280px;
-  background: var(--color-card-muted);
-  box-shadow: var(--card-elevation);
+  background: var(--color-ink-card);
+  color: var(--color-ink-card-text);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.18),
+    0 14px 28px -12px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
   border-radius: var(--radius-sm);
   padding: var(--space-3);
 }
@@ -1330,6 +1334,36 @@
   flex: 1;
   min-height: 0;
   background: transparent;
+}
+.sessions-rail--recessed {
+  background: var(--color-ink-card);
+  color: var(--color-ink-card-text);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.18),
+    0 14px 28px -12px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+.sessions-rail--recessed .sessions-rail-group-label {
+  color: var(--color-ink-card-text-muted);
+}
+.sessions-rail--recessed .sessions-rail-group-rule {
+  background: var(--color-ink-card-border);
+  opacity: 1;
+}
+.sessions-rail--recessed .sessions-rail-empty {
+  background: var(--color-ink-card-elevated);
+  border: 1px solid var(--color-ink-card-border);
+}
+.sessions-rail--recessed .sessions-rail-empty-mark {
+  background: var(--color-ink-card-text-muted);
+  opacity: 0.7;
+}
+.sessions-rail--recessed .sessions-rail-empty-title {
+  color: var(--color-ink-card-text);
+}
+.sessions-rail--recessed .sessions-rail-empty-hint {
+  color: var(--color-ink-card-text-muted);
 }
 /* Header — matches the adjacent content-topbar height (52px) so the card
    reads as one horizontal band across all three columns. Holds only the

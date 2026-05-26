@@ -162,8 +162,8 @@ function OperationsSection({
       ? [
           {
             key: "sandbox",
-            title: "Sandbox",
-            price: "Admin",
+            title: "Admin sandbox",
+            price: "Admin only",
             copy: "Internal runtime for testing launches.",
             detail: "No Stripe checkout",
             selected: operations === "sandbox",
@@ -341,7 +341,7 @@ export function TrustSetupFlow({
                   : `${selectedLaunchPlan.dueToday}/mo`
               }`
             : operations === "sandbox"
-              ? "Launch sandbox"
+              ? "Launch admin sandbox"
               : "Launch TRUST"}
         </Button>
       </footer>

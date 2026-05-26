@@ -109,7 +109,7 @@ describe("TrustSetupFlow", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.queryByRole("radio", { name: /Sandbox/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: /Admin sandbox/i })).not.toBeInTheDocument();
 
     rerender(
       <MemoryRouter>
@@ -117,8 +117,8 @@ describe("TrustSetupFlow", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("radio", { name: /Sandbox/i })).toBeChecked();
+    expect(screen.getByRole("radio", { name: /Admin sandbox/i })).toBeChecked();
     expect(screen.getByText("No Stripe checkout")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Launch sandbox/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Launch admin sandbox/i })).toBeInTheDocument();
   });
 });

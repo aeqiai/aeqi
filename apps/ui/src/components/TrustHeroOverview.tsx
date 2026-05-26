@@ -62,7 +62,7 @@ export default function TrustHeroOverview({
   const runtimeTone = runtime.hostActive ? "live" : runtime.hasRuntime ? "provisioning" : "static";
   const runtimePlanLabel =
     runtime.plan === "sandbox"
-      ? "Sandbox"
+      ? "Admin sandbox"
       : runtime.plan === "pro"
         ? "Pro"
         : runtime.hostActive
