@@ -345,7 +345,10 @@ mod tests {
             .iter()
             .find(|quest| quest.key.as_deref() == Some("public_website"))
             .expect("default blueprint should seed a public website quest");
-        assert_eq!(public_website.subject, "Publish the first public website shell");
+        assert_eq!(
+            public_website.subject,
+            "Publish the first public website shell"
+        );
         assert!(
             public_website.description.contains("public route")
                 && public_website.description.contains("zero-view baseline"),

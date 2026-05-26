@@ -75,6 +75,36 @@ fn validate_against_schema(
         }
     }
 
+    if let Some(any_of) = schema.get("anyOf").and_then(|v| v.as_array())
+        && !any_of.is_empty()
+    {
+        let mut errors = Vec::new();
+        for option in any_of {
+            match validate_against_schema(prefix, args, option) {
+                Ok(()) => {
+                    errors.clear();
+                    break;
+                }
+                Err(err) => errors.push(err),
+            }
+        }
+        if !errors.is_empty() {
+            let required_options: Vec<String> = any_of
+                .iter()
+                .filter_map(|option| option.get("required").and_then(|v| v.as_array()))
+                .flat_map(|required| required.iter().filter_map(|field| field.as_str()))
+                .map(|field| format!("`{field}`"))
+                .collect();
+            if required_options.is_empty() {
+                return Err(format!("{prefix}: does not match any accepted schema"));
+            }
+            return Err(format!(
+                "{prefix}: missing one of required fields {}",
+                required_options.join(" or ")
+            ));
+        }
+    }
+
     if let (Some(obj), Some(props)) = (
         args_obj,
         schema.get("properties").and_then(|v| v.as_object()),
@@ -146,7 +176,10 @@ mod tests {
     fn rejects_missing_required_field() {
         let calls = vec![tc("ideas.assemble", serde_json::json!({}))];
         let err = validate_tool_calls(&calls).unwrap_err();
-        assert!(err.contains("missing required field `names`"), "got: {err}");
+        assert!(
+            err.contains("missing one of required fields `ids` or `names`"),
+            "got: {err}"
+        );
     }
 
     #[test]
