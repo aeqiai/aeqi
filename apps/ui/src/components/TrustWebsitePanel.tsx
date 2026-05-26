@@ -15,7 +15,7 @@ import {
 import { Button } from "@/components/ui";
 import { api } from "@/lib/api";
 import { entityBasePath } from "@/lib/entityPath";
-import { publicWebsitePath } from "@/lib/publicWebsite";
+import { publicWebsitePath, publicWebsiteSlug } from "@/lib/publicWebsite";
 import { useDaemonStore } from "@/store/daemon";
 
 interface TrustWebsitePanelProps {
@@ -59,10 +59,11 @@ export default function TrustWebsitePanel({ trustId, mode = "card" }: TrustWebsi
 
   const basePath = entity ? entityBasePath(entity) : "/launch";
   const websitePath = entity ? publicWebsitePath(entity) : "/";
+  const websiteSlug = entity ? publicWebsiteSlug(entity) : null;
   const websiteStatus = entity?.public ? "Live" : "Private";
   const websiteViews = entity?.public ? "0" : "—";
-  const routeLabel = entity?.slug ? `/${entity.slug}` : websitePath;
-  const subdomainLabel = entity?.slug ? `${entity.slug}.aeqi.ai` : "Reserved after launch";
+  const routeLabel = websiteSlug ? `/${websiteSlug}` : websitePath;
+  const subdomainLabel = websiteSlug ? `${websiteSlug}.aeqi.ai` : "Launch hostname";
 
   const publishWebsite = useCallback(async () => {
     if (!entity || entity.public) return;
@@ -88,7 +89,7 @@ export default function TrustWebsitePanel({ trustId, mode = "card" }: TrustWebsi
             Website
           </h2>
           <p className="trust-cockpit-card-sub trust-website-subtitle">
-            Public trust view for demos, marketplaces, and ownership proof.
+            Public website created with the TRUST for demos, marketplaces, and ownership proof.
           </p>
         </div>
         <span
@@ -162,7 +163,8 @@ export default function TrustWebsitePanel({ trustId, mode = "card" }: TrustWebsi
         <div className="trust-website-privacy-row">
           <ShieldCheck size={15} strokeWidth={1.6} aria-hidden />
           <span>
-            Onchain authority can be public; private org structure stays behind the app shell.
+            Launch assigns this website from the TRUST name; private org structure stays behind the
+            app shell.
           </span>
         </div>
       </div>

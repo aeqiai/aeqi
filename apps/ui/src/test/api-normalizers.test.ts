@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildAgentDirectory } from "@/api/agents";
 import { normalizeTrustRoots } from "@/api/trusts";
+import { publicWebsitePath, publicWebsiteSlug } from "@/lib/publicWebsite";
 
 describe("trust API normalization", () => {
   it("maps trust roots into UI trusts and drops invalid rows", () => {
@@ -30,6 +31,7 @@ describe("trust API normalization", () => {
         last_active: undefined,
         trust_id: undefined,
         trust_address: undefined,
+        slug: undefined,
         creator_address: undefined,
         agent_id: undefined,
         placement_type: undefined,
@@ -41,6 +43,28 @@ describe("trust API normalization", () => {
         launch_error: undefined,
       },
     ]);
+  });
+});
+
+describe("public website identity", () => {
+  it("uses the persisted slug when present", () => {
+    expect(
+      publicWebsitePath({
+        id: "trust_1",
+        name: "Launch Name",
+        slug: "launch-name",
+      }),
+    ).toBe("/launch-name");
+  });
+
+  it("derives the launch slug from the trust name before falling back to address", () => {
+    expect(
+      publicWebsiteSlug({
+        id: "trust_1",
+        name: "Horizon Labs",
+        trust_address: "0xabc123",
+      }),
+    ).toBe("horizon-labs");
   });
 });
 

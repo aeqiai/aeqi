@@ -96,7 +96,9 @@ export function LaunchingReveal({
   const isReady = ["ready", "complete"].includes(status?.placement_status ?? "");
   const hasError = Boolean(trustError || runtimeError);
   const websitePath =
-    trustAddress !== null ? publicWebsitePath({ id: trustId, trust_address: trustAddress }) : null;
+    trustAddress !== null
+      ? publicWebsitePath({ id: trustId, name: displayName, trust_address: trustAddress })
+      : null;
   const trustToolsPath = trustAddress ? `/trust/${encodeURIComponent(trustAddress)}` : null;
   const launchWebsiteUrl = websiteUrl ?? null;
   const launchWebsiteLabel =
