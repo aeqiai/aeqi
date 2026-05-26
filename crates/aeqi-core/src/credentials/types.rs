@@ -66,6 +66,9 @@ impl std::fmt::Display for CredentialReasonCode {
 pub enum ScopeKind {
     /// Workspace-wide. `scope_id == ""`.
     Global,
+    /// Bound to a TRUST/entity so roles and agents in that TRUST share the
+    /// connected app account.
+    Trust,
     /// Bound to a single agent (most-specific default for tools).
     Agent,
     /// Bound to a human user (multi-tenant case; aeqi runs single-tenant
@@ -81,6 +84,7 @@ impl ScopeKind {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Global => "global",
+            Self::Trust => "trust",
             Self::Agent => "agent",
             Self::User => "user",
             Self::Channel => "channel",
@@ -91,6 +95,7 @@ impl ScopeKind {
     pub fn parse(s: &str) -> Option<Self> {
         match s {
             "global" => Some(Self::Global),
+            "trust" | "entity" => Some(Self::Trust),
             "agent" => Some(Self::Agent),
             "user" => Some(Self::User),
             "channel" => Some(Self::Channel),
@@ -103,12 +108,14 @@ impl ScopeKind {
 /// Hint a tool gives when declaring `required_credentials()` so the runtime
 /// knows which scope to prefer when more than one matching row exists.
 ///
-/// The default lookup walks `Agent → Global` (most-specific first).
+/// The default lookup walks `Agent → Trust → Global` (most-specific first).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ScopeHint {
-    /// Resolve agent-scoped first, fall back to global.
+    /// Resolve agent-scoped first, then TRUST-scoped, then global.
     Agent,
+    /// Resolve TRUST/entity-scoped first, fall back to global.
+    Trust,
     /// Resolve user-scoped first, fall back to global.
     User,
     /// Resolve global-only (e.g. LLM provider keys today).

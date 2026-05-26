@@ -1,27 +1,27 @@
 //! Credentials IPC handlers.
 //!
-//! Surfaces a thin write/upsert path for the platform's per-agent OAuth
+//! Surfaces a thin write/upsert path for the platform's OAuth app
 //! callbacks (Path B). The platform exchanges the authorization code for
 //! tokens server-side, then ships the bootstrapped row to the per-tenant
 //! runtime over the platform→runtime IPC HTTP boundary; the runtime
 //! forwards the call to this IPC verb so the credential lands in the
 //! same SQLite store the daemon's pack tools read at runtime.
 //!
-//! Tenancy is enforced via `check_agent_access`: the agent's owning
-//! entity must be in the caller's allowed roots. The agent registry is
-//! the source of truth.
+//! Tenancy is enforced by scope: agent rows verify the agent's owning
+//! entity against the caller's allowed roots; trust rows verify the scope id
+//! itself is in those roots.
 
 use aeqi_core::credentials::{CredentialInsert, CredentialKey, CredentialUpdate, ScopeKind};
 
 use super::request_field;
-use super::tenancy::check_agent_access;
+use super::tenancy::{check_agent_access, is_allowed};
 
-/// `credentials_ingest {agent_id, provider, name, lifecycle_kind,
+/// `credentials_ingest {scope_kind, scope_id, provider, name, lifecycle_kind,
 ///   plaintext_blob_json, metadata, expires_at}` →
 /// `{ok, credential_id}` on success.
 ///
 /// Idempotent: if a row already exists at
-/// `(scope_kind=agent, scope_id=agent_id, provider, name)` it is updated
+/// `(scope_kind, scope_id, provider, name)` it is updated
 /// in place (so a re-consent flow refreshes tokens cleanly without
 /// needing a separate disconnect step).
 ///
@@ -53,13 +53,23 @@ pub async fn handle_credentials_ingest(
     };
     let lifecycle_kind = request_field(request, "lifecycle_kind").unwrap_or("oauth2");
 
-    // Tenancy walk: only `Agent` scope is supported through this path
-    // for now — a global-scope ingest would bypass per-tenant isolation.
-    if !matches!(scope_kind, ScopeKind::Agent) {
-        return serde_json::json!({"ok": false, "error": "only scope_kind=agent supported"});
-    }
-    if !check_agent_access(&ctx.agent_registry, allowed, scope_id).await {
-        return serde_json::json!({"ok": false, "error": "forbidden"});
+    match &scope_kind {
+        ScopeKind::Agent => {
+            if !check_agent_access(&ctx.agent_registry, allowed, scope_id).await {
+                return serde_json::json!({"ok": false, "error": "forbidden"});
+            }
+        }
+        ScopeKind::Trust => {
+            if !is_allowed(allowed, scope_id) {
+                return serde_json::json!({"ok": false, "error": "forbidden"});
+            }
+        }
+        _ => {
+            return serde_json::json!({
+                "ok": false,
+                "error": "only scope_kind=agent or trust supported"
+            });
+        }
     }
 
     // Plaintext blob comes in as JSON; serialise to bytes so we hand the

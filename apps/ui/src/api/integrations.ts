@@ -39,7 +39,7 @@ export type CredentialStatus =
 
 export interface CredentialView {
   id: string;
-  scope_kind: "global" | "agent" | "user" | "channel" | "installation";
+  scope_kind: "global" | "trust" | "agent" | "user" | "channel" | "installation";
   scope_id: string;
   provider: string;
   name: string;
@@ -81,6 +81,8 @@ export interface AgentGoogleStatusResponse {
 
 export type AgentGithubStartResponse = AgentGoogleStartResponse;
 export type AgentGithubStatusResponse = AgentGoogleStatusResponse;
+export type TrustGoogleStartResponse = AgentGoogleStartResponse;
+export type TrustGoogleStatusResponse = AgentGoogleStatusResponse;
 
 // ── API ──────────────────────────────────────────────────────────────────
 
@@ -123,6 +125,14 @@ export const integrationsApi = {
 
   getAgentGoogleStatus(agentId: string): Promise<AgentGoogleStatusResponse> {
     return apiRequest(`/agents/${encodeURIComponent(agentId)}/integrations/google/status`);
+  },
+
+  startTrustGoogle(trustId: string): Promise<TrustGoogleStartResponse> {
+    return apiRequest(`/trust/${encodeURIComponent(trustId)}/apps/google/start`);
+  },
+
+  getTrustGoogleStatus(trustId: string): Promise<TrustGoogleStatusResponse> {
+    return apiRequest(`/trust/${encodeURIComponent(trustId)}/apps/google/status`);
   },
 
   startAgentGithub(agentId: string): Promise<AgentGithubStartResponse> {

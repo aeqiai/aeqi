@@ -292,8 +292,8 @@ impl ToolRegistry {
             }
         };
 
-        // Build the resolution scope from ctx (agent_id always present;
-        // user/channel/installation come from ctx.credential_scope).
+        // Build the resolution scope from ctx (agent_id usually present;
+        // trust/user/channel/installation come from ctx.credential_scope).
         let mut scope = ctx.credential_scope.clone();
         if scope.agent_id.is_none() && !ctx.agent_id.is_empty() {
             scope.agent_id = Some(ctx.agent_id.clone());

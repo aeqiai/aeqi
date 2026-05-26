@@ -932,8 +932,20 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.trust-app-card-stats--workspace {
+  grid-template-columns: minmax(0, 1.5fr) repeat(2, minmax(0, 1fr));
+}
+
 .trust-app-card-stats .trust-apps-stat {
   min-width: 0;
+}
+
+.trust-app-card-stats--workspace .trust-apps-stat:first-child .trust-apps-stat-value {
+  overflow: hidden;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .trust-app-card-action {

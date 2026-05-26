@@ -1243,6 +1243,7 @@ fn credential_resolution_scope(
         .unwrap_or("agent");
     let requested_id = args
         .get("credential_scope_id")
+        .or_else(|| args.get("credential_trust_id"))
         .or_else(|| args.get("credential_agent_id"))
         .or_else(|| args.get("agent_id"))
         .and_then(|v| v.as_str())
@@ -1251,11 +1252,21 @@ fn credential_resolution_scope(
         .map(ToOwned::to_owned);
 
     let mut scope = ResolutionScope {
+        trust_id: ctx
+            .actor
+            .trust_id
+            .clone()
+            .or_else(|| ctx.allowed_roots.first().cloned()),
         user_id: ctx.actor.user_id.clone(),
         ..Default::default()
     };
     match requested_kind {
         "global" => {}
+        "trust" | "entity" => {
+            scope.trust_id = requested_id
+                .or_else(|| ctx.actor.trust_id.clone())
+                .or_else(|| ctx.allowed_roots.first().cloned());
+        }
         "user" => {
             if let Some(user_id) = requested_id.or_else(|| ctx.actor.user_id.clone()) {
                 scope.user_id = Some(user_id);
@@ -1757,8 +1768,8 @@ fn tool_defs() -> serde_json::Value {
                     "arguments": {"type": "object", "description": "Arguments passed unchanged to the app tool."},
                     "trust_id": {"type": "string", "description": "TRUST/entity id to authorize against. Defaults to the MCP allowed root."},
                     "role_id": {"type": "string", "description": "Role/chair the MCP actor is occupying. May also be supplied as x-aeqi-role-id."},
-                    "credential_scope_kind": {"type": "string", "enum": ["agent", "global", "user", "channel", "installation"], "description": "Credential lookup scope. Defaults to agent, which still falls back to global per the credential resolver."},
-                    "credential_scope_id": {"type": "string", "description": "Optional credential scope id; for agent scope this is usually the agent id that owns the connected app account."}
+                    "credential_scope_kind": {"type": "string", "enum": ["agent", "trust", "global", "user", "channel", "installation"], "description": "Credential lookup scope. Defaults to agent, whose resolver order is agent, TRUST, then global."},
+                    "credential_scope_id": {"type": "string", "description": "Optional credential scope id; for TRUST scope this is the TRUST/entity id."}
                 },
                 "required": ["action"]
             }
@@ -1783,8 +1794,8 @@ fn tool_defs() -> serde_json::Value {
                     "arguments": {"type": "object", "description": "Arguments passed unchanged to the app tool."},
                     "trust_id": {"type": "string", "description": "TRUST/entity id to authorize against. Defaults to the MCP allowed root."},
                     "role_id": {"type": "string", "description": "Role/chair the MCP actor is occupying. May also be supplied as x-aeqi-role-id."},
-                    "credential_scope_kind": {"type": "string", "enum": ["agent", "global", "user", "channel", "installation"], "description": "Credential lookup scope. Defaults to agent, which still falls back to global per the credential resolver."},
-                    "credential_scope_id": {"type": "string", "description": "Optional credential scope id; for agent scope this is usually the agent id that owns the connected provider account."}
+                    "credential_scope_kind": {"type": "string", "enum": ["agent", "trust", "global", "user", "channel", "installation"], "description": "Credential lookup scope. Defaults to agent, whose resolver order is agent, TRUST, then global."},
+                    "credential_scope_id": {"type": "string", "description": "Optional credential scope id; for TRUST scope this is the TRUST/entity id."}
                 },
                 "required": ["action"]
             }
