@@ -46,7 +46,6 @@ const HomeIcon = () => <House />;
 // canonical landing for the trust." The Trust group header carries the
 // institution semantic so this glyph doesn't need to.
 const OverviewIcon = () => <LayoutDashboard />;
-const WebsiteIcon = () => <Globe />;
 const AgentsIcon = () => <Bot />;
 // Events — Activity: single-line waveform reads as the event stream
 // without the busy three-node pretzel of the prior Webhook glyph.
@@ -367,7 +366,6 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
                   <span className="sidebar-nav-label">Overview</span>
                 </a>
               </div>
-              {navItem("website", "Website", <WebsiteIcon />)}
               {navItem("inbox", "Inbox", <InboxIcon />)}
               {/* Roles — the org-chart / authority graph. Sits inside the
                   Trust group alongside Overview; both describe what the

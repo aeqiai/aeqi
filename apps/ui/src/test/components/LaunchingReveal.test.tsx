@@ -51,7 +51,7 @@ describe("LaunchingReveal", () => {
     expect(screen.getByText("Website")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open Website" })).toHaveAttribute(
       "href",
-      "/janus-trust",
+      "https://janus-trust.aeqi.ai/",
     );
     expect(screen.getByRole("link", { name: "Trust tools" })).toHaveAttribute(
       "href",

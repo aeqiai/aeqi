@@ -4,7 +4,7 @@ type PublicWebsiteTrust = Pick<Trust, "id" | "trust_address" | "slug"> &
   Partial<Pick<Trust, "name">>;
 
 /**
- * Canonical public website path for a trust.
+ * Canonical public website identity for a trust.
  *
  * The public trust surface is the website. Prefer the public slug when the
  * backend has minted one; otherwise derive the launch slug from the unique
@@ -14,6 +14,14 @@ type PublicWebsiteTrust = Pick<Trust, "id" | "trust_address" | "slug"> &
 export function publicWebsitePath(trust: PublicWebsiteTrust): string {
   const slug = publicWebsiteSlug(trust);
   return `/${encodeURIComponent(slug)}`;
+}
+
+export function publicWebsiteDomain(trust: PublicWebsiteTrust): string {
+  return `${publicWebsiteSlug(trust)}.aeqi.ai`;
+}
+
+export function publicWebsiteUrl(trust: PublicWebsiteTrust): string {
+  return `https://${publicWebsiteDomain(trust)}/`;
 }
 
 export function publicWebsiteSlug(trust: PublicWebsiteTrust): string {

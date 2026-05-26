@@ -674,11 +674,6 @@
   padding: 0;
 }
 
-.trust-website-page {
-  height: auto;
-  padding: 0;
-}
-
 .trust-apps-page-header {
   display: grid;
   grid-template-columns: auto minmax(280px, 1fr);
@@ -709,12 +704,6 @@
 }
 
 .trust-apps-page > .trust-cockpit-card {
-  margin: 0 var(--space-6) var(--space-5);
-  background: var(--bg-row);
-  box-shadow: var(--card-elevation);
-}
-
-.trust-website-page > .trust-cockpit-card {
   margin: 0 var(--space-6) var(--space-5);
   background: var(--bg-row);
   box-shadow: var(--card-elevation);
@@ -1289,10 +1278,6 @@
   }
 
   .trust-apps-page > .trust-cockpit-card {
-    margin-inline: var(--space-4);
-  }
-
-  .trust-website-page > .trust-cockpit-card {
     margin-inline: var(--space-4);
   }
 

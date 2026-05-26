@@ -75,6 +75,8 @@ const COMPANY_PAGE_TABS = new Set([
   "overview",
   "inbox",
   "health",
+  // Legacy alias: Website moved into Apps. TrustTabPage redirects
+  // `/trust/<addr>/website` to `/trust/<addr>/apps`.
   "website",
   // AEQI ownership grammar: assets · equity · quorum · incorporation.
   "assets",

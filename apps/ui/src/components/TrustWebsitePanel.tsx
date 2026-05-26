@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   ArrowUpRight,
   BarChart3,
@@ -15,7 +15,7 @@ import {
 import { Button } from "@/components/ui";
 import { api } from "@/lib/api";
 import { entityBasePath } from "@/lib/entityPath";
-import { publicWebsitePath, publicWebsiteSlug } from "@/lib/publicWebsite";
+import { publicWebsiteDomain, publicWebsiteUrl } from "@/lib/publicWebsite";
 import { useDaemonStore } from "@/store/daemon";
 
 interface TrustWebsitePanelProps {
@@ -51,19 +51,16 @@ const publicModules = [
 ];
 
 export default function TrustWebsitePanel({ trustId, mode = "card" }: TrustWebsitePanelProps) {
-  const navigate = useNavigate();
   const entities = useDaemonStore((s) => s.entities);
   const fetchEntities = useDaemonStore((s) => s.fetchEntities);
   const entity = entities.find((item) => item.id === trustId);
   const [publishingWebsite, setPublishingWebsite] = useState(false);
 
   const basePath = entity ? entityBasePath(entity) : "/launch";
-  const websitePath = entity ? publicWebsitePath(entity) : "/";
-  const websiteSlug = entity ? publicWebsiteSlug(entity) : null;
+  const websiteDomain = entity ? publicWebsiteDomain(entity) : "Launch hostname";
+  const websiteHref = entity ? publicWebsiteUrl(entity) : null;
   const websiteStatus = entity?.public ? "Live" : "Private";
   const websiteViews = entity?.public ? "0" : "—";
-  const routeLabel = websiteSlug ? `/${websiteSlug}` : websitePath;
-  const subdomainLabel = websiteSlug ? `${websiteSlug}.aeqi.ai` : "Launch hostname";
 
   const publishWebsite = useCallback(async () => {
     if (!entity || entity.public) return;
@@ -102,33 +99,35 @@ export default function TrustWebsitePanel({ trustId, mode = "card" }: TrustWebsi
 
       <div className="trust-website-body">
         <div className="trust-website-route-row">
-          <span className="trust-website-route">{routeLabel}</span>
+          <span className="trust-website-route">{websiteHref ?? websiteDomain}</span>
           <div className="trust-website-actions">
-            <Button
-              variant={entity?.public ? "secondary" : "primary"}
-              size="md"
-              onClick={entity?.public ? () => navigate(websitePath) : publishWebsite}
-              leadingIcon={
-                entity?.public ? (
-                  <ArrowUpRight size={14} strokeWidth={1.6} />
-                ) : (
-                  <Globe size={14} strokeWidth={1.6} />
-                )
-              }
-            >
-              {entity?.public
-                ? "Open Website"
-                : publishingWebsite
-                  ? "Publishing"
-                  : "Publish Website"}
-            </Button>
+            {entity?.public && websiteHref ? (
+              <a
+                className="trust-app-card-action"
+                href={websiteHref}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <ArrowUpRight size={14} strokeWidth={1.5} aria-hidden />
+                Open Website
+              </a>
+            ) : (
+              <Button
+                variant="primary"
+                size="md"
+                onClick={publishWebsite}
+                leadingIcon={<Globe size={14} strokeWidth={1.6} />}
+              >
+                {publishingWebsite ? "Publishing" : "Publish Website"}
+              </Button>
+            )}
           </div>
         </div>
 
         <div className="trust-app-card-stats trust-website-stats">
           <Stat label="Visibility" value={websiteStatus} />
-          <Stat label="Subdomain" value={compactText(subdomainLabel)} />
-          <Stat label="Public route" value={compactText(routeLabel)} />
+          <Stat label="Subdomain" value={compactText(websiteDomain)} />
+          <Stat label="Public URL" value={compactText(websiteHref ?? websiteDomain)} />
           <Stat label="Views" value={websiteViews} />
         </div>
 

@@ -21,7 +21,7 @@ export interface Trust {
   trust_id?: string;
   /** On-chain TRUST proxy address. NULL until indexer-confirmed. */
   trust_address?: string;
-  /** Public-profile slug. When present, `/<slug>` resolves to the public website. */
+  /** Public website slug. When present, `https://<slug>.aeqi.ai/` is the public site. */
   slug?: string;
   /** EOA that created this Trust's on-chain TRUST mirror. */
   creator_address?: string;
@@ -33,7 +33,7 @@ export interface Trust {
   placement_type?: string;
   /** One-line description rendered in the entity hero strip on Overview. */
   tagline?: string;
-  /** When true, `<host>/<slug>` returns a public profile page. */
+  /** When true, the trust's public subdomain returns a public website. */
   public?: boolean;
   /** Organization billing plan ID (`starter` for Standard, `growth` for Pro). */
   plan?: string;

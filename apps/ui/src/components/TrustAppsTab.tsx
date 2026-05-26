@@ -7,6 +7,7 @@ import { formatInteger } from "@/lib/i18n";
 import type { TrustAppKind, TrustAppSummary } from "@/lib/trustApps";
 import { useDaemonStore } from "@/store/daemon";
 import { Button } from "./ui";
+import TrustWebsitePanel from "./TrustWebsitePanel";
 import "@/styles/overview.css";
 
 const APP_ICONS: Record<TrustAppKind, React.ReactNode> = {
@@ -50,6 +51,8 @@ export default function TrustAppsTab({ trustId }: { trustId: string }) {
           </Button>
         </div>
       </header>
+
+      <TrustWebsitePanel trustId={trustId} />
 
       <section
         className="trust-cockpit-card trust-cockpit-card--wide"

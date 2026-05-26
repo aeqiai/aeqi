@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildAgentDirectory } from "@/api/agents";
 import { normalizeTrustRoots } from "@/api/trusts";
-import { publicWebsitePath, publicWebsiteSlug } from "@/lib/publicWebsite";
+import { publicWebsitePath, publicWebsiteUrl, publicWebsiteSlug } from "@/lib/publicWebsite";
 
 describe("trust API normalization", () => {
   it("maps trust roots into UI trusts and drops invalid rows", () => {
@@ -49,12 +49,12 @@ describe("trust API normalization", () => {
 describe("public website identity", () => {
   it("uses the persisted slug when present", () => {
     expect(
-      publicWebsitePath({
+      publicWebsiteUrl({
         id: "trust_1",
         name: "Launch Name",
         slug: "launch-name",
       }),
-    ).toBe("/launch-name");
+    ).toBe("https://launch-name.aeqi.ai/");
   });
 
   it("derives the launch slug from the trust name before falling back to address", () => {
@@ -65,6 +65,10 @@ describe("public website identity", () => {
         trust_address: "0xabc123",
       }),
     ).toBe("horizon-labs");
+  });
+
+  it("keeps the legacy slash path separate from the public subdomain URL", () => {
+    expect(publicWebsitePath({ id: "trust_1", name: "Horizon Labs" })).toBe("/horizon-labs");
   });
 });
 

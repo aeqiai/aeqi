@@ -19,7 +19,6 @@ const MeInboxPage = lazy(() => import("@/pages/MeInboxPage"));
 // remains visible on `/trust/<addr>/...`.
 const TrustAgentsTab = lazy(() => import("@/components/TrustAgentsTab"));
 const TrustAppsTab = lazy(() => import("@/components/TrustAppsTab"));
-const TrustWebsiteTab = lazy(() => import("@/components/TrustWebsiteTab"));
 const TrustRolesTab = lazy(() => import("@/components/TrustRolesTab"));
 const AssetsPage = lazy(() => import("@/pages/AssetsPage"));
 const EquityPage = lazy(() => import("@/pages/EquityPage"));
@@ -48,7 +47,7 @@ interface TrustTabPageProps {
  *   /trust/:trustAddress               → TrustOverviewTab (cockpit — Health folded in)
  *   /trust/:trustAddress/inbox         → MeInboxPage
  *   /trust/:trustAddress/health        → 308 redirect to bare cockpit (legacy URL)
- *   /trust/:trustAddress/website       → TrustWebsiteTab (public website control)
+ *   /trust/:trustAddress/website       → redirect to Apps (legacy website tab)
  *   /trust/:trustAddress/roles         → TrustRolesTab (org chart)
  *   /trust/:trustAddress/agents        → TrustAgentsTab (LIST)
  *   /trust/:trustAddress/apps          → TrustAppsTab (channel-backed apps)
@@ -182,11 +181,8 @@ export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTab
     );
   }
   if (tab === "website") {
-    return (
-      <Suspense>
-        <TrustWebsiteTab trustId={trustId} />
-      </Suspense>
-    );
+    const target = location.pathname.replace(/\/website\/?$/, "/apps") + location.search;
+    return <Navigate to={target} replace />;
   }
   // Roles — the org-chart / authority-graph surface. Hoisted from inside the
   // AEQI Ownership group on 2026-05-18 to its own peer slot under Trust, so

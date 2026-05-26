@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 
 import { ProgressList, type ProgressStep } from "@/components/ui";
 import { api } from "@/lib/api";
-import { publicWebsitePath } from "@/lib/publicWebsite";
+import { publicWebsiteUrl } from "@/lib/publicWebsite";
 import { LaunchShell } from "@/pages/trustSetup/LaunchShell";
 import { useDaemonStore } from "@/store/daemon";
 import { useUIStore } from "@/store/ui";
@@ -95,14 +95,14 @@ export function LaunchingReveal({
   const displayName = status?.display_name || fallbackDisplayName || "Your TRUST";
   const isReady = ["ready", "complete"].includes(status?.placement_status ?? "");
   const hasError = Boolean(trustError || runtimeError);
-  const websitePath =
+  const generatedWebsiteUrl =
     trustAddress !== null
-      ? publicWebsitePath({ id: trustId, name: displayName, trust_address: trustAddress })
+      ? publicWebsiteUrl({ id: trustId, name: displayName, trust_address: trustAddress })
       : null;
   const trustToolsPath = trustAddress ? `/trust/${encodeURIComponent(trustAddress)}` : null;
-  const launchWebsiteUrl = websiteUrl ?? null;
+  const launchWebsiteUrl = websiteUrl ?? generatedWebsiteUrl;
   const launchWebsiteLabel =
-    websiteDomain ?? launchWebsiteUrl?.replace(/^https?:\/\//, "") ?? websitePath ?? null;
+    websiteDomain ?? launchWebsiteUrl?.replace(/^https?:\/\//, "").replace(/\/$/, "") ?? null;
   const reachedSteps = STEPS.map((step) => {
     const milestone = milestones?.[step.key as MilestoneKey];
     return isReady || (milestone?.reached ?? false);
@@ -189,7 +189,7 @@ export function LaunchingReveal({
             <div className="launching-reveal__website-meta">
               <span className="launching-reveal__website-label">Website</span>
               <span className="launching-reveal__website-route">
-                {launchWebsiteLabel ?? websitePath}
+                {launchWebsiteLabel ?? launchWebsiteUrl}
               </span>
             </div>
             <div className="launching-reveal__website-stats" aria-label="Website status">
@@ -209,7 +209,7 @@ export function LaunchingReveal({
                 Trust tools
               </Link>
             )}
-            {launchWebsiteUrl ? (
+            {launchWebsiteUrl && (
               <a
                 className="launching-reveal__secondary"
                 href={launchWebsiteUrl}
@@ -218,12 +218,6 @@ export function LaunchingReveal({
               >
                 Open Website
               </a>
-            ) : (
-              websitePath && (
-                <Link className="launching-reveal__secondary" to={websitePath}>
-                  Open Website
-                </Link>
-              )
             )}
           </div>
         </div>
