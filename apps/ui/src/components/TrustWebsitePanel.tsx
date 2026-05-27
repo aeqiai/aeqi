@@ -155,7 +155,7 @@ export default function TrustWebsitePanel({ trustId, mode = "card" }: TrustWebsi
         <div className="trust-app-card-stats trust-website-stats">
           <Stat label="Subdomain" value={compactText(websiteDomain)} />
           <Stat label="Tracking" value={analyticsStatus} />
-          <Stat label="24h Views" value={websiteViews} />
+          <Stat label="Today Views" value={websiteViews} />
           <Stat label="7d Visitors" value={visitors7d} />
         </div>
 

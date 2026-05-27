@@ -210,7 +210,7 @@ function WebsiteAppCard({
         <Stat label="Domain" value={domain} />
         <Stat label="Visibility" value={live ? "Public" : "Private"} />
         <Stat label="Tracking" value={tracking} />
-        <Stat label="24h Views" value={viewsValue} />
+        <Stat label="Today Views" value={viewsValue} />
       </div>
       <a className="trust-app-card-action" href={href} target="_blank" rel="noreferrer">
         <ArrowUpRight size={14} strokeWidth={1.5} aria-hidden />
