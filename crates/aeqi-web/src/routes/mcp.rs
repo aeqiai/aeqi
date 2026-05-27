@@ -497,6 +497,7 @@ fn run_browser_capture(args: &serde_json::Value) -> anyhow::Result<serde_json::V
     let repo_root = script
         .parent()
         .and_then(|p| p.parent())
+        .filter(|p| !p.as_os_str().is_empty())
         .map(|p| p.to_path_buf())
         .unwrap_or(std::env::current_dir()?);
     let mut child = Command::new("node")
@@ -543,7 +544,15 @@ fn browser_capture_script() -> std::path::PathBuf {
             return candidate;
         }
     }
-    std::path::PathBuf::from("/home/claudedev/aeqi/scripts/browser-capture.mjs")
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(parent) = exe.parent() {
+            let candidate = parent.join("scripts").join("browser-capture.mjs");
+            if candidate.exists() {
+                return candidate;
+            }
+        }
+    }
+    std::path::PathBuf::from("scripts/browser-capture.mjs")
 }
 
 async fn upload_browser_evidence(

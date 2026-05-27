@@ -110,6 +110,31 @@ store screenshot/snapshot evidence through the agent file store. Mutating page
 actions such as click/type/select remain disabled until AEQI has durable browser
 sessions, activity events, review, and stop controls.
 
+For a repeatable operator rehearsal from this repository, run:
+
+```bash
+npm run rehearsal:browser-evidence -- \
+  --quest <quest_id> \
+  --agent <agent_id> \
+  --url https://aeqi.ai
+```
+
+Use `--dry-run` to verify the MCP payload without hosted credentials or file
+uploads:
+
+```bash
+npm run rehearsal:browser-evidence -- \
+  --dry-run \
+  --quest <quest_id> \
+  --agent <agent_id> \
+  --url https://aeqi.ai
+```
+
+Without `--dry-run`, the helper checks `browser(action="capabilities")` before
+capturing. If the live runtime reports `status: "contract_only"` or does not
+include `open`/`screenshot` in enabled actions, deploy the runtime that contains
+the browser capture implementation before expecting evidence uploads to work.
+
 Delegate to an existing runtime agent:
 
 1. Use `agents(action="list")` to find the existing agent.

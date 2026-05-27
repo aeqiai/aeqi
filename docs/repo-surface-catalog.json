@@ -134,7 +134,7 @@
       ]
     },
     "scripts": {
-      "count": 34,
+      "count": 35,
       "description": "Tracked operator, verification, install, and deploy scripts.",
       "files": [
         "scripts/aeqi-pre-dispatch.sh",
@@ -152,6 +152,7 @@
         "scripts/install.sh",
         "scripts/launch-smoke.mjs",
         "scripts/onboarding-excellence-loop.sh",
+        "scripts/operator-rehearsal-browser-evidence.mjs",
         "scripts/performance-regression-detection.sh",
         "scripts/post-commit",
         "scripts/pre-push.sh",
