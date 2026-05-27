@@ -134,10 +134,11 @@
       ]
     },
     "scripts": {
-      "count": 33,
+      "count": 34,
       "description": "Tracked operator, verification, install, and deploy scripts.",
       "files": [
         "scripts/aeqi-pre-dispatch.sh",
+        "scripts/browser-capture.mjs",
         "scripts/check-branch.sh",
         "scripts/ci-local.sh",
         "scripts/detect-project.sh",

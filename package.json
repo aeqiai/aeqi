@@ -13,6 +13,7 @@
     "dev:triage": "scripts/dev-triage.sh",
     "deploy:webhook": "scripts/webhook-deploy-aeqi.sh",
     "visual:route": "node scripts/visual-route.mjs",
+    "browser:capture": "node scripts/browser-capture.mjs",
     "launch:smoke": "node scripts/launch-smoke.mjs",
     "solana:build": "cd projects/aeqi-solana && anchor build",
     "solana:test": "cd projects/aeqi-solana && anchor test --skip-build"

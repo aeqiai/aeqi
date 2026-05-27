@@ -103,10 +103,12 @@ Work as yourself from Codex or Claude Code:
 3. Use `ideas`, `quests`, `events`, `code`, and `browser` as your TRUST memory,
    work ledger, automation, code, and browser-capability surfaces.
 
-`browser` is currently a read-only contract surface. Call
-`browser(action="capabilities")` to inspect backend order and required audit
-controls. Mutable browser actions are intentionally disabled until AEQI wires a
-quest-scoped session runner and artifact store.
+`browser(action="capabilities")` reports backend order and required audit
+controls. `browser(action="open", quest_id="...", agent_id="...", url="...")`
+and `browser(action="screenshot", ...)` run a one-shot Playwright capture and
+store screenshot/snapshot evidence through the agent file store. Mutating page
+actions such as click/type/select remain disabled until AEQI has durable browser
+sessions, activity events, review, and stop controls.
 
 Delegate to an existing runtime agent:
 

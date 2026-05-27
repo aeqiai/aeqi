@@ -1,13 +1,14 @@
 # AEQI Browser Capability Contract
 
-Status: first contract slice.
+Status: first execution slice.
 
 AEQI should treat browser control as a governed execution capability, not as a
 manual operator habit or a blanket dependency on one browser binary. The first
-native surface is the `browser` MCP tool. It is deliberately read-only today:
-agents can inspect the contract with `browser(action="capabilities")`, but
-mutable browser actions remain disabled until session storage, artifacts, and
-role checks are wired end to end.
+native surface is the `browser` MCP tool. Agents can inspect the contract with
+`browser(action="capabilities")` and can now run one-shot Playwright captures
+with `browser(action="open", ...)` or `browser(action="screenshot", ...)`.
+Mutating browser actions remain disabled until persistent sessions, artifact
+review, and stop controls are wired end to end.
 
 ## Product Decision
 
@@ -18,9 +19,9 @@ record action history, Ideas capture durable findings, Apps/Credentials provide
 scoped secrets, and Roles decide authority.
 
 This is not a replacement for Playwright tests. Playwright remains the default
-backend for deterministic UI QA and visual validation. Agent-oriented browser
-backends can be piloted behind the same contract once the evidence and
-authorization path is stable.
+backend for deterministic UI QA, visual validation, and the first browser MCP
+execution slice. Agent-oriented browser backends can be piloted behind the same
+contract once the evidence and authorization path is stable.
 
 ## Backend Order
 
@@ -47,25 +48,34 @@ authorization path is stable.
 
 ## MCP Shape
 
-Current read-only actions:
+Current actions:
 
 - `capabilities`
 - `policy`
 - `status`
-
-Planned mutable actions:
-
 - `open`
+- `screenshot`
+
+`open` and `screenshot` require:
+
+- `quest_id`
+- `url`
+- `agent_id`, unless the MCP context already supplies one
+
+The action opens the URL through Playwright, captures a PNG screenshot, captures
+a compact JSON snapshot, and stores both through the existing `files_upload`
+path as agent-scoped Drive/Idea evidence.
+
+Planned mutable/session actions:
+
 - `click`
 - `type`
 - `select`
 - `wait`
-- `screenshot`
-- `snapshot`
 - `extract`
 - `close`
 
-The current implementation returns `status: "contract_only"` for read actions
-and rejects mutable actions with a clear error. The next slice should create a
-local Playwright-backed session runner that emits event rows and screenshot
-artifacts before exposing any destructive web action to agents.
+The current implementation returns `status: "playwright_capture_enabled"` for
+read actions and rejects mutating page actions with a clear error. The next
+slice should introduce durable browser session records and an activity event per
+browser action before exposing click/type/select to agents.

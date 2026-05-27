@@ -7,6 +7,8 @@ use axum::{
 };
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
+use std::io::Write as _;
+use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 
 use crate::{auth::UserScope, extractors::Scope, server::AppState};
@@ -359,7 +361,7 @@ async fn call_tool(
         "agents" => call_agents(state, ctx, args).await,
         "events" => call_events(state, ctx, args).await,
         "code" => call_code(state, ctx, args).await,
-        "browser" => call_browser(ctx, args).await,
+        "browser" => call_browser(state, ctx, args).await,
         "apps" => call_apps(state, ctx, args, "apps").await,
         "integrations" => call_apps(state, ctx, args, "integrations").await,
         _ => anyhow::bail!("unknown tool: {tool_name}"),
@@ -367,6 +369,7 @@ async fn call_tool(
 }
 
 async fn call_browser(
+    state: &AppState,
     ctx: &McpHttpContext,
     args: serde_json::Value,
 ) -> anyhow::Result<serde_json::Value> {
@@ -381,8 +384,56 @@ async fn call_browser(
             contract["role_id"] = serde_json::json!(ctx.role_id);
             Ok(contract)
         }
+        "open" | "screenshot" => {
+            let quest_id = required_arg(&args, "quest_id")?;
+            let url = required_arg(&args, "url")?;
+            validate_browser_request(&args, url)?;
+            let agent_id = args
+                .get("agent_id")
+                .and_then(|v| v.as_str())
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .or(ctx.agent_id.as_deref())
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "agent_id is required for browser evidence until TRUST-scoped files land"
+                    )
+                })?;
+            let capture = run_browser_capture(&args)?;
+            if !capture.get("ok").and_then(|v| v.as_bool()).unwrap_or(false) {
+                anyhow::bail!(
+                    "browser capture failed: {}",
+                    capture
+                        .get("error")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("unknown error")
+                );
+            }
+            let evidence =
+                upload_browser_evidence(state, ctx, &capture, action, quest_id, agent_id).await?;
+            Ok(serde_json::json!({
+                "ok": true,
+                "action": action,
+                "status": "completed",
+                "backend": "playwright",
+                "quest_id": quest_id,
+                "agent_id": agent_id,
+                "browser_session_id": uuid::Uuid::new_v4().to_string(),
+                "url": url,
+                "final_url": capture.get("final_url"),
+                "title": capture.get("title"),
+                "response_status": capture.get("response_status"),
+                "viewport": capture.get("viewport"),
+                "text_excerpt": capture.get("text_excerpt"),
+                "console_errors": capture.get("console_errors"),
+                "request_failures": capture.get("request_failures"),
+                "http_failures": capture.get("http_failures"),
+                "evidence": evidence,
+                "disabled_actions": ["click", "type", "select"],
+            }))
+        }
         _ => anyhow::bail!(
-            "browser action `{action}` is not enabled yet. Use action=capabilities to inspect the contract."
+            "browser action `{action}` is not enabled yet. Enabled actions: capabilities, policy, status, open, screenshot."
         ),
     }
 }
@@ -391,10 +442,10 @@ fn browser_capability_contract() -> serde_json::Value {
     serde_json::json!({
         "ok": true,
         "tool": "browser",
-        "status": "contract_only",
-        "summary": "AEQI browser execution is defined as a quest-scoped, audited capability. Mutable browser actions are intentionally disabled until the session backend and artifact store are wired.",
-        "actions": ["capabilities", "policy", "status"],
-        "planned_actions": ["open", "click", "type", "select", "wait", "screenshot", "snapshot", "extract", "close"],
+        "status": "playwright_capture_enabled",
+        "summary": "AEQI browser execution is defined as a quest-scoped, audited capability. `open` and `screenshot` run a one-shot Playwright capture and store screenshot/snapshot evidence. Mutating page actions stay disabled.",
+        "actions": ["capabilities", "policy", "status", "open", "screenshot"],
+        "planned_actions": ["click", "type", "select", "wait", "extract", "close"],
         "backend_order": [
             {"id": "playwright", "posture": "default", "reason": "Deterministic local QA and visual validation."},
             {"id": "agent-browser", "posture": "pilot", "reason": "Agent-oriented browser sessions and compact page state, evaluated after the contract lands."},
@@ -414,6 +465,168 @@ fn browser_capability_contract() -> serde_json::Value {
             "evidence": ["screenshot", "accessibility_snapshot", "dom_snapshot", "network_summary"]
         }
     })
+}
+
+fn required_arg<'a>(args: &'a serde_json::Value, name: &str) -> anyhow::Result<&'a str> {
+    args.get(name)
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| anyhow::anyhow!("{name} is required"))
+}
+
+fn validate_browser_request(args: &serde_json::Value, url: &str) -> anyhow::Result<()> {
+    if !(url.starts_with("http://") || url.starts_with("https://")) {
+        anyhow::bail!("browser url must start with http:// or https://");
+    }
+    if let Some(backend) = args
+        .get("backend")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        if backend != "playwright" {
+            anyhow::bail!("browser backend `{backend}` is not enabled; use `playwright`");
+        }
+    }
+    Ok(())
+}
+
+fn run_browser_capture(args: &serde_json::Value) -> anyhow::Result<serde_json::Value> {
+    let script = browser_capture_script();
+    let repo_root = script
+        .parent()
+        .and_then(|p| p.parent())
+        .map(|p| p.to_path_buf())
+        .unwrap_or(std::env::current_dir()?);
+    let mut child = Command::new("node")
+        .arg(&script)
+        .current_dir(&repo_root)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| anyhow::anyhow!("failed to spawn browser runner {}: {e}", script.display()))?;
+
+    {
+        let stdin = child
+            .stdin
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("browser runner stdin unavailable"))?;
+        stdin.write_all(serde_json::to_string(args)?.as_bytes())?;
+    }
+
+    let output = child.wait_with_output()?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let parsed: serde_json::Value = serde_json::from_str(stdout.trim()).map_err(|e| {
+        anyhow::anyhow!("browser runner returned invalid JSON: {e}; stderr={stderr}")
+    })?;
+    if !output.status.success() && parsed.get("ok").and_then(|v| v.as_bool()) != Some(false) {
+        anyhow::bail!("browser runner failed: {stderr}");
+    }
+    Ok(parsed)
+}
+
+fn browser_capture_script() -> std::path::PathBuf {
+    if let Ok(path) = std::env::var("AEQI_BROWSER_CAPTURE_SCRIPT") {
+        return std::path::PathBuf::from(path);
+    }
+    if let Ok(root) = std::env::var("AEQI_BROWSER_REPO_ROOT") {
+        return std::path::Path::new(&root)
+            .join("scripts")
+            .join("browser-capture.mjs");
+    }
+    if let Ok(cwd) = std::env::current_dir() {
+        let candidate = cwd.join("scripts").join("browser-capture.mjs");
+        if candidate.exists() {
+            return candidate;
+        }
+    }
+    std::path::PathBuf::from("/home/claudedev/aeqi/scripts/browser-capture.mjs")
+}
+
+async fn upload_browser_evidence(
+    state: &AppState,
+    ctx: &McpHttpContext,
+    capture: &serde_json::Value,
+    action: &str,
+    quest_id: &str,
+    agent_id: &str,
+) -> anyhow::Result<serde_json::Value> {
+    let slug = browser_evidence_slug(capture.get("final_url").and_then(|v| v.as_str()));
+    let uploaded_by = ctx
+        .actor
+        .user_id
+        .as_deref()
+        .unwrap_or(ctx.actor.kind.as_str());
+    let screenshot_b64 = capture
+        .get("screenshot_b64")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| anyhow::anyhow!("browser runner omitted screenshot_b64"))?;
+    let snapshot_b64 = capture
+        .get("snapshot_b64")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| anyhow::anyhow!("browser runner omitted snapshot_b64"))?;
+
+    let screenshot = ipc(
+        state,
+        ctx,
+        serde_json::json!({
+            "cmd": "files_upload",
+            "agent_id": agent_id,
+            "name": format!("browser-{action}-{quest_id}-{slug}.png"),
+            "mime": "image/png",
+            "content_b64": screenshot_b64,
+            "uploaded_by": uploaded_by,
+            "scope": "global",
+        }),
+    )
+    .await?;
+    let snapshot = ipc(
+        state,
+        ctx,
+        serde_json::json!({
+            "cmd": "files_upload",
+            "agent_id": agent_id,
+            "name": format!("browser-{action}-{quest_id}-{slug}.json"),
+            "mime": "application/json",
+            "content_b64": snapshot_b64,
+            "uploaded_by": uploaded_by,
+            "scope": "global",
+        }),
+    )
+    .await?;
+    require_browser_upload_ok(&screenshot, "screenshot")?;
+    require_browser_upload_ok(&snapshot, "snapshot")?;
+    Ok(serde_json::json!({
+        "kind": "quest_browser_evidence",
+        "screenshot": screenshot,
+        "snapshot": snapshot,
+    }))
+}
+
+fn require_browser_upload_ok(upload: &serde_json::Value, label: &str) -> anyhow::Result<()> {
+    if upload.get("ok").and_then(|v| v.as_bool()) == Some(true) {
+        return Ok(());
+    }
+    anyhow::bail!("browser {label} upload failed: {upload}")
+}
+
+fn browser_evidence_slug(url: Option<&str>) -> String {
+    let raw = url.unwrap_or("capture");
+    let mut slug = String::new();
+    let mut last_dash = false;
+    for ch in raw.chars() {
+        if ch.is_ascii_alphanumeric() {
+            slug.push(ch.to_ascii_lowercase());
+            last_dash = false;
+        } else if !last_dash {
+            slug.push('-');
+            last_dash = true;
+        }
+    }
+    slug.trim_matches('-').chars().take(64).collect()
 }
 
 async fn call_apps(
@@ -1838,20 +2051,25 @@ fn tool_defs() -> serde_json::Value {
         {
             "name": "browser",
             "title": "AEQI Browser",
-            "description": "Quest-scoped browser execution contract for agents. The current slice is read-only: use capabilities, policy, or status to inspect backend order, required controls, and artifact expectations before any mutable browser backend is enabled.",
+            "description": "Quest-scoped browser execution for agents. Use capabilities, policy, or status to inspect backend order and controls. Use open or screenshot for a one-shot Playwright capture that stores screenshot and snapshot evidence. Mutating page actions remain disabled.",
             "annotations": {
                 "title": "AEQI Browser",
-                "readOnlyHint": true,
+                "readOnlyHint": false,
                 "destructiveHint": false,
-                "idempotentHint": true,
+                "idempotentHint": false,
                 "openWorldHint": true
             },
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "action": {"type": "string", "enum": ["capabilities", "policy", "status"], "description": "Read the AEQI browser capability contract, execution policy, or current backend status."},
-                    "quest_id": {"type": "string", "description": "Quest that will own future mutable browser sessions. Required for planned open/click/type actions; optional for read-only contract inspection."},
-                    "backend": {"type": "string", "enum": ["playwright", "agent-browser", "cloakbrowser"], "description": "Requested browser backend for future mutable actions. Playwright remains the default."}
+                    "action": {"type": "string", "enum": ["capabilities", "policy", "status", "open", "screenshot"], "description": "Inspect the browser contract or run a one-shot Playwright capture."},
+                    "url": {"type": "string", "description": "Absolute URL to open for open/screenshot."},
+                    "quest_id": {"type": "string", "description": "Quest that owns the browser evidence. Required for open/screenshot."},
+                    "agent_id": {"type": "string", "description": "Agent whose Drive/Ideas file store receives screenshot evidence. Defaults to the MCP agent context when present."},
+                    "backend": {"type": "string", "enum": ["playwright", "agent-browser", "cloakbrowser"], "description": "Requested browser backend. Only playwright is enabled in this slice."},
+                    "viewport": {"type": "string", "description": "Viewport as WIDTHxHEIGHT. Defaults to 1440x900."},
+                    "wait_ms": {"type": "integer", "description": "Extra settling wait after navigation. Defaults to 1000."},
+                    "full_page": {"type": "boolean", "description": "Capture a full-page screenshot instead of viewport only."}
                 },
                 "required": ["action"]
             }
@@ -2268,6 +2486,30 @@ mod tests {
     }
 
     #[test]
+    fn http_mcp_browser_action_requires_quest_id() {
+        let args = serde_json::json!({"action": "open", "url": "https://example.com"});
+        assert!(required_arg(&args, "quest_id").is_err());
+    }
+
+    #[test]
+    fn http_mcp_browser_request_allows_only_http_playwright() {
+        let args = serde_json::json!({"url": "https://example.com", "backend": "playwright"});
+        assert!(validate_browser_request(&args, "https://example.com").is_ok());
+        assert!(validate_browser_request(&args, "file:///etc/passwd").is_err());
+
+        let args = serde_json::json!({"url": "https://example.com", "backend": "cloakbrowser"});
+        assert!(validate_browser_request(&args, "https://example.com").is_err());
+    }
+
+    #[test]
+    fn http_mcp_browser_evidence_slug_is_filesystem_safe() {
+        assert_eq!(
+            browser_evidence_slug(Some("https://example.com/a path?q=1")),
+            "https-example-com-a-path-q-1"
+        );
+    }
+
+    #[test]
     fn http_mcp_tool_contracts_explain_user_workflow() {
         let tools = tool_defs().as_array().cloned().unwrap();
         let by_name = |name: &str| {
@@ -2335,13 +2577,23 @@ mod tests {
 
         let browser = by_name("browser");
         assert_eq!(browser["title"], "AEQI Browser");
-        assert_eq!(browser["annotations"]["readOnlyHint"], true);
+        assert_eq!(browser["annotations"]["readOnlyHint"], false);
         assert!(
             browser["description"]
                 .as_str()
                 .unwrap()
                 .contains("Quest-scoped browser execution")
         );
+        let browser_actions = browser["inputSchema"]["properties"]["action"]["enum"]
+            .as_array()
+            .cloned()
+            .unwrap();
+        assert!(
+            browser_actions
+                .iter()
+                .any(|action| action.as_str() == Some("open"))
+        );
+        assert!(browser["inputSchema"]["properties"].get("url").is_some());
         assert!(
             browser["inputSchema"]["properties"]
                 .get("backend")
