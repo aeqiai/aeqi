@@ -359,10 +359,61 @@ async fn call_tool(
         "agents" => call_agents(state, ctx, args).await,
         "events" => call_events(state, ctx, args).await,
         "code" => call_code(state, ctx, args).await,
+        "browser" => call_browser(ctx, args).await,
         "apps" => call_apps(state, ctx, args, "apps").await,
         "integrations" => call_apps(state, ctx, args, "integrations").await,
         _ => anyhow::bail!("unknown tool: {tool_name}"),
     }
+}
+
+async fn call_browser(
+    ctx: &McpHttpContext,
+    args: serde_json::Value,
+) -> anyhow::Result<serde_json::Value> {
+    let action = args
+        .get("action")
+        .and_then(|v| v.as_str())
+        .unwrap_or("capabilities");
+    match action {
+        "capabilities" | "policy" | "status" => {
+            let mut contract = browser_capability_contract();
+            contract["actor"] = serde_json::json!(ctx.actor);
+            contract["role_id"] = serde_json::json!(ctx.role_id);
+            Ok(contract)
+        }
+        _ => anyhow::bail!(
+            "browser action `{action}` is not enabled yet. Use action=capabilities to inspect the contract."
+        ),
+    }
+}
+
+fn browser_capability_contract() -> serde_json::Value {
+    serde_json::json!({
+        "ok": true,
+        "tool": "browser",
+        "status": "contract_only",
+        "summary": "AEQI browser execution is defined as a quest-scoped, audited capability. Mutable browser actions are intentionally disabled until the session backend and artifact store are wired.",
+        "actions": ["capabilities", "policy", "status"],
+        "planned_actions": ["open", "click", "type", "select", "wait", "screenshot", "snapshot", "extract", "close"],
+        "backend_order": [
+            {"id": "playwright", "posture": "default", "reason": "Deterministic local QA and visual validation."},
+            {"id": "agent-browser", "posture": "pilot", "reason": "Agent-oriented browser sessions and compact page state, evaluated after the contract lands."},
+            {"id": "cloakbrowser", "posture": "optional", "reason": "Special backend for blocked workflows only; not a global default."}
+        ],
+        "required_controls": [
+            "quest_id on every mutable session",
+            "actor and role attribution",
+            "credential resolution through AEQI scopes",
+            "per-action event log",
+            "screenshot or snapshot artifacts for inspection",
+            "human takeover and stop controls before high-risk actions"
+        ],
+        "artifact_model": {
+            "session": "browser_session_id",
+            "event": "browser_action_id",
+            "evidence": ["screenshot", "accessibility_snapshot", "dom_snapshot", "network_summary"]
+        }
+    })
 }
 
 async fn call_apps(
@@ -1749,6 +1800,27 @@ fn tool_defs() -> serde_json::Value {
             }
         },
         {
+            "name": "browser",
+            "title": "AEQI Browser",
+            "description": "Quest-scoped browser execution contract for agents. The current slice is read-only: use capabilities, policy, or status to inspect backend order, required controls, and artifact expectations before any mutable browser backend is enabled.",
+            "annotations": {
+                "title": "AEQI Browser",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": true
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["capabilities", "policy", "status"], "description": "Read the AEQI browser capability contract, execution policy, or current backend status."},
+                    "quest_id": {"type": "string", "description": "Quest that will own future mutable browser sessions. Required for planned open/click/type actions; optional for read-only contract inspection."},
+                    "backend": {"type": "string", "enum": ["playwright", "agent-browser", "cloakbrowser"], "description": "Requested browser backend for future mutable actions. Playwright remains the default."}
+                },
+                "required": ["action"]
+            }
+        },
+        {
             "name": "apps",
             "title": "AEQI Apps Proxy",
             "description": "Universal TRUST-role proxy for connected apps. Use list_tools to inspect app capabilities, then call any app tool through the credential substrate. Scoped calls require the acting role to occupy the TRUST and hold an app grant such as apps.google.use or apps.use.",
@@ -2212,6 +2284,21 @@ mod tests {
             actions
                 .iter()
                 .any(|action| action.as_str() == Some("audit"))
+        );
+
+        let browser = by_name("browser");
+        assert_eq!(browser["title"], "AEQI Browser");
+        assert_eq!(browser["annotations"]["readOnlyHint"], true);
+        assert!(
+            browser["description"]
+                .as_str()
+                .unwrap()
+                .contains("Quest-scoped browser execution")
+        );
+        assert!(
+            browser["inputSchema"]["properties"]
+                .get("backend")
+                .is_some()
         );
 
         let apps = by_name("apps");

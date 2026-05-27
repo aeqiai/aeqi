@@ -32,6 +32,7 @@
 - [agent-loop-parity.md](agent-loop-parity.md) — comparison with Claude Code's agent loop.
 - [project-model.md](project-model.md) — canonical model for projects, repositories, library items, agents, and quests.
 - [quest-evidence-contract.md](quest-evidence-contract.md) — evidence every meaningful quest should leave behind.
+- [design/browser-capability-contract.md](design/browser-capability-contract.md) — native browser execution contract and backend posture.
 - [ui-design.md](ui-design.md) — operator UI principles and information architecture.
 - [repo-surface-catalog.json](repo-surface-catalog.json) — generated inventory
   of tracked repo surface for documentation and release drift checks.

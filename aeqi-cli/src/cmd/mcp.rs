@@ -292,6 +292,38 @@ fn string_array(value: Option<&serde_json::Value>) -> Option<Vec<String>> {
     })
 }
 
+fn browser_capability_contract(auth_context: &McpAuthContext) -> serde_json::Value {
+    serde_json::json!({
+        "ok": true,
+        "tool": "browser",
+        "status": "contract_only",
+        "summary": "AEQI browser execution is defined as a quest-scoped, audited capability. Mutable browser actions are intentionally disabled until the session backend and artifact store are wired.",
+        "actions": ["capabilities", "policy", "status"],
+        "planned_actions": ["open", "click", "type", "select", "wait", "screenshot", "snapshot", "extract", "close"],
+        "backend_order": [
+            {"id": "playwright", "posture": "default", "reason": "Deterministic local QA and visual validation."},
+            {"id": "agent-browser", "posture": "pilot", "reason": "Agent-oriented browser sessions and compact page state, evaluated after the contract lands."},
+            {"id": "cloakbrowser", "posture": "optional", "reason": "Special backend for blocked workflows only; not a global default."}
+        ],
+        "required_controls": [
+            "quest_id on every mutable session",
+            "actor and role attribution",
+            "credential resolution through AEQI scopes",
+            "per-action event log",
+            "screenshot or snapshot artifacts for inspection",
+            "human takeover and stop controls before high-risk actions"
+        ],
+        "artifact_model": {
+            "session": "browser_session_id",
+            "event": "browser_action_id",
+            "evidence": ["screenshot", "accessibility_snapshot", "dom_snapshot", "network_summary"]
+        },
+        "actor": auth_context.actor,
+        "root": auth_context.root,
+        "mode": auth_context.mode,
+    })
+}
+
 /// Validate keys against the platform and return the runtime socket path.
 /// secret_key (sk_) is required, api_key (ak_) is optional for analytics.
 fn validate_api_key(
@@ -623,6 +655,21 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                     "community_id": {"type": "string", "description": "Community ID (for synthesize action)"}
                 },
                 "required": ["action", "project"]
+            }),
+        },
+        ToolDef {
+            name: "browser".to_string(),
+            title: "AEQI Browser".to_string(),
+            description: "Quest-scoped browser execution contract for agents. The current slice is read-only: use capabilities, policy, or status to inspect backend order, required controls, and artifact expectations before any mutable browser backend is enabled.".to_string(),
+            annotations: serde_json::json!({"title": "AEQI Browser", "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true, "openWorldHint": true}),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["capabilities", "policy", "status"], "description": "Read the AEQI browser capability contract, execution policy, or current backend status."},
+                    "quest_id": {"type": "string", "description": "Quest that will own future mutable browser sessions. Required for planned open/click/type actions; optional for read-only contract inspection."},
+                    "backend": {"type": "string", "enum": ["playwright", "agent-browser", "cloakbrowser"], "description": "Requested browser backend for future mutable actions. Playwright remains the default."}
+                },
+                "required": ["action"]
             }),
         },
     ];
@@ -1493,6 +1540,21 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 }
                             }
                             _ => Err(anyhow::anyhow!("unknown code action: {action}")),
+                        }
+                    }
+
+                    "browser" => {
+                        let action = args
+                            .get("action")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("capabilities");
+                        match action {
+                            "capabilities" | "policy" | "status" => {
+                                Ok(browser_capability_contract(&auth_context))
+                            }
+                            _ => Err(anyhow::anyhow!(
+                                "browser action `{action}` is not enabled yet. Use action=capabilities to inspect the contract."
+                            )),
                         }
                     }
 

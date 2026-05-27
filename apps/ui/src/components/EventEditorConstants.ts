@@ -4,6 +4,7 @@ export const KNOWN_TOOLS = [
   "events",
   "code",
   "ideas",
+  "browser",
   "web",
   "ideas.assemble",
   "ideas.search",

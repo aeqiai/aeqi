@@ -15,7 +15,9 @@ use crate::runtime_tools::runtime_tool_specs;
 /// We accept them as valid names but do not type-check their args — their
 /// schemas live in the MCP layer. This list stays in sync with the UI's
 /// `KNOWN_TOOLS` constant.
-const MCP_TOOL_NAMES: &[&str] = &["agents", "quests", "events", "code", "ideas", "web"];
+const MCP_TOOL_NAMES: &[&str] = &[
+    "agents", "quests", "events", "code", "ideas", "browser", "web",
+];
 
 /// Validate a sequence of configured tool calls.
 /// Returns `Err` with a human-readable message on the first failing call.
@@ -202,6 +204,12 @@ mod tests {
     #[test]
     fn accepts_mcp_tools_without_schema_check() {
         let calls = vec![tc("ideas", serde_json::json!({"action": "search"}))];
+        assert!(validate_tool_calls(&calls).is_ok());
+    }
+
+    #[test]
+    fn accepts_browser_mcp_tool_without_schema_check() {
+        let calls = vec![tc("browser", serde_json::json!({"action": "capabilities"}))];
         assert!(validate_tool_calls(&calls).is_ok());
     }
 

@@ -86,6 +86,13 @@ export const ALL_TOOLS: ToolSpec[] = [
     description: "Navigate code via LSP-like symbol queries.",
   },
   {
+    id: "browser",
+    label: "Browser",
+    category: "web",
+    description:
+      "Inspect the quest-scoped browser execution contract. Mutable browser actions stay disabled until a backend and artifact store are wired.",
+  },
+  {
     id: "web_search",
     label: "Web search",
     category: "web",

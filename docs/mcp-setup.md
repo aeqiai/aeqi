@@ -100,7 +100,13 @@ Work as yourself from Codex or Claude Code:
 
 1. Configure the MCP server with `AEQI_SECRET_KEY` and `AEQI_API_KEY`.
 2. Use `me(action="profile")` to confirm the actor and TRUST scope.
-3. Use `ideas`, `quests`, `events`, and `code` as your TRUST memory and work ledger.
+3. Use `ideas`, `quests`, `events`, `code`, and `browser` as your TRUST memory,
+   work ledger, automation, code, and browser-capability surfaces.
+
+`browser` is currently a read-only contract surface. Call
+`browser(action="capabilities")` to inspect backend order and required audit
+controls. Mutable browser actions are intentionally disabled until AEQI wires a
+quest-scoped session runner and artifact store.
 
 Delegate to an existing runtime agent:
 
