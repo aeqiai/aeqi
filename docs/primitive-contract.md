@@ -39,6 +39,9 @@ These are first-class user and runtime surfaces inside a TRUST.
 | **Sessions**     | Persistent execution and conversation traces. A session records chat, handoffs, tool calls, activity, and runtime context.                        | Session store and activity journal.                               |
 | **Apps / Tools** | Capabilities a TRUST can connect, install, call, or authorize: MCP tools, integration packs, role apps, platform apps, and future plugin workers. | Tool registry, integration credentials, and app/plugin manifests. |
 
+The implementation contract for discovering, authorizing, invoking, and
+removing Apps/Tools is [extension-plane.md](extension-plane.md).
+
 ## Infrastructure Terms
 
 These terms are important, but they are not product roots.

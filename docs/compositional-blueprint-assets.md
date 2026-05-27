@@ -1,10 +1,10 @@
 # Blueprint Packages
 
-A Blueprint Package is a static, reviewable bundle of aeqi primitives. The MVP
-only needs one package: the built-in default used by `/launch`. It should be
-shaped like the future public store item, but the product should not ship public
-uploads, remixing, or an open catalog until install preview, permissions, and
-provenance are solid.
+A Blueprint Package is a static, reviewable bundle of TRUST operating surfaces.
+The MVP only needs one package: the built-in default used by `/launch`. It
+should be shaped like the future public store item, but the product should not
+ship public uploads, remixing, or an open catalog until install preview,
+permissions, and provenance are solid.
 
 For now, the store is repo-backed and curated. A package lands by changing files
 under `presets/` and shipping the runtime, because shipped blueprint JSON is

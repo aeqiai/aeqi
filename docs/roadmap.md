@@ -21,6 +21,10 @@ The vocabulary baseline for that discipline is the
 Roles, Agents, Quests, Ideas, Events, Sessions, and Apps/Tools are the
 operating surfaces.
 
+The extension baseline is [extension-plane.md](extension-plane.md): a
+TRUST-scoped capability registry, typed event triggers, namespace grants, and
+owner-token cleanup for anything installable or callable.
+
 The current public agent-runtime bar is captured in
 [agent-runtime-bar.md](agent-runtime-bar.md). AEQI should not win by copying a
 personal assistant or chat gateway. It should win by making durable work,
@@ -126,10 +130,12 @@ The next practical moves should be:
    isolated home directory.
 2. Keep the primitive contract enforced across code, docs, UI, MCP, and
    onboarding.
-3. Build an eval suite for coding and repo quests.
-4. Tighten the native coding loop before expanding more surface area.
-5. Keep shaping the UI around ideas, work, agent tree, and operator control.
-6. Make metrics and outcome tracking a first-class part of the control plane.
+3. Ship the read-only runtime capability registry over existing tools, MCP
+   servers, and event rows.
+4. Build an eval suite for coding and repo quests.
+5. Tighten the native coding loop before expanding more surface area.
+6. Keep shaping the UI around ideas, work, agent tree, and operator control.
+7. Make metrics and outcome tracking a first-class part of the control plane.
 
 ## Decision Rule
 
