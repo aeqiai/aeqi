@@ -1811,10 +1811,10 @@ fn discover_graph_projects(graph_dir: &Path) -> Vec<String> {
         if path.extension().and_then(|ext| ext.to_str()) != Some("db") {
             continue;
         }
-        if let Some(stem) = path.file_stem().and_then(|stem| stem.to_str()) {
-            if !stem.is_empty() {
-                projects.push(stem.to_string());
-            }
+        if let Some(stem) = path.file_stem().and_then(|stem| stem.to_str())
+            && !stem.is_empty()
+        {
+            projects.push(stem.to_string());
         }
     }
 

@@ -56,9 +56,7 @@ async fn ensure_identity_subscription_for_idea(
         .into_iter()
         .next()?;
 
-    let Some(agent_id) = idea.agent_id.as_deref() else {
-        return None;
-    };
+    let agent_id = idea.agent_id.as_deref()?;
     let Some(event_store) = ctx.event_handler_store.as_ref() else {
         return Some("identity idea updated but event handler store is unavailable".to_string());
     };

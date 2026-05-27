@@ -305,28 +305,75 @@ impl GraphStore {
     }
 
     pub fn search_nodes(&self, query: &str, limit: usize) -> Result<Vec<CodeNode>> {
-        let query = query.trim();
-        if query.is_empty() || limit == 0 {
+        let parsed = ParsedNodeSearch::parse(query);
+        let query = parsed.text.as_str();
+        if limit == 0 {
             return Ok(Vec::new());
+        }
+        if query.is_empty() {
+            return self.nodes_matching_filters(&parsed, limit);
         }
 
         let mut results = Vec::new();
         let mut seen = HashSet::new();
 
         let exact_name = self.search_nodes_by_exact_name(query, remaining(limit, results.len()))?;
-        append_unique_nodes(&mut results, &mut seen, exact_name, limit);
+        append_unique_nodes(&mut results, &mut seen, exact_name, limit, &parsed);
+
+        if results.len() < limit {
+            for token in searchable_terms(query).into_iter().rev() {
+                if token.eq_ignore_ascii_case(query) {
+                    continue;
+                }
+                let token_matches =
+                    self.search_nodes_by_exact_name(&token, remaining(limit, results.len()))?;
+                append_unique_nodes(&mut results, &mut seen, token_matches, limit, &parsed);
+                if results.len() >= limit {
+                    break;
+                }
+            }
+        }
 
         if results.len() < limit {
             let path_matches = self.search_nodes_by_path(query, remaining(limit, results.len()))?;
-            append_unique_nodes(&mut results, &mut seen, path_matches, limit);
+            append_unique_nodes(&mut results, &mut seen, path_matches, limit, &parsed);
         }
 
         if results.len() < limit {
             let fts_matches = self.search_nodes_by_fts(query, remaining(limit, results.len()))?;
-            append_unique_nodes(&mut results, &mut seen, fts_matches, limit);
+            append_unique_nodes(&mut results, &mut seen, fts_matches, limit, &parsed);
+        }
+
+        if results.len() < limit {
+            let signature_matches =
+                self.search_nodes_by_signature(query, remaining(limit, results.len()))?;
+            append_unique_nodes(&mut results, &mut seen, signature_matches, limit, &parsed);
         }
 
         Ok(results)
+    }
+
+    fn nodes_matching_filters(
+        &self,
+        filters: &ParsedNodeSearch,
+        limit: usize,
+    ) -> Result<Vec<CodeNode>> {
+        if !filters.has_filters() || limit == 0 {
+            return Ok(Vec::new());
+        }
+
+        let mut stmt = self.conn.prepare(
+            "SELECT id, label, name, file_path, start_line, end_line, language, is_exported, signature, doc_comment, community_id
+             FROM code_nodes
+             ORDER BY is_exported DESC, file_path, start_line",
+        )?;
+        let nodes = stmt
+            .query_map([], |row| Ok(row_to_node(row)))?
+            .filter_map(|r| r.ok())
+            .filter(|node| filters.matches(node))
+            .take(limit)
+            .collect();
+        Ok(nodes)
     }
 
     fn search_nodes_by_exact_name(&self, query: &str, limit: usize) -> Result<Vec<CodeNode>> {
@@ -393,6 +440,42 @@ impl GraphStore {
             .filter_map(|r| r.ok())
             .collect();
         Ok(nodes)
+    }
+
+    fn search_nodes_by_signature(&self, query: &str, limit: usize) -> Result<Vec<CodeNode>> {
+        if limit == 0 {
+            return Ok(Vec::new());
+        }
+
+        let terms = searchable_terms(query);
+        if terms.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut candidates = Vec::new();
+        let mut seen = HashSet::new();
+        for term in terms {
+            let like = format!("%{term}%");
+            let mut stmt = self.conn.prepare(
+                "SELECT id, label, name, file_path, start_line, end_line, language, is_exported, signature, doc_comment, community_id
+                 FROM code_nodes
+                 WHERE signature LIKE ?1 COLLATE NOCASE OR doc_comment LIKE ?1 COLLATE NOCASE
+                 ORDER BY is_exported DESC, file_path, start_line
+                 LIMIT ?2",
+            )?;
+            for node in stmt
+                .query_map(params![like, limit as u32], |row| Ok(row_to_node(row)))?
+                .filter_map(|r| r.ok())
+            {
+                if candidates.len() >= limit {
+                    break;
+                }
+                if seen.insert(node.id.clone()) {
+                    candidates.push(node);
+                }
+            }
+        }
+        Ok(candidates)
     }
 
     pub fn outgoing_edges(&self, node_id: &str) -> Result<Vec<(CodeEdge, Option<CodeNode>)>> {
@@ -738,10 +821,14 @@ fn append_unique_nodes(
     seen: &mut HashSet<String>,
     nodes: Vec<CodeNode>,
     limit: usize,
+    filters: &ParsedNodeSearch,
 ) {
     for node in nodes {
         if results.len() >= limit {
             break;
+        }
+        if !filters.matches(&node) {
+            continue;
         }
         if seen.insert(node.id.clone()) {
             results.push(node);
@@ -758,8 +845,139 @@ fn looks_like_path_query(query: &str) -> bool {
 }
 
 fn escape_fts_query(query: &str) -> String {
-    let escaped = query.replace('"', "\"\"");
-    format!("\"{escaped}\"")
+    let terms = searchable_terms(query);
+    if terms.is_empty() {
+        let escaped = query.replace('"', "\"\"");
+        return format!("\"{escaped}\"");
+    }
+    terms
+        .into_iter()
+        .map(|term| format!("\"{}\"", term.replace('"', "\"\"")))
+        .collect::<Vec<_>>()
+        .join(" OR ")
+}
+
+fn searchable_terms(query: &str) -> Vec<String> {
+    query
+        .split(|c: char| !(c.is_alphanumeric() || c == '_'))
+        .map(str::trim)
+        .filter(|term| !term.is_empty())
+        .map(ToOwned::to_owned)
+        .collect()
+}
+
+#[derive(Debug, Default)]
+struct ParsedNodeSearch {
+    text: String,
+    labels: Vec<String>,
+    languages: Vec<String>,
+    path_filters: Vec<String>,
+    name_filters: Vec<String>,
+}
+
+impl ParsedNodeSearch {
+    fn parse(raw: &str) -> Self {
+        let mut parsed = Self::default();
+        let mut text = Vec::new();
+
+        for token in raw.split_whitespace() {
+            let Some((key, value)) = token.split_once(':') else {
+                text.push(token);
+                continue;
+            };
+            if value.is_empty() {
+                text.push(token);
+                continue;
+            }
+
+            let value = value.trim_matches('"');
+            match key.to_ascii_lowercase().as_str() {
+                "kind" | "label" if is_known_label(value) => {
+                    parsed.labels.push(value.to_ascii_lowercase());
+                }
+                "lang" | "language" => {
+                    parsed.languages.push(value.to_ascii_lowercase());
+                }
+                "path" => parsed.path_filters.push(value.to_ascii_lowercase()),
+                "name" => parsed.name_filters.push(value.to_ascii_lowercase()),
+                _ => text.push(token),
+            }
+        }
+
+        parsed.text = text.join(" ").trim().to_string();
+        parsed
+    }
+
+    fn has_filters(&self) -> bool {
+        !(self.labels.is_empty()
+            && self.languages.is_empty()
+            && self.path_filters.is_empty()
+            && self.name_filters.is_empty())
+    }
+
+    fn matches(&self, node: &CodeNode) -> bool {
+        if !self.labels.is_empty() && !self.labels.iter().any(|label| label == node.label.as_str())
+        {
+            return false;
+        }
+        if !self.languages.is_empty()
+            && !self
+                .languages
+                .iter()
+                .any(|language| language == &node.language.to_ascii_lowercase())
+        {
+            return false;
+        }
+
+        let file_path = node.file_path.to_ascii_lowercase();
+        if !self.path_filters.is_empty()
+            && !self
+                .path_filters
+                .iter()
+                .any(|path| file_path.contains(path))
+        {
+            return false;
+        }
+
+        let name = node.name.to_ascii_lowercase();
+        if !self.name_filters.is_empty()
+            && !self.name_filters.iter().any(|filter| name.contains(filter))
+        {
+            return false;
+        }
+
+        true
+    }
+}
+
+fn is_known_label(value: &str) -> bool {
+    matches!(
+        value.to_ascii_lowercase().as_str(),
+        "project"
+            | "module"
+            | "file"
+            | "struct"
+            | "trait"
+            | "impl"
+            | "enum"
+            | "function"
+            | "method"
+            | "const"
+            | "static"
+            | "type_alias"
+            | "macro"
+            | "class"
+            | "interface"
+            | "variable"
+            | "decorator"
+            | "constructor"
+            | "property"
+            | "contract"
+            | "event"
+            | "modifier"
+            | "community"
+            | "process"
+    )
 }
 
 #[cfg(test)]
@@ -923,6 +1141,109 @@ mod tests {
 
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].name, "parse_path");
+    }
+
+    #[test]
+    fn search_understands_qualified_multi_term_symbol_queries() {
+        let store = GraphStore::open_in_memory().unwrap();
+        store
+            .upsert_node(&CodeNode::new(
+                NodeLabel::Struct,
+                "Agent",
+                "src/agent.rs",
+                1,
+                10,
+                "rust",
+            ))
+            .unwrap();
+        store
+            .upsert_node(
+                &CodeNode::new(NodeLabel::Method, "run", "src/agent.rs", 12, 20, "rust")
+                    .with_signature("pub fn run(&self)"),
+            )
+            .unwrap();
+
+        let results = store.search_nodes("Agent run", 10).unwrap();
+
+        assert_eq!(results[0].name, "run");
+        assert_eq!(results[0].label, NodeLabel::Method);
+        assert!(results.iter().any(|node| node.name == "Agent"));
+    }
+
+    #[test]
+    fn search_supports_structured_filters() {
+        let store = GraphStore::open_in_memory().unwrap();
+        store
+            .upsert_node(&CodeNode::new(
+                NodeLabel::Function,
+                "run",
+                "src/bin/run.rs",
+                1,
+                5,
+                "rust",
+            ))
+            .unwrap();
+        store
+            .upsert_node(&CodeNode::new(
+                NodeLabel::Method,
+                "run",
+                "src/agent.rs",
+                10,
+                15,
+                "rust",
+            ))
+            .unwrap();
+        store
+            .upsert_node(&CodeNode::new(
+                NodeLabel::Method,
+                "run",
+                "apps/ui/src/agent.ts",
+                10,
+                15,
+                "typescript",
+            ))
+            .unwrap();
+
+        let results = store
+            .search_nodes("kind:method lang:rust path:src/agent run", 10)
+            .unwrap();
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].label, NodeLabel::Method);
+        assert_eq!(results[0].language, "rust");
+        assert_eq!(results[0].file_path, "src/agent.rs");
+    }
+
+    #[test]
+    fn search_can_return_filter_only_queries() {
+        let store = GraphStore::open_in_memory().unwrap();
+        store
+            .upsert_node(&CodeNode::new(
+                NodeLabel::Function,
+                "helper",
+                "src/helper.rs",
+                1,
+                5,
+                "rust",
+            ))
+            .unwrap();
+        store
+            .upsert_node(&CodeNode::new(
+                NodeLabel::Method,
+                "run",
+                "src/agent.rs",
+                10,
+                15,
+                "rust",
+            ))
+            .unwrap();
+
+        let results = store
+            .search_nodes("kind:method path:src/agent", 10)
+            .unwrap();
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "run");
     }
 
     #[test]

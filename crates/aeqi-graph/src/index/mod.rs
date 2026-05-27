@@ -265,7 +265,7 @@ impl Indexer {
         let health = self.health(project_dir, store)?;
         let repo_path = project_dir.to_string_lossy().to_string();
         if health.repo_path.as_deref() != Some(repo_path.as_str())
-            || health.last_commit.as_deref().map_or(true, str::is_empty)
+            || health.last_commit.as_deref().is_none_or(str::is_empty)
             || health.expected_file_count == 0
             || health.coverage_ratio < MIN_INCREMENTAL_COVERAGE_RATIO
         {
@@ -467,7 +467,7 @@ impl Indexer {
         };
         let project_repo_path = project_dir.to_string_lossy().to_string();
         let freshness_state = if repo_path.as_deref() != Some(project_repo_path.as_str())
-            || last_commit.as_deref().map_or(true, str::is_empty)
+            || last_commit.as_deref().is_none_or(str::is_empty)
         {
             GraphFreshnessState::Stale
         } else if expected_file_count == 0 {

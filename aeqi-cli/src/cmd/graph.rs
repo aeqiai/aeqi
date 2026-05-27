@@ -10,6 +10,7 @@ pub(crate) async fn cmd_graph(config_path: &Option<PathBuf>, action: GraphAction
     match action {
         GraphAction::Index { root, full } => cmd_graph_index(config_path, &root, full),
         GraphAction::Stats { root } => cmd_graph_stats(config_path, &root),
+        GraphAction::Health { root } => cmd_graph_health(config_path, &root),
         GraphAction::Audit { .. } => cmd_graph_audit(config_path),
     }
 }
@@ -224,10 +225,10 @@ fn discover_graph_projects(graph_dir: &PathBuf) -> Vec<String> {
         if path.extension().and_then(|ext| ext.to_str()) != Some("db") {
             continue;
         }
-        if let Some(stem) = path.file_stem().and_then(|stem| stem.to_str()) {
-            if !stem.is_empty() {
-                projects.push(stem.to_string());
-            }
+        if let Some(stem) = path.file_stem().and_then(|stem| stem.to_str())
+            && !stem.is_empty()
+        {
+            projects.push(stem.to_string());
         }
     }
 

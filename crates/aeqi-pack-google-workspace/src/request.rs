@@ -97,7 +97,7 @@ fn allowed_google_url(url: &str) -> bool {
     host == "www.googleapis.com" || host.ends_with(".googleapis.com")
 }
 
-fn method_from_arg(args: &Value) -> Result<Method, ToolResult> {
+fn method_from_arg(args: &Value) -> Result<Method, Box<ToolResult>> {
     let method = args
         .get("method")
         .and_then(|v| v.as_str())
@@ -109,9 +109,9 @@ fn method_from_arg(args: &Value) -> Result<Method, ToolResult> {
         "PATCH" => Ok(Method::PATCH),
         "PUT" => Ok(Method::PUT),
         "DELETE" => Ok(Method::DELETE),
-        _ => Err(ToolResult::error(
+        _ => Err(Box::new(ToolResult::error(
             "method must be one of GET, POST, PATCH, PUT, DELETE",
-        )),
+        ))),
     }
 }
 
@@ -188,7 +188,7 @@ impl Tool for GoogleRequestTool {
         };
         let method = match method_from_arg(&args) {
             Ok(method) => method,
-            Err(result) => return Ok(result),
+            Err(result) => return Ok(*result),
         };
         let (auth_k, auth_v) = auth_header(&cred);
         let mut req = Client::new()
