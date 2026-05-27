@@ -273,7 +273,7 @@ mod tests {
         assert_eq!(default.seed_agents.len(), 1);
         assert!(default.agent_template_refs.is_empty());
         assert_eq!(default.seed_events.len(), 9);
-        assert_eq!(default.seed_ideas.len(), 10);
+        assert_eq!(default.seed_ideas.len(), 13);
         assert_eq!(default.seed_quests.len(), 8);
     }
 
@@ -340,6 +340,12 @@ mod tests {
                 .any(|idea| idea.name == "First Company operating guide"),
             "default lifecycle events should assemble a top-level operating guide",
         );
+        for idea_name in ["Operating snapshot", "Decision log", "Website brief"] {
+            assert!(
+                default.seed_ideas.iter().any(|idea| idea.name == idea_name),
+                "default blueprint should seed {idea_name}",
+            );
+        }
         let public_website = default
             .seed_quests
             .iter()

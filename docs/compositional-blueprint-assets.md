@@ -36,17 +36,20 @@ Company**. It is both:
 - the only MVP store item worth polishing before public onboarding
 
 That package must be excellent before the catalog broadens. It should install a
-neutral one-agent TRUST with the Director as the human authority and `aeqi
-Assistant` as the first operational agent in the Chief of Staff role. It should
-not assume a startup, studio, fund, DAO, or personal operating system. Its job
-is to help the user turn their first input into ideas, quests, events, roles,
-and only then any specialist agents.
+neutral TRUST with the Director as the human authority, the default agent in
+the Chief of Staff role, and one Founder Associate for synthesis support. It
+should not assume a startup, studio, fund, DAO, or personal operating system.
+Its job is to help the user turn their first input into an operating snapshot,
+ideas, quests, events, roles, and only then any specialist agents.
 
 The default package's events are mostly lifecycle context, plus one gentle
 routine. `session:start`, `session:execution_start`, `session:step_start`,
 `session:quest_start`, `session:quest_end`, `session:quest_result`, and
 `session:stopped` load the Director brief, working style, company shape, and
-aeqi tooling playbook so the agent can actually operate the primitives.
+aeqi tooling playbook so the agent can actually operate the primitives. The
+package also seeds an Operating snapshot, Decision log, and Website brief so the
+company has a compact current state, durable decisions, and an honest public
+surface plan before anything is published.
 `weekly_review` is the only scheduled routine: a light Monday review of open
 decisions, stalled quests, shipped work, changed priorities, and whether the
 company shape should change. Additional cron or external-trigger routines should
@@ -54,8 +57,8 @@ be added only after the Director chooses them.
 
 The default package should seed quests as one setup project, not a flat todo
 dump. `Set up your First Company` is the parent quest; child quests collect the
-Director's brief, working style, first real quest, initial role map, first
-teammate decision, and first review cadence.
+Director's brief, working style, first real quest, public website shell, initial
+role map, first teammate decision, and first review cadence.
 
 Do not build public upload/review flows for MVP. The practical expansion path is:
 
