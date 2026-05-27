@@ -116,6 +116,7 @@ export default function TrustAppsTab({ trustId }: { trustId: string }) {
               analytics={websiteAnalytics.data}
             />
             <TrustEmailCard
+              trustId={trustId}
               email={trustEmailAddress(entity)}
               domain={trustEmailDomain(entity)}
               loading={emailStatus.isLoading}
@@ -236,13 +237,16 @@ function TrustEmailCard({
   email,
   loading,
   status,
+  trustId,
 }: {
   domain: string;
   email: string;
   loading: boolean;
   status?: Awaited<ReturnType<typeof api.getTrustEmailMessages>>;
+  trustId: string;
 }) {
   const [copied, setCopied] = useState(false);
+  const [sendState, setSendState] = useState<"idle" | "sending" | "sent" | "failed">("idle");
   const messages = status?.messages ?? [];
   const latest = messages[0];
   const routingLabel = loading
@@ -250,6 +254,11 @@ function TrustEmailCard({
     : status?.routing_status === "maildrop"
       ? "Active"
       : "Ready";
+  const outboundLabel = loading
+    ? "Checking"
+    : status?.outbound_status === "ready"
+      ? "Ready"
+      : "Setup";
 
   async function copyEmail() {
     try {
@@ -258,6 +267,17 @@ function TrustEmailCard({
       window.setTimeout(() => setCopied(false), 1400);
     } catch {
       setCopied(false);
+    }
+  }
+
+  async function sendTestEmail() {
+    setSendState("sending");
+    try {
+      await api.sendTrustEmailTest(trustId);
+      setSendState("sent");
+      window.setTimeout(() => setSendState("idle"), 2400);
+    } catch {
+      setSendState("failed");
     }
   }
 
@@ -282,22 +302,48 @@ function TrustEmailCard({
         <Stat label="Address" value={email} />
         <Stat label="Domain" value={domain} />
         <Stat label="Inbox" value={formatInteger(status?.message_count ?? messages.length)} />
-        <Stat
-          label="Latest"
-          value={latest?.received_at ? formatInboxTime(latest.received_at) : "None"}
-        />
+        <Stat label="Outbound" value={outboundLabel} />
       </div>
-      <Button
-        className="trust-app-card-button"
-        variant="secondary"
-        size="md"
-        onClick={copyEmail}
-        leadingIcon={
-          copied ? <Check size={14} strokeWidth={1.5} /> : <Copy size={14} strokeWidth={1.5} />
-        }
-      >
-        {copied ? "Copied" : "Copy Email"}
-      </Button>
+      <div className="trust-app-card-actions">
+        <Button
+          className="trust-app-card-button"
+          variant="secondary"
+          size="md"
+          onClick={copyEmail}
+          leadingIcon={
+            copied ? <Check size={14} strokeWidth={1.5} /> : <Copy size={14} strokeWidth={1.5} />
+          }
+        >
+          {copied ? "Copied" : "Copy Email"}
+        </Button>
+        <Button
+          className="trust-app-card-button"
+          variant="secondary"
+          size="md"
+          onClick={sendTestEmail}
+          disabled={sendState === "sending" || status?.outbound_status !== "ready"}
+          leadingIcon={
+            sendState === "sent" ? (
+              <Check size={14} strokeWidth={1.5} />
+            ) : (
+              <Send size={14} strokeWidth={1.5} />
+            )
+          }
+        >
+          {sendState === "sending"
+            ? "Sending"
+            : sendState === "sent"
+              ? "Sent"
+              : sendState === "failed"
+                ? "Failed"
+                : "Send Test"}
+        </Button>
+      </div>
+      <div className="trust-app-card-footnote">
+        {latest?.received_at
+          ? `Latest inbound ${formatInboxTime(latest.received_at)}`
+          : "Replies land in this trust inbox."}
+      </div>
     </article>
   );
 }

@@ -1265,6 +1265,17 @@
   text-decoration: none;
 }
 
+.trust-app-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.trust-app-card-footnote {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
 /* Activity */
 
 .trust-activity-grid {

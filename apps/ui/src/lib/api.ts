@@ -743,7 +743,15 @@ export const api = {
       ok: boolean;
       trust_id: string;
       address?: string | null;
+      identities?: Array<{
+        kind: string;
+        label: string;
+        local_part: string;
+        address: string;
+      }>;
       routing_status: "maildrop" | string;
+      outbound_status?: "ready" | "not_configured" | string;
+      sender_mode?: string;
       message_count: number;
       messages: Array<{
         id: string;
@@ -756,6 +764,18 @@ export const api = {
         received_at: string;
       }>;
     }>(`/trusts/${encodeURIComponent(trustId)}/email/messages`),
+
+  sendTrustEmailTest: (trustId: string) =>
+    request<{
+      ok: boolean;
+      trust_id: string;
+      to: string;
+      from: string;
+      reply_to: string;
+      sender_mode: string;
+    }>(`/trusts/${encodeURIComponent(trustId)}/email/test`, {
+      method: "POST",
+    }),
 
   getTrustWebsiteAnalytics: (trustId: string) =>
     request<{
