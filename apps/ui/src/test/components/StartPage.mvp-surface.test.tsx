@@ -202,7 +202,9 @@ describe("StartPage MVP surface", () => {
     expect(screen.queryByRole("link", { name: /open account settings/i })).not.toBeInTheDocument();
     expect(screen.getByText("No active TRUST")).toBeInTheDocument();
     expect(
-      screen.getByText(/operating container for ownership, agents, quests, and ideas/i),
+      screen.getByText(
+        /shared AI workspace for one mission: agents, quests, ideas, tools, and evidence/i,
+      ),
     ).toBeInTheDocument();
     expect(primary).toBeInTheDocument();
     expect(secondary).toBeInTheDocument();
@@ -261,7 +263,9 @@ describe("StartPage MVP surface", () => {
     expect(yourTrusts).toHaveAttribute("href", "/trust");
     expect(screen.getAllByText("View all")).toHaveLength(2);
     expect(
-      screen.getByText(/operating container for ownership, agents, quests, and ideas/i),
+      screen.getByText(
+        /shared AI workspace for one mission: agents, quests, ideas, tools, and evidence/i,
+      ),
     ).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /open trust/i })).not.toBeInTheDocument();
     expect(screen.getByText("Review launch result")).toBeInTheDocument();
