@@ -19,6 +19,7 @@ import {
   EmptyState,
   Input,
   Loading,
+  Select,
   Table,
   Tabs,
   type BadgeVariant,
@@ -92,6 +93,21 @@ interface Overview {
   invite_codes: InviteRow[];
   waitlist: WaitlistRow[];
   health: AdminHealth | null;
+  llm_provider: LlmProviderStatus | null;
+}
+
+interface LlmProviderStatus {
+  active_provider?: string;
+  providers?: LlmProviderOption[];
+}
+
+interface LlmProviderOption {
+  id: string;
+  label: string;
+  base_url: string;
+  key_present?: boolean;
+  configured?: boolean;
+  default_model?: string;
 }
 
 interface AdminHealth {
@@ -253,6 +269,7 @@ export default function AdminPage() {
           invite_codes: (res.invite_codes as unknown as InviteRow[]) ?? [],
           waitlist: (res.waitlist as unknown as WaitlistRow[]) ?? [],
           health: (res.health as AdminHealth | undefined) ?? null,
+          llm_provider: (res.llm_provider as LlmProviderStatus | undefined) ?? null,
         });
         setLastLoadedAt(new Date());
       })
@@ -275,6 +292,7 @@ export default function AdminPage() {
       invite_codes: [],
       waitlist: [],
       health: null,
+      llm_provider: null,
     };
     if (!data) return empty;
     return {
@@ -765,6 +783,8 @@ export default function AdminPage() {
         <>
           <ProtocolHealth health={data.health} placements={data.placements} />
 
+          <LlmProviderControl status={data.llm_provider} onSaved={load} />
+
           <div className="admin-metrics" aria-label="Admin summary">
             {stats.map((stat) => (
               <div key={stat.label} className="admin-metric">
@@ -797,6 +817,108 @@ export default function AdminPage() {
         </>
       )}
     </div>
+  );
+}
+
+function LlmProviderControl({
+  status,
+  onSaved,
+}: {
+  status: LlmProviderStatus | null;
+  onSaved: () => void;
+}) {
+  const options = status?.providers ?? [];
+  const active = status?.active_provider ?? "openrouter";
+  const [provider, setProvider] = useState(active);
+  const [deepseekKey, setDeepseekKey] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    setProvider(active);
+    setMessage(null);
+  }, [active]);
+
+  const selected = options.find((option) => option.id === provider);
+  const needsKey = provider === "deepseek" && !selected?.key_present && !deepseekKey.trim();
+
+  const save = () => {
+    setSaving(true);
+    setMessage(null);
+    api
+      .updateAdminLlmProvider(provider, deepseekKey.trim() || undefined)
+      .then(() => {
+        setDeepseekKey("");
+        setMessage("Provider updated");
+        onSaved();
+      })
+      .catch((e: unknown) => {
+        setMessage(e instanceof Error ? e.message : String(e));
+      })
+      .finally(() => setSaving(false));
+  };
+
+  return (
+    <section className="admin-llm-panel" aria-label="LLM provider">
+      <div className="admin-llm-head">
+        <div>
+          <h2 className="admin-health-title">LLM provider</h2>
+          <p className="admin-health-subtitle">
+            Choose the upstream used by hosted runtimes through the platform proxy.
+          </p>
+        </div>
+        <Badge variant={active === "deepseek" ? "success" : "muted"} size="sm" dot>
+          {active === "deepseek" ? "DeepSeek direct" : "OpenRouter"}
+        </Badge>
+      </div>
+
+      <div className="admin-llm-body">
+        <label className="admin-llm-field">
+          <span>Provider</span>
+          <Select
+            size="sm"
+            fullWidth
+            options={options.map((option) => ({ value: option.id, label: option.label }))}
+            value={provider}
+            onChange={setProvider}
+          />
+        </label>
+
+        <label className="admin-llm-field">
+          <span>DeepSeek API key</span>
+          <Input
+            size="sm"
+            type="password"
+            placeholder={
+              options.find((option) => option.id === "deepseek")?.key_present ? "Stored" : "sk-..."
+            }
+            value={deepseekKey}
+            onChange={(e) => setDeepseekKey(e.target.value)}
+          />
+        </label>
+
+        <Button variant="primary" size="sm" onClick={save} loading={saving} disabled={needsKey}>
+          Save
+        </Button>
+      </div>
+
+      <div className="admin-llm-options">
+        {options.map((option) => (
+          <div key={option.id} className="admin-llm-option">
+            <span className="admin-primary-cell">{option.label}</span>
+            <span className="admin-mono-cell">{option.base_url}</span>
+            <Badge variant={option.key_present ? "success" : "warning"} size="sm" dot>
+              {option.key_present ? "Key present" : "Needs key"}
+            </Badge>
+            {option.default_model && (
+              <span className="admin-mono-cell">{option.default_model}</span>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {message && <div className="admin-llm-message">{message}</div>}
+    </section>
   );
 }
 

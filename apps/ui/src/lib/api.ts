@@ -127,7 +127,17 @@ export const api = {
       invite_codes: Array<Record<string, unknown>>;
       waitlist: Array<Record<string, unknown>>;
       health?: Record<string, unknown>;
+      llm_provider?: Record<string, unknown>;
     }>("/admin/overview"),
+
+  updateAdminLlmProvider: (provider: string, deepseekApiKey?: string) =>
+    request<Record<string, unknown>>("/admin/llm-provider", {
+      method: "POST",
+      body: JSON.stringify({
+        provider,
+        ...(deepseekApiKey ? { deepseek_api_key: deepseekApiKey } : {}),
+      }),
+    }),
 
   getMe: () => request<User>("/auth/me"),
 

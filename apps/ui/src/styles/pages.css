@@ -4738,6 +4738,55 @@
   gap: var(--space-3);
 }
 
+.admin-llm-panel {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-card);
+  border-radius: var(--radius-sm);
+}
+
+.admin-llm-head,
+.admin-llm-body,
+.admin-llm-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.admin-llm-head {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.admin-llm-body {
+  flex-wrap: wrap;
+}
+
+.admin-llm-field {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 220px;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+}
+
+.admin-llm-options {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.admin-llm-option {
+  flex-wrap: wrap;
+  min-height: 28px;
+}
+
+.admin-llm-message {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
 .admin-health-head {
   display: flex;
   align-items: flex-start;
