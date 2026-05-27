@@ -28,6 +28,7 @@ use base64::Engine as _;
 use futures::StreamExt;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 use tokio::sync::mpsc;
 use tracing::debug;
 
@@ -459,7 +460,10 @@ fn affordable_max_tokens_from_text(text: &str) -> Option<u32> {
 
 // --- Conversion helpers ---
 
-fn convert_messages(messages: &[aeqi_core::traits::Message]) -> Vec<serde_json::Value> {
+fn convert_messages(
+    messages: &[aeqi_core::traits::Message],
+    tool_name_map: &HashMap<String, String>,
+) -> Vec<serde_json::Value> {
     use aeqi_core::traits::{ContentPart, MessageContent, Role};
 
     let mut api_messages: Vec<serde_json::Value> = Vec::new();
@@ -537,14 +541,17 @@ fn convert_messages(messages: &[aeqi_core::traits::Message]) -> Vec<serde_json::
                     let tool_calls: Vec<serde_json::Value> = parts
                         .iter()
                         .filter_map(|p| match p {
-                            ContentPart::ToolUse { id, name, input } => Some(serde_json::json!({
-                                "id": id,
-                                "type": "function",
-                                "function": {
-                                    "name": name,
-                                    "arguments": serde_json::to_string(input).unwrap_or_default(),
-                                }
-                            })),
+                            ContentPart::ToolUse { id, name, input } => {
+                                let safe_name = provider_tool_name(name, tool_name_map);
+                                Some(serde_json::json!({
+                                    "id": id,
+                                    "type": "function",
+                                    "function": {
+                                        "name": safe_name,
+                                        "arguments": serde_json::to_string(input).unwrap_or_default(),
+                                    }
+                                }))
+                            }
                             _ => None,
                         })
                         .collect();
@@ -623,14 +630,72 @@ fn convert_messages(messages: &[aeqi_core::traits::Message]) -> Vec<serde_json::
     api_messages
 }
 
+fn openai_safe_tool_name(name: &str) -> String {
+    let mut out = String::with_capacity(name.len().max(4));
+    for ch in name.chars() {
+        if ch.is_ascii_alphanumeric() || ch == '_' || ch == '-' {
+            out.push(ch);
+        } else {
+            out.push('_');
+        }
+    }
+    let trimmed = out.trim_matches('_');
+    if trimmed.is_empty() {
+        "tool".to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
+
+fn converted_tool_name_map(tools: &[ToolSpec]) -> HashMap<String, String> {
+    let mut used = HashSet::new();
+    let mut map = HashMap::new();
+    for tool in tools {
+        let base = openai_safe_tool_name(&tool.name);
+        let mut safe = base.clone();
+        let mut suffix = 2;
+        while !used.insert(safe.clone()) {
+            safe = format!("{base}_{suffix}");
+            suffix += 1;
+        }
+        map.insert(safe, tool.name.clone());
+    }
+    map
+}
+
+fn original_tool_name<'a>(
+    safe_name: &'a str,
+    tool_name_map: &'a HashMap<String, String>,
+) -> String {
+    tool_name_map
+        .get(safe_name)
+        .cloned()
+        .unwrap_or_else(|| safe_name.to_string())
+}
+
+fn provider_tool_name(original_name: &str, tool_name_map: &HashMap<String, String>) -> String {
+    tool_name_map
+        .iter()
+        .find_map(|(safe, original)| (original == original_name).then(|| safe.clone()))
+        .unwrap_or_else(|| openai_safe_tool_name(original_name))
+}
+
 fn convert_tools(tools: &[ToolSpec]) -> Vec<serde_json::Value> {
+    let mut used = HashSet::new();
     let mut converted: Vec<serde_json::Value> = tools
         .iter()
         .map(|t| {
+            let base = openai_safe_tool_name(&t.name);
+            let mut safe_name = base.clone();
+            let mut suffix = 2;
+            while !used.insert(safe_name.clone()) {
+                safe_name = format!("{base}_{suffix}");
+                suffix += 1;
+            }
             serde_json::json!({
                 "type": "function",
                 "function": {
-                    "name": t.name,
+                    "name": safe_name,
                     "description": t.description,
                     "parameters": t.input_schema,
                 }
@@ -653,6 +718,7 @@ fn convert_tools(tools: &[ToolSpec]) -> Vec<serde_json::Value> {
 #[async_trait]
 impl Provider for OpenRouterProvider {
     async fn chat(&self, request: &ChatRequest) -> Result<ChatResponse> {
+        let tool_name_map = converted_tool_name_map(&request.tools);
         let model = if request.model.is_empty() {
             self.default_model.clone()
         } else {
@@ -661,7 +727,7 @@ impl Provider for OpenRouterProvider {
 
         let api_request = ApiRequest {
             model,
-            messages: convert_messages(&request.messages),
+            messages: convert_messages(&request.messages, &tool_name_map),
             tools: convert_tools(&request.tools),
             max_tokens: request.max_tokens,
             temperature: request.temperature,
@@ -739,7 +805,7 @@ impl Provider for OpenRouterProvider {
                     serde_json::from_str(&tc.function.arguments).unwrap_or(serde_json::Value::Null);
                 ToolCall {
                     id: tc.id,
-                    name: tc.function.name,
+                    name: original_tool_name(&tc.function.name, &tool_name_map),
                     arguments,
                 }
             })
@@ -786,6 +852,7 @@ impl Provider for OpenRouterProvider {
         request: &ChatRequest,
         tx: mpsc::Sender<StreamEvent>,
     ) -> Result<()> {
+        let tool_name_map = converted_tool_name_map(&request.tools);
         let model = if request.model.is_empty() {
             self.default_model.clone()
         } else {
@@ -794,7 +861,7 @@ impl Provider for OpenRouterProvider {
 
         let api_request = ApiRequest {
             model,
-            messages: convert_messages(&request.messages),
+            messages: convert_messages(&request.messages, &tool_name_map),
             tools: convert_tools(&request.tools),
             max_tokens: request.max_tokens,
             temperature: request.temperature,
@@ -889,12 +956,14 @@ impl Provider for OpenRouterProvider {
                                     if let Some(name) = f.name
                                         && slot.name.is_empty()
                                     {
-                                        slot.name = name.clone();
+                                        let original_name =
+                                            original_tool_name(&name, &tool_name_map);
+                                        slot.name = original_name.clone();
                                         if !slot.start_emitted && !slot.id.is_empty() {
                                             let _ = tx
                                                 .send(StreamEvent::ToolUseStart {
                                                     id: slot.id.clone(),
-                                                    name,
+                                                    name: original_name,
                                                 })
                                                 .await;
                                             slot.start_emitted = true;
@@ -1017,7 +1086,7 @@ mod cache_control_tests {
             ]),
         }];
 
-        let api_messages = convert_messages(&messages);
+        let api_messages = convert_messages(&messages, &HashMap::new());
         assert_eq!(api_messages.len(), 1, "one system message produced");
         let content = api_messages[0]
             .get("content")
@@ -1104,5 +1173,55 @@ mod cache_control_tests {
             reqwest::StatusCode::UNAUTHORIZED,
             body,
         ));
+    }
+
+    #[test]
+    fn sanitizes_tool_names_for_openai_compatible_schema() {
+        let tools = vec![
+            ToolSpec {
+                name: "ideas.store_many".to_string(),
+                description: "store ideas".to_string(),
+                input_schema: serde_json::json!({"type": "object"}),
+            },
+            ToolSpec {
+                name: "ideas/store_many".to_string(),
+                description: "store ideas slash".to_string(),
+                input_schema: serde_json::json!({"type": "object"}),
+            },
+        ];
+
+        let converted = convert_tools(&tools);
+        assert_eq!(
+            converted[0]["function"]["name"].as_str(),
+            Some("ideas_store_many")
+        );
+        assert_eq!(
+            converted[1]["function"]["name"].as_str(),
+            Some("ideas_store_many_2")
+        );
+
+        let map = converted_tool_name_map(&tools);
+        assert_eq!(
+            original_tool_name("ideas_store_many", &map),
+            "ideas.store_many"
+        );
+        assert_eq!(
+            original_tool_name("ideas_store_many_2", &map),
+            "ideas/store_many"
+        );
+
+        let messages = vec![Message {
+            role: Role::Assistant,
+            content: MessageContent::Parts(vec![ContentPart::ToolUse {
+                id: "call_1".to_string(),
+                name: "ideas/store_many".to_string(),
+                input: serde_json::json!({}),
+            }]),
+        }];
+        let api_messages = convert_messages(&messages, &map);
+        assert_eq!(
+            api_messages[0]["tool_calls"][0]["function"]["name"].as_str(),
+            Some("ideas_store_many_2")
+        );
     }
 }
