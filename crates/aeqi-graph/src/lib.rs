@@ -2,6 +2,7 @@ pub mod analysis;
 pub mod extract;
 pub mod index;
 pub mod parser;
+pub mod quality;
 pub mod query;
 pub mod schema;
 pub mod storage;
@@ -15,6 +16,9 @@ pub use parser::rust::RustProvider;
 pub use parser::solidity::SolidityProvider;
 pub use parser::typescript::TypeScriptProvider;
 pub use parser::{FileExtraction, LanguageProvider};
+pub use quality::{
+    SearchBenchmarkCase, SearchBenchmarkReport, SearchBenchmarkResult, run_search_benchmark,
+};
 pub use schema::{CodeEdge, CodeNode, EdgeType, NodeLabel, ResolutionTier};
 pub use storage::{
     GraphFreshnessState, GraphHealth, GraphStats, GraphStore, ImpactEntry, NodeContext,

@@ -639,12 +639,12 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
         ToolDef {
             name: "code".to_string(),
             title: "AEQI Code Graph".to_string(),
-            description: "Code intelligence graph for configured company repositories. Use search to find symbols, context for callers/callees/implementors, impact or diff_impact before edits, file/file_summary for file-level understanding, stats to inspect index health, audit to summarize all available roots, and index/incremental to refresh the graph.".to_string(),
+            description: "Code intelligence graph for configured company repositories. Use search to find symbols, context for callers/callees/implementors, impact or diff_impact before edits, benchmark to run answerability quality gates, file/file_summary for file-level understanding, stats to inspect index health, audit to summarize all available roots, and index/incremental to refresh the graph.".to_string(),
             annotations: serde_json::json!({"title": "AEQI Code Graph", "readOnlyHint": false, "destructiveHint": false, "idempotentHint": false, "openWorldHint": false}),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "action": {"type": "string", "enum": ["search", "context", "impact", "file", "stats", "health", "audit", "index", "diff_impact", "file_summary", "incremental", "synthesize"], "description": "search: find symbols by name (read). context: 360° view — callers, callees, implementors (read). impact: blast radius from a symbol (read). diff_impact: blast radius from uncommitted changes (read). file: list symbols in a file (read). file_summary: summary of a file (read). stats: graph statistics (read). health: repo-aware coverage/freshness report (read). audit: summarize all available roots at a glance (read). index: full re-index of project (write). incremental: re-index only changed files (write). synthesize: generate community summary (write)."},
+                    "action": {"type": "string", "enum": ["search", "context", "impact", "file", "stats", "health", "audit", "benchmark", "index", "diff_impact", "file_summary", "incremental", "synthesize"], "description": "search: find symbols by name (read). context: 360° view — callers, callees, implementors (read). impact: blast radius from a symbol (read). diff_impact: blast radius from uncommitted changes (read). benchmark: run answerability quality cases (read). file: list symbols in a file (read). file_summary: summary of a file (read). stats: graph statistics (read). health: repo-aware coverage/freshness report (read). audit: summarize all available roots at a glance (read). index: full re-index of project (write). incremental: re-index only changed files (write). synthesize: generate community summary (write)."},
                     "project": {"type": "string", "description": "Project name"},
                     "repo_path": {"type": "string", "description": "Optional repository path override for index, incremental, diff_impact, and stats repo resolution."},
                     "query": {"type": "string", "description": "Search query (for search action)"},
@@ -652,6 +652,8 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                     "file_path": {"type": "string", "description": "File path relative to project root (for file/file_summary actions)"},
                     "depth": {"type": "integer", "description": "Max traversal depth (impact/diff_impact, default 3)", "default": 3},
                     "limit": {"type": "integer", "description": "Max results (default 10)", "default": 10},
+                    "cases": {"type": "array", "items": {"type": "string"}, "description": "Benchmark cases for action=benchmark. Format: '<id>|<query>=>expected_a,expected_b'."},
+                    "min_recall": {"type": "number", "description": "Minimum recall each benchmark case must meet (default 1.0).", "default": 1.0},
                     "community_id": {"type": "string", "description": "Community ID (for synthesize action)"}
                 },
                 "required": ["action", "project"]
@@ -1204,6 +1206,23 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                     "ok": true,
                                     "count": results.len(),
                                     "nodes": results,
+                                }))
+                            }
+                            "benchmark" => {
+                                let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(10)
+                                    as usize;
+                                let min_recall =
+                                    args.get("min_recall")
+                                        .and_then(|v| v.as_f64())
+                                        .unwrap_or(1.0) as f32;
+                                let cases = parse_code_benchmark_cases(&args, limit)?;
+                                let store = aeqi_graph::GraphStore::open(&db_path)?;
+                                let report =
+                                    aeqi_graph::run_search_benchmark(&store, &cases, min_recall)?;
+                                Ok(serde_json::json!({
+                                    "ok": report.passed,
+                                    "project": project,
+                                    "report": report,
                                 }))
                             }
                             "context" => {
@@ -1797,6 +1816,25 @@ fn graph_dirty_files(store: &aeqi_graph::GraphStore) -> anyhow::Result<Vec<Strin
         .filter(|line| !line.is_empty())
         .map(ToOwned::to_owned)
         .collect())
+}
+
+fn parse_code_benchmark_cases(
+    args: &serde_json::Value,
+    limit: usize,
+) -> anyhow::Result<Vec<aeqi_graph::SearchBenchmarkCase>> {
+    let Some(cases) = args.get("cases").and_then(|v| v.as_array()) else {
+        anyhow::bail!("benchmark requires cases: ['<id>|<query>=>expected']");
+    };
+
+    cases
+        .iter()
+        .map(|case| {
+            let spec = case
+                .as_str()
+                .ok_or_else(|| anyhow::anyhow!("benchmark cases must be strings"))?;
+            aeqi_graph::SearchBenchmarkCase::parse(spec, limit)
+        })
+        .collect()
 }
 
 fn discover_graph_projects(graph_dir: &Path) -> Vec<String> {

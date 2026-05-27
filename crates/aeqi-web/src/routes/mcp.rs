@@ -870,6 +870,21 @@ async fn call_code(
             )?;
             Ok(serde_json::json!({"ok": true, "count": results.len(), "nodes": results}))
         }
+        "benchmark" => {
+            let store = aeqi_graph::GraphStore::open(&db_path)?;
+            let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(10) as usize;
+            let min_recall = args
+                .get("min_recall")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(1.0) as f32;
+            let cases = parse_code_benchmark_cases(&args, limit)?;
+            let report = aeqi_graph::run_search_benchmark(&store, &cases, min_recall)?;
+            Ok(serde_json::json!({
+                "ok": report.passed,
+                "project": project,
+                "report": report,
+            }))
+        }
         "context" => {
             let store = aeqi_graph::GraphStore::open(&db_path)?;
             let ctx = store.context(args.get("node_id").and_then(|v| v.as_str()).unwrap_or(""))?;
@@ -1006,6 +1021,25 @@ fn graph_dirty_files(store: &aeqi_graph::GraphStore) -> anyhow::Result<Vec<Strin
         .filter(|line| !line.is_empty())
         .map(ToOwned::to_owned)
         .collect())
+}
+
+fn parse_code_benchmark_cases(
+    args: &serde_json::Value,
+    limit: usize,
+) -> anyhow::Result<Vec<aeqi_graph::SearchBenchmarkCase>> {
+    let Some(cases) = args.get("cases").and_then(|v| v.as_array()) else {
+        anyhow::bail!("benchmark requires cases: ['<id>|<query>=>expected']");
+    };
+
+    cases
+        .iter()
+        .map(|case| {
+            let spec = case
+                .as_str()
+                .ok_or_else(|| anyhow::anyhow!("benchmark cases must be strings"))?;
+            aeqi_graph::SearchBenchmarkCase::parse(spec, limit)
+        })
+        .collect()
 }
 
 fn code_graph_audit_report(
@@ -1776,7 +1810,7 @@ fn tool_defs() -> serde_json::Value {
         {
             "name": "code",
             "title": "AEQI Code Graph",
-            "description": "Code intelligence graph for configured company repositories. Use search to find symbols, context for callers/callees/implementors, impact or diff_impact before edits, file/file_summary for file-level understanding, stats or health to inspect index health, audit to inspect all configured roots, and index/incremental to refresh the graph.",
+            "description": "Code intelligence graph for configured company repositories. Use search to find symbols, context for callers/callees/implementors, impact or diff_impact before edits, benchmark to run answerability quality gates, file/file_summary for file-level understanding, stats or health to inspect index health, audit to inspect all configured roots, and index/incremental to refresh the graph.",
             "annotations": {
                 "title": "AEQI Code Graph",
                 "readOnlyHint": false,
@@ -1787,14 +1821,16 @@ fn tool_defs() -> serde_json::Value {
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "action": {"type": "string", "enum": ["search", "context", "impact", "file", "stats", "health", "audit", "index", "diff_impact", "file_summary", "incremental"], "description": "search/context/impact/file/stats/health/audit/diff_impact/file_summary are read actions; index and incremental refresh the graph."},
+                    "action": {"type": "string", "enum": ["search", "context", "impact", "file", "stats", "health", "audit", "benchmark", "index", "diff_impact", "file_summary", "incremental"], "description": "search/context/impact/file/stats/health/audit/benchmark/diff_impact/file_summary are read actions; index and incremental refresh the graph."},
                     "project": {"type": "string", "description": "Configured project name, for example aeqi or aeqi-platform."},
                     "repo_path": {"type": "string", "description": "Optional checkout path for index, incremental, or diff_impact. Successful refreshes store it for future project-only calls."},
                     "query": {"type": "string", "description": "Symbol/name search query for search."},
                     "node_id": {"type": "string", "description": "Graph node ID for context or impact."},
                     "file_path": {"type": "string", "description": "Repository-relative path for file or file_summary."},
                     "depth": {"type": "integer", "description": "Traversal depth for impact or diff_impact."},
-                    "limit": {"type": "integer", "description": "Maximum search results."}
+                    "limit": {"type": "integer", "description": "Maximum search results."},
+                    "cases": {"type": "array", "items": {"type": "string"}, "description": "Benchmark cases for action=benchmark. Format: '<id>|<query>=>expected_a,expected_b'."},
+                    "min_recall": {"type": "number", "description": "Minimum recall each benchmark case must meet."}
                 },
                 "required": ["action", "project"]
             }
@@ -2223,6 +2259,12 @@ mod tests {
             .unwrap();
 
         assert!(code["inputSchema"]["properties"].get("repo_path").is_some());
+        assert!(code["inputSchema"]["properties"].get("cases").is_some());
+        assert!(
+            code["inputSchema"]["properties"]
+                .get("min_recall")
+                .is_some()
+        );
     }
 
     #[test]
@@ -2284,6 +2326,11 @@ mod tests {
             actions
                 .iter()
                 .any(|action| action.as_str() == Some("audit"))
+        );
+        assert!(
+            actions
+                .iter()
+                .any(|action| action.as_str() == Some("benchmark"))
         );
 
         let browser = by_name("browser");

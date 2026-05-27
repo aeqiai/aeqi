@@ -11,6 +11,13 @@ pub(crate) async fn cmd_graph(config_path: &Option<PathBuf>, action: GraphAction
         GraphAction::Index { root, full } => cmd_graph_index(config_path, &root, full),
         GraphAction::Stats { root } => cmd_graph_stats(config_path, &root),
         GraphAction::Health { root } => cmd_graph_health(config_path, &root),
+        GraphAction::Benchmark {
+            root,
+            cases,
+            min_recall,
+            limit,
+            json,
+        } => cmd_graph_benchmark(config_path, &root, &cases, min_recall, limit, json),
         GraphAction::Audit { .. } => cmd_graph_audit(config_path),
     }
 }
@@ -101,6 +108,54 @@ fn cmd_graph_health(config_path: &Option<PathBuf>, project: &str) -> Result<()> 
     let repo_path = resolve_repo_path(&config, project)?;
     let health = aeqi_graph::Indexer::new().health(&repo_path, &store)?;
     print_health(project, &db_path, &health);
+    Ok(())
+}
+
+fn cmd_graph_benchmark(
+    config_path: &Option<PathBuf>,
+    project: &str,
+    case_specs: &[String],
+    min_recall: f32,
+    limit: usize,
+    json: bool,
+) -> Result<()> {
+    let (config, _) = load_config(config_path)?;
+    let (_db_path, store) = open_graph_store(&config, project)?;
+    let cases = case_specs
+        .iter()
+        .map(|case| aeqi_graph::SearchBenchmarkCase::parse(case, limit))
+        .collect::<Result<Vec<_>>>()?;
+    let report = aeqi_graph::run_search_benchmark(&store, &cases, min_recall)?;
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(&report)?);
+    } else {
+        println!("Graph benchmark: {project}");
+        println!(
+            "  Passed:       {}",
+            if report.passed { "yes" } else { "no" }
+        );
+        println!("  Min recall:   {:.2}", report.min_recall);
+        println!("  Avg recall:   {:.2}", report.average_recall);
+        println!("  Avg MRR:      {:.2}", report.average_mrr);
+        for result in &report.results {
+            println!(
+                "  - {}: recall {:.2}, MRR {:.2} [{}]",
+                result.id,
+                result.recall,
+                result.mrr,
+                if result.passed { "pass" } else { "fail" }
+            );
+            if !result.missed.is_empty() {
+                println!("    missed: {}", result.missed.join(", "));
+            }
+        }
+    }
+
+    if !report.passed {
+        anyhow::bail!("graph benchmark failed");
+    }
+
     Ok(())
 }
 

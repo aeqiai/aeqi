@@ -291,6 +291,23 @@ pub enum GraphAction {
         #[arg(short = 'r', long = "root")]
         root: String,
     },
+    /// Run answerability benchmarks against graph search.
+    Benchmark {
+        #[arg(short = 'r', long = "root")]
+        root: String,
+        /// Case format: '<id>|<query>=>expected_a,expected_b'. The id prefix is optional.
+        #[arg(long = "case", required = true)]
+        cases: Vec<String>,
+        /// Minimum recall each case must meet.
+        #[arg(long, default_value_t = 1.0)]
+        min_recall: f32,
+        /// Search result limit per case.
+        #[arg(long, default_value_t = 10)]
+        limit: usize,
+        /// Emit JSON instead of a human-readable report.
+        #[arg(long)]
+        json: bool,
+    },
     /// Audit all configured graph roots and surface coverage/freshness.
     Audit {
         /// Filter to a single configured root agent.
