@@ -25,6 +25,10 @@ The extension baseline is [extension-plane.md](extension-plane.md): a
 TRUST-scoped capability registry, typed event triggers, namespace grants, and
 owner-token cleanup for anything installable or callable.
 
+The observability baseline is [operate-console.md](operate-console.md): a
+TRUST-scoped console and correlation spine for sessions, quests, event
+invocations, tool calls, queues, capabilities, and runtime health.
+
 The current public agent-runtime bar is captured in
 [agent-runtime-bar.md](agent-runtime-bar.md). AEQI should not win by copying a
 personal assistant or chat gateway. It should win by making durable work,
@@ -37,6 +41,8 @@ Goal: make AEQI's native execution path good enough to be the center of gravity.
 Focus areas:
 
 - runtime contract for quests, steps, tool calls, artifacts, verification, and outcomes
+- read-only Operate Console over sessions, activity, event invocations, queues,
+  and capability health
 - repo-aware coding loop with stronger inspect-edit-verify-recover behavior
 - better checkpointing and resumability
 - stronger context packing and quest scoping
@@ -132,10 +138,12 @@ The next practical moves should be:
    onboarding.
 3. Ship the read-only runtime capability registry over existing tools, MCP
    servers, and event rows.
-4. Build an eval suite for coding and repo quests.
-5. Tighten the native coding loop before expanding more surface area.
-6. Keep shaping the UI around ideas, work, agent tree, and operator control.
-7. Make metrics and outcome tracking a first-class part of the control plane.
+4. Ship the read-only Operate Console summary and timeline before mutating
+   recovery controls.
+5. Build an eval suite for coding and repo quests.
+6. Tighten the native coding loop before expanding more surface area.
+7. Keep shaping the UI around ideas, work, agent tree, and operator control.
+8. Make metrics and outcome tracking a first-class part of the control plane.
 
 ## Decision Rule
 

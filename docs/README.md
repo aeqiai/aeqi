@@ -33,6 +33,8 @@
 - [architecture.md](architecture.md) — system map, crates, primitive contract, agent loop.
 - [extension-plane.md](extension-plane.md) — runtime capability registry,
   typed event triggers, namespaces, and owner-token lifecycle.
+- [operate-console.md](operate-console.md) — TRUST-scoped observability spine
+  for sessions, quests, events, tool calls, queues, and runtime health.
 - [context-injection.md](context-injection.md) — how agent input context is assembled per quest.
 - [agent-loop-parity.md](agent-loop-parity.md) — comparison with Claude Code's agent loop.
 - [project-model.md](project-model.md) — canonical model for projects, repositories, library items, agents, and quests.

@@ -83,7 +83,7 @@
       ]
     },
     "docs": {
-      "count": 30,
+      "count": 34,
       "description": "Markdown documentation under docs/.",
       "files": [
         "docs/4-canonical-templates-rationale.md",
@@ -97,13 +97,17 @@
         "docs/deployment.md",
         "docs/design/adr-0003-drop-legacy-event-columns.md",
         "docs/design/as-011-worker-step-context.md",
+        "docs/design/browser-capability-contract.md",
         "docs/design/ecc-comparison-lessons.md",
         "docs/design/unify-events-and-tool-calls.md",
         "docs/development-workflow.md",
+        "docs/extension-plane.md",
         "docs/integrations/telegram-setup.md",
         "docs/local-demo.md",
         "docs/mcp-setup.md",
         "docs/onboarding-excellence-loop.md",
+        "docs/operate-console.md",
+        "docs/primitive-contract.md",
         "docs/product-contract.md",
         "docs/project-model.md",
         "docs/quest-evidence-contract.md",
@@ -119,11 +123,12 @@
       ]
     },
     "designDocs": {
-      "count": 4,
+      "count": 5,
       "description": "Design notes and ADR-style documents under docs/design/.",
       "files": [
         "docs/design/adr-0003-drop-legacy-event-columns.md",
         "docs/design/as-011-worker-step-context.md",
+        "docs/design/browser-capability-contract.md",
         "docs/design/ecc-comparison-lessons.md",
         "docs/design/unify-events-and-tool-calls.md"
       ]

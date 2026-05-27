@@ -53,6 +53,9 @@ AEQI already has the pieces needed for a first slice:
 The gap is that these surfaces do not yet report into one canonical capability
 registry with owner, schema, health, lifecycle, and cleanup semantics.
 
+The operator-facing view of those health, lifecycle, and usage records is the
+[Operate Console](operate-console.md).
+
 ## Core Records
 
 ### Capability Descriptor
@@ -295,7 +298,7 @@ Acceptance:
 - MCP tools keep their `mcp:<server>:<tool>` namespace.
 - Event handlers report pattern, enabled state, owner, and tool call count.
 - No secrets appear in descriptors.
-- Cross-tenant tests prove hosted users cannot read another TRUST's registry.
+- Isolation tests prove hosted users cannot read another TRUST's registry.
 
 ## Second Slice
 
@@ -326,7 +329,7 @@ For any implementation slice:
 
 - Unit test descriptor projection for builtins, MCP tools, and event rows.
 - Contract test HTTP and MCP return equivalent descriptor sets for one TRUST.
-- Cross-tenant test denies capability listing for unauthorized TRUSTs.
+- Isolation test denies capability listing for unauthorized TRUSTs.
 - Redaction test proves credentials and secret args never appear in descriptors
   or logs.
 - Namespace test blocks cross-owner overwrite.
