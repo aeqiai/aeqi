@@ -199,5 +199,52 @@
         "agents/README.md"
       ]
     }
+  },
+  "enforcedChecks": {
+    "repoSurfaceCatalog": {
+      "command": "npm run surface:catalog:check",
+      "enforced": true,
+      "workflows": [
+        ".github/workflows/ci.yml"
+      ]
+    },
+    "publicSurfaceScan": {
+      "command": "scripts/public-surface-scan.sh",
+      "enforced": true,
+      "workflows": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/quality-gates.yml"
+      ]
+    },
+    "goldenReadmeQuickstart": {
+      "command": "scripts/smoke-quickstart-readme.sh",
+      "enforced": true,
+      "workflows": [
+        ".github/workflows/ci.yml"
+      ]
+    },
+    "freshInstallSmoke": {
+      "command": "scripts/smoke-fresh-install.sh",
+      "enforced": true,
+      "workflows": [
+        ".github/workflows/ci.yml"
+      ]
+    },
+    "uiVerify": {
+      "command": "npm --prefix apps/ui run verify",
+      "enforced": true,
+      "workflows": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/release.yml"
+      ]
+    },
+    "rustStrictLints": {
+      "command": "scripts/rust-strict-lints.sh",
+      "enforced": true,
+      "workflows": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/quality-gates.yml"
+      ]
+    }
   }
 }

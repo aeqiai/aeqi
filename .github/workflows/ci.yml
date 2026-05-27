@@ -63,6 +63,9 @@ jobs:
       - name: Public surface scan
         run: scripts/public-surface-scan.sh
 
+      - name: Repo surface catalog check
+        run: npm run surface:catalog:check
+
       # 3. Security scanning
       - name: Install security tools
         run: |

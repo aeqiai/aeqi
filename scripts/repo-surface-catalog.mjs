@@ -29,6 +29,22 @@ function category(files, description, matcher) {
   };
 }
 
+function workflowFiles(files) {
+  return files.filter(file => /^\.github\/workflows\/.+\.ya?ml$/.test(file)).sort();
+}
+
+function enforcedCheck(root, files, command) {
+  const workflows = workflowFiles(files)
+    .filter(file => readFileSync(join(root, file), 'utf8').includes(command))
+    .sort();
+
+  return {
+    command,
+    enforced: workflows.length > 0,
+    workflows,
+  };
+}
+
 function buildCatalog(root = repoRoot()) {
   const files = trackedFiles(root);
 
@@ -86,6 +102,14 @@ function buildCatalog(root = repoRoot()) {
         file => /^agents\/[^/]+\.md$/.test(file),
       ),
     },
+    enforcedChecks: {
+      repoSurfaceCatalog: enforcedCheck(root, files, 'npm run surface:catalog:check'),
+      publicSurfaceScan: enforcedCheck(root, files, 'scripts/public-surface-scan.sh'),
+      goldenReadmeQuickstart: enforcedCheck(root, files, 'scripts/smoke-quickstart-readme.sh'),
+      freshInstallSmoke: enforcedCheck(root, files, 'scripts/smoke-fresh-install.sh'),
+      uiVerify: enforcedCheck(root, files, 'npm --prefix apps/ui run verify'),
+      rustStrictLints: enforcedCheck(root, files, 'scripts/rust-strict-lints.sh'),
+    },
   };
 }
 
@@ -114,6 +138,11 @@ function printText(catalog) {
   console.log('');
   for (const [name, value] of Object.entries(catalog.categories)) {
     console.log(`${name}: ${value.count}`);
+  }
+  console.log('');
+  for (const [name, value] of Object.entries(catalog.enforcedChecks)) {
+    const marker = value.enforced ? 'enforced' : 'missing';
+    console.log(`${name}: ${marker}`);
   }
 }
 
