@@ -13,6 +13,7 @@
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 use crate::agent_registry::AgentRegistry;
 use crate::event_handler::{EventHandlerStore, NewEvent, ToolCall};
@@ -326,6 +327,161 @@ pub struct SpawnOutcome {
 pub struct SpawnedAgent {
     pub id: String,
     pub name: String,
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    let digest = Sha256::digest(bytes);
+    let mut out = String::with_capacity(digest.len() * 2);
+    for byte in digest {
+        use std::fmt::Write as _;
+        let _ = write!(&mut out, "{byte:02x}");
+    }
+    out
+}
+
+fn blueprint_package_id(slug: &str) -> String {
+    format!("aeqi:blueprint:{slug}")
+}
+
+fn blueprint_manifest_hash(blueprint: &Blueprint) -> String {
+    let normalized = serde_json::to_vec(blueprint).unwrap_or_default();
+    sha256_hex(&normalized)
+}
+
+fn blueprint_tool_names(blueprint: &Blueprint) -> Vec<String> {
+    let mut tools: Vec<String> = blueprint
+        .seed_events
+        .iter()
+        .flat_map(|event| event.tool_calls.iter().map(|call| call.tool.clone()))
+        .filter(|tool| !tool.trim().is_empty())
+        .collect();
+    tools.sort();
+    tools.dedup();
+    tools
+}
+
+fn blueprint_package_preview(blueprint: Blueprint, mode: &str) -> serde_json::Value {
+    let blueprint = if blueprint.agent_template_refs.is_empty() {
+        blueprint
+    } else {
+        crate::blueprints::expand_catalog_assets(blueprint, &crate::blueprints::agent_templates())
+    };
+    let package_id = blueprint_package_id(&blueprint.slug);
+    let manifest_hash = blueprint_manifest_hash(&blueprint);
+    let tools = blueprint_tool_names(&blueprint);
+
+    let mut creates: Vec<serde_json::Value> = Vec::new();
+    creates.push(serde_json::json!({
+        "kind": "agent",
+        "owner": DEFAULT_AGENT_OWNER,
+        "name": &blueprint.root.name,
+        "source": "root",
+    }));
+    for agent in &blueprint.seed_agents {
+        creates.push(serde_json::json!({
+            "kind": "agent",
+            "owner": &agent.owner,
+            "name": &agent.name,
+            "template_id": &agent.template_id,
+            "source": "seed_agent",
+        }));
+    }
+    for role in &blueprint.seed_roles {
+        creates.push(serde_json::json!({
+            "kind": "role",
+            "key": &role.key,
+            "title": &role.title,
+            "default_occupant_agent": &role.default_occupant_agent,
+        }));
+    }
+    for edge in &blueprint.seed_role_edges {
+        creates.push(serde_json::json!({
+            "kind": "role_edge",
+            "parent": &edge.parent,
+            "child": &edge.child,
+        }));
+    }
+    for idea in &blueprint.seed_ideas {
+        creates.push(serde_json::json!({
+            "kind": "idea",
+            "owner": &idea.owner,
+            "name": &idea.name,
+            "tags": &idea.tags,
+        }));
+    }
+    for event in &blueprint.seed_events {
+        creates.push(serde_json::json!({
+            "kind": "event",
+            "owner": &event.owner,
+            "name": &event.name,
+            "pattern": &event.pattern,
+            "tool_calls": event.tool_calls.iter().map(|call| call.tool.clone()).collect::<Vec<_>>(),
+        }));
+    }
+    for quest in &blueprint.seed_quests {
+        creates.push(serde_json::json!({
+            "kind": "quest",
+            "owner": &quest.owner,
+            "key": &quest.key,
+            "parent": &quest.parent,
+            "subject": &quest.subject,
+            "labels": &quest.labels,
+        }));
+    }
+
+    let mut permissions = Vec::new();
+    if !tools.is_empty() {
+        permissions.push(serde_json::json!({
+            "kind": "event_tool_calls",
+            "reason": "seeded events fire runtime tools",
+            "tools": tools,
+        }));
+    }
+
+    serde_json::json!({
+        "package_id": package_id,
+        "package_version": "builtin",
+        "manifest_hash": manifest_hash,
+        "mode": mode,
+        "unit_type": "blueprint_package",
+        "blueprint": {
+            "slug": &blueprint.slug,
+            "name": &blueprint.name,
+            "category": &blueprint.category,
+            "template": &blueprint.template,
+        },
+        "counts": {
+            "agents": 1 + blueprint.seed_agents.len(),
+            "roles": blueprint.seed_roles.len(),
+            "role_edges": blueprint.seed_role_edges.len(),
+            "ideas": blueprint.seed_ideas.len(),
+            "events": blueprint.seed_events.len(),
+            "quests": blueprint.seed_quests.len(),
+        },
+        "creates": creates,
+        "updates": [],
+        "disables": [],
+        "removes": [],
+        "permissions": permissions,
+        "credentials": [],
+        "namespaces": [{
+            "namespace": format!("pkg:{}:*", package_id),
+            "owner": {
+                "kind": "package",
+                "package_id": package_id.clone(),
+            },
+            "allowed_kinds": ["agent", "role", "idea", "quest", "event_handler"],
+        }],
+        "risks": if blueprint.seed_events.iter().any(|event| !event.tool_calls.is_empty()) {
+            vec![serde_json::json!({
+                "kind": "event_tool_calls",
+                "message": "Seeded events will be able to call listed runtime tools after install.",
+            })]
+        } else {
+            Vec::new()
+        },
+        "blocked_reasons": [],
+    })
 }
 
 /// Which parts of a blueprint to seed. Used by Import flows that want
@@ -1143,6 +1299,31 @@ pub async fn handle_blueprint_detail(
     }
 }
 
+pub async fn handle_blueprint_package_preview(
+    _ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    _allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let slug = super::request_field(request, "slug")
+        .or_else(|| super::request_field(request, "blueprint"))
+        .unwrap_or("");
+    if slug.is_empty() {
+        return serde_json::json!({"ok": false, "error": "slug or blueprint is required"});
+    }
+    let mode = super::request_field(request, "mode").unwrap_or("launch");
+    match crate::blueprints::company_blueprint(slug) {
+        Some(t) => serde_json::json!({
+            "ok": true,
+            "preview": blueprint_package_preview(t, mode),
+        }),
+        None => serde_json::json!({
+            "ok": false,
+            "error": format!("blueprint not found: {slug}"),
+            "code": "not_found",
+        }),
+    }
+}
+
 pub async fn handle_spawn_blueprint(
     ctx: &super::CommandContext,
     request: &serde_json::Value,
@@ -1506,6 +1687,55 @@ mod tests {
             seed_roles: Vec::new(),
             seed_role_edges: Vec::new(),
         }
+    }
+
+    #[test]
+    fn blueprint_package_preview_is_stable_and_read_only() {
+        let blueprint = fixture_blueprint();
+        let preview_a = blueprint_package_preview(blueprint.clone(), "launch");
+        let preview_b = blueprint_package_preview(blueprint, "launch");
+
+        assert_eq!(preview_a["manifest_hash"], preview_b["manifest_hash"]);
+        assert_eq!(preview_a["unit_type"], "blueprint_package");
+        assert_eq!(preview_a["mode"], "launch");
+        assert_eq!(preview_a["counts"]["agents"], 3);
+        assert_eq!(preview_a["counts"]["ideas"], 2);
+        assert_eq!(preview_a["counts"]["events"], 2);
+        assert_eq!(preview_a["counts"]["quests"], 2);
+        assert_eq!(
+            preview_a["namespaces"][0]["namespace"],
+            "pkg:aeqi:blueprint:test-studio:*"
+        );
+        assert!(preview_a["updates"].as_array().unwrap().is_empty());
+        assert!(preview_a["removes"].as_array().unwrap().is_empty());
+        assert!(preview_a["blocked_reasons"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn blueprint_package_preview_surfaces_event_tool_call_risk() {
+        let mut blueprint = fixture_blueprint();
+        blueprint.seed_events[0].tool_calls.push(ToolCallSpec {
+            tool: "ideas.search".to_string(),
+            args: serde_json::json!({"query": "brief"}),
+        });
+        let preview = blueprint_package_preview(blueprint, "launch");
+
+        assert_eq!(
+            preview["permissions"][0]["kind"],
+            serde_json::json!("event_tool_calls")
+        );
+        assert_eq!(
+            preview["permissions"][0]["tools"][0],
+            serde_json::json!("ideas.search")
+        );
+        assert_eq!(preview["risks"][0]["kind"], "event_tool_calls");
+        let event = preview["creates"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|row| row["kind"] == "event" && row["name"] == "weekly")
+            .expect("weekly event preview row");
+        assert_eq!(event["tool_calls"][0], "ideas.search");
     }
 
     async fn test_registry() -> AgentRegistry {

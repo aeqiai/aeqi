@@ -1873,6 +1873,14 @@ impl Daemon {
                     crate::ipc::blueprints::handle_blueprint_detail(&ctx, &request, &allowed_roots)
                         .await
                 }
+                "blueprint_package_preview" => {
+                    crate::ipc::blueprints::handle_blueprint_package_preview(
+                        &ctx,
+                        &request,
+                        &allowed_roots,
+                    )
+                    .await
+                }
                 "spawn_blueprint" => {
                     crate::ipc::blueprints::handle_spawn_blueprint(&ctx, &request, &allowed_roots)
                         .await

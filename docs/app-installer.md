@@ -263,6 +263,10 @@ Drift detection is read-only by default. `apps.packages.sync` must support
 
 Do not begin with a marketplace or worker runtime.
 
+Current implementation starts this slice with a read-only blueprint package
+preview exposed through runtime IPC command `blueprint_package_preview` and HTTP
+route `GET /api/blueprints/{slug}/package-preview`.
+
 1. Define normalized manifest, preview, lock, and installed-record JSON shapes.
 2. Normalize existing repo-backed blueprints and agent templates into preview.
 3. Add `apps.packages.preview` for the shipped `aeqi` blueprint package.

@@ -19,6 +19,10 @@ pub fn routes() -> Router<AppState> {
         // Literal `/blueprints/default` must register before the
         // `{slug}` capture so axum routes the literal first.
         .route("/blueprints/default", get(default_blueprint))
+        .route(
+            "/blueprints/{slug}/package-preview",
+            get(blueprint_package_preview),
+        )
         .route("/blueprints/{slug}", get(blueprint_detail))
 }
 
@@ -54,6 +58,20 @@ async fn blueprint_detail(
         state,
         scope.as_ref(),
         "blueprint_detail",
+        serde_json::json!({"slug": slug}),
+    )
+    .await
+}
+
+async fn blueprint_package_preview(
+    State(state): State<AppState>,
+    scope: Scope,
+    Path(slug): Path<String>,
+) -> Response {
+    ipc_proxy(
+        state,
+        scope.as_ref(),
+        "blueprint_package_preview",
         serde_json::json!({"slug": slug}),
     )
     .await
