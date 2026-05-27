@@ -52,6 +52,12 @@ export default function TrustAppsTab({ trustId }: { trustId: string }) {
     enabled: Boolean(entity),
     staleTime: 20_000,
   });
+  const websiteAnalytics = useQuery({
+    queryKey: ["trust-website-analytics", trustId],
+    queryFn: () => api.getTrustWebsiteAnalytics(trustId),
+    enabled: Boolean(entity),
+    staleTime: 20_000,
+  });
   const googleConnected = googleStatus.data?.connected === true;
   const identityApps = entity ? 2 : 0;
   const connectedApps = installed.connectedApps + (googleConnected ? 1 : 0);
@@ -106,6 +112,8 @@ export default function TrustAppsTab({ trustId }: { trustId: string }) {
               domain={publicWebsiteDomain(entity)}
               href={publicWebsiteUrl(entity)}
               live={entity.public === true}
+              loading={websiteAnalytics.isLoading}
+              analytics={websiteAnalytics.data}
             />
             <TrustEmailCard
               email={trustEmailAddress(entity)}
@@ -164,7 +172,26 @@ export default function TrustAppsTab({ trustId }: { trustId: string }) {
   );
 }
 
-function WebsiteAppCard({ domain, href, live }: { domain: string; href: string; live: boolean }) {
+function WebsiteAppCard({
+  analytics,
+  domain,
+  href,
+  live,
+  loading,
+}: {
+  analytics?: Awaited<ReturnType<typeof api.getTrustWebsiteAnalytics>>;
+  domain: string;
+  href: string;
+  live: boolean;
+  loading: boolean;
+}) {
+  const tracking = analyticsTrackingLabel(analytics, loading, live);
+  const views24h = analytics?.stats ? formatInteger(analytics.stats.last_24h.pageviews) : "—";
+  const viewsValue = loading
+    ? "Checking"
+    : analytics?.status === "setup_required"
+      ? "Setup"
+      : views24h;
   return (
     <article className="trust-app-card trust-app-card--identity" data-selected="true">
       <header className="trust-app-card-header">
@@ -182,8 +209,8 @@ function WebsiteAppCard({ domain, href, live }: { domain: string; href: string; 
       <div className="trust-app-card-stats trust-app-card-stats--identity">
         <Stat label="Domain" value={domain} />
         <Stat label="Visibility" value={live ? "Public" : "Private"} />
-        <Stat label="Tracking" value={live ? "Installed" : "Ready"} />
-        <Stat label="Views" value={live ? "Pending" : "—"} />
+        <Stat label="Tracking" value={tracking} />
+        <Stat label="24h Views" value={viewsValue} />
       </div>
       <a className="trust-app-card-action" href={href} target="_blank" rel="noreferrer">
         <ArrowUpRight size={14} strokeWidth={1.5} aria-hidden />
@@ -191,6 +218,17 @@ function WebsiteAppCard({ domain, href, live }: { domain: string; href: string; 
       </a>
     </article>
   );
+}
+
+function analyticsTrackingLabel(
+  analytics: Awaited<ReturnType<typeof api.getTrustWebsiteAnalytics>> | undefined,
+  loading: boolean,
+  live: boolean,
+): string {
+  if (loading) return "Checking";
+  if (analytics?.tracking_status === "installed") return "Installed";
+  if (live) return "Installed";
+  return "Ready";
 }
 
 function TrustEmailCard({

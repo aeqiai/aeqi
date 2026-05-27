@@ -757,6 +757,27 @@ export const api = {
       }>;
     }>(`/trusts/${encodeURIComponent(trustId)}/email/messages`),
 
+  getTrustWebsiteAnalytics: (trustId: string) =>
+    request<{
+      ok: boolean;
+      trust_id: string;
+      domain?: string | null;
+      tracking_status: "installed" | "ready" | string;
+      status: "live" | "setup_required" | "unavailable" | "no_domain" | string;
+      provider: "plausible" | string;
+      stats?: {
+        last_24h: {
+          visitors: number;
+          pageviews: number;
+        };
+        last_7d: {
+          visitors: number;
+          pageviews: number;
+        };
+      } | null;
+      message: string;
+    }>(`/trusts/${encodeURIComponent(trustId)}/website/analytics`),
+
   tryUnifuturesFirstBuy: (data: { entity_id: string }) =>
     request<{
       ok: boolean;

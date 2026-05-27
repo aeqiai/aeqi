@@ -948,7 +948,7 @@
 }
 
 .trust-app-card-stats--identity {
-  grid-template-columns: minmax(0, 1.8fr) repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.8fr) repeat(3, minmax(0, 1fr));
 }
 
 .trust-app-card-stats--email {

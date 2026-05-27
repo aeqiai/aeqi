@@ -11,10 +11,12 @@ import {
   ShieldCheck,
   Workflow,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui";
 import { api } from "@/lib/api";
 import { entityBasePath } from "@/lib/entityPath";
+import { formatInteger } from "@/lib/i18n";
 import { publicWebsiteDomain, publicWebsiteUrl } from "@/lib/publicWebsite";
 import { useDaemonStore } from "@/store/daemon";
 
@@ -60,8 +62,33 @@ export default function TrustWebsitePanel({ trustId, mode = "card" }: TrustWebsi
   const websiteDomain = entity ? publicWebsiteDomain(entity) : "Launch hostname";
   const websiteHref = entity ? publicWebsiteUrl(entity) : null;
   const websiteStatus = entity?.public ? "Live" : "Private";
-  const analyticsStatus = entity?.public ? "Installed" : "Ready";
-  const websiteViews = entity?.public ? "Metric pending" : "—";
+  const websiteAnalytics = useQuery({
+    queryKey: ["trust-website-analytics", trustId],
+    queryFn: () => api.getTrustWebsiteAnalytics(trustId),
+    enabled: Boolean(entity),
+    staleTime: 20_000,
+  });
+  const analyticsStatus = analyticsTrackingLabel(
+    websiteAnalytics.data,
+    websiteAnalytics.isLoading,
+    entity?.public === true,
+  );
+  const websiteViews = websiteAnalytics.data?.stats
+    ? formatInteger(websiteAnalytics.data.stats.last_24h.pageviews)
+    : websiteAnalytics.isLoading
+      ? "Checking"
+      : websiteAnalytics.data?.status === "setup_required"
+        ? "Setup"
+        : "—";
+  const visitors7d = websiteAnalytics.data?.stats
+    ? formatInteger(websiteAnalytics.data.stats.last_7d.visitors)
+    : "—";
+  const analyticsMessage =
+    websiteAnalytics.data?.status === "setup_required"
+      ? "Tracking is installed; stats access is waiting on platform configuration."
+      : websiteAnalytics.data?.status === "live"
+        ? "Plausible tracking is installed and dashboard counts are synced from the platform."
+        : "Launch assigns this website from the TRUST name; analytics stay scoped to this company surface.";
 
   const publishWebsite = useCallback(async () => {
     if (!entity || entity.public) return;
@@ -126,10 +153,10 @@ export default function TrustWebsitePanel({ trustId, mode = "card" }: TrustWebsi
         </div>
 
         <div className="trust-app-card-stats trust-website-stats">
-          <Stat label="Visibility" value={websiteStatus} />
           <Stat label="Subdomain" value={compactText(websiteDomain)} />
           <Stat label="Tracking" value={analyticsStatus} />
-          <Stat label="Views" value={websiteViews} />
+          <Stat label="24h Views" value={websiteViews} />
+          <Stat label="7d Visitors" value={visitors7d} />
         </div>
 
         <div className="trust-website-module-grid" aria-label="Public website modules">
@@ -162,14 +189,22 @@ export default function TrustWebsitePanel({ trustId, mode = "card" }: TrustWebsi
 
         <div className="trust-website-privacy-row">
           <ShieldCheck size={15} strokeWidth={1.6} aria-hidden />
-          <span>
-            Launch assigns this website from the TRUST name; Plausible tracking is installed while
-            dashboard counts are wired.
-          </span>
+          <span>{analyticsMessage}</span>
         </div>
       </div>
     </section>
   );
+}
+
+function analyticsTrackingLabel(
+  analytics: Awaited<ReturnType<typeof api.getTrustWebsiteAnalytics>> | undefined,
+  loading: boolean,
+  live: boolean,
+): string {
+  if (loading) return "Checking";
+  if (analytics?.tracking_status === "installed") return "Installed";
+  if (live) return "Installed";
+  return "Ready";
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
