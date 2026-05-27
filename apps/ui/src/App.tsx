@@ -22,7 +22,6 @@ import WelcomePage from "@/pages/WelcomePage";
 // App pages -- lazy-loaded for route-level code splitting
 const AgentsPage = lazy(() => import("@/pages/AgentsPage"));
 const ChangePasswordPage = lazy(() => import("@/pages/ChangePasswordPage"));
-const DevTrustExperiencePage = lazy(() => import("@/pages/DevTrustExperiencePage"));
 const InvitationAcceptPage = lazy(() => import("@/pages/InvitationAcceptPage"));
 const MagicLinkPage = lazy(() => import("@/pages/MagicLinkPage"));
 const PublicProfilePage = lazy(() => import("@/pages/PublicProfilePage"));
@@ -45,7 +44,6 @@ const RESERVED_SLUGS = new Set([
   "account",
   "c",
   "trust",
-  "dev",
   "launch",
   "blueprints",
   "economy",
@@ -188,7 +186,6 @@ export default function App() {
             intentionally do NOT inherit the shell. */}
         <Route path="agents" element={<AgentsPage />} />
         <Route path="change-password" element={<ChangePasswordPage />} />
-        <Route path="dev" element={<DevTrustExperiencePage />} />
         <Route path="launch" element={<TrustSetupPage />} />
         <Route path="launch/:blueprintId" element={<TrustSetupPage />} />
         <Route path="onboarding" element={<TrustSetupPage entry="personal" />} />
@@ -277,14 +274,6 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <ChangePasswordPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/dev"
-            element={
-              <ProtectedRoute>
-                <DevTrustExperiencePage />
               </ProtectedRoute>
             }
           />
