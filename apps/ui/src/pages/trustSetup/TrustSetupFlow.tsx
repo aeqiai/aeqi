@@ -210,7 +210,11 @@ function OperationsSection({
           <p className="launch-section-copy">Choose where this mission runtime should run.</p>
         </div>
 
-        <div className="launch-operations-grid" role="radiogroup" aria-label="Operations">
+        <div
+          className={`launch-operations-grid launch-operations-grid--${choices.length}`}
+          role="radiogroup"
+          aria-label="Operations"
+        >
           {choices.map((choice) => (
             <button
               key={choice.key}
