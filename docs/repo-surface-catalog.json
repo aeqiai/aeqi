@@ -1,0 +1,203 @@
+{
+  "schemaVersion": 1,
+  "categories": {
+    "rustPackages": {
+      "count": 37,
+      "description": "Tracked Rust package manifests across the runtime, CLI, crates, and protocol projects.",
+      "files": [
+        "Cargo.toml",
+        "aeqi-cli/Cargo.toml",
+        "crates/aeqi-architect/Cargo.toml",
+        "crates/aeqi-core/Cargo.toml",
+        "crates/aeqi-gates/Cargo.toml",
+        "crates/aeqi-graph/Cargo.toml",
+        "crates/aeqi-hosting/Cargo.toml",
+        "crates/aeqi-ideas/Cargo.toml",
+        "crates/aeqi-inference/Cargo.toml",
+        "crates/aeqi-ipfs/Cargo.toml",
+        "crates/aeqi-mcp/Cargo.toml",
+        "crates/aeqi-orchestrator/Cargo.toml",
+        "crates/aeqi-pack-github/Cargo.toml",
+        "crates/aeqi-pack-google-workspace/Cargo.toml",
+        "crates/aeqi-pack-notion/Cargo.toml",
+        "crates/aeqi-pack-slack/Cargo.toml",
+        "crates/aeqi-providers/Cargo.toml",
+        "crates/aeqi-quests/Cargo.toml",
+        "crates/aeqi-redact/Cargo.toml",
+        "crates/aeqi-test-support/Cargo.toml",
+        "crates/aeqi-tools/Cargo.toml",
+        "crates/aeqi-trust/Cargo.toml",
+        "crates/aeqi-wallets/Cargo.toml",
+        "crates/aeqi-web/Cargo.toml",
+        "projects/aeqi-solana/Cargo.toml",
+        "projects/aeqi-solana/indexer/Cargo.toml",
+        "projects/aeqi-solana/programs/aeqi-budget/Cargo.toml",
+        "projects/aeqi-solana/programs/aeqi-factory/Cargo.toml",
+        "projects/aeqi-solana/programs/aeqi-fund/Cargo.toml",
+        "projects/aeqi-solana/programs/aeqi-funding/Cargo.toml",
+        "projects/aeqi-solana/programs/aeqi-governance/Cargo.toml",
+        "projects/aeqi-solana/programs/aeqi-role/Cargo.toml",
+        "projects/aeqi-solana/programs/aeqi-token/Cargo.toml",
+        "projects/aeqi-solana/programs/aeqi-treasury/Cargo.toml",
+        "projects/aeqi-solana/programs/aeqi-trust/Cargo.toml",
+        "projects/aeqi-solana/programs/aeqi-unifutures/Cargo.toml",
+        "projects/aeqi-solana/programs/aeqi-vesting/Cargo.toml"
+      ]
+    },
+    "runtimeCrates": {
+      "count": 22,
+      "description": "First-party runtime crates under crates/.",
+      "files": [
+        "crates/aeqi-architect/Cargo.toml",
+        "crates/aeqi-core/Cargo.toml",
+        "crates/aeqi-gates/Cargo.toml",
+        "crates/aeqi-graph/Cargo.toml",
+        "crates/aeqi-hosting/Cargo.toml",
+        "crates/aeqi-ideas/Cargo.toml",
+        "crates/aeqi-inference/Cargo.toml",
+        "crates/aeqi-ipfs/Cargo.toml",
+        "crates/aeqi-mcp/Cargo.toml",
+        "crates/aeqi-orchestrator/Cargo.toml",
+        "crates/aeqi-pack-github/Cargo.toml",
+        "crates/aeqi-pack-google-workspace/Cargo.toml",
+        "crates/aeqi-pack-notion/Cargo.toml",
+        "crates/aeqi-pack-slack/Cargo.toml",
+        "crates/aeqi-providers/Cargo.toml",
+        "crates/aeqi-quests/Cargo.toml",
+        "crates/aeqi-redact/Cargo.toml",
+        "crates/aeqi-test-support/Cargo.toml",
+        "crates/aeqi-tools/Cargo.toml",
+        "crates/aeqi-trust/Cargo.toml",
+        "crates/aeqi-wallets/Cargo.toml",
+        "crates/aeqi-web/Cargo.toml"
+      ]
+    },
+    "toolPacks": {
+      "count": 4,
+      "description": "Optional integration tool packs under crates/aeqi-pack-*.",
+      "files": [
+        "crates/aeqi-pack-github/Cargo.toml",
+        "crates/aeqi-pack-google-workspace/Cargo.toml",
+        "crates/aeqi-pack-notion/Cargo.toml",
+        "crates/aeqi-pack-slack/Cargo.toml"
+      ]
+    },
+    "docs": {
+      "count": 30,
+      "description": "Markdown documentation under docs/.",
+      "files": [
+        "docs/4-canonical-templates-rationale.md",
+        "docs/README.md",
+        "docs/agent-loop-parity.md",
+        "docs/agent-runtime-bar.md",
+        "docs/architecture.md",
+        "docs/company-kernel-release.md",
+        "docs/compositional-blueprint-assets.md",
+        "docs/context-injection.md",
+        "docs/deployment.md",
+        "docs/design/adr-0003-drop-legacy-event-columns.md",
+        "docs/design/as-011-worker-step-context.md",
+        "docs/design/ecc-comparison-lessons.md",
+        "docs/design/unify-events-and-tool-calls.md",
+        "docs/development-workflow.md",
+        "docs/integrations/telegram-setup.md",
+        "docs/local-demo.md",
+        "docs/mcp-setup.md",
+        "docs/onboarding-excellence-loop.md",
+        "docs/product-contract.md",
+        "docs/project-model.md",
+        "docs/quest-evidence-contract.md",
+        "docs/quickstart.md",
+        "docs/roadmap.md",
+        "docs/runtime-platform-separation.md",
+        "docs/security/configuration.md",
+        "docs/security/hardening-2026-04.md",
+        "docs/self-hosting.md",
+        "docs/solana-trust-handover.md",
+        "docs/ui-design.md",
+        "docs/vision.md"
+      ]
+    },
+    "designDocs": {
+      "count": 4,
+      "description": "Design notes and ADR-style documents under docs/design/.",
+      "files": [
+        "docs/design/adr-0003-drop-legacy-event-columns.md",
+        "docs/design/as-011-worker-step-context.md",
+        "docs/design/ecc-comparison-lessons.md",
+        "docs/design/unify-events-and-tool-calls.md"
+      ]
+    },
+    "scripts": {
+      "count": 33,
+      "description": "Tracked operator, verification, install, and deploy scripts.",
+      "files": [
+        "scripts/aeqi-pre-dispatch.sh",
+        "scripts/check-branch.sh",
+        "scripts/ci-local.sh",
+        "scripts/detect-project.sh",
+        "scripts/dev-isolated-aeqi.sh",
+        "scripts/dev-triage.sh",
+        "scripts/git-hooks/pre-commit",
+        "scripts/git-hooks/pre-push",
+        "scripts/hook-log.sh",
+        "scripts/hook-run.sh",
+        "scripts/install-git-hooks.sh",
+        "scripts/install.sh",
+        "scripts/launch-smoke.mjs",
+        "scripts/onboarding-excellence-loop.sh",
+        "scripts/performance-regression-detection.sh",
+        "scripts/post-commit",
+        "scripts/pre-push.sh",
+        "scripts/public-surface-scan.sh",
+        "scripts/release-preflight.sh",
+        "scripts/repo-surface-catalog.mjs",
+        "scripts/rollout-sandbox-runtimes.sh",
+        "scripts/runtime-startup-smoke.sh",
+        "scripts/rust-strict-lints.sh",
+        "scripts/security-scan.sh",
+        "scripts/setup-contributor.sh",
+        "scripts/smoke-fresh-install.sh",
+        "scripts/smoke-quickstart-readme.sh",
+        "scripts/ui-deploy.sh",
+        "scripts/ui-verify-stamp.mjs",
+        "scripts/update-dependencies.sh",
+        "scripts/verify-integration.sh",
+        "scripts/visual-route.mjs",
+        "scripts/webhook-deploy-aeqi.sh"
+      ]
+    },
+    "workflows": {
+      "count": 4,
+      "description": "GitHub Actions workflow files.",
+      "files": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/quality-gates.yml",
+        ".github/workflows/release.yml",
+        ".github/workflows/solana-protocol.yml"
+      ]
+    },
+    "apps": {
+      "count": 1,
+      "description": "Package manifests for frontend apps.",
+      "files": [
+        "apps/ui/package.json"
+      ]
+    },
+    "packages": {
+      "count": 2,
+      "description": "Package manifests for shared JavaScript packages.",
+      "files": [
+        "packages/tokens/package.json",
+        "packages/web-shared/package.json"
+      ]
+    },
+    "agents": {
+      "count": 1,
+      "description": "Seeded local agent definitions.",
+      "files": [
+        "agents/README.md"
+      ]
+    }
+  }
+}

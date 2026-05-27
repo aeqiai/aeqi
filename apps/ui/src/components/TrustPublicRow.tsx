@@ -39,7 +39,8 @@ const operatingProof = [
 const operatingNow = [
   {
     label: "What is moving",
-    detail: "Launch quests track the cut line, demo script, dogfood ritual, and hardening work.",
+    detail:
+      "Launch quests track the cut line, demo script, operator rehearsal, and hardening work.",
     to: "/quests",
     icon: ClipboardList,
   },

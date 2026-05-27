@@ -33,6 +33,8 @@
 - [project-model.md](project-model.md) — canonical model for projects, repositories, library items, agents, and quests.
 - [quest-evidence-contract.md](quest-evidence-contract.md) — evidence every meaningful quest should leave behind.
 - [ui-design.md](ui-design.md) — operator UI principles and information architecture.
+- [repo-surface-catalog.json](repo-surface-catalog.json) — generated inventory
+  of tracked repo surface for documentation and release drift checks.
 
 ## Roadmap
 
