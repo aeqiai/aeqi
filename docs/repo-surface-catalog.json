@@ -83,13 +83,14 @@
       ]
     },
     "docs": {
-      "count": 34,
+      "count": 35,
       "description": "Markdown documentation under docs/.",
       "files": [
         "docs/4-canonical-templates-rationale.md",
         "docs/README.md",
         "docs/agent-loop-parity.md",
         "docs/agent-runtime-bar.md",
+        "docs/app-installer.md",
         "docs/architecture.md",
         "docs/company-kernel-release.md",
         "docs/compositional-blueprint-assets.md",

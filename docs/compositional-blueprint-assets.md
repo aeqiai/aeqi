@@ -10,6 +10,12 @@ For now, the store is repo-backed and curated. A package lands by changing files
 under `presets/` and shipping the runtime, because shipped blueprint JSON is
 embedded into the binary at build time.
 
+The locked installer contract for turning these packages into previewable,
+hashable, drift-detectable installs is
+[app-installer.md](app-installer.md). This document remains the shape of the
+current repo-backed package assets; the installer document is the runtime
+lifecycle contract.
+
 ## Asset Model
 
 - Company Blueprint: launchable TRUST recipe. Defines the root agent, TRUST

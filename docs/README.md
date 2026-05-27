@@ -33,6 +33,8 @@
 - [architecture.md](architecture.md) — system map, crates, primitive contract, agent loop.
 - [extension-plane.md](extension-plane.md) — runtime capability registry,
   typed event triggers, namespaces, and owner-token lifecycle.
+- [app-installer.md](app-installer.md) — locked app/package installer
+  contract for manifests, preview, lockfiles, drift, removal, and audit.
 - [operate-console.md](operate-console.md) — TRUST-scoped observability spine
   for sessions, quests, events, tool calls, queues, and runtime health.
 - [context-injection.md](context-injection.md) — how agent input context is assembled per quest.

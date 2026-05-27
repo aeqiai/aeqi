@@ -53,6 +53,9 @@ These are first-class user and runtime surfaces inside a TRUST.
 The implementation contract for discovering, authorizing, invoking, and
 removing Apps/Tools is [extension-plane.md](extension-plane.md).
 
+The installer contract for app/package manifests, preview, lockfiles, drift,
+removal, and audit is [app-installer.md](app-installer.md).
+
 The operator contract for inspecting live sessions, quests, event invocations,
 tool calls, queues, capabilities, and runtime health is
 [operate-console.md](operate-console.md).

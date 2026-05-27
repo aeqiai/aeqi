@@ -25,6 +25,10 @@ The extension baseline is [extension-plane.md](extension-plane.md): a
 TRUST-scoped capability registry, typed event triggers, namespace grants, and
 owner-token cleanup for anything installable or callable.
 
+The installer baseline is [app-installer.md](app-installer.md): locked
+manifests, preview, lockfiles, drift detection, namespace ownership, and audit
+for installable apps/packages without arbitrary plugin code execution.
+
 The observability baseline is [operate-console.md](operate-console.md): a
 TRUST-scoped console and correlation spine for sessions, quests, event
 invocations, tool calls, queues, capabilities, and runtime health.
@@ -43,6 +47,8 @@ Focus areas:
 - runtime contract for quests, steps, tool calls, artifacts, verification, and outcomes
 - read-only Operate Console over sessions, activity, event invocations, queues,
   and capability health
+- locked package preview for existing repo-backed blueprints and agent
+  templates
 - repo-aware coding loop with stronger inspect-edit-verify-recover behavior
 - better checkpointing and resumability
 - stronger context packing and quest scoping
@@ -140,10 +146,12 @@ The next practical moves should be:
    servers, and event rows.
 4. Ship the read-only Operate Console summary and timeline before mutating
    recovery controls.
-5. Build an eval suite for coding and repo quests.
-6. Tighten the native coding loop before expanding more surface area.
-7. Keep shaping the UI around ideas, work, agent tree, and operator control.
-8. Make metrics and outcome tracking a first-class part of the control plane.
+5. Add locked package preview and stable manifest hashing for the default
+   blueprint before any public package store.
+6. Build an eval suite for coding and repo quests.
+7. Tighten the native coding loop before expanding more surface area.
+8. Keep shaping the UI around ideas, work, agent tree, and operator control.
+9. Make metrics and outcome tracking a first-class part of the control plane.
 
 ## Decision Rule
 

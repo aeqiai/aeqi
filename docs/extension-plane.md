@@ -8,6 +8,9 @@ It builds on [primitive-contract.md](primitive-contract.md). The public product
 ontology remains TRUST-first. The extension plane is infrastructure under
 **Apps / Tools** and **Events**.
 
+The locked install lifecycle for app and package manifests is defined in
+[app-installer.md](app-installer.md).
+
 ## Goal
 
 Make every runtime capability visible through one live registry:
@@ -252,8 +255,8 @@ wait until owner-token and namespace rules are tested.
    `tool` descriptors.
 3. Pack crates register tool descriptors.
 4. Event store projects enabled events into `event_handler` descriptors.
-5. Blueprint/package/app install creates owner token and namespace grant, then
-   registers capabilities within that namespace.
+5. Blueprint/package/app install follows [app-installer.md](app-installer.md):
+   preview, lock, owner token, namespace grant, then capability registration.
 6. Registry emits `runtime.capabilities.changed`.
 7. Operate Console and agents consume the same registry.
 8. On unload/reload/disconnect, cleanup removes only matching owner-token
@@ -314,7 +317,8 @@ Add typed event trigger registration without external plugin code execution:
 
 ## Third Slice
 
-Add owner-token and namespace enforcement for installable apps/packages:
+Add owner-token and namespace enforcement for installable apps/packages, using
+the locked installer contract:
 
 1. Define namespace grants and owner-token records.
 2. Make package/blueprint install preview show namespaces, capabilities,
