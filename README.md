@@ -18,14 +18,20 @@ You can use the same `aeqi` binary in two modes:
 - as a self-hosted runtime, where `aeqi start` runs the daemon, API, dashboard,
   MCP server, local SQLite state, and event loop yourself.
 
-The runtime is built around four primitives:
+The runtime follows the [AEQI Primitive Contract](docs/primitive-contract.md):
+a TRUST is the product root, and roles, agents, quests, ideas, events,
+sessions, and apps/tools are the operating surfaces inside it.
 
-| Primitive  | Meaning                                                                                    |
-| ---------- | ------------------------------------------------------------------------------------------ |
-| **Agents** | Persistent workers with identity, instructions, tools, budgets, and parent/child structure |
-| **Ideas**  | Durable memory, notes, instructions, skill records, and retrievable knowledge              |
-| **Quests** | Structured work items with assignment, status, dependency, retry, and outcome state        |
-| **Events** | Schedules, webhooks, triggers, and runtime hooks that wake agents up                       |
+| Surface          | Meaning                                                                                    |
+| ---------------- | ------------------------------------------------------------------------------------------ |
+| **TRUST**        | Programmable value-creation vehicle and operating context.                                 |
+| **Roles**        | Authority, responsibility, scope, permissions, budgets, and occupancy.                     |
+| **Agents**       | Persistent workers with identity, instructions, tools, budgets, and hierarchy.             |
+| **Quests**       | Durable work with assignment, status, dependencies, evidence, and outcomes.                |
+| **Ideas**        | Durable knowledge, directives, memories, decisions, procedures, and retrievable context.   |
+| **Events**       | Pattern, schedule, webhook, and lifecycle rules that wake the runtime and fire tool calls. |
+| **Sessions**     | Persistent execution and conversation traces.                                              |
+| **Apps / Tools** | Capabilities a TRUST can connect, install, call, or authorize.                             |
 
 This repository contains the runtime kernel, CLI, daemon, HTTP/WebSocket server,
 embedded React dashboard, MCP server, provider integrations, tool packs, tests,
@@ -34,16 +40,16 @@ release workflows, and source-available protocol work under
 
 ## What Is True Today
 
-| Area            | Current state                                                                                                                    |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| License         | Business Source License 1.1; source-available today, Apache 2.0 change license on April 5, 2030                                  |
-| Install path    | Published binaries for Linux amd64 and macOS arm64; source builds with Rust 2024                                                 |
-| Runtime storage | Local SQLite databases under the configured data directory, usually `~/.aeqi`                                                    |
-| Dashboard       | Embedded into the `aeqi` binary; no separate frontend host is required for normal use                                            |
-| Providers       | OpenRouter, Anthropic, and local Ollama paths exist in the runtime                                                               |
-| Self-hosting    | Single-binary/systemd is the recommended path; Docker Compose exists for configured runtime deployments                          |
+| Area            | Current state                                                                                                                              |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| License         | Business Source License 1.1; source-available today, Apache 2.0 change license on April 5, 2030                                            |
+| Install path    | Published binaries for Linux amd64 and macOS arm64; source builds with Rust 2024                                                           |
+| Runtime storage | Local SQLite databases under the configured data directory, usually `~/.aeqi`                                                              |
+| Dashboard       | Embedded into the `aeqi` binary; no separate frontend host is required for normal use                                                      |
+| Providers       | OpenRouter, Anthropic, and local Ollama paths exist in the runtime                                                                         |
+| Self-hosting    | Single-binary/systemd is the recommended path; Docker Compose exists for configured runtime deployments                                    |
 | Hosted platform | Separate product boundary; this repo's CLI can connect to hosted TRUSTs, but accounts, billing, and fleet placement live outside this repo |
-| Protocol work   | Solana trust work is active under `projects/aeqi-solana`; it is not required to run the local runtime                            |
+| Protocol work   | Solana trust work is active under `projects/aeqi-solana`; it is not required to run the local runtime                                      |
 
 aeqi is under active development. Interfaces are usable, but they are not a
 compatibility promise unless covered by tests, release notes, or explicit docs.
@@ -223,9 +229,9 @@ provider calls, middleware, tool execution, and persistence. The web server
 exposes the local dashboard and API through Axum and WebSocket routes. The UI is
 embedded into the release binary by default.
 
-When connecting to a hosted TRUST, the same primitives live in the managed
-runtime. The local CLI process is a client and transport: `aeqi chat` opens
-terminal sessions, and `aeqi mcp` exposes the runtime tools to MCP-aware
+When connecting to a hosted TRUST, the same operating surfaces live in the
+managed runtime. The local CLI process is a client and transport: `aeqi chat`
+opens terminal sessions, and `aeqi mcp` exposes the runtime tools to MCP-aware
 clients.
 
 Default runtime data lives under `~/.aeqi`:

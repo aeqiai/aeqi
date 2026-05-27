@@ -12,7 +12,7 @@ interface BlueprintPickerModalProps {
   trustId: string;
   /**
    * Which seed parts to materialize. Omit (default) for the full
-   * `+ New agent` flow that pulls in all four primitives. Pass
+   * `+ New agent` flow that pulls in all blueprint seed surfaces. Pass
    * `["ideas"]` / `["quests"]` for the Import-from-blueprint flow on
    * the Ideas / Quests tabs — only the named seed blocks land.
    */

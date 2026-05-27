@@ -32,7 +32,9 @@ The runtime must not require:
 - platform user/session tables
 - platform-owned OAuth or payment products
 
-Company is still a runtime term. It is not a hosted-only concept.
+Per [primitive-contract.md](primitive-contract.md), TRUST is the product root.
+Company remains a runtime/API-adjacent term for business-shaped entities; it is
+not a hosted-only concept.
 
 ## Platform Ownership
 
@@ -55,7 +57,7 @@ plane. That is a feature of the boundary:
 
 - local/company runtime execution works without a hosted AEQI account
 - optional runtime-local web accounts can be enabled with `[web.auth] mode =
-  "accounts"`; those users live in `accounts.db` and are not hosted AEQI SaaS
+"accounts"`; those users live in `accounts.db` and are not hosted AEQI SaaS
   accounts
 - runtime data is owned by the runtime operator
 - hosted billing, account lifecycle, public domains, and fleet placement belong

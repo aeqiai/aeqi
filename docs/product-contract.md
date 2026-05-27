@@ -2,8 +2,14 @@
 
 This document defines the product language AEQI should use everywhere that users or contributors can see it.
 
+For the canonical primitive hierarchy, start with
+[primitive-contract.md](primitive-contract.md). This document adds lower-level
+runtime and UX rules that sit under that hierarchy.
+
 ## Core Model
 
+- `TRUST` = product root and programmable operating context
+- `role` = authority, responsibility, scope, permissions, budgets, and occupancy
 - `agent` = who
 - `idea` = what the system should remember or inject
 - `event` = when something should happen
@@ -12,6 +18,7 @@ This document defines the product language AEQI should use everywhere that users
 - `repository` = durable versioned code asset owned by the company
 - `library item` = typed company artifact or knowledge object: folder, file, note, link, idea, decision, spec, contract, image, or evidence
 - `session` = persistent runtime context
+- `app/tool` = capability the TRUST can connect, install, call, or authorize
 - `execution` = the live run inside a session
 - `step` = the internal loop boundary inside an execution
 - `input` = raw user text

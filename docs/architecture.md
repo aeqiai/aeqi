@@ -1,15 +1,26 @@
 # AEQI Architecture
 
-AEQI is an agent runtime and orchestration engine in Rust.
+AEQI is a TRUST runtime and orchestration engine in Rust. The canonical
+vocabulary lives in [primitive-contract.md](primitive-contract.md). This page
+maps that product contract to the current runtime implementation.
 
-## Four Primitives
+## Primitive Contract
 
-| Primitive | Purpose | Storage |
-| --- | --- | --- |
-| **Agent** | Persistent identity in a tree (`parent_id` hierarchy) | `aeqi.db` |
-| **Idea** | Knowledge store -- identity, instructions, memories | `aeqi.db` |
-| **Quest** | Unit of work with dependencies and outcomes | `sessions.db` |
-| **Event** | Reaction rule -- when pattern X fires, run idea Z | `aeqi.db` |
+The product root is the **TRUST**. Inside a TRUST, the first-class operating
+surfaces are Roles, Agents, Quests, Ideas, Events, Sessions, and Apps/Tools.
+Some storage still reflects earlier implementation history; this table maps
+the contract to current state.
+
+| Surface          | Purpose                                                                | Current storage                                                           |
+| ---------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| **TRUST**        | Programmable value-creation vehicle and operating context              | entity/runtime identity, platform placement, protocol state where present |
+| **Role**         | Authority, responsibility, scope, permissions, budgets, and occupancy  | role tables and platform/protocol role state where present                |
+| **Agent**        | Persistent identity in a tree (`parent_id` hierarchy)                  | `aeqi.db`                                                                 |
+| **Quest**        | Unit of work with dependencies, evidence, retries, and outcomes        | `sessions.db`                                                             |
+| **Idea**         | Knowledge store for directives, instructions, memories, and procedures | `aeqi.db`                                                                 |
+| **Event**        | Pattern, schedule, webhook, and lifecycle rule that fires tool calls   | `aeqi.db`                                                                 |
+| **Session**      | Persistent execution and conversation trace                            | `sessions.db`                                                             |
+| **Apps / Tools** | Callable or installable capabilities exposed to agents and users       | tool registry, pack crates, MCP, and integration credential state         |
 
 Plus **Activity** as infrastructure (audit log, costs, session journal -- not a
 primitive) in `sessions.db`.
@@ -30,12 +41,12 @@ Execution = HOW it's being done right now (agent loop, tools, steps)
 
 Every live run is an execution inside a session. `SessionManager.spawn_session()` is the single entry point.
 
-| Context | Type | Behavior |
-|---------|------|----------|
-| `parent_id` set | delegation | Child of another session |
-| `quest_id` set | quest | Executing tracked work |
-| `auto_close: false` | perpetual | Accepts follow-up input mid-execution |
-| Default | session | Runs to completion |
+| Context             | Type       | Behavior                              |
+| ------------------- | ---------- | ------------------------------------- |
+| `parent_id` set     | delegation | Child of another session              |
+| `quest_id` set      | quest      | Executing tracked work                |
+| `auto_close: false` | perpetual  | Accepts follow-up input mid-execution |
+| Default             | session    | Runs to completion                    |
 
 ## Agent Identity
 
@@ -51,10 +62,10 @@ Ideas attached to the agent provide its instructions, personality, expertise, an
 
 ## Ideas -- Two Activation Modes
 
-| Mode | How | Use case |
-|------|-----|----------|
-| Referenced by event | Loaded on event fire | Identity, system prompt, lifecycle guidance, scheduled behaviors |
-| Not referenced | Semantic search recall | Accumulated knowledge, memories, learned facts |
+| Mode                | How                    | Use case                                                         |
+| ------------------- | ---------------------- | ---------------------------------------------------------------- |
+| Referenced by event | Loaded on event fire   | Identity, system prompt, lifecycle guidance, scheduled behaviors |
+| Not referenced      | Semantic search recall | Accumulated knowledge, memories, learned facts                   |
 
 Ideas carry no positioning metadata. Activation is decided entirely by events: the `session:start` event references the ideas that should always be in an agent's context, `session:quest_start` references ideas for the quest-opening phase, and so on. Scope (`self` vs `descendants`) on each idea controls whether an ancestor's idea reaches the target agent.
 
@@ -78,13 +89,13 @@ When an event fires, it activates its referenced ideas; those ideas are concaten
 
 All converge to `spawn_session`:
 
-| Entry | How |
-|-------|-----|
-| Web chat | `spawn_session(agent, message, provider)` |
-| Delegation | `delegate` tool --> `spawn_session` with parent_id |
-| Quest execution | Patrol loop --> `spawn_session` with quest_id |
-| Event fire | Creates quest --> patrol spawns session |
-| Telegram/Discord/Slack | Gate --> quest or direct session |
+| Entry                  | How                                                |
+| ---------------------- | -------------------------------------------------- |
+| Web chat               | `spawn_session(agent, message, provider)`          |
+| Delegation             | `delegate` tool --> `spawn_session` with parent_id |
+| Quest execution        | Patrol loop --> `spawn_session` with quest_id      |
+| Event fire             | Creates quest --> patrol spawns session            |
+| Telegram/Discord/Slack | Gate --> quest or direct session                   |
 
 ## Daemon Patrol Loop
 
@@ -103,21 +114,21 @@ TurnStart, TextDelta, ToolStart, ToolComplete, TurnComplete, Status, DelegateSta
 
 ## Crates
 
-| Crate | Purpose |
-|-------|---------|
-| aeqi-core | Agent loop, config, traits, streaming executor |
-| aeqi-orchestrator | Daemon, sessions, events, delegation, middleware |
-| aeqi-tools | Shell, file, web, delegate |
-| aeqi-providers | OpenRouter, Anthropic, Ollama |
-| aeqi-ideas | SQLite + FTS5 + vector, hierarchical scoping, knowledge graph |
-| aeqi-quests | Quest DAG, dependency inference, status machine |
-| aeqi-web | Axum REST + WebSocket API |
-| aeqi-gates | Telegram, Discord, Slack bridges |
-| aeqi-graph | Code intelligence (symbol graph, call chains) |
-| aeqi-cli | CLI, TUI, MCP server |
-| aeqi-hosting | Local/self-host runtime placement helpers |
-| aeqi-mcp | MCP server for external clients |
-| aeqi-wallets | Wallet keys, signing, and identity helpers |
-| aeqi-inference | OpenAI-compatible inference routing |
-| aeqi-architect | Blueprint drafting and refinement |
-| aeqi-pack-* | Optional tool packs for GitHub, Google Workspace, Notion, and Slack |
+| Crate             | Purpose                                                             |
+| ----------------- | ------------------------------------------------------------------- |
+| aeqi-core         | Agent loop, config, traits, streaming executor                      |
+| aeqi-orchestrator | Daemon, sessions, events, delegation, middleware                    |
+| aeqi-tools        | Shell, file, web, delegate                                          |
+| aeqi-providers    | OpenRouter, Anthropic, Ollama                                       |
+| aeqi-ideas        | SQLite + FTS5 + vector, hierarchical scoping, knowledge graph       |
+| aeqi-quests       | Quest DAG, dependency inference, status machine                     |
+| aeqi-web          | Axum REST + WebSocket API                                           |
+| aeqi-gates        | Telegram, Discord, Slack bridges                                    |
+| aeqi-graph        | Code intelligence (symbol graph, call chains)                       |
+| aeqi-cli          | CLI, TUI, MCP server                                                |
+| aeqi-hosting      | Local/self-host runtime placement helpers                           |
+| aeqi-mcp          | MCP server for external clients                                     |
+| aeqi-wallets      | Wallet keys, signing, and identity helpers                          |
+| aeqi-inference    | OpenAI-compatible inference routing                                 |
+| aeqi-architect    | Blueprint drafting and refinement                                   |
+| aeqi-pack-\*      | Optional tool packs for GitHub, Google Workspace, Notion, and Slack |

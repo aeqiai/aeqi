@@ -16,6 +16,11 @@ What it does not yet have is full product coherence around the north star.
 
 The main gap is not "missing ideas." The main gap is turning existing subsystems into one disciplined product architecture.
 
+The vocabulary baseline for that discipline is the
+[AEQI Primitive Contract](primitive-contract.md): TRUST is the product root;
+Roles, Agents, Quests, Ideas, Events, Sessions, and Apps/Tools are the
+operating surfaces.
+
 The current public agent-runtime bar is captured in
 [agent-runtime-bar.md](agent-runtime-bar.md). AEQI should not win by copying a
 personal assistant or chat gateway. It should win by making durable work,
@@ -119,7 +124,8 @@ The next practical moves should be:
 1. Make the new-user path boringly reliable: one install/build lane, one local
    demo lane, one first quest, and one command that verifies the path in an
    isolated home directory.
-2. Define the native runtime contract in code and docs.
+2. Keep the primitive contract enforced across code, docs, UI, MCP, and
+   onboarding.
 3. Build an eval suite for coding and repo quests.
 4. Tighten the native coding loop before expanding more surface area.
 5. Keep shaping the UI around ideas, work, agent tree, and operator control.

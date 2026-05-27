@@ -182,14 +182,14 @@ This calls `agents(action='get')` and prints the agent's assembled ideas. One MC
 
 ## Tools
 
-| Tool     | Actions                                      | What it does                                                        |
-| -------- | -------------------------------------------- | ------------------------------------------------------------------- |
-| `me`     | profile, permissions                         | Authenticated actor, runtime transport, and TRUST scope             |
-| `ideas`  | store, search, update, delete, link, feedback, walk | Persistent knowledge: facts, procedures, preferences, context |
-| `quests` | create, list, show, update, close, cancel    | Work tracking: hierarchy, dependencies, assignment, outcomes        |
-| `agents` | get, hire, retire, list, projects            | Agent management: inspect, hire, retire, list projects              |
-| `events` | create, list, enable, disable, delete        | Reaction rules: lifecycle triggers and scheduled automation         |
-| `code`   | search, context, impact, file, stats, index  | Code intelligence: symbol search, blast radius, dependency graph    |
+| Tool     | Actions                                             | What it does                                                     |
+| -------- | --------------------------------------------------- | ---------------------------------------------------------------- |
+| `me`     | profile, permissions                                | Authenticated actor, runtime transport, and TRUST scope          |
+| `ideas`  | store, search, update, delete, link, feedback, walk | Persistent knowledge: facts, procedures, preferences, context    |
+| `quests` | create, list, show, update, close, cancel           | Work tracking: hierarchy, dependencies, assignment, outcomes     |
+| `agents` | get, hire, retire, list, projects                   | Agent management: inspect, hire, retire, list projects           |
+| `events` | create, list, enable, disable, delete               | Reaction rules: lifecycle triggers and scheduled automation      |
+| `code`   | search, context, impact, file, stats, index         | Code intelligence: symbol search, blast radius, dependency graph |
 
 Tool scope follows the authenticated actor and selected TRUST. In hosted mode,
 that is normally your user account inside the TRUST selected by the secret key.
@@ -226,11 +226,19 @@ One runtime. Many clients. Same agent state.
 
 ## Data model
 
-Four primitives:
+MCP exposes the same operating surfaces defined in
+[primitive-contract.md](primitive-contract.md): a TRUST is the product root;
+roles, agents, quests, ideas, events, sessions, and apps/tools are the surfaces
+inside it.
 
-- **Agent** — persistent identity with parent-child tree. No static config — identity flows through events and ideas.
-- **Idea** — knowledge unit. Facts, procedures, preferences, templates. Everything is an idea with tags.
-- **Quest** — unit of work. Hierarchical IDs. Owns a git worktree for isolation. Tracks cost and outcome.
-- **Event** — reaction rule. Fires on lifecycle signals or schedules. References ideas to activate.
+- **Role** — authority, responsibility, scope, permissions, budgets, and occupancy.
+- **Agent** — persistent identity with parent-child tree. Identity and behavior flow through roles, events, and ideas.
+- **Quest** — unit of work. Hierarchical IDs. Owns a git worktree for isolation. Tracks evidence, cost, and outcome.
+- **Idea** — knowledge unit. Facts, procedures, preferences, directives, templates, and durable memory.
+- **Event** — reaction rule. Fires on lifecycle signals, schedules, webhooks, or patterns and runs tool calls.
+- **Session** — persistent execution and conversation trace.
+- **App / Tool** — capability the TRUST can connect, install, call, or authorize.
 
-No fifth primitive. No notes. No prompts. No triggers. No capabilities. Everything is one of the four.
+Legacy MCP clients may still talk mostly in agents, ideas, quests, and events;
+new docs and tools should preserve those APIs while presenting the broader
+TRUST operating contract.

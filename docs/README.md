@@ -14,6 +14,8 @@
 - [onboarding-excellence-loop.md](onboarding-excellence-loop.md) — repeatable
   operator/contributor loop for improving setup paths with evidence.
 - [vision.md](vision.md) — product north star and design principles.
+- [primitive-contract.md](primitive-contract.md) — canonical TRUST, roles,
+  agents, quests, ideas, events, sessions, and apps/tools vocabulary.
 - [product-contract.md](product-contract.md) — shared runtime vocabulary and UX rules.
 - [agent-runtime-bar.md](agent-runtime-bar.md) — competitive product bar for
   first-run, memory, always-on execution, safety, and evidence.
@@ -27,7 +29,7 @@
 
 ## Build with aeqi
 
-- [architecture.md](architecture.md) — system map, crates, primitives, agent loop.
+- [architecture.md](architecture.md) — system map, crates, primitive contract, agent loop.
 - [context-injection.md](context-injection.md) — how agent input context is assembled per quest.
 - [agent-loop-parity.md](agent-loop-parity.md) — comparison with Claude Code's agent loop.
 - [project-model.md](project-model.md) — canonical model for projects, repositories, library items, agents, and quests.

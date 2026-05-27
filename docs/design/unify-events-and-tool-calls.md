@@ -3,9 +3,18 @@
 Status: proposed
 Date: 2026-04-19
 
+Update: [primitive-contract.md](../primitive-contract.md) supersedes the older
+"four primitives" framing below. The implementation thesis in this note still
+stands: runtime-authored context should come from visible event-fired tool
+calls, not hidden string injection.
+
 ## The thesis
 
-AEQI has four primitives: **agents, ideas, quests, events**. Everything the LLM sees must trace back to one of them via a visible, configured path. Any string that appears in the model's context without that provenance is "magic" and must be killed.
+AEQI's canonical operating surfaces are **roles, agents, quests, ideas, events,
+sessions, and apps/tools** inside a TRUST. Everything the LLM sees must trace
+back to one of those surfaces via a visible, configured path. Any string that
+appears in the model's context without that provenance is "magic" and must be
+killed.
 
 Three concepts in the current runtime violate this: **middleware** (authors content silently), **event fields** like `query_template` / `idea_ids` / `query_tag_filter` (runtime-native strings baked into the event row), and **compaction** (a hardcoded taxonomy that collapses the transcript opaquely inside the same session).
 
@@ -54,7 +63,10 @@ Example — current `session:start` seeds an idea plus runs a semantic search wi
   "pattern": "session:start",
   "tool_calls": [
     { "tool": "ideas.assemble", "args": { "names": ["session:primer"] } },
-    { "tool": "ideas.search",   "args": { "query": "{user_input}", "tags": ["promoted"], "top_k": 5 } }
+    {
+      "tool": "ideas.search",
+      "args": { "query": "{user_input}", "tags": ["promoted"], "top_k": 5 }
+    }
   ]
 }
 ```
@@ -108,6 +120,7 @@ Compaction as delegation:
 3. Session A's transcript ends with a visible handoff: "compacted → session B, continuing as session C". User sees the seam.
 
 Two wins:
+
 - The compactor is a **real agent run**. Its instructions are an idea. It can use tools (search prior sessions, pull context, consult other agents). Compaction strategies become pluggable by swapping the instructions idea.
 - Continuation is **a new session** with a clean transcript seeded from B's output. Transparent "where did my context go" — it's literally a different session ID, linked by parent_session.
 
@@ -162,5 +175,5 @@ These renames happen alongside Move 1:
 
 - Changing the idea graph or edge model.
 - Changing the agent tree or quest model.
-- Renaming any primitive.
-- Adding new primitives.
+- Changing the primitive contract.
+- Adding new public primitives outside [primitive-contract.md](../primitive-contract.md).
