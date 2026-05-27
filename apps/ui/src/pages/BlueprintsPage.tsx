@@ -373,8 +373,8 @@ export default function BlueprintsPage() {
             }
           />
           <p className="bp-page-description">
-            Launch a TRUST with ownership, roles, agents, quests, ideas, and runtime triggers
-            already wired.
+            Launch a TRUST with roles, agents, quests, ideas, tools, and runtime triggers already
+            wired.
           </p>
         </div>
 

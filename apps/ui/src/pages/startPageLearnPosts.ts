@@ -16,17 +16,17 @@ export const LEARN_POSTS = [
     href: "https://aeqi.ai/blog/the-agent-economy",
   },
   {
-    title: "Programmable capitalism starts with the TRUST",
+    title: "What a TRUST runs",
     kicker: "Manifesto",
     summary:
-      "Execution became programmable. Ownership became programmable. The TRUST is where both meet.",
+      "A TRUST keeps people, agents, work, memory, tools, and evidence together for one mission.",
     image: "/blog/programmable-capitalism-hero.webp",
     href: "https://aeqi.ai/blog/programmable-capitalism",
   },
   {
-    title: "The TRUST is the primitive",
+    title: "The mission workspace is the product",
     kicker: "Manifesto",
-    summary: "The agent is not the product. The programmable company is the product.",
+    summary: "The agent is not the product. The TRUST is the workspace where a mission runs.",
     image: "/blog/the-company-is-the-primitive-hero.webp",
     href: "https://aeqi.ai/blog/the-company-is-the-primitive",
   },

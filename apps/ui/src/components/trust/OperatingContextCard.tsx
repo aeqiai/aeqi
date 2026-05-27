@@ -87,7 +87,7 @@ export default function OperatingContextCard({
             </span>
             <h3 className="home-context-title">No active TRUST</h3>
             <p className="home-context-line">
-              Launch a TRUST to create an operating context for roles, agents, quests, and memory.
+              Launch a TRUST to create a shared workspace for roles, agents, quests, and memory.
             </p>
           </div>
           <Link to={emptyActionTo} className="home-primary-action">
@@ -134,7 +134,7 @@ export default function OperatingContextCard({
               <span className="home-context-role-empty-copy">
                 {rolesLoading
                   ? "Resolving this TRUST's current holder."
-                  : "Create a role to connect authority, agents, and operators."}
+                  : "Create a role to connect authority, agents, and people."}
               </span>
             </div>
           )}

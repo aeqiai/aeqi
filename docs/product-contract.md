@@ -8,15 +8,15 @@ runtime and UX rules that sit under that hierarchy.
 
 ## Core Model
 
-- `TRUST` = product root and programmable operating context
+- `TRUST` = shared AI workspace and runtime for one mission
 - `role` = authority, responsibility, scope, permissions, budgets, and occupancy
 - `agent` = who
 - `idea` = what the system should remember or inject
 - `event` = when something should happen
 - `quest` = what durable work needs to be done
 - `project` = mission container linking people, agents, repos, library items, quests, and outcomes
-- `repository` = durable versioned code asset owned by the company
-- `library item` = typed company artifact or knowledge object: folder, file, note, link, idea, decision, spec, contract, image, or evidence
+- `repository` = durable versioned code asset owned by the TRUST
+- `library item` = typed TRUST artifact or knowledge object: folder, file, note, link, idea, decision, spec, contract, image, or evidence
 - `session` = persistent runtime context
 - `app/tool` = capability the TRUST can connect, install, call, or authorize
 - `execution` = the live run inside a session
@@ -32,7 +32,7 @@ runtime and UX rules that sit under that hierarchy.
 - Queued inputs should coalesce before injection.
 - Events can inject ideas.
 - Files are just another source of ideas or context.
-- Projects are not repositories. A project can complete while its linked repositories and library items remain active company assets.
+- Projects are not repositories. A project can complete while its linked repositories and library items remain active TRUST assets.
 
 ## UX Rules
 

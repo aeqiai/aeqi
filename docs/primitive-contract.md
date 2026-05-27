@@ -6,23 +6,34 @@ or operator language.
 
 The contract exists to prevent ontology drift. AEQI should not describe itself
 as four primitives in one file, five primitives in another, and a company tool
-somewhere else. The product root is the TRUST. Everything else is an operating
-surface inside that TRUST.
+somewhere else. In user-facing language, start by explaining the TRUST in plain
+terms, then describe the surfaces inside it.
 
-## Product Root
+Plain-English definition:
 
-| Term        | Meaning                                                                                                                                                    | Rule                                                                                                                               |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| **TRUST**   | The programmable value-creation vehicle where direction, execution, memory, authority, treasury, governance, and ownership live in one operating context.  | Use as the product root in public and operator-facing language.                                                                    |
-| **Company** | A familiar explanation for a TRUST-shaped operating organization, and an API-adjacent entity type where older contracts still use company/entity language. | Use when explaining a business wrapper or preserving existing API semantics. Do not let it compete with TRUST as the product root. |
-| **Entity**  | The internal/runtime identity record that can represent a TRUST, human, agent, fund, or other institution.                                                 | Use in data-model and API docs when precision matters.                                                                             |
+> A TRUST is the shared AI workspace and runtime for one mission. It keeps the
+> people, agents, roles, quests, memory, tools, decisions, authority, and
+> evidence in one place so work can run and be audited.
+
+What it is not: a legal trust by default, a chat room, or only a wallet. A
+TRUST can map to a company, fund, DAO, project, or legal wrapper, but in AEQI
+the word means the operating home for a mission.
+
+## Top-Level Term
+
+| Term        | Meaning                                                                                                                                                    | Rule                                                                                                                                         |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| **TRUST**   | The shared AI workspace and runtime for one mission: people, agents, roles, quests, memory, tools, decisions, authority, and evidence in one place.        | Use as the top-level product term in public and operator-facing language, but explain it in plain words on first mention.                    |
+| **Company** | A familiar explanation for a TRUST-shaped operating organization, and an API-adjacent entity type where older contracts still use company/entity language. | Use when explaining a business wrapper or preserving existing API semantics. Do not let it compete with TRUST as the top-level product term. |
+| **Entity**  | The internal/runtime identity record that can represent a TRUST, human, agent, fund, or other institution.                                                 | Use in data-model and API docs when precision matters.                                                                                       |
 
 Canonical user gesture:
 
 ```text
 Start a TRUST.
 Give it a mission.
-AEQI turns it into a running operating context.
+AEQI turns it into a live workspace where agents can work, remember, use tools,
+and leave evidence.
 ```
 
 ## Operating Surfaces
@@ -44,7 +55,7 @@ removing Apps/Tools is [extension-plane.md](extension-plane.md).
 
 ## Infrastructure Terms
 
-These terms are important, but they are not product roots.
+These terms are important, but they are not top-level product terms.
 
 | Term             | Meaning                                                                                                                   | Rule                                                        |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
@@ -57,13 +68,13 @@ These terms are important, but they are not product roots.
 
 ## Boundary Rules
 
-- TRUST is the product root.
+- TRUST is the top-level product term.
 - Roles, Agents, Quests, Ideas, Events, Sessions, and Apps/Tools are the
-  operating surfaces.
+  first-class surfaces inside a TRUST.
 - Activity, executions, steps, projects, repositories, and library items are
   supporting infrastructure.
 - Do not introduce new public primitives without updating this contract first.
-- Do not use "Company" as a competing public product root; use it as a familiar
+- Do not use "Company" as a competing top-level product term; use it as a familiar
   explanation or where existing API/data contracts require it.
 - Do not describe AEQI as a generic worker/function/trigger framework. Those
   are useful extension-plane concepts, not the public ontology.

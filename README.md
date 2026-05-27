@@ -19,12 +19,13 @@ You can use the same `aeqi` binary in two modes:
   MCP server, local SQLite state, and event loop yourself.
 
 The runtime follows the [AEQI Primitive Contract](docs/primitive-contract.md):
-a TRUST is the product root, and roles, agents, quests, ideas, events,
-sessions, and apps/tools are the operating surfaces inside it.
+a TRUST is the shared AI workspace and runtime for one mission. It keeps
+people, agents, roles, quests, memory, tools, decisions, authority, and
+evidence in one place so work can run and be audited.
 
 | Surface          | Meaning                                                                                    |
 | ---------------- | ------------------------------------------------------------------------------------------ |
-| **TRUST**        | Programmable value-creation vehicle and operating context.                                 |
+| **TRUST**        | Shared AI workspace and runtime for one mission.                                           |
 | **Roles**        | Authority, responsibility, scope, permissions, budgets, and occupancy.                     |
 | **Agents**       | Persistent workers with identity, instructions, tools, budgets, and hierarchy.             |
 | **Quests**       | Durable work with assignment, status, dependencies, evidence, and outcomes.                |
@@ -113,7 +114,7 @@ aeqi monitor --watch
 If `doctor --strict` reports Ollama as optional/unhealthy, start Ollama and pull
 the configured model, then run `aeqi doctor --strict` again.
 
-### Existing hosted TRUST
+### Existing Hosted TRUST
 
 Use this path when you already have an aeqi account and TRUST. The CLI is
 the terminal client; it does not run the hosted runtime on your machine.
@@ -229,10 +230,10 @@ provider calls, middleware, tool execution, and persistence. The web server
 exposes the local dashboard and API through Axum and WebSocket routes. The UI is
 embedded into the release binary by default.
 
-When connecting to a hosted TRUST, the same operating surfaces live in the
-managed runtime. The local CLI process is a client and transport: `aeqi chat`
-opens terminal sessions, and `aeqi mcp` exposes the runtime tools to MCP-aware
-clients.
+When connecting to a hosted TRUST, the mission workspace and runtime live in
+the managed platform. The local CLI process is a client and transport:
+`aeqi chat` opens terminal sessions, and `aeqi mcp` exposes the runtime tools
+to MCP-aware clients.
 
 Default runtime data lives under `~/.aeqi`:
 

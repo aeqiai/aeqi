@@ -384,9 +384,9 @@ Organization
 
 User-facing meanings:
 
-- TRUST is the product root. Organization, company, and entity language is
-  explanatory or API-adjacent and must not compete with TRUST as the
-  user-facing root.
+- TRUST is the shared AI workspace and runtime for one mission. Organization,
+  company, and entity language is explanatory or API-adjacent and must not
+  compete with TRUST as the user-facing root.
 - Agents execute.
 - Quests are work.
 - Ideas are knowledge, specs, and durable memory.

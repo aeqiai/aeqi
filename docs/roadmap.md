@@ -17,9 +17,9 @@ What it does not yet have is full product coherence around the north star.
 The main gap is not "missing ideas." The main gap is turning existing subsystems into one disciplined product architecture.
 
 The vocabulary baseline for that discipline is the
-[AEQI Primitive Contract](primitive-contract.md): TRUST is the product root;
-Roles, Agents, Quests, Ideas, Events, Sessions, and Apps/Tools are the
-operating surfaces.
+[AEQI Primitive Contract](primitive-contract.md): a TRUST is the shared AI
+workspace and runtime for one mission; Roles, Agents, Quests, Ideas, Events,
+Sessions, and Apps/Tools are the first-class surfaces inside it.
 
 The extension baseline is [extension-plane.md](extension-plane.md): a
 TRUST-scoped capability registry, typed event triggers, namespace grants, and

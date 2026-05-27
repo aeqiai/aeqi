@@ -271,7 +271,7 @@ function LaunchTrustCard() {
       <div className="home-launch-body">
         <h3 className="home-launch-title">Launch a TRUST</h3>
         <p className="home-launch-hint">
-          Create the operating container for ownership, agents, quests, and ideas.
+          Create a shared AI workspace for one mission: agents, quests, ideas, tools, and evidence.
         </p>
       </div>
       <div className="home-launch-actions">

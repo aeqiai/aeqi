@@ -82,6 +82,9 @@ function NameSection({
           <h1 id="launch-title" className="auth-heading">
             Launch your TRUST.
           </h1>
+          <p className="auth-subheading">
+            A TRUST is the shared AI workspace and runtime for one mission.
+          </p>
         </div>
 
         <Input
@@ -119,7 +122,7 @@ function BlueprintSection({
         <div className="launch-blueprint-summary">
           <span className="launch-blueprint-summary-name">{blueprint.name}</span>
           <span className="launch-blueprint-summary-copy">
-            Start with your first agent, ownership structure, and operating layer.
+            Start with your first agent, roles, quests, memory, tools, and evidence.
           </span>
           <span className="launch-blueprint-summary-meta">{blueprintStats(blueprint)}</span>
         </div>
@@ -204,7 +207,7 @@ function OperationsSection({
           <h2 id="launch-operations-title" className="launch-section-title">
             Operations
           </h2>
-          <p className="launch-section-copy">Choose how this TRUST should run.</p>
+          <p className="launch-section-copy">Choose where this mission runtime should run.</p>
         </div>
 
         <div className="launch-operations-grid" role="radiogroup" aria-label="Operations">

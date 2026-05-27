@@ -2,9 +2,10 @@
 
 ## Start here
 
-- Existing hosted TRUST: install the CLI, set `AEQI_API_KEY`, and use
-  `aeqi chat`; use [mcp-setup.md](mcp-setup.md) to connect Codex, Claude Code,
-  editors, or other MCP clients to the same TRUST runtime.
+- Existing hosted TRUST: a TRUST is the shared AI workspace and runtime for one
+  mission. Install the CLI, set `AEQI_API_KEY`, and use `aeqi chat`; use
+  [mcp-setup.md](mcp-setup.md) to connect Codex, Claude Code, editors, or
+  other MCP clients to the same TRUST runtime.
 - [quickstart.md](quickstart.md) — install, set up, run the daemon/dashboard,
   and create a first useful quest.
 - [self-hosting.md](self-hosting.md) — honest operator guide for running your own runtime.

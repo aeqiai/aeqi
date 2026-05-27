@@ -6,14 +6,15 @@ maps that product contract to the current runtime implementation.
 
 ## Primitive Contract
 
-The product root is the **TRUST**. Inside a TRUST, the first-class operating
-surfaces are Roles, Agents, Quests, Ideas, Events, Sessions, and Apps/Tools.
+A **TRUST** is the shared AI workspace and runtime for one mission. Inside a
+TRUST, the first-class surfaces are Roles, Agents, Quests, Ideas, Events,
+Sessions, and Apps/Tools.
 Some storage still reflects earlier implementation history; this table maps
 the contract to current state.
 
 | Surface          | Purpose                                                                | Current storage                                                           |
 | ---------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| **TRUST**        | Programmable value-creation vehicle and operating context              | entity/runtime identity, platform placement, protocol state where present |
+| **TRUST**        | Shared AI workspace and runtime for one mission                        | entity/runtime identity, platform placement, protocol state where present |
 | **Role**         | Authority, responsibility, scope, permissions, budgets, and occupancy  | role tables and platform/protocol role state where present                |
 | **Agent**        | Persistent identity in a tree (`parent_id` hierarchy)                  | `aeqi.db`                                                                 |
 | **Quest**        | Unit of work with dependencies, evidence, retries, and outcomes        | `sessions.db`                                                             |

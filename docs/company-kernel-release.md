@@ -26,7 +26,7 @@ Public positioning:
 Longer public wording:
 
 > aeqi turns a mission into a working company runtime: agents, roles, quests,
-> memory, events, and governance in one operating context.
+> memory, tools, decisions, and evidence in one place.
 
 ## Non-Goals
 

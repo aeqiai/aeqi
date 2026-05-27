@@ -226,10 +226,10 @@ One runtime. Many clients. Same agent state.
 
 ## Data model
 
-MCP exposes the same operating surfaces defined in
-[primitive-contract.md](primitive-contract.md): a TRUST is the product root;
-roles, agents, quests, ideas, events, sessions, and apps/tools are the surfaces
-inside it.
+MCP exposes the same surfaces defined in
+[primitive-contract.md](primitive-contract.md): a TRUST is the shared AI
+workspace and runtime for one mission; roles, agents, quests, ideas, events,
+sessions, and apps/tools are the surfaces inside it.
 
 - **Role** — authority, responsibility, scope, permissions, budgets, and occupancy.
 - **Agent** — persistent identity with parent-child tree. Identity and behavior flow through roles, events, and ideas.

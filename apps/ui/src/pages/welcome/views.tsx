@@ -33,7 +33,9 @@ export function WelcomeView({
   return (
     <>
       <h1 className="auth-heading">Your account is ready.</h1>
-      <p className="auth-subheading">Launch a TRUST from a blueprint or join one.</p>
+      <p className="auth-subheading">
+        Launch a shared AI workspace for a mission from a blueprint, or join one.
+      </p>
       <div className="auth-form">
         <Button variant="primary" size="lg" fullWidth type="button" onClick={onContinue}>
           Enter AEQI →

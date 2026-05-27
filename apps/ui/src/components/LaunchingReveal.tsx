@@ -177,8 +177,8 @@ export function LaunchingReveal({
       ariaBusy={busy}
       pitch={{
         eyebrow: "LAUNCH A TRUST",
-        lines: ["Programmable", "company", "vehicle."],
-        lead: "A TRUST aligns stakeholders, ownership, and operations inside one programmable company — so everyone moves toward the same outcome: creating value.",
+        lines: ["One", "mission", "runtime."],
+        lead: "A TRUST keeps people, agents, roles, quests, memory, tools, and evidence together so the mission can run and be audited.",
       }}
     >
       <h1 className="auth-heading">
@@ -187,7 +187,7 @@ export function LaunchingReveal({
       <p className="auth-subheading">
         {isReady
           ? "The TRUST exists and the public website shell is live."
-          : "Payment confirmed. aeqi is creating the TRUST, registering it on Solana, and starting its runtime."}
+          : "Payment confirmed. aeqi is creating the mission workspace, registering the TRUST on Solana, and starting its runtime."}
       </p>
 
       <ProgressList steps={progressSteps} className="launching-reveal__steps" />
