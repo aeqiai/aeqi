@@ -371,6 +371,12 @@ fn browser_capture_script() -> PathBuf {
             }
         }
     }
+    let deployed_repo = Path::new("/home/claudedev/aeqi")
+        .join("scripts")
+        .join("browser-capture.mjs");
+    if deployed_repo.exists() {
+        return deployed_repo;
+    }
     PathBuf::from("scripts/browser-capture.mjs")
 }
 

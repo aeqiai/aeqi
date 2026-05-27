@@ -552,6 +552,12 @@ fn browser_capture_script() -> std::path::PathBuf {
             }
         }
     }
+    let deployed_repo = std::path::PathBuf::from("/home/claudedev/aeqi")
+        .join("scripts")
+        .join("browser-capture.mjs");
+    if deployed_repo.exists() {
+        return deployed_repo;
+    }
     std::path::PathBuf::from("scripts/browser-capture.mjs")
 }
 
