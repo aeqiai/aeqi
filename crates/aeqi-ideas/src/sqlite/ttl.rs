@@ -18,7 +18,8 @@ impl SqliteIdeas {
         let now = Utc::now().to_rfc3339();
         let like_pattern = format!("{prefix}%");
         let mut stmt = conn.prepare(
-            "SELECT id, name, content, agent_id, session_id, created_at
+            "SELECT id, name, content, agent_id, session_id, created_at, scope,
+                    parent_idea_id, properties, kind, file_id
              FROM ideas
              WHERE name LIKE ?1
              AND (expires_at IS NULL OR expires_at > ?2)
@@ -27,30 +28,48 @@ impl SqliteIdeas {
         )?;
         let mut entries: Vec<Idea> = stmt
             .query_map(rusqlite::params![like_pattern, now, limit as i64], |row| {
-                let id: String = row.get(0)?;
-                let name: String = row.get(1)?;
-                let content: String = row.get(2)?;
                 let agent_id: Option<String> = row.get(3)?;
-                let session_id: Option<String> = row.get(4)?;
+                let scope = row
+                    .get::<_, String>(6)
+                    .ok()
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or_else(|| {
+                        if agent_id.is_none() {
+                            aeqi_core::Scope::Global
+                        } else {
+                            aeqi_core::Scope::SelfScope
+                        }
+                    });
+                let props = row
+                    .get::<_, Option<String>>(8)
+                    .ok()
+                    .flatten()
+                    .as_deref()
+                    .and_then(|s| serde_json::from_str(s).ok());
                 let created_str: String = row.get(5)?;
-                Ok((id, name, content, agent_id, session_id, created_str))
+                let created_at = DateTime::parse_from_rfc3339(&created_str)
+                    .map(|d| d.with_timezone(&Utc))
+                    .unwrap_or_else(|_| Utc::now());
+                Ok(Idea {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    content: row.get(2)?,
+                    tags: Vec::new(),
+                    agent_id,
+                    session_id: row.get(4)?,
+                    created_at,
+                    score: 1.0,
+                    scope,
+                    inheritance: "self".to_string(),
+                    tool_allow: Vec::new(),
+                    tool_deny: Vec::new(),
+                    parent_idea_id: row.get(7)?,
+                    properties: props,
+                    kind: row.get(9)?,
+                    file_id: row.get(10)?,
+                })
             })?
             .filter_map(|r| r.ok())
-            .filter_map(|(id, name, content, agent_id, session_id, created_str)| {
-                let created_at = DateTime::parse_from_rfc3339(&created_str)
-                    .ok()?
-                    .with_timezone(&Utc);
-                Some(Idea::recalled(
-                    id,
-                    name,
-                    content,
-                    Vec::new(),
-                    agent_id,
-                    created_at,
-                    session_id,
-                    1.0,
-                ))
-            })
             .collect();
         Self::enrich_tags(&conn, &mut entries);
         Ok(entries)

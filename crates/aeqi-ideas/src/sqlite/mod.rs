@@ -1205,6 +1205,80 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_read_queries_hydrate_parent_and_properties() {
+        let (mem, _dir) = test_ideas();
+
+        let parent = mem
+            .store("ui", "UI index", &["wiki-index".to_string()], None)
+            .await
+            .unwrap();
+        let child = mem
+            .store("ui/header", "Header note", &["ui".to_string()], None)
+            .await
+            .unwrap();
+
+        mem.set_parent(&child, Some(&parent)).await.unwrap();
+        mem.set_properties(
+            &parent,
+            Some(serde_json::json!({
+                "kind": "wiki_index",
+                "prefix": "ui"
+            })),
+        )
+        .await
+        .unwrap();
+
+        let by_ids = mem
+            .get_by_ids(&[parent.clone(), child.clone()])
+            .await
+            .unwrap();
+        let by_id: std::collections::HashMap<&str, &Idea> =
+            by_ids.iter().map(|idea| (idea.id.as_str(), idea)).collect();
+        assert_eq!(
+            by_id
+                .get(child.as_str())
+                .and_then(|idea| idea.parent_idea_id.as_deref()),
+            Some(parent.as_str())
+        );
+        assert_eq!(
+            by_id
+                .get(parent.as_str())
+                .and_then(|idea| idea.properties.as_ref())
+                .and_then(|props| props.get("prefix"))
+                .and_then(|value| value.as_str()),
+            Some("ui")
+        );
+
+        let prefix_hits = mem.search_by_prefix("ui/", 10).unwrap();
+        assert_eq!(
+            prefix_hits
+                .iter()
+                .find(|idea| idea.id == child)
+                .and_then(|idea| idea.parent_idea_id.as_deref()),
+            Some(parent.as_str())
+        );
+
+        let global_hits = mem.list_global_ideas(10).await.unwrap();
+        assert!(global_hits.iter().any(
+            |idea| idea.id == child && idea.parent_idea_id.as_deref() == Some(parent.as_str())
+        ));
+
+        let tag_hits = mem.ideas_by_tags(&["ui".to_string()], 10).await.unwrap();
+        assert!(tag_hits.iter().any(
+            |idea| idea.id == child && idea.parent_idea_id.as_deref() == Some(parent.as_str())
+        ));
+
+        let children = mem.list_children(&parent).await.unwrap();
+        assert_eq!(
+            children
+                .iter()
+                .find(|idea| idea.id == child)
+                .and_then(|idea| idea.parent_idea_id.as_deref()),
+            Some(parent.as_str())
+        );
+    }
+
+    #[tokio::test]
     async fn test_edges_between_returns_both_directions() {
         let (mem, _dir) = test_ideas();
 

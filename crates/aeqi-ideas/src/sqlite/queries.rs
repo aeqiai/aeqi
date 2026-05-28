@@ -16,37 +16,56 @@ impl SqliteIdeas {
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
         let now = Utc::now().to_rfc3339();
         let mut stmt = conn.prepare(
-            "SELECT id, name, content, agent_id, session_id, created_at
+            "SELECT id, name, content, agent_id, session_id, created_at, scope,
+                    parent_idea_id, properties, kind, file_id
              FROM ideas
              WHERE expires_at IS NULL OR expires_at > ?1
              ORDER BY created_at DESC",
         )?;
         let mut entries = stmt
             .query_map(rusqlite::params![now], |row| {
-                let id: String = row.get(0)?;
-                let name: String = row.get(1)?;
-                let content: String = row.get(2)?;
                 let agent_id: Option<String> = row.get(3)?;
-                let session_id: Option<String> = row.get(4)?;
+                let scope = row
+                    .get::<_, String>(6)
+                    .ok()
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or_else(|| {
+                        if agent_id.is_none() {
+                            aeqi_core::Scope::Global
+                        } else {
+                            aeqi_core::Scope::SelfScope
+                        }
+                    });
+                let props = row
+                    .get::<_, Option<String>>(8)
+                    .ok()
+                    .flatten()
+                    .as_deref()
+                    .and_then(|s| serde_json::from_str(s).ok());
                 let created_str: String = row.get(5)?;
-                Ok((id, name, content, agent_id, session_id, created_str))
+                let created_at = DateTime::parse_from_rfc3339(&created_str)
+                    .map(|d| d.with_timezone(&Utc))
+                    .unwrap_or_else(|_| Utc::now());
+                Ok(Idea {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    content: row.get(2)?,
+                    tags: Vec::new(),
+                    agent_id,
+                    session_id: row.get(4)?,
+                    created_at,
+                    score: 1.0,
+                    scope,
+                    inheritance: "self".to_string(),
+                    tool_allow: Vec::new(),
+                    tool_deny: Vec::new(),
+                    parent_idea_id: row.get(7)?,
+                    properties: props,
+                    kind: row.get(9)?,
+                    file_id: row.get(10)?,
+                })
             })?
             .filter_map(|r| r.ok())
-            .filter_map(|(id, name, content, agent_id, session_id, created_str)| {
-                let created_at = DateTime::parse_from_rfc3339(&created_str)
-                    .ok()?
-                    .with_timezone(&Utc);
-                Some(Idea::recalled(
-                    id,
-                    name,
-                    content,
-                    Vec::new(),
-                    agent_id,
-                    created_at,
-                    session_id,
-                    1.0,
-                ))
-            })
             .collect::<Vec<Idea>>();
         Self::enrich_tags(&conn, &mut entries);
         Ok(entries)
@@ -58,7 +77,8 @@ impl SqliteIdeas {
         }
         self.blocking(move |conn| {
             let mut stmt = conn.prepare(
-                "SELECT id, name, content, agent_id, session_id, created_at, scope, kind, file_id \
+                "SELECT id, name, content, agent_id, session_id, created_at, scope, \
+                        parent_idea_id, properties, kind, file_id \
                  FROM ideas \
                  WHERE agent_id IS NULL \
                  ORDER BY created_at DESC \
@@ -71,8 +91,17 @@ impl SqliteIdeas {
                         .map(|d| d.with_timezone(&Utc))
                         .unwrap_or_else(|_| Utc::now());
                     let agent_id: Option<String> = row.get(3)?;
-                    // These rows are always NULL agent_id by the WHERE clause.
-                    let scope = aeqi_core::Scope::Global;
+                    let scope = row
+                        .get::<_, String>(6)
+                        .ok()
+                        .and_then(|s| s.parse().ok())
+                        .unwrap_or(aeqi_core::Scope::Global);
+                    let props = row
+                        .get::<_, Option<String>>(8)
+                        .ok()
+                        .flatten()
+                        .as_deref()
+                        .and_then(|s| serde_json::from_str(s).ok());
                     Ok(Idea {
                         id: row.get(0)?,
                         name: row.get(1)?,
@@ -86,10 +115,10 @@ impl SqliteIdeas {
                         inheritance: "self".to_string(),
                         tool_allow: Vec::new(),
                         tool_deny: Vec::new(),
-                        parent_idea_id: None,
-                        properties: None,
-                        kind: row.get(7)?,
-                        file_id: row.get(8)?,
+                        parent_idea_id: row.get(7)?,
+                        properties: props,
+                        kind: row.get(9)?,
+                        file_id: row.get(10)?,
                     })
                 })?
                 .filter_map(|r| r.ok())
@@ -108,7 +137,8 @@ impl SqliteIdeas {
         self.blocking(move |conn| {
             let placeholders: Vec<String> = (0..ids.len()).map(|i| format!("?{}", i + 1)).collect();
             let sql = format!(
-                "SELECT id, name, content, agent_id, created_at, session_id, scope, kind, file_id
+                "SELECT id, name, content, agent_id, created_at, session_id, scope,
+                        parent_idea_id, properties, kind, file_id
                  FROM ideas WHERE id IN ({})",
                 placeholders.join(", ")
             );
@@ -131,6 +161,12 @@ impl SqliteIdeas {
                                 aeqi_core::Scope::SelfScope
                             }
                         });
+                    let props = row
+                        .get::<_, Option<String>>(8)
+                        .ok()
+                        .flatten()
+                        .as_deref()
+                        .and_then(|s| serde_json::from_str(s).ok());
                     Ok(Idea {
                         id: row.get(0)?,
                         name: row.get(1)?,
@@ -149,10 +185,10 @@ impl SqliteIdeas {
                         inheritance: "self".to_string(),
                         tool_allow: Vec::new(),
                         tool_deny: Vec::new(),
-                        parent_idea_id: None,
-                        properties: None,
-                        kind: row.get(7)?,
-                        file_id: row.get(8)?,
+                        parent_idea_id: row.get(7)?,
+                        properties: props,
+                        kind: row.get(9)?,
+                        file_id: row.get(10)?,
                     })
                 })?
                 .filter_map(|r| r.ok())
@@ -172,10 +208,12 @@ impl SqliteIdeas {
         let agent_id = agent_id.map(|s| s.to_string());
         self.blocking(move |conn| {
             let sql = if agent_id.is_some() {
-                "SELECT id, name, content, agent_id, created_at, session_id, scope, kind, file_id
+                "SELECT id, name, content, agent_id, created_at, session_id, scope,
+                        parent_idea_id, properties, kind, file_id
                  FROM ideas WHERE name = ?1 AND agent_id = ?2 LIMIT 1"
             } else {
-                "SELECT id, name, content, agent_id, created_at, session_id, scope, kind, file_id
+                "SELECT id, name, content, agent_id, created_at, session_id, scope,
+                        parent_idea_id, properties, kind, file_id
                  FROM ideas WHERE name = ?1 AND agent_id IS NULL LIMIT 1"
             };
             let mut stmt = conn.prepare(sql)?;
@@ -192,6 +230,12 @@ impl SqliteIdeas {
                             aeqi_core::Scope::SelfScope
                         }
                     });
+                let props = row
+                    .get::<_, Option<String>>(8)
+                    .ok()
+                    .flatten()
+                    .as_deref()
+                    .and_then(|s| serde_json::from_str(s).ok());
                 Ok(Idea {
                     id: row.get(0)?,
                     name: row.get(1)?,
@@ -210,10 +254,10 @@ impl SqliteIdeas {
                     inheritance: "self".to_string(),
                     tool_allow: Vec::new(),
                     tool_deny: Vec::new(),
-                    parent_idea_id: None,
-                    properties: None,
-                    kind: row.get(7)?,
-                    file_id: row.get(8)?,
+                    parent_idea_id: row.get(7)?,
+                    properties: props,
+                    kind: row.get(9)?,
+                    file_id: row.get(10)?,
                 })
             };
             let mut entries: Vec<Idea> = match agent_id.as_deref() {
@@ -409,7 +453,8 @@ impl SqliteIdeas {
         let pid = parent_id.to_string();
         self.blocking(move |conn| {
             let mut stmt = conn.prepare(
-                "SELECT id, name, content, agent_id, created_at, session_id, scope, properties, kind, file_id
+                "SELECT id, name, content, agent_id, created_at, session_id, scope,
+                        parent_idea_id, properties, kind, file_id
                  FROM ideas
                  WHERE parent_idea_id = ?1
                  ORDER BY created_at DESC",
@@ -429,7 +474,7 @@ impl SqliteIdeas {
                             }
                         });
                     let props = row
-                        .get::<_, Option<String>>(7)
+                        .get::<_, Option<String>>(8)
                         .ok()
                         .flatten()
                         .as_deref()
@@ -452,10 +497,10 @@ impl SqliteIdeas {
                         inheritance: "self".to_string(),
                         tool_allow: Vec::new(),
                         tool_deny: Vec::new(),
-                        parent_idea_id: None,
+                        parent_idea_id: row.get(7)?,
                         properties: props,
-                        kind: row.get(8)?,
-                        file_id: row.get(9)?,
+                        kind: row.get(9)?,
+                        file_id: row.get(10)?,
                     })
                 })?
                 .filter_map(|r| r.ok())

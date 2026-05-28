@@ -118,7 +118,7 @@ impl SqliteIdeas {
                 (0..tags.len()).map(|i| format!("?{}", i + 1)).collect();
             let sql = format!(
                 "SELECT DISTINCT i.id, i.name, i.content, i.agent_id, i.session_id, i.created_at, \
-                        i.scope, i.kind, i.file_id \
+                        i.scope, i.parent_idea_id, i.properties, i.kind, i.file_id \
                  FROM ideas i \
                  JOIN idea_tags t ON t.idea_id = i.id \
                  WHERE LOWER(t.tag) IN ({}) \
@@ -153,6 +153,12 @@ impl SqliteIdeas {
                                 aeqi_core::Scope::SelfScope
                             }
                         });
+                    let props = row
+                        .get::<_, Option<String>>(8)
+                        .ok()
+                        .flatten()
+                        .as_deref()
+                        .and_then(|s| serde_json::from_str(s).ok());
                     Ok(Idea {
                         id: row.get(0)?,
                         name: row.get(1)?,
@@ -166,10 +172,10 @@ impl SqliteIdeas {
                         inheritance: "self".to_string(),
                         tool_allow: Vec::new(),
                         tool_deny: Vec::new(),
-                        parent_idea_id: None,
-                        properties: None,
-                        kind: row.get(7)?,
-                        file_id: row.get(8)?,
+                        parent_idea_id: row.get(7)?,
+                        properties: props,
+                        kind: row.get(9)?,
+                        file_id: row.get(10)?,
                     })
                 })?
                 .filter_map(|r| r.ok())
