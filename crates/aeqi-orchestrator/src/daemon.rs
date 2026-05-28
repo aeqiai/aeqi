@@ -576,6 +576,13 @@ impl Daemon {
     /// IPC handlers (notably `channels.create`) and gateway spawners can
     /// route token reads / writes through the canonical store.
     pub fn set_credentials(&mut self, credentials: Arc<aeqi_core::credentials::CredentialStore>) {
+        if let Some(sm) = Arc::get_mut(&mut self.session_manager) {
+            sm.set_credentials(credentials.clone());
+        } else {
+            warn!(
+                "session_manager already shared — native runtime tools will not receive credential resolver"
+            );
+        }
         self.credentials = Some(credentials);
     }
 

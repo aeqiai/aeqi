@@ -561,6 +561,10 @@ pub struct Agent {
     /// is wired). Detectors do not author LLM-facing content — that is the
     /// event's job.
     pub(super) detectors: Vec<Arc<dyn crate::detector::PatternDetector>>,
+    /// Runtime substrate for LLM-invoked tools. This is separate from the
+    /// prompt-facing `execution_context` string below; it carries credentials,
+    /// tenant scope, and other non-forgeable values into tool execution.
+    pub(super) tool_execution_context: Option<crate::tool_registry::ExecutionContext>,
     /// Per-turn refresh context assembled from `session:execution_start`
     /// events. Injected as a system message AFTER the user message on every
     /// LLM request within this spawn. Set once per spawn — lifetime matches
@@ -605,6 +609,7 @@ impl Agent {
             cancel_token: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             pattern_dispatcher: None,
             detectors: Vec::new(),
+            tool_execution_context: None,
             execution_context: String::new(),
             pending_source: None,
             last_pending_id: None,
@@ -632,6 +637,15 @@ impl Agent {
         detectors: Vec<Arc<dyn crate::detector::PatternDetector>>,
     ) -> Self {
         self.detectors = detectors;
+        self
+    }
+
+    /// Attach non-prompt runtime context for tool execution.
+    pub fn with_tool_execution_context(
+        mut self,
+        ctx: crate::tool_registry::ExecutionContext,
+    ) -> Self {
+        self.tool_execution_context = Some(ctx);
         self
     }
 
@@ -741,11 +755,12 @@ impl Agent {
             for fired in patterns {
                 if let Some(ref dispatcher) = self.pattern_dispatcher {
                     use crate::tool_registry::ExecutionContext;
-                    let ectx = ExecutionContext {
-                        session_id: session_id.clone(),
-                        agent_id: agent_id.clone(),
-                        ..Default::default()
-                    };
+                    let mut ectx = self
+                        .tool_execution_context
+                        .clone()
+                        .unwrap_or_else(ExecutionContext::default);
+                    ectx.session_id = session_id.clone();
+                    ectx.agent_id = agent_id.clone();
                     dispatcher
                         .dispatch(&fired.pattern, &ectx, &fired.args)
                         .await;
@@ -781,11 +796,12 @@ impl Agent {
                 fired_patterns.push(fired.pattern.clone());
                 if let Some(ref dispatcher) = self.pattern_dispatcher {
                     use crate::tool_registry::ExecutionContext;
-                    let ectx = ExecutionContext {
-                        session_id: session_id.clone(),
-                        agent_id: agent_id.clone(),
-                        ..Default::default()
-                    };
+                    let mut ectx = self
+                        .tool_execution_context
+                        .clone()
+                        .unwrap_or_else(ExecutionContext::default);
+                    ectx.session_id = session_id.clone();
+                    ectx.agent_id = agent_id.clone();
                     dispatcher
                         .dispatch(&fired.pattern, &ectx, &fired.args)
                         .await;

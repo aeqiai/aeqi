@@ -99,6 +99,9 @@ impl Agent {
         let stream_handle = tokio::spawn(async move { provider.chat_stream(&req, tx).await });
 
         let mut executor = StreamingToolExecutor::new(self.tools.clone());
+        if let Some(ctx) = self.tool_execution_context.clone() {
+            executor = executor.with_execution_context(ctx);
+        }
         let mut response: Option<ChatResponse> = None;
         let mut halt_reason: Option<(String, Vec<ContentPart>)> = None;
         let mut tools_started = 0u32;

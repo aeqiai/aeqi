@@ -1266,15 +1266,11 @@ impl aeqi_core::tool_registry::PatternDispatcher for EventPatternDispatcher {
 
             // Enrich ctx with transcript_tail from trigger_args for {transcript_preview}
             // substitution in session.spawn and transcript.replace_middle args.
-            let enriched_ctx = aeqi_core::tool_registry::ExecutionContext {
-                session_id: ctx.session_id.clone(),
-                agent_id: ctx.agent_id.clone(),
-                transcript_tail: trigger_args
-                    .get("transcript_preview")
-                    .and_then(|v| v.as_str())
-                    .map(str::to_string),
-                ..Default::default()
-            };
+            let mut enriched_ctx = ctx.clone();
+            enriched_ctx.transcript_tail = trigger_args
+                .get("transcript_preview")
+                .and_then(|v| v.as_str())
+                .map(str::to_string);
 
             let dispatch = ToolDispatch {
                 registry: &self.registry,

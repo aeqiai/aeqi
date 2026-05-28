@@ -9,6 +9,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::task::JoinHandle;
 use tracing::debug;
 
+use crate::tool_registry::{ExecutionContext, execute_tool_with_context};
 use crate::traits::{Tool, ToolResult};
 
 /// Status of a tracked tool in the executor queue.
@@ -70,6 +71,7 @@ pub struct StreamingToolExecutor {
     queue: Vec<TrackedTool>,
     /// Shared flag — set when a tool errors, signals siblings to abort.
     sibling_errored: Arc<AtomicBool>,
+    execution_context: Option<ExecutionContext>,
 }
 
 impl StreamingToolExecutor {
@@ -78,7 +80,16 @@ impl StreamingToolExecutor {
             tools_defs: tools,
             queue: Vec::new(),
             sibling_errored: Arc::new(AtomicBool::new(false)),
+            execution_context: None,
         }
+    }
+
+    /// Attach runtime context for credential resolution and related tool
+    /// execution substrate. Tools that do not declare credentials run exactly
+    /// as before.
+    pub fn with_execution_context(mut self, ctx: ExecutionContext) -> Self {
+        self.execution_context = Some(ctx);
+        self
     }
 
     /// Add a tool to the execution queue. Starts executing immediately if concurrency allows.
@@ -153,12 +164,18 @@ impl StreamingToolExecutor {
             let sibling_errored = self.sibling_errored.clone();
             let tool_name = self.queue[i].name.clone();
             let cascades = self.queue[i].cascades_error;
+            let execution_context = self.execution_context.clone();
 
             let handle = tokio::spawn(async move {
                 if sibling_errored.load(Ordering::Acquire) {
                     return Err("Cancelled: sibling tool errored".to_string());
                 }
-                match tool_def.execute(input).await {
+                let result = if let Some(ctx) = execution_context.as_ref() {
+                    execute_tool_with_context(tool_def.as_ref(), &tool_name, input, ctx).await
+                } else {
+                    tool_def.execute(input).await
+                };
+                match result {
                     Ok(result) => {
                         if result.is_error && cascades {
                             sibling_errored.store(true, Ordering::Release);
@@ -321,6 +338,11 @@ impl StreamingToolExecutor {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::credentials::{
+        CredentialInsert, CredentialResolver, CredentialStore, ResolutionScope, ScopeHint,
+        ScopeKind, lifecycles::StaticSecretLifecycle,
+    };
+    use crate::tool_registry::ExecutionContext;
     use crate::traits::{ToolResult, ToolSpec};
     use async_trait::async_trait;
 
@@ -413,6 +435,49 @@ mod tests {
         }
     }
 
+    struct CredentialEchoTool;
+
+    #[async_trait]
+    impl Tool for CredentialEchoTool {
+        async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<ToolResult> {
+            Ok(ToolResult::error("credential substrate missing"))
+        }
+
+        fn spec(&self) -> ToolSpec {
+            ToolSpec {
+                name: "credential_echo".into(),
+                description: "test".into(),
+                input_schema: serde_json::json!({"type": "object"}),
+            }
+        }
+
+        fn name(&self) -> &str {
+            "credential_echo"
+        }
+
+        fn required_credentials(&self) -> Vec<crate::credentials::CredentialNeed> {
+            vec![crate::credentials::CredentialNeed::new(
+                "test_provider",
+                "token",
+                ScopeHint::Agent,
+            )]
+        }
+
+        async fn execute_with_credentials(
+            &self,
+            _args: serde_json::Value,
+            credentials: Vec<Option<crate::credentials::UsableCredential>>,
+        ) -> anyhow::Result<ToolResult> {
+            let bearer = credentials
+                .into_iter()
+                .next()
+                .flatten()
+                .and_then(|cred| cred.bearer)
+                .unwrap_or_else(|| "missing".to_string());
+            Ok(ToolResult::success(bearer))
+        }
+    }
+
     #[tokio::test]
     async fn test_single_tool_execution() {
         let tools: Vec<Arc<dyn Tool>> = vec![Arc::new(EchoTool {
@@ -431,6 +496,53 @@ mod tests {
         assert_eq!(results[0].id, "t1");
         assert_eq!(results[0].result.output, "echo:read");
         assert!(!results[0].result.is_error);
+    }
+
+    #[tokio::test]
+    async fn credential_tools_resolve_trust_scope_for_streaming_execution() {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        CredentialStore::initialize_schema(&conn).unwrap();
+        let store = CredentialStore::new(
+            Arc::new(std::sync::Mutex::new(conn)),
+            crate::credentials::CredentialCipher::ephemeral(),
+        );
+        store
+            .insert(CredentialInsert {
+                scope_kind: ScopeKind::Trust,
+                scope_id: "trust-1".to_string(),
+                provider: "test_provider".to_string(),
+                name: "token".to_string(),
+                lifecycle_kind: "static_secret".to_string(),
+                plaintext_blob: b"secret-from-trust".to_vec(),
+                metadata: serde_json::json!({}),
+                expires_at: None,
+            })
+            .await
+            .unwrap();
+
+        let resolver = CredentialResolver::new(store, vec![Arc::new(StaticSecretLifecycle)]);
+        let ctx = ExecutionContext {
+            session_id: "session-1".to_string(),
+            agent_id: "agent-1".to_string(),
+            credential_resolver: Some(resolver),
+            credential_scope: ResolutionScope {
+                agent_id: Some("agent-1".to_string()),
+                trust_id: Some("trust-1".to_string()),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let tools: Vec<Arc<dyn Tool>> = vec![Arc::new(CredentialEchoTool)];
+        let mut executor = StreamingToolExecutor::new(tools).with_execution_context(ctx);
+        executor
+            .add_tool("t1".into(), "credential_echo".into(), serde_json::json!({}))
+            .await;
+
+        let results = executor.finish_all().await;
+        assert_eq!(results.len(), 1);
+        assert!(!results[0].result.is_error);
+        assert_eq!(results[0].result.output, "secret-from-trust");
     }
 
     #[tokio::test]

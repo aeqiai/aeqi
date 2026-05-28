@@ -152,12 +152,102 @@ impl ExecutionContext {
     }
 }
 
+/// Execute a tool with the same credential semantics used by the registry.
+///
+/// The LLM streaming path does not dispatch through [`ToolRegistry::invoke`],
+/// but credential-backed tools still need the resolver, scope fallback order,
+/// and refresh-on-auth-expired retry. Keeping that behavior here prevents the
+/// event path and LLM path from drifting.
+pub async fn execute_tool_with_context(
+    tool: &dyn Tool,
+    tool_name: &str,
+    args: serde_json::Value,
+    ctx: &ExecutionContext,
+) -> Result<ToolResult> {
+    let needs = tool.required_credentials();
+    if needs.is_empty() {
+        return tool.execute(args).await;
+    }
+
+    let resolver = match ctx.credential_resolver.as_ref() {
+        Some(r) => r,
+        None => {
+            let none_vec = needs.iter().map(|_| None).collect::<Vec<_>>();
+            return tool.execute_with_credentials(args, none_vec).await;
+        }
+    };
+
+    let mut scope = ctx.credential_scope.clone();
+    if scope.agent_id.is_none() && !ctx.agent_id.is_empty() {
+        scope.agent_id = Some(ctx.agent_id.clone());
+    }
+
+    let mut resolved: Vec<Option<crate::credentials::UsableCredential>> =
+        Vec::with_capacity(needs.len());
+    for need in &needs {
+        match resolver.resolve(need, &scope).await {
+            Ok(opt) => resolved.push(opt),
+            Err(e) => {
+                warn!(
+                    tool = %tool_name,
+                    provider = need.provider,
+                    name = need.name,
+                    code = %e.code,
+                    "credential resolution failed",
+                );
+                return Ok(ToolResult::error(format!(
+                    "{}: {} (provider={} name={})",
+                    e.code, e.message, need.provider, need.name
+                )));
+            }
+        }
+    }
+
+    let result = tool
+        .execute_with_credentials(args.clone(), resolved.clone())
+        .await?;
+
+    if result.is_error
+        && result.data.get("reason_code").and_then(|v| v.as_str()) == Some("auth_expired")
+        && let Some(credential_id) = result.data.get("credential_id").and_then(|v| v.as_str())
+    {
+        let refreshed = match resolver.refresh_by_id(credential_id).await {
+            Ok(c) => c,
+            Err(e) => {
+                warn!(
+                    tool = %tool_name,
+                    credential_id,
+                    code = %e.code,
+                    "refresh-on-401 failed",
+                );
+                return Ok(ToolResult::error(format!(
+                    "{}: {} (credential_id={credential_id})",
+                    e.code, e.message
+                )));
+            }
+        };
+        for slot in resolved.iter_mut() {
+            if slot
+                .as_ref()
+                .map(|c| c.id == credential_id)
+                .unwrap_or(false)
+            {
+                *slot = Some(refreshed.clone());
+            }
+        }
+        return tool.execute_with_credentials(args, resolved).await;
+    }
+
+    Ok(result)
+}
+
 /// A registry that maps tool names to `Arc<dyn Tool>` implementations and
 /// enforces per-tool caller ACLs.
 ///
 /// All tools that need to be callable from events or the LLM are registered
-/// here. The LLM dispatch path (StreamingToolExecutor) uses `get()` + direct
-/// execute; the event dispatch path uses `invoke()` which checks ACLs first.
+/// here. The LLM dispatch path uses `StreamingToolExecutor`; the event dispatch
+/// path uses `invoke()` which checks ACLs first. Both paths share credential
+/// resolution through [`execute_tool_with_context`].
 pub struct ToolRegistry {
     tools: HashMap<String, Arc<dyn Tool>>,
     /// Tools that can only be called by the LLM, not by events or the runtime.
@@ -274,96 +364,7 @@ impl ToolRegistry {
             .get(tool_name)
             .ok_or_else(|| anyhow::anyhow!("unknown tool: {tool_name}"))?;
 
-        let needs = tool.required_credentials();
-        if needs.is_empty() {
-            let result = tool.execute(args).await?;
-            return Ok(self.maybe_truncate_result(tool.as_ref(), result));
-        }
-
-        let resolver = match ctx.credential_resolver.as_ref() {
-            Some(r) => r,
-            None => {
-                // No resolver wired — tools that declared credentials get
-                // a vector of `None`s. Required-but-absent treatment is up
-                // to the tool's `execute_with_credentials`.
-                let none_vec = needs.iter().map(|_| None).collect::<Vec<_>>();
-                let result = tool.execute_with_credentials(args, none_vec).await?;
-                return Ok(self.maybe_truncate_result(tool.as_ref(), result));
-            }
-        };
-
-        // Build the resolution scope from ctx (agent_id usually present;
-        // trust/user/channel/installation come from ctx.credential_scope).
-        let mut scope = ctx.credential_scope.clone();
-        if scope.agent_id.is_none() && !ctx.agent_id.is_empty() {
-            scope.agent_id = Some(ctx.agent_id.clone());
-        }
-
-        let mut resolved: Vec<Option<crate::credentials::UsableCredential>> =
-            Vec::with_capacity(needs.len());
-        for need in &needs {
-            match resolver.resolve(need, &scope).await {
-                Ok(opt) => resolved.push(opt),
-                Err(e) => {
-                    warn!(
-                        tool = %tool_name,
-                        provider = need.provider,
-                        name = need.name,
-                        code = %e.code,
-                        "credential resolution failed",
-                    );
-                    return Ok(ToolResult::error(format!(
-                        "{}: {} (provider={} name={})",
-                        e.code, e.message, need.provider, need.name
-                    )));
-                }
-            }
-        }
-
-        let result = tool
-            .execute_with_credentials(args.clone(), resolved.clone())
-            .await?;
-
-        // Refresh-on-401 retry: a tool that hit a 401 from the upstream
-        // provider returns `is_error=true` with `data = {"reason_code":
-        // "auth_expired", "credential_id": "..."}`. The registry refreshes
-        // the offending credential and re-invokes the tool exactly once.
-        // If the second attempt also returns `auth_expired` we surface the
-        // result verbatim — the framework guarantees at-most-one retry.
-        if result.is_error
-            && result.data.get("reason_code").and_then(|v| v.as_str()) == Some("auth_expired")
-            && let Some(credential_id) = result.data.get("credential_id").and_then(|v| v.as_str())
-        {
-            let refreshed = match resolver.refresh_by_id(credential_id).await {
-                Ok(c) => c,
-                Err(e) => {
-                    warn!(
-                        tool = %tool_name,
-                        credential_id,
-                        code = %e.code,
-                        "refresh-on-401 failed",
-                    );
-                    return Ok(ToolResult::error(format!(
-                        "{}: {} (credential_id={credential_id})",
-                        e.code, e.message
-                    )));
-                }
-            };
-            // Replace the matching slot in `resolved` with the freshly-minted
-            // credential. We match by id so multi-credential tools retry only
-            // the slot that 401'd.
-            for slot in resolved.iter_mut() {
-                if slot
-                    .as_ref()
-                    .map(|c| c.id == credential_id)
-                    .unwrap_or(false)
-                {
-                    *slot = Some(refreshed.clone());
-                }
-            }
-            let retried = tool.execute_with_credentials(args, resolved).await?;
-            return Ok(self.maybe_truncate_result(tool.as_ref(), retried));
-        }
+        let result = execute_tool_with_context(tool.as_ref(), tool_name, args, ctx).await?;
 
         Ok(self.maybe_truncate_result(tool.as_ref(), result))
     }

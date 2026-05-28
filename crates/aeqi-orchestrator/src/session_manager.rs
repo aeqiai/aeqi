@@ -16,6 +16,13 @@ use tracing::{debug, info, warn};
 
 use aeqi_core::AgentResult;
 use aeqi_core::chat_stream::{ChatStreamEvent, ChatStreamSender};
+use aeqi_core::credentials::{
+    CredentialLifecycle, CredentialResolver, CredentialStore, ResolutionScope,
+    lifecycles::{
+        DeviceSessionLifecycle, GithubAppLifecycle, OAuth2Lifecycle, ServiceAccountLifecycle,
+        StaticSecretLifecycle,
+    },
+};
 use aeqi_core::tool_registry::{ExecutionContext, ToolRegistry};
 use aeqi_core::traits::{IdeaStore, Provider};
 
@@ -112,6 +119,30 @@ fn warn_on_provider_hint_mismatch(
             "compactor_provider hint differs from active provider; \
              runtime has no provider factory — spawn proceeds on the active provider"
         );
+    }
+}
+
+fn build_credential_resolver(store: CredentialStore) -> CredentialResolver {
+    let lifecycles: Vec<Arc<dyn CredentialLifecycle>> = vec![
+        Arc::new(StaticSecretLifecycle),
+        Arc::new(OAuth2Lifecycle),
+        Arc::new(DeviceSessionLifecycle),
+        Arc::new(GithubAppLifecycle),
+        Arc::new(ServiceAccountLifecycle),
+    ];
+    CredentialResolver::new(store, lifecycles)
+}
+
+fn session_credential_scope(
+    agent_id: Option<String>,
+    trust_id: Option<String>,
+    opts: &SpawnOptions,
+) -> ResolutionScope {
+    ResolutionScope {
+        trust_id,
+        agent_id,
+        user_id: opts.from_id.clone().or_else(|| opts.sender_id.clone()),
+        ..Default::default()
     }
 }
 
@@ -370,6 +401,8 @@ pub struct SessionManager {
     /// — so a `tools/list_changed` notification or a server reconnect
     /// surfaces in subsequent sessions without restarting the daemon.
     mcp_registry: Option<Arc<aeqi_mcp::McpRegistry>>,
+    /// Credential resolver shared by native runtime tools.
+    credential_resolver: Option<CredentialResolver>,
     /// (T1.11) Optional tag-policy cache. When set, idea assembly decorates
     /// segments whose tag-policy votes `cache_breakpoint=true` with an
     /// `Ephemeral` cache marker so the Anthropic provider can apply
@@ -400,6 +433,7 @@ impl SessionManager {
             data_dir: None,
             default_provider: None,
             mcp_registry: None,
+            credential_resolver: None,
             tag_policy_cache: None,
             compactor_cooldown: Arc::new(crate::idea_assembly::CompactorCooldown::new()),
         }
@@ -420,6 +454,10 @@ impl SessionManager {
     /// any non-empty entries.
     pub fn set_mcp_registry(&mut self, registry: Arc<aeqi_mcp::McpRegistry>) {
         self.mcp_registry = Some(registry);
+    }
+
+    pub fn set_credentials(&mut self, credentials: Arc<CredentialStore>) {
+        self.credential_resolver = Some(build_credential_resolver(credentials.as_ref().clone()));
     }
 
     /// Acquire (or create) the per-session execution lock handle. Callers
@@ -607,6 +645,13 @@ impl SessionManager {
             .session_id
             .clone()
             .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+        let agent_trust_id = agent_opt.as_ref().and_then(|a| a.trust_id.clone());
+        let credential_scope =
+            session_credential_scope(agent_uuid.clone(), agent_trust_id.clone(), &opts);
+        let agent_tool_deny = agent_opt
+            .as_ref()
+            .map(|a| a.tool_deny.clone())
+            .unwrap_or_default();
 
         // Acquire the per-session execution lock before doing any state-dependent
         // work (history load, agent construction, run). Two rapid-fire spawn_session
@@ -740,6 +785,9 @@ impl SessionManager {
             let exec_ctx = ExecutionContext {
                 session_id: String::new(), // filled in after DB create
                 agent_id: id.clone(),
+                tool_deny: agent_tool_deny.clone(),
+                credential_resolver: self.credential_resolver.clone(),
+                credential_scope: credential_scope.clone(),
                 ..Default::default()
             };
             let dispatch = ToolDispatch {
@@ -904,6 +952,16 @@ impl SessionManager {
         } else {
             let (s, _initial_rx) = ChatStreamSender::new(256);
             s
+        };
+        let tool_execution_context = ExecutionContext {
+            session_id: pregenerated_session_id.clone(),
+            agent_id: agent_uuid.clone().unwrap_or_else(|| agent_name.clone()),
+            user_input: Some(input.to_string()),
+            tool_deny: agent_tool_deny.clone(),
+            chat_stream: Some(stream_sender.clone()),
+            credential_resolver: self.credential_resolver.clone(),
+            credential_scope: credential_scope.clone(),
+            ..Default::default()
         };
 
         // 4. Build tools.
@@ -1129,6 +1187,8 @@ impl SessionManager {
             // the owning user at execution time.
             let entity_id_for_ask = agent_opt.as_ref().and_then(|a| a.trust_id.clone());
             let agent_registry_for_ask = agent_registry.clone();
+            let credential_resolver_for_ask = self.credential_resolver.clone();
+            let credential_scope_for_ask = credential_scope.clone();
             let ask_fn: crate::runtime_tools::AskFn =
                 Arc::new(move |req: crate::runtime_tools::AskRequest| {
                     let ss = ss.clone();
@@ -1139,6 +1199,8 @@ impl SessionManager {
                     let agent_name = agent_name_for_ask.clone();
                     let trust_id = entity_id_for_ask.clone();
                     let agent_registry = agent_registry_for_ask.clone();
+                    let credential_resolver = credential_resolver_for_ask.clone();
+                    let credential_scope = credential_scope_for_ask.clone();
                     Box::pin(async move {
                         // 1. Resolve the owning user for this agent's entity.
                         //    Fall back to a plain transcript record on the current
@@ -1255,6 +1317,8 @@ impl SessionManager {
                             let ctx = aeqi_core::tool_registry::ExecutionContext {
                                 session_id: inbox_session_id.clone(),
                                 agent_id: agent_id.clone(),
+                                credential_resolver,
+                                credential_scope,
                                 ..Default::default()
                             };
                             tokio::spawn(async move {
@@ -1539,6 +1603,7 @@ impl SessionManager {
                 .with_chat_stream(stream_sender.clone())
                 .with_step_ideas(step_idea_specs)
                 .with_step_events(step_event_metas)
+                .with_tool_execution_context(tool_execution_context.clone())
                 .with_execution_context(execution_context)
                 .with_system_prompt_segments(system_prompt_segments);
 
