@@ -8,12 +8,17 @@ import { useNav } from "@/hooks/useNav";
 import { asStringArray, parseFrontmatter } from "@/lib/frontmatter";
 import type { Idea, ScopeValue } from "@/lib/types";
 import { useAgentIdeasCache } from "@/queries/ideas";
-import { Button, Icon, Tooltip, Loading } from "../ui";
+import { Badge, Button, Icon, Tooltip, Loading } from "../ui";
 import IdeaWorkspaceInspector from "./IdeaWorkspaceInspector";
 import IdeasToolbar from "./IdeasToolbar";
 import type { IdeasView } from "./IdeasViewPopover";
 import { importIdeaProperties, importIdeaScope, isMarkdownFile } from "./ideaImport";
-import { buildWorkspaceTree, flattenIdeaTree, type IdeaTreeNode } from "./ideaTree";
+import {
+  buildIdeaWikiStructure,
+  buildWorkspaceTree,
+  flattenIdeaTree,
+  type IdeaTreeNode,
+} from "./ideaTree";
 import { type FilterState, type IdeasFilter, matchRank } from "./types";
 
 export interface IdeasWorkspaceViewProps {
@@ -133,6 +138,10 @@ export default function IdeasWorkspaceView({
     if (!rootIdea) return [];
     return flattenIdeaTree([buildWorkspaceTree(rootIdea, ranked)], expandedIdeas);
   }, [rootIdea, ranked, expandedIdeas]);
+  const wikiStructure = useMemo(
+    () => (rootIdea ? buildIdeaWikiStructure(rootIdea, ranked) : null),
+    [rootIdea, ranked],
+  );
 
   const selectedTreeId = activeIdea?.id ?? null;
   const noMatchName = filter.search.trim();
@@ -344,6 +353,49 @@ export default function IdeasWorkspaceView({
             <span>Workspace</span>
             <small>{Math.max(0, ideas.length - (rootIdea ? 1 : 0))} ideas</small>
           </div>
+          {wikiStructure && (
+            <div className="ideas-workspace-structure" aria-label="Wiki structure">
+              <div className="ideas-workspace-structure-status">
+                <Badge variant={wikiStructure.tone} size="sm" dot>
+                  {wikiStructure.label}
+                </Badge>
+                <span>{wikiStructure.indexPages} index pages</span>
+              </div>
+              <dl className="ideas-workspace-structure-metrics">
+                <div>
+                  <dt>Depth</dt>
+                  <dd>{wikiStructure.maxDepth}</dd>
+                </div>
+                <div>
+                  <dt>Root</dt>
+                  <dd>{wikiStructure.rootChildren}</dd>
+                </div>
+                <div>
+                  <dt>Leaves</dt>
+                  <dd>{wikiStructure.leafPages}</dd>
+                </div>
+                <div>
+                  <dt>Unfiled</dt>
+                  <dd>{wikiStructure.unfiled}</dd>
+                </div>
+              </dl>
+              {wikiStructure.clusters.length > 0 && (
+                <div className="ideas-workspace-structure-clusters" aria-label="Wiki clusters">
+                  {wikiStructure.clusters.map((cluster) => (
+                    <button
+                      key={cluster.tag}
+                      type="button"
+                      onClick={() => onFilter({ tags: [cluster.tag] })}
+                      title={`${cluster.count} root pages tagged ${cluster.tag}`}
+                    >
+                      #{cluster.tag}
+                      <small>{cluster.count}</small>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           {preparingRoot ? (
             <div className="ideas-workspace-loading">
               <Loading size="sm" />

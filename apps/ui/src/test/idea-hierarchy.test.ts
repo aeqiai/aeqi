@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Idea } from "@/lib/types";
 import {
+  buildIdeaWikiStructure,
   buildWorkspaceTree,
   findTrustRootIdea,
   isTrustRootIdea,
@@ -89,5 +90,46 @@ describe("idea hierarchy helpers", () => {
     expect(tree.idea.id).toBe("trust-root");
     expect(tree.children.map((child) => child.idea.id)).toEqual(["docs", "orphan"]);
     expect(orphan.parent_idea_id).toBe("missing-parent");
+  });
+
+  it("summarizes wiki structure depth, indexes, and flat root rows", () => {
+    const root = {
+      ...idea("trust-root", "Acme"),
+      properties: trustRootProperties("trust-1"),
+    };
+    const docs = idea("docs", "Docs", "trust-root");
+    const onboarding = idea("onboarding", "Onboarding", "docs");
+    const faq = idea("faq", "FAQ", "docs");
+    const quests = { ...idea("quests", "Quest notes"), tags: ["quests"] };
+    const questLog = { ...idea("quest-log", "Quest log"), tags: ["quests"] };
+
+    const structure = buildIdeaWikiStructure(root, [root, docs, onboarding, faq, quests, questLog]);
+
+    expect(structure.totalIdeas).toBe(5);
+    expect(structure.maxDepth).toBe(2);
+    expect(structure.indexPages).toBe(1);
+    expect(structure.leafPages).toBe(4);
+    expect(structure.rootChildren).toBe(3);
+    expect(structure.unfiled).toBe(2);
+    expect(structure.label).toBe("Emerging wiki");
+    expect(structure.clusters).toEqual([{ tag: "quests", count: 2 }]);
+  });
+
+  it("calls out a one-level idea pile as a flat wiki", () => {
+    const root = {
+      ...idea("trust-root", "Acme"),
+      properties: trustRootProperties("trust-1"),
+    };
+
+    const structure = buildIdeaWikiStructure(root, [
+      root,
+      idea("one", "One", "trust-root"),
+      idea("two", "Two", "trust-root"),
+    ]);
+
+    expect(structure.maxDepth).toBe(1);
+    expect(structure.indexPages).toBe(0);
+    expect(structure.label).toBe("Flat wiki");
+    expect(structure.tone).toBe("warning");
   });
 });

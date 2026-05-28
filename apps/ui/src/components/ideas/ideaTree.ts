@@ -10,6 +10,23 @@ export interface IdeaTreeRow {
   depth: number;
 }
 
+export interface IdeaWikiCluster {
+  tag: string;
+  count: number;
+}
+
+export interface IdeaWikiStructure {
+  totalIdeas: number;
+  rootChildren: number;
+  indexPages: number;
+  leafPages: number;
+  maxDepth: number;
+  unfiled: number;
+  label: "Empty wiki" | "Flat wiki" | "Emerging wiki" | "Layered wiki";
+  tone: "neutral" | "warning" | "info" | "success";
+  clusters: IdeaWikiCluster[];
+}
+
 export const TRUST_ROOT_KIND = "trust_root";
 export const TRUST_ROOT_PROPERTY = "aeqi_trust_root";
 export const TRUST_ID_PROPERTY = "aeqi_trust_id";
@@ -74,6 +91,76 @@ export function buildWorkspaceTree(root: Idea, ideas: Idea[]): IdeaTreeNode {
   ];
   const [treeRoot] = buildIdeaTree(workspaceIdeas);
   return treeRoot ?? { idea: root, children: [] };
+}
+
+export function buildIdeaWikiStructure(root: Idea, ideas: Idea[]): IdeaWikiStructure {
+  const visible = ideas.filter((idea) => idea.id !== root.id && !isTrustRootIdea(idea));
+  const visibleIds = new Set(visible.map((idea) => idea.id));
+  const tree = buildWorkspaceTree(root, ideas);
+  let maxDepth = 0;
+  let indexPages = 0;
+  let leafPages = 0;
+
+  const walk = (node: IdeaTreeNode, depth: number) => {
+    if (node.idea.id !== root.id) {
+      maxDepth = Math.max(maxDepth, depth);
+      if (node.children.length > 0) indexPages += 1;
+      else leafPages += 1;
+    }
+    for (const child of node.children) walk(child, depth + 1);
+  };
+  walk(tree, 0);
+
+  const unfiled = visible.filter((idea) => {
+    const parentId = idea.parent_idea_id || null;
+    return parentId == null || (parentId !== root.id && !visibleIds.has(parentId));
+  }).length;
+
+  const tagCounts = new Map<string, number>();
+  for (const child of tree.children) {
+    if (child.children.length > 0) continue;
+    for (const tag of child.idea.tags ?? []) {
+      const normalized = tag.trim().toLowerCase();
+      if (!normalized) continue;
+      tagCounts.set(normalized, (tagCounts.get(normalized) ?? 0) + 1);
+    }
+  }
+
+  const clusters = [...tagCounts.entries()]
+    .filter(([, count]) => count > 1)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 4)
+    .map(([tag, count]) => ({ tag, count }));
+
+  const totalIdeas = visible.length;
+  const label =
+    totalIdeas === 0
+      ? "Empty wiki"
+      : maxDepth <= 1
+        ? "Flat wiki"
+        : maxDepth <= 2 || indexPages < 3
+          ? "Emerging wiki"
+          : "Layered wiki";
+  const tone =
+    label === "Layered wiki"
+      ? "success"
+      : label === "Emerging wiki"
+        ? "info"
+        : label === "Flat wiki"
+          ? "warning"
+          : "neutral";
+
+  return {
+    totalIdeas,
+    rootChildren: tree.children.length,
+    indexPages,
+    leafPages,
+    maxDepth,
+    unfiled,
+    label,
+    tone,
+    clusters,
+  };
 }
 
 export function flattenIdeaTree(
