@@ -1,4 +1,4 @@
-import { useMemo, useState, memo } from "react";
+import { useId, useMemo, useState, memo } from "react";
 import { Link } from "react-router-dom";
 import { AlertTriangle, CheckCircle2, CircleDot, CirclePlus, ExternalLink } from "lucide-react";
 import { IconButton, Tooltip } from "@/components/ui";
@@ -84,6 +84,7 @@ function CollapsedTrail({
   failed: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const detailId = useId();
   const label = duration
     ? `Thought for ${duration}`
     : stepCount > 0
@@ -99,6 +100,8 @@ function CollapsedTrail({
         className="asv-trail-toggle"
         onClick={() => setExpanded((e) => !e)}
         aria-expanded={expanded}
+        aria-controls={detailId}
+        aria-label={`${expanded ? "Collapse" : "Expand"} agent thinking trail`}
       >
         <span className="asv-trail-chevron" aria-hidden="true">
           {"▸"}
@@ -106,7 +109,7 @@ function CollapsedTrail({
         <span className="asv-trail-summary">{label}</span>
       </button>
       {expanded && (
-        <div className="asv-trail-detail">
+        <div id={detailId} className="asv-trail-detail">
           <SegmentRenderer segments={trail} />
         </div>
       )}

@@ -293,7 +293,14 @@ For route-level UI visual QA:
 
 ```bash
 npm run visual:route -- --url /admin --expect-text "Admin"
+npm run visual:route -- --url /trust/$AEQI_ENTITY/inbox --require-auth --entity "$AEQI_ENTITY" --expect-text Inbox
+npm run visual:route -- --url /login --no-auth --expect-text "Continue with email"
 ```
+
+Protected route captures accept `AEQI_TOKEN`, `AEQI_EMAIL` + `AEQI_PASSWORD`,
+`AEQI_WEB_SECRET` minting vars, `--storage-state`, or `--auth-env <path>`.
+With `--require-auth`, redirects back to `/login`, `/signup`, or `/welcome`
+fail the report.
 
 For local worktree/deploy triage:
 

@@ -4,7 +4,7 @@
  *
  * This composes scripts/visual-route.mjs across the routes most likely to
  * appear in a launch or fundraising demo. Secrets are never loaded here:
- * callers provide AEQI_TOKEN, or AEQI_WEB_SECRET + AEQI_USER_ID + AEQI_EMAIL.
+ * callers provide auth env accepted by scripts/visual-route.mjs.
  */
 
 import fs from "node:fs";
@@ -26,12 +26,16 @@ Options:
   --out-dir <dir>      Artifact directory. Default: /tmp/aeqi-launch-smoke-<timestamp>
   --viewport <WxH>     Browser viewport. Default: ${DEFAULT_VIEWPORT}
   --wait-ms <ms>       Visual-route settle wait. Default: ${DEFAULT_WAIT_MS}
+  --storage-state <p>  Playwright storage state with a logged-in app session.
+  --auth-env <path>    Load auth env vars before protected route checks.
   --public-only        Run only unauthenticated checks.
   --help               Show this help.
 
 Auth:
-  Protected route checks require either AEQI_TOKEN, or AEQI_WEB_SECRET plus
-  AEQI_USER_ID and AEQI_EMAIL. The script passes those through to visual-route.`);
+  Protected route checks require AEQI_TOKEN, AEQI_EMAIL + AEQI_PASSWORD,
+  AEQI_WEB_SECRET + AEQI_USER_ID + AEQI_EMAIL, --storage-state, or --auth-env.
+  The script passes those through to visual-route, which fails if a protected
+  route redirects to login.`);
 }
 
 function parseArgs(argv) {
@@ -49,7 +53,8 @@ function parseArgs(argv) {
     if (arg.startsWith("--")) {
       const key = arg.slice(2);
       const value = argv[i + 1];
-      if (!value || value.startsWith("--")) throw new Error(`${arg} requires a value`);
+      if (!value || value.startsWith("--"))
+        throw new Error(`${arg} requires a value`);
       args[key] = value;
       i += 1;
       continue;
@@ -69,7 +74,12 @@ function slug(value) {
 
 function hasAuthEnv() {
   if (process.env.AEQI_TOKEN) return true;
-  return Boolean(process.env.AEQI_WEB_SECRET && process.env.AEQI_USER_ID && process.env.AEQI_EMAIL);
+  if (process.env.AEQI_EMAIL && process.env.AEQI_PASSWORD) return true;
+  return Boolean(
+    process.env.AEQI_WEB_SECRET &&
+    process.env.AEQI_USER_ID &&
+    process.env.AEQI_EMAIL,
+  );
 }
 
 function visualRouteArgs(check, opts) {
@@ -94,6 +104,9 @@ function visualRouteArgs(check, opts) {
   ];
   if (check.auth) args.push("--require-auth");
   else args.push("--no-auth");
+  if (check.auth && opts.storageState)
+    args.push("--storage-state", opts.storageState);
+  if (check.auth && opts.authEnv) args.push("--auth-env", opts.authEnv);
   if (opts.trustId && check.auth) args.push("--entity", opts.trustId);
   for (const text of check.expectText) args.push("--expect-text", text);
   return { args, report };
@@ -160,19 +173,29 @@ function main() {
   const opts = {
     baseUrl: args.base ?? DEFAULT_BASE_URL,
     trustId: args.trust ?? process.env.AEQI_ENTITY ?? null,
-    outDir: args["out-dir"] ?? path.join("/tmp", `aeqi-launch-smoke-${timestamp()}`),
+    outDir:
+      args["out-dir"] ?? path.join("/tmp", `aeqi-launch-smoke-${timestamp()}`),
     viewport: args.viewport ?? DEFAULT_VIEWPORT,
     waitMs: args["wait-ms"] ?? DEFAULT_WAIT_MS,
+    storageState: args["storage-state"] ?? null,
+    authEnv: args["auth-env"] ?? process.env.AEQI_VISUAL_AUTH_ENV ?? null,
     publicOnly: Boolean(args.publicOnly),
   };
 
-  if (!opts.publicOnly && !hasAuthEnv()) {
+  if (
+    !opts.publicOnly &&
+    !opts.storageState &&
+    !opts.authEnv &&
+    !hasAuthEnv()
+  ) {
     throw new Error(
-      "Authenticated launch smoke requires AEQI_TOKEN, or AEQI_WEB_SECRET + AEQI_USER_ID + AEQI_EMAIL. Use --public-only for the unauthenticated check.",
+      "Authenticated launch smoke requires AEQI_TOKEN, AEQI_EMAIL + AEQI_PASSWORD, AEQI_WEB_SECRET + AEQI_USER_ID + AEQI_EMAIL, --storage-state, or --auth-env. Use --public-only for the unauthenticated check.",
     );
   }
   if (!opts.publicOnly && !opts.trustId) {
-    throw new Error("Authenticated launch smoke requires --trust or AEQI_ENTITY.");
+    throw new Error(
+      "Authenticated launch smoke requires --trust or AEQI_ENTITY.",
+    );
   }
 
   fs.mkdirSync(opts.outDir, { recursive: true });

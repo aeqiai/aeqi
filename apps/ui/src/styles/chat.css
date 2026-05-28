@@ -983,6 +983,10 @@
 .asv-tools-toggle:hover {
   color: var(--color-text-secondary);
 }
+.asv-tools-toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
 
 .asv-tools-chevron {
   font-size: 8px;
@@ -1101,13 +1105,22 @@
   margin-top: var(--space-0);
 }
 .session-tool-expand {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
   cursor: pointer;
+  font: inherit;
   color: var(--color-text-secondary);
   margin-left: var(--space-1);
   font-weight: 500;
 }
 .session-tool-expand:hover {
   color: var(--color-text-primary);
+}
+.session-tool-expand:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 /* ── Live tool panel (during streaming) ── */
@@ -1172,6 +1185,10 @@
 .asv-trail-toggle:hover {
   background: var(--color-card-subtle);
   color: var(--color-text-primary);
+}
+.asv-trail-toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 .asv-trail-chevron {
   display: inline-block;
@@ -1455,6 +1472,7 @@
   align-items: center;
   gap: 5px;
   padding: 2px 6px;
+  border: 1px solid transparent;
   border-radius: var(--radius-xs);
   background: var(--bg-subtle);
   color: var(--color-text-muted);
@@ -1465,6 +1483,10 @@
 .asv-tool-summarized-header:hover {
   color: var(--color-text-secondary);
   border-color: var(--border-hover);
+}
+.asv-tool-summarized-header:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 .asv-tool-summarized-dot {
   width: 5px;

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useId, useState, useEffect } from "react";
 import { ThinkingDot } from "@/components/ui";
 import { SegmentRenderer } from "./SegmentRenderer";
 import {
@@ -50,6 +50,7 @@ function LiveTrail({
   stepOffset: number;
 }) {
   const [expanded, setExpanded] = useState(true);
+  const detailId = useId();
   const stepCount = countStepSegments(trail);
   const isContinuation = stepOffset > 0;
   return (
@@ -59,6 +60,8 @@ function LiveTrail({
         className="asv-trail-toggle"
         onClick={() => setExpanded((e) => !e)}
         aria-expanded={expanded}
+        aria-controls={detailId}
+        aria-label={`${expanded ? "Collapse" : "Expand"} live agent thinking trail`}
       >
         <span className="asv-trail-chevron" aria-hidden="true">
           {"▸"}
@@ -79,7 +82,7 @@ function LiveTrail({
         </span>
       </button>
       {expanded && (
-        <div className="asv-trail-detail">
+        <div id={detailId} className="asv-trail-detail">
           {trail.length > 0 && <SegmentRenderer segments={trail} live />}
           {showThinking && <ThinkingStatus toolName={runningToolName} />}
         </div>

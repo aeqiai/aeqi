@@ -1603,6 +1603,7 @@
 }
 .sessions-rail-row:focus-visible {
   outline: none;
+  box-shadow: var(--focus-ring);
 }
 .sessions-rail-row.active {
   background: var(--state-selected);
@@ -1637,12 +1638,19 @@
 .sessions-rail--card .sessions-rail-row:focus-visible {
   background: var(--color-card-subtle);
   border-color: var(--border-faint);
-  box-shadow: none;
 }
 .sessions-rail--card .sessions-rail-row.active {
   background: var(--bg-row);
   border-color: var(--border-hover);
   box-shadow: inset 0 0 0 1px var(--accent-dim);
+}
+.sessions-rail--card .sessions-rail-row:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+.sessions-rail--card .sessions-rail-row.active:focus-visible {
+  box-shadow:
+    inset 0 0 0 1px var(--accent-dim),
+    var(--focus-ring);
 }
 
 .sessions-rail--card.sessions-rail--recessed .sessions-rail-row {
@@ -1662,6 +1670,16 @@
   background: var(--color-card-elevated);
   border-color: var(--border-hover);
   box-shadow: inset 0 0 0 1px var(--accent-dim);
+}
+
+.sessions-rail--card.sessions-rail--recessed .sessions-rail-row:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+.sessions-rail--card.sessions-rail--recessed .sessions-rail-row.active:focus-visible {
+  box-shadow:
+    inset 0 0 0 1px var(--accent-dim),
+    var(--focus-ring);
 }
 
 .sessions-rail--recessed .sessions-rail-empty {

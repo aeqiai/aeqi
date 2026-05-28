@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { useNav } from "@/hooks/useNav";
 import { useAgentIdeas } from "@/queries/ideas";
 import { RichMarkdown, buildIdeasByName } from "@/components/markdown/RichMarkdown";
@@ -70,15 +70,17 @@ function ExpandableOutput({ text, limit = 100 }: { text: string; limit?: number 
     <div className="session-tool-output">
       {expanded || !needsExpand ? text : text.slice(0, limit) + "..."}
       {needsExpand && (
-        <span
+        <button
+          type="button"
           className="session-tool-expand"
+          aria-expanded={expanded}
           onClick={(e) => {
             e.stopPropagation();
             setExpanded(!expanded);
           }}
         >
           {expanded ? "less" : "more"}
-        </span>
+        </button>
       )}
     </div>
   );
@@ -102,6 +104,7 @@ function toolCategory(name: string): string {
 
 function ToolBlock({ items, live = false }: { items: MessageSegment[]; live?: boolean }) {
   const [expanded, setExpanded] = useState(live);
+  const detailId = useId();
   const tools = items.filter((s): s is { kind: "tool"; event: ToolEvent } => s.kind === "tool");
   const cats = [...new Set(tools.map((t) => toolCategory(t.event.name)))];
   const hasFail = tools.some((t) => t.event.success === false);
@@ -113,7 +116,13 @@ function ToolBlock({ items, live = false }: { items: MessageSegment[]; live?: bo
       className={`asv-tools-group${live ? " asv-tools-group--live" : ""}${hasFail ? " asv-tools-group--fail" : ""}`}
     >
       {!live && (
-        <button className="asv-tools-toggle" onClick={() => setExpanded(!expanded)}>
+        <button
+          type="button"
+          className="asv-tools-toggle"
+          onClick={() => setExpanded(!expanded)}
+          aria-expanded={expanded}
+          aria-controls={detailId}
+        >
           <span className="asv-tools-chevron">{expanded ? "▾" : "▸"}</span>
           <span className="asv-tools-count">
             {count} tool{count !== 1 ? "s" : ""}
@@ -124,7 +133,7 @@ function ToolBlock({ items, live = false }: { items: MessageSegment[]; live?: bo
         </button>
       )}
       {showDetail && (
-        <div className="asv-tools-detail">
+        <div id={detailId} className="asv-tools-detail">
           {items.map((seg, si) =>
             seg.kind === "tool" ? (
               <div key={si} className={`asv-tool-row${seg.event.success === false ? " fail" : ""}`}>
@@ -190,6 +199,7 @@ function FileDeletedChip({ event }: { event: FileDeletedEvent }) {
 
 function ToolSummarizedChip({ event }: { event: ToolSummarizedEvent }) {
   const [expanded, setExpanded] = useState(false);
+  const bodyId = useId();
   return (
     <div className="asv-tool-summarized-chip">
       <button
@@ -197,6 +207,8 @@ function ToolSummarizedChip({ event }: { event: ToolSummarizedEvent }) {
         className="asv-tool-summarized-header"
         onClick={() => setExpanded((e) => !e)}
         title={expanded ? "Hide summary" : "Show summary"}
+        aria-expanded={expanded}
+        aria-controls={bodyId}
       >
         <span className="asv-tool-summarized-dot" aria-hidden="true" />
         <span className="asv-tool-summarized-name">{event.tool_name}</span>
@@ -204,7 +216,11 @@ function ToolSummarizedChip({ event }: { event: ToolSummarizedEvent }) {
         <span className="asv-tool-summarized-size">({formatBytes(event.original_bytes)})</span>
         <span className="asv-tool-summarized-chevron">{expanded ? "▾" : "▸"}</span>
       </button>
-      {expanded && event.summary && <div className="asv-tool-summarized-body">{event.summary}</div>}
+      {expanded && event.summary && (
+        <div id={bodyId} className="asv-tool-summarized-body">
+          {event.summary}
+        </div>
+      )}
     </div>
   );
 }

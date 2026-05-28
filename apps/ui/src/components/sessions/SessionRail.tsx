@@ -224,6 +224,15 @@ const RailRow = memo(function RailRow({
 }) {
   const handleClick = useCallback(() => onSelect(item.id), [onSelect, item.id]);
   const isMulti = !!item.wrapPrimary || !!item.secondary;
+  const stateParts = [
+    item.primary,
+    item.secondary,
+    item.time,
+    isActive ? "current session" : null,
+    isStreaming ? "streaming" : null,
+    item.awaiting ? "awaiting your reply" : null,
+    item.status && !isStreaming && !item.awaiting ? `status ${item.status}` : null,
+  ].filter(Boolean);
   return (
     <button
       ref={refSetter}
@@ -237,7 +246,8 @@ const RailRow = memo(function RailRow({
         .filter(Boolean)
         .join(" ")}
       data-status={item.status}
-      aria-current={isActive ? "true" : undefined}
+      aria-current={isActive ? "page" : undefined}
+      aria-label={stateParts.join(", ")}
       onClick={handleClick}
     >
       <SessionRailRowContent item={item} isStreaming={isStreaming} />
@@ -274,9 +284,7 @@ export function SessionRailRowContent({
           >
             {item.primary}
           </span>
-          {item.awaiting && (
-            <span className="sessions-rail-awaiting-dot" aria-label="awaiting your reply" />
-          )}
+          {item.awaiting && <span className="sessions-rail-awaiting-dot" aria-hidden="true" />}
         </span>
         {item.secondary && <span className="sessions-rail-row-secondary">{item.secondary}</span>}
       </span>
