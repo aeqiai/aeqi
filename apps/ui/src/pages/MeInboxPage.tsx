@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Archive, ArrowLeft, CornerUpLeft, ExternalLink, Plus } from "lucide-react";
+import { Archive, ArrowLeft, CornerUpLeft, ExternalLink } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
@@ -10,11 +10,12 @@ import { useNav } from "@/hooks/useNav";
 import InboxToolbar from "@/components/inbox/InboxToolbar";
 import InboxEmptyCanvas from "@/components/inbox/InboxEmptyCanvas";
 import { inboxMessagesAdapter } from "@/components/inbox/inboxMessagesAdapter";
+import ParticipantStrip from "@/components/sessions/ParticipantStrip";
 import SessionRail, { type SessionRailRow } from "@/components/sessions/SessionRail";
 import SessionDetail from "@/components/sessions/SessionDetail";
 import StreamingMessage from "@/components/session/StreamingMessage";
 import { useWebSocketChat } from "@/components/session/useWebSocketChat";
-import { Button, Icon, Loading, PrimitivePageHeader, Tooltip } from "@/components/ui";
+import { Button, Loading, PrimitivePageHeader, Tooltip } from "@/components/ui";
 import { toInboxRow, DEFAULT_FILTER } from "@/components/inbox/types";
 import type { InboxFilterState, InboxRow, InboxSort } from "@/components/inbox/types";
 import type { Message, SessionInfo } from "@/components/session/types";
@@ -340,6 +341,39 @@ export default function MeInboxPage() {
     }
   }, [selectedRow, dismissing, dismissAvailable, dismissItem]);
 
+  const selectedDeepUrl = selectedRow
+    ? sessionDeepUrlFromId(entities, selectedRow.trust_id, selectedRow.agent_id, selectedRow.id)
+    : null;
+  const selectedHeaderSignal = selectedRow
+    ? getInboxSignal({
+        awaiting: selectedRow.awaiting,
+        unread: selectedRow.unread,
+      })
+    : null;
+  const selectedSubjectLine =
+    selectedRow?.subject && selectedRow.subject !== selectedRow.from.name
+      ? selectedRow.subject
+      : undefined;
+  const selectedKindLabel = selectedRow ? (KIND_ITEM_LABEL[selectedRow.kind] ?? "Inbox item") : "";
+  const selectedSubtitle =
+    selectedRow && [selectedKindLabel, selectedSubjectLine].filter(Boolean).join(" · ");
+  const selectedArchiveButton =
+    selectedRow && dismissAvailable === true ? (
+      <Tooltip content="Archive this thread">
+        <Button
+          variant="secondary"
+          size="sm"
+          className="inbox-archive-btn"
+          onClick={() => void handleDismiss()}
+          loading={dismissing}
+          aria-label="Archive"
+          leadingIcon={<Archive size={13} strokeWidth={1.7} aria-hidden />}
+        >
+          Archive
+        </Button>
+      </Tooltip>
+    ) : null;
+
   // Active filter chips — kind and entity filters, mirroring IdeasListView pattern
   const activeChips: { key: string; label: string; onRemove: () => void }[] = [];
   if (filter.kind !== "all") {
@@ -384,72 +418,6 @@ export default function MeInboxPage() {
       );
     }
 
-    const deepUrl = sessionDeepUrlFromId(
-      entities,
-      selectedRow.trust_id,
-      selectedRow.agent_id,
-      selectedRow.id,
-    );
-
-    const headerSignal = getInboxSignal({
-      awaiting: selectedRow.awaiting,
-      unread: selectedRow.unread,
-    });
-    const subjectLine =
-      selectedRow.subject && selectedRow.subject !== selectedRow.from.name
-        ? selectedRow.subject
-        : undefined;
-    const kindLabel = KIND_ITEM_LABEL[selectedRow.kind] ?? "Inbox item";
-    const subtitle = [kindLabel, subjectLine].filter(Boolean).join(" · ") || undefined;
-
-    const archiveButton =
-      dismissAvailable === true ? (
-        <Tooltip content="Archive this thread">
-          <Button
-            variant="secondary"
-            size="sm"
-            className="inbox-archive-btn"
-            onClick={() => void handleDismiss()}
-            loading={dismissing}
-            aria-label="Archive"
-            leadingIcon={<Archive size={13} strokeWidth={1.7} aria-hidden />}
-          >
-            Archive
-          </Button>
-        </Tooltip>
-      ) : undefined;
-
-    const headerExtras = (
-      <>
-        {headerSignal.detailState && (
-          <span className="inbox-detail-state" data-state={headerSignal.detailState}>
-            {headerSignal.label}
-          </span>
-        )}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="inbox-detail-back"
-          onClick={() => setSelectedId(null)}
-          aria-label="Back to inbox list"
-          leadingIcon={<ArrowLeft size={12} strokeWidth={1.8} aria-hidden />}
-        >
-          Back
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate(deepUrl)}
-          title="View full session"
-          trailingIcon={<ExternalLink size={12} strokeWidth={1.8} aria-hidden />}
-          trailingIconMode="inline"
-        >
-          Full session
-        </Button>
-        {archiveButton}
-      </>
-    );
-
     const threadTrailingSlot =
       wsChat.streaming || wsChat.liveSegments.length > 0 ? (
         <StreamingMessage
@@ -468,7 +436,9 @@ export default function MeInboxPage() {
         />
         <span className="inbox-awaiting-strip-body">
           <span className="inbox-awaiting-strip-label">Awaiting reply</span>
-          {subjectLine && <span className="inbox-awaiting-strip-subject">{subjectLine}</span>}
+          {selectedSubjectLine && (
+            <span className="inbox-awaiting-strip-subject">{selectedSubjectLine}</span>
+          )}
         </span>
         <Button
           variant="ghost"
@@ -489,8 +459,7 @@ export default function MeInboxPage() {
         trustId={selectedRow.trust_id ?? undefined}
         agentId={selectedRow.agent_id ?? undefined}
         title={selectedRow.from.name}
-        subtitle={subtitle}
-        headerExtras={headerExtras}
+        subtitle={selectedSubtitle || undefined}
         messages={contextMessages}
         isStreaming={wsChat.streaming}
         onSend={handleSend}
@@ -502,6 +471,7 @@ export default function MeInboxPage() {
         errorMessage={sendError}
         preThreadSlot={preThreadSlot}
         threadTrailingSlot={threadTrailingSlot}
+        hideHeader
         surface="recessed"
       />
     );
@@ -511,7 +481,14 @@ export default function MeInboxPage() {
     <div className="inbox-page">
       <PrimitivePageHeader
         className="inbox-page-header"
-        title="Inbox"
+        title={
+          <span className="inbox-title">
+            <span className="inbox-title-text">Inbox</span>
+            <span className="inbox-count" aria-label={`${visible.length} shown`}>
+              {visible.length}
+            </span>
+          </span>
+        }
         children={
           <InboxToolbar
             inline
@@ -531,9 +508,9 @@ export default function MeInboxPage() {
             size="md"
             onClick={() => composerRef.current?.focus()}
             disabled={!selectedRow}
-            leadingIcon={<Icon icon={Plus} size="sm" />}
+            leadingIcon={<CornerUpLeft size={14} strokeWidth={1.8} />}
           >
-            New
+            Reply
           </Button>
         }
       />
@@ -567,6 +544,52 @@ export default function MeInboxPage() {
               Clear all
             </button>
           )}
+        </div>
+      )}
+      {selectedRow && selectedDeepUrl && (
+        <div className="inbox-detail-strip trust-session-detail-strip">
+          <div className="session-detail-header trust-session-detail-header inbox-detail-header">
+            <div className="session-detail-header-from">
+              <span className="session-detail-header-title">{selectedRow.from.name}</span>
+              <div className="session-detail-header-meta">
+                {selectedSubtitle && (
+                  <span className="session-detail-header-subtitle">{selectedSubtitle}</span>
+                )}
+              </div>
+            </div>
+            <div className="session-detail-header-extras">
+              <ParticipantStrip
+                sessionId={selectedRow.id}
+                trustId={selectedRow.trust_id ?? undefined}
+              />
+              {selectedHeaderSignal?.detailState && (
+                <span className="inbox-detail-state" data-state={selectedHeaderSignal.detailState}>
+                  {selectedHeaderSignal.label}
+                </span>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="inbox-detail-back"
+                onClick={() => setSelectedId(null)}
+                aria-label="Back to inbox list"
+                leadingIcon={<ArrowLeft size={12} strokeWidth={1.8} aria-hidden />}
+              >
+                Back
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate(selectedDeepUrl)}
+                title="View full session"
+                trailingIcon={<ExternalLink size={12} strokeWidth={1.8} aria-hidden />}
+                trailingIconMode="inline"
+              >
+                Full session
+              </Button>
+              {selectedArchiveButton}
+            </div>
+          </div>
         </div>
       )}
 
