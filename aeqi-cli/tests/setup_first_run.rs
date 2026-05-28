@@ -44,6 +44,14 @@ fn fresh_layout() -> tempfile::TempDir {
     tmp
 }
 
+fn non_coverage_entries(path: &Path) -> Vec<PathBuf> {
+    std::fs::read_dir(path)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|path| path.extension().and_then(|ext| ext.to_str()) != Some("profraw"))
+        .collect()
+}
+
 #[test]
 fn setup_clean_home_writes_curl_install_layout() {
     let tmp = fresh_layout();
@@ -81,13 +89,11 @@ fn setup_clean_home_writes_curl_install_layout() {
     );
 
     // Neutral cwd stays empty — setup must not have detected workspace mode.
+    let unexpected_cwd_entries = non_coverage_entries(&cwd);
     assert!(
-        std::fs::read_dir(&cwd).unwrap().next().is_none(),
+        unexpected_cwd_entries.is_empty(),
         "neutral cwd should be untouched but got: {:?}",
-        std::fs::read_dir(&cwd)
-            .unwrap()
-            .map(|e| e.unwrap().path())
-            .collect::<Vec<_>>()
+        unexpected_cwd_entries
     );
 
     let stdout = String::from_utf8_lossy(&out.stdout);
