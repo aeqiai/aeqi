@@ -291,9 +291,7 @@ export default function TrustSessionsTab({
   );
 
   const empty = !loading && rows.length === 0;
-  const totalConversationCount = sessions.filter(
-    (session) => session.session_type !== "task",
-  ).length;
+  const visibleConversationCount = rows.length;
   const filtering = query.trim() !== "" || filter.status !== "all" || agentFilter !== "all";
   const emptyTitle = filtering ? "no matching sessions" : "no sessions yet";
   const emptyHint = filtering
@@ -304,24 +302,26 @@ export default function TrustSessionsTab({
     <div className="inbox-page trust-sessions-page">
       <PrimitivePageHeader
         className="trust-sessions-page-header"
-        title="Sessions"
+        title={
+          <span className="trust-sessions-title">
+            <span className="trust-sessions-title-text">Sessions</span>
+            <span className="trust-sessions-count">
+              {visibleConversationCount} {visibleConversationCount === 1 ? "session" : "sessions"}
+            </span>
+          </span>
+        }
         aria-label="Session controls"
         actions={
-          <>
-            <span className="trust-sessions-count">
-              {totalConversationCount} {totalConversationCount === 1 ? "session" : "sessions"}
-            </span>
-            <Button
-              variant="primary"
-              size="md"
-              onClick={() => void handleNewSession()}
-              disabled={!targetAgentId}
-              loading={creatingSession}
-              leadingIcon={<Plus size={14} strokeWidth={1.6} />}
-            >
-              New Session
-            </Button>
-          </>
+          <Button
+            variant="primary"
+            size="md"
+            onClick={() => void handleNewSession()}
+            disabled={!targetAgentId}
+            loading={creatingSession}
+            leadingIcon={<Plus size={14} strokeWidth={1.6} />}
+          >
+            New Session
+          </Button>
         }
       >
         <SessionsToolbar

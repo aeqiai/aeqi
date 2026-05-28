@@ -99,7 +99,11 @@ describe("TrustSessionsTab", () => {
     renderTab();
 
     const header = screen.getByLabelText("Session controls");
-    expect(within(header).getByRole("heading", { name: "Sessions" })).toBeInTheDocument();
+    const heading = within(header).getByRole("heading", { name: /Sessions/ });
+    expect(heading).toBeInTheDocument();
+    await waitFor(() => {
+      expect(within(heading).getByText("1 session")).toBeInTheDocument();
+    });
     expect(within(header).queryByText("Trust")).not.toBeInTheDocument();
     expect(within(header).queryByText(/All conversations/i)).not.toBeInTheDocument();
     expect(within(header).getByPlaceholderText("Search sessions")).toBeInTheDocument();
