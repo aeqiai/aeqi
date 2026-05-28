@@ -340,8 +340,8 @@ export default function AppLayout() {
   // The drilled-agent inbox URL is `/trust/<addr>/agents/<agent>/inbox[/<sid>]`.
   if (tab === "sessions" && encodedEntityId) {
     const suffix = itemId ? `/inbox/${encodeURIComponent(itemId)}` : "/inbox";
-    const sessionAgent = drilledAgent ?? defaultAgent;
-    const agentSeg = sessionAgent ? `/agents/${encodeURIComponent(sessionAgent.id)}` : "";
+    const sessionAgentId = drilledAgent?.id ?? defaultAgent?.id ?? entity?.agent_id ?? "";
+    const agentSeg = sessionAgentId ? `/agents/${encodeURIComponent(sessionAgentId)}` : "";
     return <Navigate to={`${base}${agentSeg}${suffix}${search}`} replace />;
   }
 
