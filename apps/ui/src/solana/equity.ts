@@ -31,13 +31,6 @@
  * aeqi-platform.
  */
 import { PublicKey } from "@solana/web3.js";
-import {
-  AccountLayout,
-  ACCOUNT_SIZE,
-  getMint,
-  TOKEN_2022_PROGRAM_ID,
-  type Mint,
-} from "@solana/spl-token";
 import type { IdlAccounts } from "@coral-xyz/anchor";
 
 import { getConnection } from "./client";
@@ -48,6 +41,13 @@ import {
   getVestingProgram,
 } from "./programs";
 import { AEQI_UNIFUTURES_PROGRAM_ID, deriveTokenModuleStatePda, deriveTokenMintPda } from "./pdas";
+import {
+  ACCOUNT_SIZE,
+  TOKEN_2022_PROGRAM_ID,
+  decodeTokenAccount,
+  getMint,
+  type Mint,
+} from "./splToken";
 import type { AeqiFunding } from "./generated/types/aeqi_funding";
 import type { AeqiToken } from "./generated/types/aeqi_token";
 import type { AeqiUnifutures } from "./generated/types/aeqi_unifutures";
@@ -161,7 +161,7 @@ export async function readHolders(mintPda: string | PublicKey): Promise<TokenHol
 
   const holders: TokenHolder[] = [];
   for (const entry of accounts) {
-    const decoded = AccountLayout.decode(entry.account.data.slice(0, ACCOUNT_SIZE));
+    const decoded = decodeTokenAccount(entry.account.data.slice(0, ACCOUNT_SIZE));
     // `decoded.amount` is a bigint (buffer-layout's u64 helper);
     // `decoded.owner` is a PublicKey. Skip zero-balance accounts — they
     // appear when a holder closes a position but the account is still

@@ -18,7 +18,7 @@
  * see @solana/web3.js d.ts).
  */
 import { PublicKey } from "@solana/web3.js";
-import { getAssociatedTokenAddressSync, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
+import { getAssociatedTokenAddressSync, TOKEN_2022_PROGRAM_ID } from "./splToken";
 
 /* ------------------------------------------------------------------ */
 /* Program IDs (11 Anchor programs).                                  */

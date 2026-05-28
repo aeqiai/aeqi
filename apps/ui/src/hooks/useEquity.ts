@@ -16,7 +16,6 @@
  * (mint, transfer, vesting create) — not every block.
  */
 import { useQuery } from "@tanstack/react-query";
-import type { Mint } from "@solana/spl-token";
 
 import {
   deriveCapTableMintPda,
@@ -31,6 +30,7 @@ import {
   type VestingPositionWithPda,
 } from "@/solana/equity";
 import { isDirectSolanaRpcEnabled } from "@/solana/client";
+import type { Mint } from "@/solana/splToken";
 
 const STALE_TIME_MS = 30_000;
 

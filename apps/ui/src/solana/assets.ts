@@ -28,12 +28,17 @@
  * pins a `(mint, vault_ata)` pair implicitly.
  */
 import { PublicKey } from "@solana/web3.js";
-import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID, AccountLayout } from "@solana/spl-token";
 import type { IdlAccounts } from "@coral-xyz/anchor";
 
 import { getConnection } from "./client";
 import { deriveTreasuryModuleStatePda, deriveTreasuryVaultAuthorityPda } from "./pdas";
 import { getBudgetProgram, getTreasuryProgram, getVestingProgram } from "./programs";
+import {
+  ACCOUNT_SIZE,
+  TOKEN_2022_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+  decodeTokenAccount,
+} from "./splToken";
 import type { AeqiBudget } from "./generated/types/aeqi_budget";
 import type { AeqiTreasury } from "./generated/types/aeqi_treasury";
 import type { AeqiVesting } from "./generated/types/aeqi_vesting";
@@ -156,17 +161,16 @@ export async function readVaultHoldings(vaultAuthorityPda: PublicKey): Promise<V
     conn.getTokenAccountsByOwner(vaultAuthorityPda, { programId: TOKEN_2022_PROGRAM_ID }),
   ]);
 
-  // `AccountLayout` decodes the standard 165-byte SPL token account. The
-  // base Token-2022 account layout is byte-compatible for the first 165
-  // bytes (mint + owner + amount + …); extensions are tacked on after,
-  // so `AccountLayout.decode` against the first 165 bytes is safe.
+  // The standard 165-byte SPL token account and base Token-2022 account are
+  // byte-compatible for the first 165 bytes (mint + owner + amount + ...);
+  // extensions are tacked on after, so decoding the first 165 bytes is safe.
   const decode = (rawAccountInfo: {
     pubkey: PublicKey;
     account: { data: Buffer; owner: PublicKey };
   }): VaultHolding | null => {
     const data = rawAccountInfo.account.data;
-    if (data.length < AccountLayout.span) return null;
-    const decoded = AccountLayout.decode(data.subarray(0, AccountLayout.span));
+    if (data.length < ACCOUNT_SIZE) return null;
+    const decoded = decodeTokenAccount(data.subarray(0, ACCOUNT_SIZE));
     return {
       tokenAccount: rawAccountInfo.pubkey,
       mint: new PublicKey(decoded.mint),

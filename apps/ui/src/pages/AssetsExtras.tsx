@@ -22,10 +22,10 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ExternalLink } from "lucide-react";
-import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 import { formatCurrency, formatInteger, formatMediumDate } from "@/lib/i18n";
 import { explorerAddressUrl } from "@/lib/solana-explorer";
+import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@/solana/splToken";
 import {
   Badge,
   Button,

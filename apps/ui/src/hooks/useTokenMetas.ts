@@ -26,10 +26,10 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { PublicKey } from "@solana/web3.js";
-import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID, getMint } from "@solana/spl-token";
 
 import { getConnection, isDirectSolanaRpcEnabled } from "@/solana/client";
 import { TOKEN_REGISTRY } from "@/solana/assets";
+import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID, getMint } from "@/solana/splToken";
 
 export interface ResolvedTokenMeta {
   symbol: string | null;
