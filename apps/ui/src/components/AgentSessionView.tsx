@@ -13,7 +13,7 @@ import MessageItem from "./session/MessageItem";
 import StreamingMessage from "./session/StreamingMessage";
 import EmptyState from "./session/EmptyState";
 import SessionDetail from "./sessions/SessionDetail";
-import { sessionLabel } from "./session/types";
+import { gatewayLabel, sessionLabel } from "./session/types";
 
 // ── Queued draft helpers ───────────────────────────────────────────────────
 
@@ -381,7 +381,9 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
 
   const currentSession = sessions.find((s) => s.id === activeSessionId) || null;
   const title = currentSession ? sessionLabel(currentSession) : agentName;
-  const subtitle = deriveOrigin(currentSession?.name);
+  const subtitle = currentSession
+    ? (gatewayLabel(currentSession) ?? deriveOrigin(currentSession.name))
+    : undefined;
 
   // Empty-state — surfaces the agent's full <EmptyState> block when there
   // are no messages, no queued drafts, and no live stream. Wraps in

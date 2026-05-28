@@ -14,6 +14,8 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::debug;
 
+use crate::channel_session::ChannelSessionKey;
+
 /// A single session message.
 #[derive(Debug, Clone)]
 pub struct SessionMessage {
@@ -72,6 +74,45 @@ pub struct Session {
     pub parent_id: Option<String>,
     pub quest_id: Option<String>,
     pub first_message: Option<String>,
+    pub gateway_channel_id: Option<String>,
+    pub gateway_channel_key: Option<String>,
+    pub gateway_transport: Option<String>,
+    pub gateway_peer_id: Option<String>,
+    pub gateway_sender_id: Option<String>,
+    pub gateway_sender_name: Option<String>,
+    pub gateway_sender_transport_id: Option<String>,
+}
+
+fn parse_gateway_channel_key(raw: Option<String>) -> (Option<String>, Option<String>) {
+    raw.as_deref()
+        .and_then(|key| ChannelSessionKey::parse(key).ok())
+        .map(|key| (Some(key.transport), Some(key.peer_id)))
+        .unwrap_or((None, None))
+}
+
+fn session_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Session> {
+    let gateway_channel_key: Option<String> = row.get(11)?;
+    let (gateway_transport, gateway_peer_id) =
+        parse_gateway_channel_key(gateway_channel_key.clone());
+    Ok(Session {
+        id: row.get(0)?,
+        agent_id: row.get(1)?,
+        session_type: row.get(2)?,
+        name: row.get(3)?,
+        status: row.get(4)?,
+        created_at: row.get(5)?,
+        closed_at: row.get(6)?,
+        parent_id: row.get(7)?,
+        quest_id: row.get(8)?,
+        first_message: row.get(9)?,
+        gateway_channel_id: row.get(10)?,
+        gateway_channel_key,
+        gateway_transport,
+        gateway_peer_id,
+        gateway_sender_id: row.get(12)?,
+        gateway_sender_name: row.get(13)?,
+        gateway_sender_transport_id: row.get(14)?,
+    })
 }
 
 /// A single typed thread event in a session timeline.
@@ -635,7 +676,7 @@ impl SessionStore {
              );
              CREATE INDEX IF NOT EXISTS idx_st_session ON session_traces(session_id);
 
-             CREATE TABLE IF NOT EXISTS session_gateways (
+            CREATE TABLE IF NOT EXISTS session_gateways (
                  id           TEXT PRIMARY KEY,
                  session_id   TEXT NOT NULL,
                  gateway_type TEXT NOT NULL,
@@ -645,6 +686,14 @@ impl SessionStore {
                  updated_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
              );
              CREATE INDEX IF NOT EXISTS idx_sg_session ON session_gateways(session_id);
+
+             CREATE TABLE IF NOT EXISTS channel_sessions (
+                 channel_key TEXT PRIMARY KEY,
+                 session_id TEXT NOT NULL,
+                 agent_id TEXT NOT NULL,
+                 created_at TEXT NOT NULL
+             );
+             CREATE INDEX IF NOT EXISTS idx_channel_sessions_agent ON channel_sessions(agent_id);
 
              CREATE TABLE IF NOT EXISTS pending_messages (
                  id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1692,8 +1741,20 @@ impl SessionStore {
 
         let (sql, boxed_params): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = match agent_id {
             Some(aid) => (
-                "SELECT id, agent_id, session_type, name, status, created_at, closed_at, parent_id, quest_id, first_message \
-                 FROM sessions WHERE agent_id = ?1 ORDER BY created_at DESC LIMIT ?2"
+                "SELECT s.id, s.agent_id, s.session_type, s.name, s.status, s.created_at, \
+                        s.closed_at, s.parent_id, s.quest_id, s.first_message, \
+                        s.gateway_channel_id, cs.channel_key, \
+                        gs.id, gs.display_name, gs.transport_id \
+                 FROM sessions s \
+                 LEFT JOIN channel_sessions cs ON cs.session_id = s.id \
+                 LEFT JOIN senders gs \
+                   ON gs.transport = SUBSTR(cs.channel_key, 1, INSTR(cs.channel_key, ':') - 1) \
+                  AND gs.transport_id = SUBSTR( \
+                        SUBSTR(cs.channel_key, INSTR(cs.channel_key, ':') + 1), \
+                        INSTR(SUBSTR(cs.channel_key, INSTR(cs.channel_key, ':') + 1), ':') + 1 \
+                      ) \
+                 WHERE s.agent_id = ?1 \
+                 ORDER BY s.created_at DESC LIMIT ?2"
                     .to_string(),
                 vec![
                     Box::new(aid.to_string()) as Box<dyn rusqlite::types::ToSql>,
@@ -1701,8 +1762,19 @@ impl SessionStore {
                 ],
             ),
             None => (
-                "SELECT id, agent_id, session_type, name, status, created_at, closed_at, parent_id, quest_id, first_message \
-                 FROM sessions ORDER BY created_at DESC LIMIT ?1"
+                "SELECT s.id, s.agent_id, s.session_type, s.name, s.status, s.created_at, \
+                        s.closed_at, s.parent_id, s.quest_id, s.first_message, \
+                        s.gateway_channel_id, cs.channel_key, \
+                        gs.id, gs.display_name, gs.transport_id \
+                 FROM sessions s \
+                 LEFT JOIN channel_sessions cs ON cs.session_id = s.id \
+                 LEFT JOIN senders gs \
+                   ON gs.transport = SUBSTR(cs.channel_key, 1, INSTR(cs.channel_key, ':') - 1) \
+                  AND gs.transport_id = SUBSTR( \
+                        SUBSTR(cs.channel_key, INSTR(cs.channel_key, ':') + 1), \
+                        INSTR(SUBSTR(cs.channel_key, INSTR(cs.channel_key, ':') + 1), ':') + 1 \
+                      ) \
+                 ORDER BY s.created_at DESC LIMIT ?1"
                     .to_string(),
                 vec![Box::new(limit as i64) as Box<dyn rusqlite::types::ToSql>],
             ),
@@ -1712,20 +1784,7 @@ impl SessionStore {
             boxed_params.iter().map(|p| p.as_ref()).collect();
         let mut stmt = db.prepare(&sql)?;
         let rows = stmt
-            .query_map(param_refs.as_slice(), |row| {
-                Ok(Session {
-                    id: row.get(0)?,
-                    agent_id: row.get(1)?,
-                    session_type: row.get(2)?,
-                    name: row.get(3)?,
-                    status: row.get(4)?,
-                    created_at: row.get(5)?,
-                    closed_at: row.get(6)?,
-                    parent_id: row.get(7)?,
-                    quest_id: row.get(8)?,
-                    first_message: row.get(9)?,
-                })
-            })?
+            .query_map(param_refs.as_slice(), session_from_row)?
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(rows)
@@ -2066,23 +2125,21 @@ impl SessionStore {
         let db = self.db.lock().await;
         let session = db
             .query_row(
-                "SELECT id, agent_id, session_type, name, status, created_at, closed_at, parent_id, quest_id, first_message
-                 FROM sessions WHERE id = ?1",
+                "SELECT s.id, s.agent_id, s.session_type, s.name, s.status, s.created_at, \
+                        s.closed_at, s.parent_id, s.quest_id, s.first_message, \
+                        s.gateway_channel_id, cs.channel_key, \
+                        gs.id, gs.display_name, gs.transport_id \
+                 FROM sessions s \
+                 LEFT JOIN channel_sessions cs ON cs.session_id = s.id \
+                 LEFT JOIN senders gs \
+                   ON gs.transport = SUBSTR(cs.channel_key, 1, INSTR(cs.channel_key, ':') - 1) \
+                  AND gs.transport_id = SUBSTR( \
+                        SUBSTR(cs.channel_key, INSTR(cs.channel_key, ':') + 1), \
+                        INSTR(SUBSTR(cs.channel_key, INSTR(cs.channel_key, ':') + 1), ':') + 1 \
+                      ) \
+                 WHERE s.id = ?1",
                 params![session_id],
-                |row| {
-                    Ok(Session {
-                        id: row.get(0)?,
-                        agent_id: row.get(1)?,
-                        session_type: row.get(2)?,
-                        name: row.get(3)?,
-                        status: row.get(4)?,
-                        created_at: row.get(5)?,
-                        closed_at: row.get(6)?,
-                        parent_id: row.get(7)?,
-                        quest_id: row.get(8)?,
-                        first_message: row.get(9)?,
-                    })
-                },
+                session_from_row,
             )
             .optional()?;
         Ok(session)
@@ -2109,24 +2166,22 @@ impl SessionStore {
     pub async fn list_children(&self, parent_id: &str) -> Result<Vec<Session>> {
         let db = self.db.lock().await;
         let mut stmt = db.prepare(
-            "SELECT id, agent_id, session_type, name, status, created_at, closed_at, parent_id, quest_id, first_message
-             FROM sessions WHERE parent_id = ?1 ORDER BY created_at DESC",
+            "SELECT s.id, s.agent_id, s.session_type, s.name, s.status, s.created_at, \
+                    s.closed_at, s.parent_id, s.quest_id, s.first_message, \
+                    s.gateway_channel_id, cs.channel_key, \
+                    gs.id, gs.display_name, gs.transport_id \
+             FROM sessions s \
+             LEFT JOIN channel_sessions cs ON cs.session_id = s.id \
+             LEFT JOIN senders gs \
+               ON gs.transport = SUBSTR(cs.channel_key, 1, INSTR(cs.channel_key, ':') - 1) \
+              AND gs.transport_id = SUBSTR( \
+                    SUBSTR(cs.channel_key, INSTR(cs.channel_key, ':') + 1), \
+                    INSTR(SUBSTR(cs.channel_key, INSTR(cs.channel_key, ':') + 1), ':') + 1 \
+                  ) \
+             WHERE s.parent_id = ?1 ORDER BY s.created_at DESC",
         )?;
         let rows = stmt
-            .query_map(params![parent_id], |row| {
-                Ok(Session {
-                    id: row.get(0)?,
-                    agent_id: row.get(1)?,
-                    session_type: row.get(2)?,
-                    name: row.get(3)?,
-                    status: row.get(4)?,
-                    created_at: row.get(5)?,
-                    closed_at: row.get(6)?,
-                    parent_id: row.get(7)?,
-                    quest_id: row.get(8)?,
-                    first_message: row.get(9)?,
-                })
-            })?
+            .query_map(params![parent_id], session_from_row)?
             .collect::<Result<Vec<_>, _>>()?;
         Ok(rows)
     }
@@ -3256,6 +3311,64 @@ mod tests {
 
         let by_agent = store.list_sessions(Some("a1"), 100).await.unwrap();
         assert_eq!(by_agent.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn list_sessions_includes_gateway_identity() {
+        let store = test_store().await;
+
+        let session_id = store
+            .create_session("agent-1", "interactive", "Chief of Staff", None, None)
+            .await
+            .unwrap();
+        {
+            let db = store.db.lock().await;
+            db.execute(
+                "INSERT INTO senders (id, transport, transport_id, display_name, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![
+                    "sender-1",
+                    "whatsapp-baileys",
+                    "10712151793796@lid",
+                    "Luca",
+                    "2026-05-28T10:16:44Z"
+                ],
+            )
+            .unwrap();
+            db.execute(
+                "INSERT INTO channel_sessions (channel_key, session_id, agent_id, created_at)
+                 VALUES (?1, ?2, ?3, ?4)",
+                params![
+                    "whatsapp-baileys:agent-1:10712151793796@lid",
+                    session_id,
+                    "agent-1",
+                    "2026-05-28T10:16:44Z"
+                ],
+            )
+            .unwrap();
+        }
+
+        let sessions = store.list_sessions(Some("agent-1"), 100).await.unwrap();
+        assert_eq!(sessions.len(), 1);
+        let session = &sessions[0];
+        assert_eq!(
+            session.gateway_channel_key.as_deref(),
+            Some("whatsapp-baileys:agent-1:10712151793796@lid")
+        );
+        assert_eq!(
+            session.gateway_transport.as_deref(),
+            Some("whatsapp-baileys")
+        );
+        assert_eq!(
+            session.gateway_peer_id.as_deref(),
+            Some("10712151793796@lid")
+        );
+        assert_eq!(session.gateway_sender_id.as_deref(), Some("sender-1"));
+        assert_eq!(session.gateway_sender_name.as_deref(), Some("Luca"));
+        assert_eq!(
+            session.gateway_sender_transport_id.as_deref(),
+            Some("10712151793796@lid")
+        );
     }
 
     #[tokio::test]

@@ -78,6 +78,15 @@ export interface Message {
    */
   from_id?: string | null;
   content: string;
+  sender?: {
+    id?: string;
+    display_name?: string;
+    transport?: string;
+    transport_id?: string;
+    avatar_url?: string | null;
+    metadata?: Record<string, unknown> | null;
+  };
+  transport?: string;
   segments?: MessageSegment[];
   timestamp?: number;
   duration?: string;
@@ -173,6 +182,38 @@ export interface SessionInfo {
   last_active?: string;
   message_count?: number;
   first_message?: string;
+  gateway_channel_id?: string | null;
+  gateway_channel_key?: string | null;
+  gateway_transport?: string | null;
+  gateway_peer_id?: string | null;
+  gateway_sender_id?: string | null;
+  gateway_sender_name?: string | null;
+  gateway_sender_transport_id?: string | null;
+}
+
+export function formatTransportLabel(value: string | null | undefined): string | null {
+  if (!value) return null;
+  return value
+    .split(/[-_]/g)
+    .filter(Boolean)
+    .map((part) =>
+      part.toLowerCase() === "whatsapp" ? "WhatsApp" : part.charAt(0).toUpperCase() + part.slice(1),
+    )
+    .join(" ");
+}
+
+export function gatewayLabel(
+  s: Pick<
+    SessionInfo,
+    "gateway_transport" | "gateway_peer_id" | "gateway_sender_name" | "gateway_sender_transport_id"
+  >,
+) {
+  const transport = formatTransportLabel(s.gateway_transport);
+  if (!transport) return null;
+  const person = s.gateway_sender_name?.trim() || null;
+  const peer = s.gateway_sender_transport_id || s.gateway_peer_id;
+  const identity = person && peer && person !== peer ? `${person} · ${peer}` : person || peer;
+  return identity ? `${transport} · ${identity}` : transport;
 }
 
 // ── Author resolution ──────────────────────────────────────────────────────

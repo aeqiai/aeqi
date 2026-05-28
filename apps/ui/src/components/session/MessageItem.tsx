@@ -13,6 +13,7 @@ import {
   type MessageSegment,
   type ResolvedAuthor,
   resolveAuthor,
+  formatTransportLabel,
   formatTime,
   formatStepCount,
   countStepSegments,
@@ -310,6 +311,29 @@ function AvatarCell({ avatar }: { avatar: AvatarResolution }) {
 
 // ── Message meta + chrome actions ────────────────────────────────────────
 
+function senderIdentity(msg: Message): { label: string; detail: string | null } | null {
+  const sender = msg.sender;
+  if (!sender) return null;
+  const rawTransport = sender.transport ?? msg.transport;
+  if (
+    !rawTransport ||
+    ["agent", "internal", "quest", "session", "user", "web"].includes(rawTransport)
+  ) {
+    return null;
+  }
+  const label =
+    (typeof sender.display_name === "string" && sender.display_name.trim()) ||
+    (typeof sender.transport_id === "string" && sender.transport_id.trim()) ||
+    "";
+  if (!label) return null;
+  const transport = formatTransportLabel(rawTransport);
+  const detail =
+    transport && sender.transport_id && sender.transport_id !== label
+      ? `${transport} · ${sender.transport_id}`
+      : transport;
+  return { label, detail };
+}
+
 function ForkButton({ messageId, onFork }: { messageId: number; onFork: (id: number) => void }) {
   return (
     <IconButton
@@ -448,10 +472,12 @@ const MessageItem = memo(function MessageItem({
 
   const isAssistantRole = msg.role === "assistant";
   const isUserRole = author.kind === "user";
+  const sender = senderIdentity(msg);
 
   const stepCount = msg.stepCount || countStepSegments(msg.segments);
   const metaParts = [
     msg.timestamp && formatTime(msg.timestamp),
+    sender?.detail,
     msg.duration,
     isAssistantRole && stepCount > 0 && formatStepCount(stepCount),
     msg.costUsd != null && msg.costUsd > 0 && `$${msg.costUsd.toFixed(4)}`,
@@ -479,6 +505,14 @@ const MessageItem = memo(function MessageItem({
     currentUserAvatarUrl,
     userEmail,
   });
+  const displayedAvatar =
+    sender && avatar && author.kind === "user"
+      ? {
+          ...avatar,
+          name: sender.label,
+          authorLabel: sender.label,
+        }
+      : avatar;
 
   const showActionsAssistant =
     isAssistantRole && msg.status !== "split" && msg.content.trim().length > 0;
@@ -491,10 +525,10 @@ const MessageItem = memo(function MessageItem({
       className={`asv-msg ${bubbleClass}${msg.queued ? " asv-msg-queued" : ""}${isAsk ? " asv-msg-ask" : ""}${useSplit ? " asv-msg-has-trail" : ""}`}
     >
       <div className="asv-msg-body">
-        {avatar?.authorLabel && (
+        {displayedAvatar?.authorLabel && (
           <div className="asv-msg-author">
-            <AvatarCell avatar={avatar} />
-            <span className="asv-msg-author-name">{avatar.authorLabel}</span>
+            <AvatarCell avatar={displayedAvatar} />
+            <span className="asv-msg-author-name">{displayedAvatar.authorLabel}</span>
             {author.kind === "position" && <PositionChip title={author.title} />}
           </div>
         )}

@@ -2,7 +2,7 @@ import { useCallback, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useChatStore } from "@/store/chat";
 import { useInboxStore } from "@/store/inbox";
-import { sessionLabel, type SessionInfo } from "@/components/session/types";
+import { gatewayLabel, sessionLabel, type SessionInfo } from "@/components/session/types";
 import { recencyBucket, timeShort } from "@/lib/format";
 import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
 import { useDaemonStore } from "@/store/daemon";
@@ -21,6 +21,12 @@ function sessionStatusLabel(status: string | undefined): string {
 function messageCountLabel(count: number | undefined): string | null {
   if (!count || count <= 0) return null;
   return `${count} message${count === 1 ? "" : "s"}`;
+}
+
+function sessionSecondaryLabel(s: SessionInfo): string {
+  return [gatewayLabel(s) ?? sessionStatusLabel(s.status), messageCountLabel(s.message_count)]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 /**
@@ -74,9 +80,7 @@ export default function SessionsRail() {
         return {
           id: s.id,
           primary: sessionLabel(s),
-          secondary: [sessionStatusLabel(s.status), messageCountLabel(s.message_count)]
-            .filter(Boolean)
-            .join(" · "),
+          secondary: sessionSecondaryLabel(s),
           wrapPrimary: true,
           time: timeShort(tsRaw ?? null),
           status: s.status,

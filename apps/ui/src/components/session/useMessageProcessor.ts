@@ -220,6 +220,12 @@ export function processRawSessionMessages(rawMessages: Array<Record<string, unkn
       if (m.from_id != null && agent.from_id == null) {
         agent.from_id = String(m.from_id);
       }
+      if (m.sender && typeof m.sender === "object" && !Array.isArray(m.sender)) {
+        agent.sender = m.sender as Message["sender"];
+      }
+      if (typeof m.transport === "string") {
+        agent.transport = m.transport;
+      }
       if (pendingTools.length > 0) {
         agent.segments!.push(...pendingTools);
         pendingTools = [];
@@ -298,6 +304,11 @@ export function processRawSessionMessages(rawMessages: Array<Record<string, unkn
             ? (m.from_kind as "user" | "agent" | "position" | "system")
             : undefined,
         from_id: m.from_id != null ? String(m.from_id) : undefined,
+        sender:
+          m.sender && typeof m.sender === "object" && !Array.isArray(m.sender)
+            ? (m.sender as Message["sender"])
+            : undefined,
+        transport: typeof m.transport === "string" ? m.transport : undefined,
         content: String(m.content || ""),
         timestamp: ts,
         messageId: typeof m.id === "number" ? m.id : undefined,
