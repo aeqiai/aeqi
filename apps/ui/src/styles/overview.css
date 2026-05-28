@@ -1635,6 +1635,12 @@
     flex-wrap: wrap;
   }
 
+  .trust-apps-toolbar-summary {
+    overflow-wrap: anywhere;
+    white-space: normal;
+    line-height: 1.35;
+  }
+
   .trust-apps-page > .trust-cockpit-card {
     margin-inline: var(--space-4);
   }
