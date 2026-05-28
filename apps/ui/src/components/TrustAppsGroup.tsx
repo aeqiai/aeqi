@@ -29,19 +29,27 @@ export default function TrustAppsGroup({ trustId, basePath }: TrustAppsGroupProp
     >
       <header className="trust-cockpit-card-header">
         <h2 id="trust-apps-heading" className="trust-cockpit-card-title">
-          Apps
+          Integrations
         </h2>
         <span className="trust-cockpit-card-sub">Capabilities</span>
       </header>
       <div className="trust-cockpit-inner-grid trust-cockpit-inner-grid--split">
         {summaries.map((summary) => (
-          <AppPrimitiveCard key={summary.entry.kind} summary={summary} to={`${basePath}/apps`} />
+          <AppPrimitiveCard
+            key={summary.entry.kind}
+            summary={summary}
+            to={`${basePath}/integrations`}
+          />
         ))}
       </div>
       <div className="trust-cockpit-secondary-row">
-        <Link to={`${basePath}/apps`} className="trust-cockpit-secondary-cell" aria-label="Apps">
+        <Link
+          to={`${basePath}/integrations`}
+          className="trust-cockpit-secondary-cell"
+          aria-label="Integrations"
+        >
           <Waypoints size={14} strokeWidth={1.5} aria-hidden />
-          <span className="trust-cockpit-secondary-label">Apps</span>
+          <span className="trust-cockpit-secondary-label">Integrations</span>
           <span className="trust-cockpit-secondary-value">
             {isLoading ? "..." : formatInteger(installed.connectedApps)}
           </span>

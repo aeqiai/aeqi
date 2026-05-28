@@ -34,7 +34,15 @@ const APP_ICONS: Record<TrustAppKind, ReactNode> = {
   stripe: <CreditCard size={18} strokeWidth={1.5} />,
 };
 
-export default function TrustAppsTab({ trustId }: { trustId: string }) {
+export type TrustAppsSurface = "integrations" | "mail" | "websites";
+
+export default function TrustAppsTab({
+  surface = "integrations",
+  trustId,
+}: {
+  surface?: TrustAppsSurface;
+  trustId: string;
+}) {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const selectedKind = params.get("app");
@@ -61,8 +69,7 @@ export default function TrustAppsTab({ trustId }: { trustId: string }) {
     staleTime: 20_000,
   });
   const googleConnected = googleStatus.data?.connected === true;
-  const identityApps = entity ? 2 : 0;
-  const connectedApps = installed.connectedApps + (googleConnected ? 1 : 0);
+  const connectedIntegrations = installed.connectedApps + (googleConnected ? 1 : 0);
   const agentChannelsPath = defaultAgent
     ? `${basePath}/agents/${encodeURIComponent(defaultAgent.id)}/settings/channels`
     : `${basePath}/agents`;
@@ -70,28 +77,53 @@ export default function TrustAppsTab({ trustId }: { trustId: string }) {
   const channelApps = summaries.filter((summary) => summary.entry.category === "channel");
   const billingApps = summaries.filter((summary) => summary.entry.category === "billing");
   const billingReady = billingApps.length > 0;
-  const toolbarSummary = isLoading
-    ? "Loading app status"
-    : `${formatInteger(connectedApps)} connected · ${formatInteger(
-        identityApps,
-      )} identity · ${formatInteger(installed.enabledChannels)} channels · ${formatInteger(
-        trustAgents.length,
-      )} agents${billingReady ? " · billing ready" : ""}${entity?.public ? " · website live" : ""}`;
+  const email = entity ? trustEmailAddress(entity) : "Trust mailbox";
+  const emailMessages = emailStatus.data?.messages ?? [];
+  const emailCount = emailStatus.data?.message_count ?? emailMessages.length;
+  const websiteViews = websiteAnalytics.data?.stats
+    ? formatInteger(websiteAnalytics.data.stats.last_24h.pageviews)
+    : websiteAnalytics.isLoading
+      ? "Checking"
+      : "Ready";
+  const pageTitle =
+    surface === "mail" ? "Mail" : surface === "websites" ? "Websites" : "Integrations";
+  const toolbarSummary =
+    surface === "mail"
+      ? emailStatus.isLoading
+        ? "Checking mailbox"
+        : `${email} · ${formatInteger(emailCount)} messages · outbound ${
+            emailStatus.data?.outbound_status === "ready" ? "ready" : "setup"
+          }`
+      : surface === "websites"
+        ? websiteAnalytics.isLoading
+          ? "Checking website status"
+          : `${entity ? publicWebsiteDomain(entity) : "Trust website"} · ${
+              entity?.public ? "live" : "private"
+            } · ${websiteViews} today`
+        : isLoading
+          ? "Loading integration status"
+          : `${formatInteger(connectedIntegrations)} connected · ${formatInteger(
+              installed.enabledChannels,
+            )} channel endpoints · ${formatInteger(
+              trustAgents.length,
+            )} agents${billingReady ? " · billing ready" : ""}`;
   return (
     <div className="trust-overview trust-apps-page">
       <PrimitivePageHeader
         className="trust-apps-page-header"
-        title="Apps"
-        aria-label="App controls"
+        title={pageTitle}
+        aria-label={`${pageTitle} controls`}
         actions={
-          <Button
-            variant="secondary"
-            size="md"
-            onClick={() => navigate(agentChannelsPath)}
-            leadingIcon={<Smartphone size={14} strokeWidth={1.6} />}
-          >
-            {defaultAgent ? "Channels" : "Agents"}
-          </Button>
+          surface === "integrations" ? (
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => navigate(agentChannelsPath)}
+              leadingIcon={<Smartphone size={14} strokeWidth={1.6} />}
+            >
+              {defaultAgent ? "Channels" : "Agents"}
+            </Button>
+          ) : undefined
         }
       >
         <div className="ideas-toolbar trust-apps-toolbar">
@@ -99,18 +131,45 @@ export default function TrustAppsTab({ trustId }: { trustId: string }) {
         </div>
       </PrimitivePageHeader>
 
-      {entity && (
+      {surface === "mail" && entity && (
         <section
           className="trust-cockpit-card trust-cockpit-card--wide"
-          aria-labelledby="launch-apps-heading"
+          aria-labelledby="trust-mail-heading"
         >
           <header className="trust-cockpit-card-header">
             <div>
-              <h2 id="launch-apps-heading" className="trust-cockpit-card-title">
-                Launch apps
+              <h2 id="trust-mail-heading" className="trust-cockpit-card-title">
+                Trust mailboxes
               </h2>
               <p className="trust-cockpit-card-sub">
-                The public company surface every TRUST gets at formation.
+                Provisioned email identities that route work into this TRUST.
+              </p>
+            </div>
+          </header>
+          <div className="trust-apps-grid trust-apps-grid--launch">
+            <TrustEmailCard
+              trustId={trustId}
+              email={email}
+              domain={trustEmailDomain(entity)}
+              loading={emailStatus.isLoading}
+              status={emailStatus.data}
+            />
+          </div>
+        </section>
+      )}
+
+      {surface === "websites" && entity && (
+        <section
+          className="trust-cockpit-card trust-cockpit-card--wide"
+          aria-labelledby="trust-websites-heading"
+        >
+          <header className="trust-cockpit-card-header">
+            <div>
+              <h2 id="trust-websites-heading" className="trust-cockpit-card-title">
+                Trust websites
+              </h2>
+              <p className="trust-cockpit-card-sub">
+                Owned web properties, domains, publishing state, and analytics.
               </p>
             </div>
           </header>
@@ -122,69 +181,66 @@ export default function TrustAppsTab({ trustId }: { trustId: string }) {
               loading={websiteAnalytics.isLoading}
               analytics={websiteAnalytics.data}
             />
-            <TrustEmailCard
-              trustId={trustId}
-              email={trustEmailAddress(entity)}
-              domain={trustEmailDomain(entity)}
-              loading={emailStatus.isLoading}
-              status={emailStatus.data}
-            />
           </div>
         </section>
       )}
 
-      <section
-        className="trust-cockpit-card trust-cockpit-card--wide"
-        aria-labelledby="platform-apps-heading"
-      >
-        <header className="trust-cockpit-card-header">
-          <h2 id="platform-apps-heading" className="trust-cockpit-card-title">
-            Platform apps
-          </h2>
-        </header>
-        <div className="trust-apps-grid trust-apps-grid--workspace">
-          <GoogleWorkspaceCard
-            connected={googleConnected}
-            loading={googleStatus.isLoading}
-            status={googleStatus.data}
-            trustId={trustId}
-          />
-          {billingApps.map((summary) => (
-            <AppDetailCard
-              key={summary.entry.kind}
-              selected={selectedKind === summary.entry.kind}
-              summary={summary}
-              channelsPath="/account/billing"
-              actionLabel="Open Billing"
-            />
-          ))}
-        </div>
-      </section>
+      {surface === "integrations" && (
+        <>
+          <section
+            className="trust-cockpit-card trust-cockpit-card--wide"
+            aria-labelledby="platform-integrations-heading"
+          >
+            <header className="trust-cockpit-card-header">
+              <h2 id="platform-integrations-heading" className="trust-cockpit-card-title">
+                Platform integrations
+              </h2>
+            </header>
+            <div className="trust-apps-grid trust-apps-grid--workspace">
+              <GoogleWorkspaceCard
+                connected={googleConnected}
+                loading={googleStatus.isLoading}
+                status={googleStatus.data}
+                trustId={trustId}
+              />
+              {billingApps.map((summary) => (
+                <AppDetailCard
+                  key={summary.entry.kind}
+                  selected={selectedKind === summary.entry.kind}
+                  summary={summary}
+                  channelsPath="/account/billing"
+                  actionLabel="Open Billing"
+                />
+              ))}
+            </div>
+          </section>
 
-      <section
-        className="trust-cockpit-card trust-cockpit-card--wide"
-        aria-labelledby="channel-apps-heading"
-      >
-        <header className="trust-cockpit-card-header">
-          <h2 id="channel-apps-heading" className="trust-cockpit-card-title">
-            Channel apps
-          </h2>
-          <Link to={agentChannelsPath} className="trust-apps-link">
-            {channelActionLabel}
-          </Link>
-        </header>
-        <div className="trust-apps-grid">
-          {channelApps.map((summary) => (
-            <AppDetailCard
-              key={summary.entry.kind}
-              selected={selectedKind === summary.entry.kind}
-              summary={summary}
-              channelsPath={agentChannelsPath}
-              actionLabel={channelActionLabel}
-            />
-          ))}
-        </div>
-      </section>
+          <section
+            className="trust-cockpit-card trust-cockpit-card--wide"
+            aria-labelledby="channel-integrations-heading"
+          >
+            <header className="trust-cockpit-card-header">
+              <h2 id="channel-integrations-heading" className="trust-cockpit-card-title">
+                Channel integrations
+              </h2>
+              <Link to={agentChannelsPath} className="trust-apps-link">
+                {channelActionLabel}
+              </Link>
+            </header>
+            <div className="trust-apps-grid">
+              {channelApps.map((summary) => (
+                <AppDetailCard
+                  key={summary.entry.kind}
+                  selected={selectedKind === summary.entry.kind}
+                  summary={summary}
+                  channelsPath={agentChannelsPath}
+                  actionLabel={channelActionLabel}
+                />
+              ))}
+            </div>
+          </section>
+        </>
+      )}
     </div>
   );
 }

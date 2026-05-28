@@ -19,6 +19,9 @@ const MeInboxPage = lazy(() => import("@/pages/MeInboxPage"));
 // remains visible on `/trust/<addr>/...`.
 const TrustAgentsTab = lazy(() => import("@/components/TrustAgentsTab"));
 const TrustAppsTab = lazy(() => import("@/components/TrustAppsTab"));
+const TrustBudgetsTab = lazy(() => import("@/components/TrustBudgetsTab"));
+const TrustCampaignsTab = lazy(() => import("@/components/TrustCampaignsTab"));
+const TrustTransactionsTab = lazy(() => import("@/components/TrustTransactionsTab"));
 const TrustSessionsTab = lazy(() => import("@/components/TrustSessionsTab"));
 const AgentChannelsTab = lazy(() => import("@/components/AgentChannelsTab"));
 const TrustToolsTab = lazy(() => import("@/components/TrustToolsTab"));
@@ -50,15 +53,21 @@ interface TrustTabPageProps {
  *   /trust/:trustAddress/agents        → TrustAgentsTab (LIST)
  *   /trust/:trustAddress/sessions      → TrustSessionsTab (all trust sessions)
  *   /trust/:trustAddress/inbox         → MeInboxPage
+ *   /trust/:trustAddress/mail          → TrustAppsTab(mail surface)
+ *   /trust/:trustAddress/websites      → TrustAppsTab(websites surface)
+ *   /trust/:trustAddress/campaigns     → TrustCampaignsTab
+ *   /trust/:trustAddress/budgets       → TrustBudgetsTab
+ *   /trust/:trustAddress/transactions  → TrustTransactionsTab
  *   /trust/:trustAddress/channels      → AgentChannelsTab(default/root agent lens)
- *   /trust/:trustAddress/apps          → TrustAppsTab (channel-backed apps)
+ *   /trust/:trustAddress/integrations  → TrustAppsTab (external connections)
  *   /trust/:trustAddress/tools         → TrustToolsTab(default/root agent lens)
  *   /trust/:trustAddress/events        → AgentEventsTab(agent lens rail)
  *   /trust/:trustAddress/quests        → AgentQuestsTab(entity scope)
  *   /trust/:trustAddress/ideas         → AgentIdeasTab(entity scope)
  *   /trust/:trustAddress/settings      → TrustSettingsTab
  *   /trust/:trustAddress/health        → 308 redirect to bare cockpit (legacy URL)
- *   /trust/:trustAddress/website       → redirect to Apps (legacy website tab)
+ *   /trust/:trustAddress/apps          → redirect to Integrations (legacy apps tab)
+ *   /trust/:trustAddress/website       → redirect to Websites (legacy website tab)
  */
 /** Tabs that require a per-tenant runtime service.
  *  When `has_runtime === false`, render `<ProvisionRuntimeUpsell>` in
@@ -66,7 +75,9 @@ interface TrustTabPageProps {
  *  trust state and stay reachable on free TRUSTs. */
 const RUNTIME_GATED_TABS: Record<string, UpsellSurface> = {
   agents: "agents",
+  integrations: "apps",
   apps: "apps",
+  campaigns: "campaigns",
   sessions: "sessions",
   channels: "apps",
   tools: "apps",
@@ -176,12 +187,51 @@ export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTab
       </Suspense>
     );
   }
-  if (tab === "apps") {
+  if (tab === "integrations") {
     return (
       <Suspense>
-        <TrustAppsTab trustId={trustId} />
+        <TrustAppsTab trustId={trustId} surface="integrations" />
       </Suspense>
     );
+  }
+  if (tab === "mail") {
+    return (
+      <Suspense>
+        <TrustAppsTab trustId={trustId} surface="mail" />
+      </Suspense>
+    );
+  }
+  if (tab === "websites") {
+    return (
+      <Suspense>
+        <TrustAppsTab trustId={trustId} surface="websites" />
+      </Suspense>
+    );
+  }
+  if (tab === "campaigns") {
+    return (
+      <Suspense>
+        <TrustCampaignsTab />
+      </Suspense>
+    );
+  }
+  if (tab === "budgets") {
+    return (
+      <Suspense>
+        <TrustBudgetsTab />
+      </Suspense>
+    );
+  }
+  if (tab === "transactions") {
+    return (
+      <Suspense>
+        <TrustTransactionsTab />
+      </Suspense>
+    );
+  }
+  if (tab === "apps") {
+    const target = location.pathname.replace(/\/apps\/?$/, "/integrations") + location.search;
+    return <Navigate to={target} replace />;
   }
   if (tab === "sessions") {
     return (
@@ -205,7 +255,7 @@ export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTab
     );
   }
   if (tab === "website") {
-    const target = location.pathname.replace(/\/website\/?$/, "/apps") + location.search;
+    const target = location.pathname.replace(/\/website\/?$/, "/websites") + location.search;
     return <Navigate to={target} replace />;
   }
   // Members — humans with trust access or pending trust invitations. This is

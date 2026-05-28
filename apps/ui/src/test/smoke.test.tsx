@@ -16,23 +16,7 @@ import type { Quest, QuestStatus, ScopeValue } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
 import { useUIStore } from "@/store/ui";
 
-/**
- * Smoke tests that catch runtime rendering bugs before they reach production.
- *
- * The primary target is React error #185 ("Maximum update depth exceeded"),
- * which fires at render time when a component returns a fresh reference
- * (array/object) from a state-management selector on every call. StrictMode
- * amplifies these by double-invoking, so a clean render here is strong
- * evidence the component is loop-free.
- *
- * We render each component under StrictMode + MemoryRouter with realistic
- * URL shapes and watch for React's "error" console output during render.
- *
- * Canonical routes: `/trust/:trustAddress/[:tab[/:itemId]]`. The entity-
- * root agent renders at `/trust/:trustAddress/...`; per-agent drilldowns
- * live at `/trust/:trustAddress/agents/:agentId/...`.
- */
-/** Inline helper — renders the component tree, returns any errors React logged. */
+// Smoke tests catch render loops under realistic route shapes.
 function captureRenderErrors(ui: React.ReactElement): unknown[] {
   const errors: unknown[] = [];
   const spy = vi.spyOn(console, "error").mockImplementation((...args) => {
@@ -441,7 +425,7 @@ describe("shell components smoke", () => {
     expect(errors.find(isLoopError)).toBeUndefined();
   });
 
-  it("LeftSidebar exposes Views and Inbox under the Trust group", () => {
+  it("LeftSidebar exposes Your Inbox and trust-owned primitives", () => {
     const { getAllByRole, queryByText } = render(
       withQueryClient(
         <StrictMode>
@@ -456,7 +440,7 @@ describe("shell components smoke", () => {
         </StrictMode>,
       ),
     );
-    expect(getAllByRole("link", { name: /^(Views|Inbox)$/ })).toHaveLength(2);
+    expect(getAllByRole("link", { name: "Your Inbox" })).toHaveLength(1);
     expect(queryByText(/^(Operations|Ownership)$/)).not.toBeInTheDocument();
   });
 
@@ -671,7 +655,6 @@ describe("ShortcutsOverlay smoke", () => {
       </StrictMode>,
     );
     expect(errors.find(isLoopError)).toBeUndefined();
-    // Both the N spawn hint and the ⌘K palette line should be in the DOM.
     const content = document.body.textContent || "";
     expect(content).toContain("Spawn");
     expect(content).toContain("command palette");

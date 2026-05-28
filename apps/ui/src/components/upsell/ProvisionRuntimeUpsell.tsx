@@ -1,7 +1,7 @@
 /**
  * ProvisionRuntimeUpsell — the gate users hit when they open a runtime-
- * gated surface (Agents / Apps / Quests / Ideas / Events / Inbox / Sessions) on
- * a free TRUST.
+ * gated surface (Agents / Integrations / Quests / Ideas / Events / Inbox /
+ * Sessions) on a free TRUST.
  *
  * Architecture:
  *   - Free TRUSTs have an on-chain `trust_address` and an empty
@@ -40,6 +40,7 @@ import "@/styles/runtime-upsell.css";
 export type UpsellSurface =
   | "agents"
   | "apps"
+  | "campaigns"
   | "quests"
   | "ideas"
   | "events"
@@ -48,7 +49,8 @@ export type UpsellSurface =
 
 const SURFACE_LABELS: Record<UpsellSurface, string> = {
   agents: "Agents",
-  apps: "Apps",
+  apps: "Integrations",
+  campaigns: "Campaigns",
   quests: "Quests",
   ideas: "Ideas",
   events: "Events",

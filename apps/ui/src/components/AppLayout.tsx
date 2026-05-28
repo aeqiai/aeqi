@@ -51,11 +51,13 @@ const RELOCATED_AGENT_TABS = new Set(["overview", "quests", "events", "ideas", "
 // id and dispatches BlueprintDetailPage.
 const BLUEPRINT_KINDS = new Set(["companies", "agents", "events", "quests", "ideas"]);
 
-// Tabs that route through TrustTabPage. Each is now a top-level sidebar
-// row in the Phase-1 lock — TrustTabPage is a thin per-tab dispatcher.
-// Inbox is the company-scoped action queue; Views is the composable trust landing;
-// Roles, Members, Agents, Sessions, Inbox, Channels, Apps, Tools, Events,
-// Quests, and Ideas sit together as one continuous trust surface.
+// Tabs that route through TrustTabPage. TrustTabPage is a thin per-tab
+// dispatcher for entity-scoped surfaces. Your Inbox keeps the entity route for
+// context, but the sidebar presents it as a personal attention surface above
+// Trust. Views is the composable trust landing; Roles, Members, Agents,
+// Sessions, Mail, Websites, Campaigns, Budgets, Transactions, Channels,
+// Integrations, Tools, Events, Quests, and Ideas sit together as one continuous
+// trust surface.
 //
 // The runtime primitive tabs (agents/events/quests/ideas) ALSO route through
 // TrustTabPage at the entity scope. Without this, `/trust/<addr>/agents`
@@ -72,15 +74,24 @@ const COMPANY_PAGE_TABS = new Set([
   "agents",
   "sessions",
   "inbox",
+  "mail",
+  "websites",
+  "campaigns",
+  "budgets",
+  "transactions",
   "channels",
+  "integrations",
+  // Legacy alias: Apps was renamed to Integrations. TrustTabPage redirects
+  // `/trust/<addr>/apps` to `/trust/<addr>/integrations`.
   "apps",
   "tools",
   "events",
   "quests",
   "ideas",
   "health",
-  // Legacy alias: Website moved into Apps. TrustTabPage redirects
-  // `/trust/<addr>/website` to `/trust/<addr>/apps`.
+  // Legacy alias: singular Website moved to the first-class Websites
+  // primitive. TrustTabPage redirects `/trust/<addr>/website` to
+  // `/trust/<addr>/websites`.
   "website",
   // Trust-level Settings surface: irreversible administrative actions
   // (ownership transfer; future archival / principal rotation). Reachable

@@ -72,23 +72,26 @@ describe("TrustAppsTab", () => {
     queryClient.clear();
   });
 
-  function renderTab() {
+  function renderTab(surface: "integrations" | "mail" | "websites" = "integrations") {
     render(
-      <MemoryRouter initialEntries={["/trust/root-1/apps"]}>
+      <MemoryRouter initialEntries={[`/trust/root-1/${surface}`]}>
         <QueryClientProvider client={queryClient}>
           <Routes>
-            <Route path="/trust/:trustAddress/apps" element={<TrustAppsTab trustId="root-1" />} />
+            <Route
+              path="/trust/:trustAddress/:tab"
+              element={<TrustAppsTab trustId="root-1" surface={surface} />}
+            />
           </Routes>
         </QueryClientProvider>
       </MemoryRouter>,
     );
   }
 
-  it("renders Apps as a plain identity inside the page toolbar", async () => {
+  it("renders Integrations as a plain identity inside the page toolbar", async () => {
     renderTab();
 
-    const header = screen.getByLabelText("App controls");
-    const heading = within(header).getByRole("heading", { name: "Apps" });
+    const header = screen.getByLabelText("Integrations controls");
+    const heading = within(header).getByRole("heading", { name: "Integrations" });
     const toolbar = header.querySelector(".trust-apps-toolbar");
     const actionSlot = header.querySelector(":scope > div:last-child");
 
@@ -96,11 +99,22 @@ describe("TrustAppsTab", () => {
     expect(toolbar).not.toBeNull();
     expect(within(header).getByRole("button", { name: "Channels" })).toBeInTheDocument();
     expect(actionSlot).not.toBeNull();
-    expect(heading.compareDocumentPosition(screen.getByText("Launch apps"))).toBe(
+    expect(heading.compareDocumentPosition(screen.getByText("Platform integrations"))).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
     await waitFor(() => {
       expect(screen.getByText(/connected ·/)).toHaveClass("trust-apps-toolbar-summary");
     });
+  });
+
+  it("renders Mail and Websites as native trust surfaces", async () => {
+    renderTab("mail");
+    expect(screen.getByRole("heading", { name: "Mail" })).toBeInTheDocument();
+    expect(screen.getByText("Trust mailboxes")).toBeInTheDocument();
+
+    queryClient.clear();
+    renderTab("websites");
+    expect(screen.getByRole("heading", { name: "Websites" })).toBeInTheDocument();
+    expect(await screen.findByText("Trust websites")).toBeInTheDocument();
   });
 });

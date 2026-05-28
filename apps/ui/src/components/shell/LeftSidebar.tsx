@@ -20,6 +20,10 @@ import {
   Wrench,
   Users,
   Settings,
+  Mail,
+  Megaphone,
+  ReceiptText,
+  WalletCards,
 } from "lucide-react";
 import ActingAsSelector from "@/components/shell/ActingAsSelector";
 import AccountDropdown from "@/components/shell/AccountDropdown";
@@ -54,12 +58,17 @@ const IdeasIcon = () => <Lightbulb />;
 const SessionsIcon = () => <MessagesSquare />;
 const ChannelsIcon = () => <Hash />;
 const ToolsIcon = () => <Wrench />;
+const MailIcon = () => <Mail />;
+const WebsitesIcon = () => <Globe />;
+const CampaignsIcon = () => <Megaphone />;
+const BudgetsIcon = () => <WalletCards />;
+const TransactionsIcon = () => <ReceiptText />;
 // Roles — its own peer slot under Trust, outside both AEQI groups. The
 // org-chart authority graph (RoleNewPage / RoleDetailPage et al). Workflow
 // reads parent + child boxes = hierarchy.
 const RolesIcon = () => <Workflow />;
 const MembersIcon = () => <Users />;
-const AppsIcon = () => <Plug />;
+const IntegrationsIcon = () => <Plug />;
 const SettingsIcon = () => <Settings />;
 // Economy — Globe reads "the wider network / world economy" — the
 // marketplace + inference + stake activity is happening *out there*
@@ -333,13 +342,15 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
           {topLevelItem("/", "Home", <HomeIcon />, isStart, {
             action: rowAction("Search", <SearchIcon />, openPalette, `${isMac ? "⌘" : "Ctrl"}K`),
           })}
+          {hasCompany &&
+            topLevelItem(navHref("inbox"), "Your Inbox", <InboxIcon />, isActiveTab("inbox"))}
           {topLevelItem("/economy", "Economy", <EconomyIcon />, isEconomy)}
           {topLevelItem("/blueprints", "Blueprints", <BlueprintsIcon />, isBlueprints)}
         </nav>
 
         {/* ── Trust group — one continuous trust surface. Order follows the
             mental model: state, authority, humans, agents, conversations,
-            channel/app/tool capabilities, then work records. ── */}
+            owned communication/surfaces, then capabilities and work. ── */}
         {hasCompany && (
           <>
             <nav className="sidebar-surface-nav sidebar-zone" aria-label="Trust">
@@ -373,11 +384,17 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
               {navItem("sessions", "Sessions", <SessionsIcon />, {
                 locked: runtimeLocked,
               })}
-              {navItem("inbox", "Inbox", <InboxIcon />)}
+              {navItem("mail", "Mail", <MailIcon />)}
+              {navItem("websites", "Websites", <WebsitesIcon />)}
+              {navItem("campaigns", "Campaigns", <CampaignsIcon />, {
+                locked: runtimeLocked,
+              })}
+              {navItem("budgets", "Budgets", <BudgetsIcon />)}
+              {navItem("transactions", "Transactions", <TransactionsIcon />)}
               {navItem("channels", "Channels", <ChannelsIcon />, {
                 locked: runtimeLocked,
               })}
-              {navItem("apps", "Apps", <AppsIcon />, {
+              {navItem("integrations", "Integrations", <IntegrationsIcon />, {
                 locked: runtimeLocked,
               })}
               {navItem("tools", "Tools", <ToolsIcon />, {

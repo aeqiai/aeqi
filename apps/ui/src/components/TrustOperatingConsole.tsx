@@ -156,10 +156,10 @@ export default function TrustOperatingConsole({ trustId, basePath }: TrustOperat
           </span>
           <ArrowRight size={14} strokeWidth={1.7} aria-hidden />
         </Link>
-        <Link to={`${basePath}/apps`} className="trust-operating-action">
+        <Link to={`${basePath}/integrations`} className="trust-operating-action">
           <Sparkles size={16} strokeWidth={1.6} aria-hidden />
           <span>
-            <strong>Connect apps</strong>
+            <strong>Connect integrations</strong>
             <small>Give the TRUST channels and tools to act through.</small>
           </span>
           <ArrowRight size={14} strokeWidth={1.7} aria-hidden />
