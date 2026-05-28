@@ -121,15 +121,17 @@ export default function StreamingMessage({
   // (`finish_reason: stop` with no further tool calls). Promotion to a
   // visible response happens on commit, in MessageItem.
   return (
-    <div className="asv-msg asv-msg-assistant asv-msg-streaming">
+    <div className="asv-msg asv-msg-assistant asv-msg-streaming asv-msg-has-trail">
       <div className="asv-msg-body">
-        <LiveTrail
-          trail={liveSegments}
-          thinkingStart={thinkingStart}
-          runningToolName={runningToolName}
-          showThinking={showLiveThinking}
-          stepOffset={stepOffset}
-        />
+        <div className="asv-msg-card">
+          <LiveTrail
+            trail={liveSegments}
+            thinkingStart={thinkingStart}
+            runningToolName={runningToolName}
+            showThinking={showLiveThinking}
+            stepOffset={stepOffset}
+          />
+        </div>
         {thinkingStart && (
           <div className="asv-msg-chrome">
             <div className="asv-msg-chrome-meta">

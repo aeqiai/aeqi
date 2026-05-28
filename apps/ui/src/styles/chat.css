@@ -508,6 +508,17 @@
   max-width: 820px;
 }
 
+.asv-msg-has-trail .asv-msg-body {
+  max-width: 820px;
+}
+
+.asv-msg-has-trail .asv-msg-card {
+  overflow: hidden;
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-sm);
+  background: var(--color-card-elevated);
+}
+
 /* ── Director-ask treatment ─────────────────────────────────────
    When the agent fires `question.ask`, the assistant message carries
    `source = "question.ask"`. Wrap the bubble in an ink-toned panel so
@@ -1110,31 +1121,35 @@
 }
 
 /* ── Thought trail (completed and live assistant turns) ──
-   The agent's intermediate thinking/tool trace gets the ink treatment.
-   This is intentionally scoped to the message trail; inbox/session rails
-   stay light and navigational. */
+   The agent's intermediate work is the expandable header of the response
+   card. It stays on the same light surface as the final answer so thinking
+   reads as part of the agent turn, not as a separate ink panel. */
 .asv-trail {
   margin: 4px 0 2px;
-  background: var(--color-ink-card);
-  border: 1px solid var(--color-ink-card-border);
+  background: var(--bg-row);
+  border: 1px solid var(--border-faint);
   border-radius: var(--radius-sm);
-  color: var(--color-ink-card-text);
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.16),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  color: var(--color-text-secondary);
+  box-shadow: none;
   transition:
     background var(--transition-normal),
     border-color var(--transition-normal);
 }
 .asv-trail:hover {
-  border-color: rgba(255, 255, 255, 0.18);
+  border-color: var(--border);
 }
 .asv-trail--fail {
   border-color: var(--accent-bar-blocked);
 }
 .asv-trail--live {
-  background: var(--color-ink-card);
-  border-color: rgba(255, 255, 255, 0.16);
+  background: var(--bg-row);
+  border-color: var(--border-faint);
+}
+.asv-msg-has-trail .asv-trail {
+  margin: 0;
+  border-width: 0 0 1px;
+  border-color: var(--border-faint);
+  border-radius: 0;
 }
 .asv-trail-toggle {
   display: flex;
@@ -1147,16 +1162,16 @@
   cursor: pointer;
   font-family: var(--font-sans);
   font-size: var(--font-size-micro);
-  color: var(--color-ink-card-text-muted);
+  color: var(--color-text-muted);
   text-align: left;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   transition:
     background var(--transition-normal),
     color var(--transition-normal);
 }
 .asv-trail-toggle:hover {
-  background: var(--color-ink-card-elevated);
-  color: var(--color-ink-card-text);
+  background: var(--color-card-subtle);
+  color: var(--color-text-primary);
 }
 .asv-trail-chevron {
   display: inline-block;
@@ -1186,12 +1201,12 @@
   padding: 2px 12px 8px;
   border-top: none;
   margin-top: var(--space-1);
-  color: var(--color-ink-card-text-muted);
+  color: var(--color-text-muted);
 }
 /* Inside the expanded trail, nested tool groups lose their own border-left
    since the parent trail already owns the vertical accent. */
 .asv-trail-detail .asv-tools-group {
-  border-left-color: var(--color-ink-card-border);
+  border-left-color: var(--border);
 }
 .asv-trail .asv-step-sep,
 .asv-trail .asv-tool-name,
@@ -1200,20 +1215,18 @@
 .asv-trail .asv-status-line,
 .asv-trail .session-tool-output,
 .asv-trail .asv-thinking-text {
-  color: var(--color-ink-card-text-muted);
+  color: var(--color-text-muted);
 }
 .asv-trail .asv-step-sep::before,
 .asv-trail .asv-step-sep::after {
-  background: var(--color-ink-card-border);
+  background: var(--border);
 }
 .asv-trail .asv-tool-dot {
-  background: var(--color-ink-card-text-muted);
+  background: var(--color-text-muted);
 }
 
-/* Breathing room between the collapsed trail and the final response so
-   the answer reads as its own moment, not a continuation of the trace. */
-.asv-trail + .asv-msg-content {
-  margin-top: 10px;
+.asv-msg-card > .asv-msg-content {
+  padding: 12px 14px 14px;
 }
 
 /* ── Quest events (system messages) ── */

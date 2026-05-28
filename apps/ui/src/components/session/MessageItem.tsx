@@ -485,7 +485,7 @@ const MessageItem = memo(function MessageItem({
 
   return (
     <div
-      className={`asv-msg ${bubbleClass}${msg.queued ? " asv-msg-queued" : ""}${isAsk ? " asv-msg-ask" : ""}`}
+      className={`asv-msg ${bubbleClass}${msg.queued ? " asv-msg-queued" : ""}${isAsk ? " asv-msg-ask" : ""}${useSplit ? " asv-msg-has-trail" : ""}`}
     >
       <div className="asv-msg-body">
         {avatar?.authorLabel && (
@@ -504,7 +504,7 @@ const MessageItem = memo(function MessageItem({
           </div>
         )}
         {useSplit && splitAssistant ? (
-          <>
+          <div className="asv-msg-card">
             <CollapsedTrail
               trail={splitAssistant.trail}
               duration={msg.duration}
@@ -512,7 +512,7 @@ const MessageItem = memo(function MessageItem({
               failed={trailHasFailure(splitAssistant.trail)}
             />
             <SegmentRenderer segments={splitAssistant.final} />
-          </>
+          </div>
         ) : msg.segments && msg.segments.length > 0 ? (
           <SegmentRenderer segments={msg.segments} />
         ) : (
