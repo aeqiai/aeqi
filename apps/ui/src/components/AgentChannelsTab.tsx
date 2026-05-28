@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
+import { Plus, Waypoints } from "lucide-react";
 import { useNav } from "@/hooks/useNav";
 import * as channelsApi from "@/api/channels";
 import type { AllowedChat, ChannelEntry } from "@/api/channels";
 import { useAgentChannels, useAgentChannelsCache, useChannelSessions } from "@/queries/channels";
-import { Button, CardTrigger, EmptyState, Select, TabTrigger } from "./ui";
+import { Button, CardTrigger, EmptyState, PrimitivePageHeader, Select, TabTrigger } from "./ui";
 import { BaileysPairingPanel } from "./BaileysPairingPanel";
+import "@/styles/overview.css";
 
 // Stable empty-array reference — see selector-hygiene.test.ts.
 const NO_CHANNELS: ChannelEntry[] = [];
@@ -56,6 +58,15 @@ function buildConfig(
     default:
       return { kind, ...fields };
   }
+}
+
+function countLabel(count: number, singular: string, plural = `${singular}s`): string {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function gatewayTitle(kind: string): string {
+  const found = CHANNEL_TYPES.find((item) => item.value === kind);
+  return found?.label ?? kind;
 }
 
 export default function AgentChannelsTab({ agentId }: { agentId: string }) {
@@ -122,7 +133,7 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
     }
   };
 
-  const getChats = (ch: ChannelEntry) => channelSessions.filter((s) => s.transport === ch.kind);
+  const getSessions = (ch: ChannelEntry) => channelSessions.filter((s) => s.transport === ch.kind);
   // `chat_id` is TEXT server-side (see agent_registry.rs: "every transport
   // fits — Telegram i64, WhatsApp JID, Discord snowflake, phone numbers").
   // Compare as strings, never coerce to Number — WhatsApp JIDs like
@@ -188,298 +199,375 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
     }
   };
 
+  const totalSessions = channels.reduce((sum, channel) => sum + getSessions(channel).length, 0);
+  const totalAllowed = channels.reduce((sum, channel) => sum + channel.allowed_chats.length, 0);
+  const toolbarSummary = `${countLabel(channels.length, "gateway")} · ${countLabel(
+    totalSessions,
+    "session",
+  )} · ${countLabel(totalAllowed, "allowed route")}`;
+  const fireNew = () => window.dispatchEvent(new CustomEvent("aeqi:new-gateway"));
+
   if (showAddForm) {
     return (
-      <div className="asv-main" style={{ padding: "20px 28px", overflowY: "auto" }}>
-        <h3 className="events-detail-name">Add Gateway</h3>
-        <div className="channel-type-picker" style={{ marginBottom: 12 }}>
-          {CHANNEL_TYPES.map((ct) => (
-            <TabTrigger
-              key={ct.value}
-              active={newChannelType === ct.value}
+      <div className="trust-overview trust-apps-page gateway-page">
+        <PrimitivePageHeader
+          className="trust-apps-page-header"
+          title="Gateways"
+          aria-label="Gateway controls"
+          actions={
+            <Button
+              variant="secondary"
+              size="md"
               onClick={() => {
-                setNewChannelType(ct.value);
-                setNewChannelFields({});
+                setShowAddForm(false);
                 setError(null);
               }}
             >
-              {ct.label}
-            </TabTrigger>
-          ))}
-        </div>
-        {(CHANNEL_FIELDS[newChannelType] || []).map((f) => {
-          const k = fieldKey(f.label);
-          return (
-            <div key={k} style={{ marginBottom: 10 }}>
-              <label className="agent-settings-label">{f.label}</label>
-              <input
-                className="agent-settings-input"
-                type={f.type || "text"}
-                placeholder={f.placeholder}
-                value={newChannelFields[k] || ""}
-                style={{ width: "100%", marginTop: 4 }}
-                onChange={(e) => setNewChannelFields((p) => ({ ...p, [k]: e.target.value }))}
-              />
+              Cancel
+            </Button>
+          }
+        >
+          <div className="ideas-toolbar trust-apps-toolbar">
+            <span className="ideas-toolbar-meta trust-apps-toolbar-summary">
+              Add an external ingress and egress endpoint for this trust.
+            </span>
+          </div>
+        </PrimitivePageHeader>
+
+        <section className="trust-cockpit-card trust-cockpit-card--wide gateway-surface-card">
+          <header className="trust-cockpit-card-header gateway-card-header">
+            <div>
+              <h2 className="trust-cockpit-card-title">Add gateway</h2>
+              <p className="trust-cockpit-card-sub">
+                External messages become sessions when routed through a gateway.
+              </p>
             </div>
-          );
-        })}
-        {newChannelType === "whatsapp-baileys" && (
-          <p className="channel-form-hint">
-            Pairing is done by scanning a QR code with WhatsApp on your phone. After you press
-            Connect, a QR will appear on this gateway's detail page. The session is stored on the
-            server and survives restarts.
-          </p>
-        )}
-        {error && <div className="channel-form-error">{error}</div>}
-        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-          <Button variant="primary" onClick={handleAdd} loading={saving} disabled={saving}>
-            Connect
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setShowAddForm(false);
-              setError(null);
-            }}
-          >
-            Cancel
-          </Button>
-        </div>
+          </header>
+
+          <div className="channel-type-picker gateway-type-picker">
+            {CHANNEL_TYPES.map((ct) => (
+              <TabTrigger
+                key={ct.value}
+                active={newChannelType === ct.value}
+                onClick={() => {
+                  setNewChannelType(ct.value);
+                  setNewChannelFields({});
+                  setError(null);
+                }}
+              >
+                {ct.label}
+              </TabTrigger>
+            ))}
+          </div>
+          <div className="gateway-form-grid">
+            {(CHANNEL_FIELDS[newChannelType] || []).map((f) => {
+              const k = fieldKey(f.label);
+              return (
+                <div key={k} className="agent-settings-field gateway-form-field">
+                  <label className="agent-settings-label">{f.label}</label>
+                  <input
+                    className="agent-settings-input"
+                    type={f.type || "text"}
+                    placeholder={f.placeholder}
+                    value={newChannelFields[k] || ""}
+                    onChange={(e) => setNewChannelFields((p) => ({ ...p, [k]: e.target.value }))}
+                  />
+                </div>
+              );
+            })}
+          </div>
+          {newChannelType === "whatsapp-baileys" && (
+            <p className="channel-form-hint gateway-form-hint">
+              Pairing is done by scanning a QR code with WhatsApp on your phone. After you press
+              Connect, a QR will appear on this gateway's detail page. The session is stored on the
+              server and survives restarts.
+            </p>
+          )}
+          {error && <div className="channel-form-error gateway-form-error">{error}</div>}
+          <div className="gateway-form-actions">
+            <Button variant="primary" onClick={handleAdd} loading={saving} disabled={saving}>
+              Connect
+            </Button>
+          </div>
+        </section>
       </div>
     );
   }
 
   if (!selected) {
-    const fireNew = () => window.dispatchEvent(new CustomEvent("aeqi:new-gateway"));
     return (
-      <div className="asv-main channels-list" style={{ overflowY: "auto" }}>
-        {channels.length === 0 ? (
-          <button type="button" className="inline-picker-empty-cta" onClick={fireNew}>
-            <span className="inline-picker-empty-cta-label">No gateways yet</span>
-            <span className="inline-picker-empty-cta-hint">Add gateway</span>
-          </button>
-        ) : (
-          <>
-            <div className="inline-picker-group">
-              <span className="inline-picker-group-label">connected</span>
-              <span className="inline-picker-group-rule" />
-              <span className="inline-picker-group-count">{channels.length}</span>
+      <div className="trust-overview trust-apps-page gateway-page">
+        <PrimitivePageHeader
+          className="trust-apps-page-header"
+          title="Gateways"
+          aria-label="Gateway controls"
+          actions={
+            <Button
+              variant="primary"
+              size="md"
+              onClick={fireNew}
+              leadingIcon={<Plus size={14} strokeWidth={1.6} />}
+            >
+              New Gateway
+            </Button>
+          }
+        >
+          <div className="ideas-toolbar trust-apps-toolbar">
+            <span className="ideas-toolbar-meta trust-apps-toolbar-summary">{toolbarSummary}</span>
+          </div>
+        </PrimitivePageHeader>
+
+        <section className="trust-cockpit-card trust-cockpit-card--wide gateway-surface-card">
+          <header className="trust-cockpit-card-header gateway-card-header">
+            <div>
+              <h2 className="trust-cockpit-card-title">Connected gateways</h2>
+              <p className="trust-cockpit-card-sub">
+                Transport endpoints that create and deliver sessions.
+              </p>
             </div>
-            {channels.map((c) => {
-              const chats = getChats(c);
-              return (
-                <CardTrigger
-                  key={c.id}
-                  className="channels-list-row"
-                  onClick={() => goEntity(trustId, "gateways", c.id)}
-                  aria-label={`Open ${c.kind} gateway`}
-                >
-                  <span className="channels-list-row-kind">{c.kind.toUpperCase()}</span>
-                  <span className="channels-list-row-name">gateway:{c.kind}</span>
-                  <span
-                    className={`channels-list-row-dot${c.enabled ? " is-on" : ""}`}
-                    aria-hidden
-                  />
-                  <span className="channels-list-row-meta">
-                    {chats.length > 0
-                      ? `${chats.length} chat${chats.length === 1 ? "" : "s"}`
-                      : c.allowed_chats.length > 0
-                        ? `${c.allowed_chats.length} allowed`
-                        : "idle"}
-                  </span>
-                </CardTrigger>
-              );
-            })}
-          </>
-        )}
+          </header>
+
+          {channels.length === 0 ? (
+            <EmptyState
+              eyebrow="Gateways"
+              title="No gateways yet"
+              description="Add Telegram, WhatsApp, or another transport endpoint to route external messages into sessions."
+              action={
+                <Button variant="primary" size="md" onClick={fireNew}>
+                  Add Gateway
+                </Button>
+              }
+            />
+          ) : (
+            <div className="gateway-list" aria-label="Connected gateways">
+              {channels.map((c) => {
+                const sessions = getSessions(c);
+                const meta =
+                  sessions.length > 0
+                    ? countLabel(sessions.length, "session")
+                    : c.allowed_chats.length > 0
+                      ? countLabel(c.allowed_chats.length, "allowed route")
+                      : "No sessions";
+                return (
+                  <CardTrigger
+                    key={c.id}
+                    className="gateway-list-row"
+                    onClick={() => goEntity(trustId, "gateways", c.id)}
+                    aria-label={`Open ${gatewayTitle(c.kind)} gateway`}
+                  >
+                    <span className="gateway-list-row-icon" aria-hidden>
+                      <Waypoints size={15} strokeWidth={1.6} />
+                    </span>
+                    <span className="gateway-list-row-main">
+                      <span className="gateway-list-row-name">{gatewayTitle(c.kind)}</span>
+                      <span className="gateway-list-row-key">gateway:{c.kind}</span>
+                    </span>
+                    <span className="gateway-list-row-status">
+                      <span
+                        className={`gateway-status-dot${c.enabled ? " is-on" : ""}`}
+                        aria-hidden
+                      />
+                      {c.enabled ? "Enabled" : "Paused"}
+                    </span>
+                    <span className="gateway-list-row-meta">{meta}</span>
+                  </CardTrigger>
+                );
+              })}
+            </div>
+          )}
+        </section>
       </div>
     );
   }
 
-  const chats = getChats(selected);
+  const sessions = getSessions(selected);
   const allowed = getAllowed(selected);
   const whitelist = allowed.length > 0;
+  const selectedSummary = `${gatewayTitle(selected.kind)} · ${countLabel(
+    sessions.length,
+    "session",
+  )} · ${countLabel(allowed.length, "allowed route")}`;
 
   return (
-    <div className="asv-main" style={{ padding: "20px 28px", overflowY: "auto" }}>
+    <div className="trust-overview trust-apps-page gateway-page">
+      <PrimitivePageHeader
+        className="trust-apps-page-header"
+        title="Gateways"
+        aria-label="Gateway controls"
+        actions={
+          <div className="gateway-header-actions">
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => goEntity(trustId, "gateways", undefined, { replace: true })}
+            >
+              All Gateways
+            </Button>
+            <Button
+              variant="danger"
+              size="md"
+              aria-label={`Disconnect ${selected.kind} gateway`}
+              disabled={deleting}
+              loading={deleting}
+              onClick={async () => {
+                if (deleting) return;
+                setDeleting(true);
+                setError(null);
+                try {
+                  await channelsApi.deleteAgentChannel(selected.id);
+                  removeChannel(selected.id);
+                  goEntity(trustId, "gateways", undefined, { replace: true });
+                } catch (e) {
+                  setError(e instanceof Error ? e.message : "Failed to disconnect");
+                  setDeleting(false);
+                }
+                // On success the component unmounts via navigation, so no need
+                // to reset deleting — setting it would warn about unmounted
+                // state updates.
+              }}
+            >
+              Disconnect
+            </Button>
+          </div>
+        }
+      >
+        <div className="ideas-toolbar trust-apps-toolbar">
+          <span className="ideas-toolbar-meta trust-apps-toolbar-summary">{selectedSummary}</span>
+        </div>
+      </PrimitivePageHeader>
+
       {error && (
-        <div
-          className="channel-form-error"
-          role="alert"
-          style={{ marginBottom: 12, display: "flex", justifyContent: "space-between", gap: 8 }}
-        >
+        <div className="channel-form-error gateway-form-error gateway-alert" role="alert">
           <span>{error}</span>
-          <button
-            type="button"
-            onClick={() => setError(null)}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              color: "inherit",
-              padding: 0,
-            }}
-            aria-label="Dismiss"
-          >
+          <button type="button" onClick={() => setError(null)} aria-label="Dismiss">
             ×
           </button>
         </div>
       )}
-      <div className="events-detail-header">
-        <div>
-          <h3 className="events-detail-name">{selected.kind}</h3>
-          <span className="events-detail-pattern">gateway:{selected.kind}</span>
-        </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          className="channel-disconnect-btn"
-          aria-label={`Disconnect ${selected.kind} gateway`}
-          disabled={deleting}
-          loading={deleting}
-          onClick={async () => {
-            if (deleting) return;
-            setDeleting(true);
-            setError(null);
-            try {
-              await channelsApi.deleteAgentChannel(selected.id);
-              removeChannel(selected.id);
-              goEntity(trustId, "gateways", undefined, { replace: true });
-            } catch (e) {
-              setError(e instanceof Error ? e.message : "Failed to disconnect");
-              setDeleting(false);
-            }
-            // On success the component unmounts via navigation, so no need
-            // to reset deleting — setting it would warn about unmounted
-            // state updates.
-          }}
-        >
-          Disconnect
-        </Button>
-      </div>
 
-      <div style={{ marginBottom: 16 }}>
-        {Object.entries(selected.config)
-          .filter(([k]) => k !== "allowed_chats" && k !== "allowed_jids")
-          .map(([k, v]) => (
-            <div key={k} className="agent-settings-field">
-              <span className="agent-settings-label">{k.replace(/_/g, " ")}</span>
-              <span className="agent-settings-value agent-settings-mono">
-                {k.includes("token") || k.includes("auth") || k.includes("sid")
-                  ? `${String(v).slice(0, 8)}...`
-                  : String(v)}
-              </span>
-            </div>
-          ))}
-      </div>
-
-      {selected.kind === "whatsapp-baileys" && <BaileysPairingPanel channelId={selected.id} />}
-
-      {chats.length === 0 ? (
-        <EmptyState
-          eyebrow="chats"
-          title="No active chats yet"
-          description="Messages through this gateway will show up here once they arrive."
-        />
-      ) : (
-        <div>
-          <div
-            className="events-detail-ideas-header"
-            style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
-          >
-            <span>Active Chats ({chats.length})</span>
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                fontSize: 11,
-                color: "var(--color-text-muted)",
-                cursor: "pointer",
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={whitelist}
-                onChange={(e) => {
-                  if (e.target.checked) {
-                    // Use `chat_id` as-is. Coercing to Number drops every
-                    // WhatsApp JID and any non-numeric chat_id (the bug
-                    // that made this toggle no-op for WhatsApp). New entries
-                    // default to `reply_allowed: true` (auto-reply); the
-                    // user can demote to read-only per-row below.
-                    const allChats: AllowedChat[] = chats
-                      .map((s) => s.chat_id)
-                      .filter(Boolean)
-                      .map((chat_id) => ({ chat_id, reply_allowed: true }));
-                    updateAllowed(selected.id, () => allChats);
-                  } else {
-                    // Turning whitelist OFF clears the entire server-side
-                    // list — confirm first if there was a non-empty one.
-                    if (
-                      selected.allowed_chats.length > 0 &&
-                      !window.confirm(
-                        `Turn off whitelist for ${selected.kind}? This will clear ${selected.allowed_chats.length} allowed chat(s).`,
-                      )
-                    ) {
-                      return;
-                    }
-                    updateAllowed(selected.id, () => []);
-                  }
-                }}
-              />
-              Whitelist
-            </label>
+      <section className="trust-cockpit-card trust-cockpit-card--wide gateway-surface-card">
+        <header className="trust-cockpit-card-header gateway-card-header">
+          <div>
+            <h2 className="trust-cockpit-card-title">{gatewayTitle(selected.kind)}</h2>
+            <p className="trust-cockpit-card-sub">gateway:{selected.kind}</p>
           </div>
-          <p className="agent-settings-hint" style={{ marginTop: 4, marginBottom: 8 }}>
-            <strong>Auto-reply</strong> = agent answers automatically. <strong>Read-only</strong> =
-            messages arrive, agent stays silent. <strong>Off</strong> = drop entirely.
-          </p>
-          {chats.map((s) => {
-            const mode = chatModeFor(allowed, s.chat_id);
-            const kindLabel = chatKindLabel(s.transport, s.chat_id);
-            return (
-              <div
-                key={s.channel_key}
-                className="event-idea-card"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <div>
-                  <span className="event-idea-key">{s.chat_id}</span>
-                  {kindLabel && (
-                    <span style={{ fontSize: 10, color: "var(--color-text-muted)", marginLeft: 8 }}>
-                      {kindLabel}
-                    </span>
+          <span className="gateway-list-row-status">
+            <span className={`gateway-status-dot${selected.enabled ? " is-on" : ""}`} aria-hidden />
+            {selected.enabled ? "Enabled" : "Paused"}
+          </span>
+        </header>
+
+        <div className="gateway-config-grid">
+          {Object.entries(selected.config)
+            .filter(([k]) => k !== "allowed_chats" && k !== "allowed_jids")
+            .map(([k, v]) => (
+              <div key={k} className="gateway-config-field">
+                <span className="agent-settings-label">{k.replace(/_/g, " ")}</span>
+                <span className="agent-settings-value agent-settings-mono">
+                  {k.includes("token") || k.includes("auth") || k.includes("sid")
+                    ? `${String(v).slice(0, 8)}...`
+                    : String(v)}
+                </span>
+              </div>
+            ))}
+        </div>
+
+        {selected.kind === "whatsapp-baileys" && <BaileysPairingPanel channelId={selected.id} />}
+      </section>
+
+      <section className="trust-cockpit-card trust-cockpit-card--wide gateway-surface-card">
+        <header className="trust-cockpit-card-header gateway-card-header">
+          <div>
+            <h2 className="trust-cockpit-card-title">Sessions</h2>
+            <p className="trust-cockpit-card-sub">External peers routed through this gateway.</p>
+          </div>
+          <label className="gateway-whitelist-toggle">
+            <input
+              type="checkbox"
+              checked={whitelist}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  // Use `chat_id` as-is. Coercing to Number drops every
+                  // WhatsApp JID and any non-numeric chat_id (the bug
+                  // that made this toggle no-op for WhatsApp). New entries
+                  // default to `reply_allowed: true` (auto-reply); the
+                  // user can demote to read-only per-row below.
+                  const allSessions: AllowedChat[] = sessions
+                    .map((s) => s.chat_id)
+                    .filter(Boolean)
+                    .map((chat_id) => ({ chat_id, reply_allowed: true }));
+                  updateAllowed(selected.id, () => allSessions);
+                } else {
+                  // Turning whitelist OFF clears the entire server-side
+                  // list — confirm first if there was a non-empty one.
+                  if (
+                    selected.allowed_chats.length > 0 &&
+                    !window.confirm(
+                      `Turn off whitelist for ${selected.kind}? This will clear ${countLabel(
+                        selected.allowed_chats.length,
+                        "allowed route",
+                      )}.`,
+                    )
+                  ) {
+                    return;
+                  }
+                  updateAllowed(selected.id, () => []);
+                }
+              }}
+            />
+            Whitelist
+          </label>
+        </header>
+        <p className="agent-settings-hint gateway-sessions-hint">
+          <strong>Auto-reply</strong> = agent answers automatically. <strong>Read-only</strong> =
+          messages arrive, agent stays silent. <strong>Off</strong> = drop entirely.
+        </p>
+
+        {sessions.length === 0 ? (
+          <EmptyState
+            eyebrow="Sessions"
+            title="No active sessions yet"
+            description="Messages through this gateway will create sessions here once they arrive."
+          />
+        ) : (
+          <div className="gateway-session-list" aria-label="Gateway sessions">
+            {sessions.map((s) => {
+              const mode = chatModeFor(allowed, s.chat_id);
+              const kindLabel = chatKindLabel(s.transport, s.chat_id);
+              return (
+                <div key={s.channel_key} className="gateway-session-row">
+                  <div className="gateway-session-main">
+                    <span className="event-idea-key">{s.chat_id}</span>
+                    {kindLabel && <span className="gateway-session-kind">{kindLabel}</span>}
+                  </div>
+                  {whitelist ? (
+                    <Select
+                      aria-label={`Reply mode for ${s.chat_id}`}
+                      className="channel-reply-mode-select"
+                      size="sm"
+                      options={CHAT_MODE_OPTIONS}
+                      value={mode}
+                      onChange={(nextValue) => {
+                        const next = nextValue as ChatMode;
+                        updateAllowed(selected.id, (current) => {
+                          const without = current.filter((v) => v.chat_id !== s.chat_id);
+                          if (next === "off") return without;
+                          return [
+                            ...without,
+                            { chat_id: s.chat_id, reply_allowed: next === "auto" },
+                          ];
+                        });
+                      }}
+                    />
+                  ) : (
+                    <span className="gateway-session-mode">Allowed</span>
                   )}
                 </div>
-                {whitelist ? (
-                  <Select
-                    aria-label={`Reply mode for ${s.chat_id}`}
-                    className="channel-reply-mode-select"
-                    size="sm"
-                    options={CHAT_MODE_OPTIONS}
-                    value={mode}
-                    onChange={(nextValue) => {
-                      const next = nextValue as ChatMode;
-                      updateAllowed(selected.id, (current) => {
-                        const without = current.filter((v) => v.chat_id !== s.chat_id);
-                        if (next === "off") return without;
-                        return [...without, { chat_id: s.chat_id, reply_allowed: next === "auto" }];
-                      });
-                    }}
-                  />
-                ) : (
-                  <span style={{ fontSize: 10, color: "var(--color-text-muted)" }}>Allowed</span>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
