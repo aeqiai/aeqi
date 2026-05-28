@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useCurrentTrust } from "@/hooks/useCurrentTrust";
 import { api } from "@/lib/api";
 import { GRANT_CATALOG, DEFAULT_GRANTS } from "@/lib/grants";
 import { logError } from "@/lib/logging";
@@ -21,7 +22,7 @@ const OCCUPANT_OPTIONS = [
 ];
 
 export default function RoleNewPage() {
-  const { trustId = "" } = useParams<{ trustId: string }>();
+  const { trustId } = useCurrentTrust();
   const navigate = useNavigate();
 
   const [title, setTitle] = useState("");

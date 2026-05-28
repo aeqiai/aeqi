@@ -37,7 +37,12 @@ function resolveUiRuntimePackage(source: string) {
 }
 
 const config: StorybookConfig = {
-  stories: ["../src/components/ui/**/*.stories.tsx", "../src/components/ui/**/*.mdx"],
+  stories: [
+    "../src/components/ui/**/*.stories.tsx",
+    "../src/components/ui/**/*.mdx",
+    "../src/components/composer/**/*.stories.tsx",
+    "../src/components/sessions/**/*.stories.tsx",
+  ],
   addons: [
     "@storybook/addon-a11y",
     "@storybook/addon-backgrounds",

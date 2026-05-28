@@ -3567,6 +3567,14 @@
   text-align: right;
 }
 
+.trust-tools-page-header .tools-list-summary-n {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  letter-spacing: 0;
+}
+
 .agent-settings-card-head {
   display: flex;
   align-items: flex-start;

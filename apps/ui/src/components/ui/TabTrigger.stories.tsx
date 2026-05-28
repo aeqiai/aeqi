@@ -3,7 +3,7 @@ import { useState } from "react";
 import { TabTrigger } from "./TabTrigger";
 
 const meta: Meta<typeof TabTrigger> = {
-  title: "UI/TabTrigger",
+  title: "Primitives/Actions/TabTrigger",
   component: TabTrigger,
   tags: ["autodocs"],
   argTypes: {

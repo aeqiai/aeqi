@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useCurrentTrust } from "@/hooks/useCurrentTrust";
 import { api } from "@/lib/api";
 import { Button, Input, Textarea } from "@/components/ui";
 import { useDaemonStore } from "@/store/daemon";
@@ -13,7 +14,8 @@ const TARGET_OPTIONS: { value: TargetKind; label: string }[] = [
 ];
 
 export default function RoleInvitePage() {
-  const { trustId = "", roleId = "" } = useParams<{ trustId: string; roleId: string }>();
+  const { roleId = "" } = useParams<{ roleId: string }>();
+  const { trustId } = useCurrentTrust();
   const navigate = useNavigate();
   const entitiesList = useDaemonStore((s) => s.entities);
 

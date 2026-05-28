@@ -8,21 +8,28 @@ export default function TrustBudgetsTab() {
   return (
     <div className="trust-overview trust-apps-page">
       <PrimitivePageHeader
-        className="trust-apps-page-header"
-        title="Budgets"
+        className="trust-apps-page-header trust-apps-page-header--summary"
+        title={
+          <span className="trust-primitive-page-title">
+            <span className="trust-primitive-page-title-text">Budgets</span>
+            <span className="trust-primitive-page-count" aria-hidden="true">
+              0
+            </span>
+          </span>
+        }
         aria-label="Budget controls"
         actions={
           <Button variant="primary" size="md" disabled leadingIcon={<WalletCards size={14} />}>
             New Budget
           </Button>
         }
-      >
-        <div className="ideas-toolbar trust-apps-toolbar">
-          <span className="ideas-toolbar-meta trust-apps-toolbar-summary">
-            0 active · no spend cap · approval required
-          </span>
-        </div>
-      </PrimitivePageHeader>
+      />
+
+      <div className="trust-primitive-context-strip" role="status">
+        <span className="trust-primitive-context-text">
+          0 active · no spend cap · approval required
+        </span>
+      </div>
 
       <section
         className="trust-cockpit-card trust-cockpit-card--wide"

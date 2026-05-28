@@ -88,7 +88,7 @@ describe("TrustAppsTab", () => {
     );
   }
 
-  it("renders Integrations as a plain identity inside the page toolbar", async () => {
+  it("renders Integrations with status below the page header", async () => {
     renderTab();
 
     const header = screen.getByLabelText("Integrations controls");
@@ -97,14 +97,14 @@ describe("TrustAppsTab", () => {
     const actionSlot = header.querySelector(":scope > div:last-child");
 
     expect(header).toHaveAttribute("data-title-variant", "plain");
-    expect(toolbar).not.toBeNull();
+    expect(toolbar).toBeNull();
     expect(within(header).getByRole("button", { name: "Gateways" })).toBeInTheDocument();
     expect(actionSlot).not.toBeNull();
     expect(heading.compareDocumentPosition(screen.getByText("Google Workspace"))).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
     await waitFor(() => {
-      expect(screen.getByText(/workspace apps ·/)).toHaveClass("trust-apps-toolbar-summary");
+      expect(screen.getByText(/workspace apps ·/)).toHaveClass("trust-primitive-context-text");
     });
     expect(screen.getByRole("heading", { name: "Gmail" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Docs" })).toBeInTheDocument();

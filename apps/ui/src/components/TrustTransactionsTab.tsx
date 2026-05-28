@@ -8,16 +8,23 @@ export default function TrustTransactionsTab() {
   return (
     <div className="trust-overview trust-apps-page">
       <PrimitivePageHeader
-        className="trust-apps-page-header"
-        title="Transactions"
-        aria-label="Transaction controls"
-      >
-        <div className="ideas-toolbar trust-apps-toolbar">
-          <span className="ideas-toolbar-meta trust-apps-toolbar-summary">
-            0 recorded · ledger pending · reconciliation not started
+        className="trust-apps-page-header trust-apps-page-header--summary"
+        title={
+          <span className="trust-primitive-page-title">
+            <span className="trust-primitive-page-title-text">Transactions</span>
+            <span className="trust-primitive-page-count" aria-hidden="true">
+              0
+            </span>
           </span>
-        </div>
-      </PrimitivePageHeader>
+        }
+        aria-label="Transaction controls"
+      />
+
+      <div className="trust-primitive-context-strip" role="status">
+        <span className="trust-primitive-context-text">
+          0 recorded · ledger pending · reconciliation not started
+        </span>
+      </div>
 
       <section
         className="trust-cockpit-card trust-cockpit-card--wide"

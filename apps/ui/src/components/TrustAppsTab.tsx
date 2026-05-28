@@ -176,18 +176,15 @@ export default function TrustAppsTab({
       ? emailIdentities.length
       : surface === "websites"
         ? trustDomains.length
-        : null;
-  const headerTitle =
-    primitiveCount == null ? (
-      pageTitle
-    ) : (
-      <span className="trust-primitive-page-title">
-        <span className="trust-primitive-page-title-text">{pageTitle}</span>
-        <span className="trust-primitive-page-count" aria-hidden="true">
-          {primitiveCount}
-        </span>
+        : workspaceServices + channelApps.length + billingApps.length;
+  const headerTitle = (
+    <span className="trust-primitive-page-title">
+      <span className="trust-primitive-page-title-text">{pageTitle}</span>
+      <span className="trust-primitive-page-count" aria-hidden="true">
+        {primitiveCount}
       </span>
-    );
+    </span>
+  );
   const toolbarSummary =
     surface === "mail"
       ? emailStatus.isLoading
@@ -211,7 +208,7 @@ export default function TrustAppsTab({
   return (
     <div className="trust-overview trust-apps-page">
       <PrimitivePageHeader
-        className="trust-apps-page-header"
+        className="trust-apps-page-header trust-apps-page-header--summary"
         title={headerTitle}
         aria-label={`${pageTitle} controls`}
         actions={
@@ -244,11 +241,11 @@ export default function TrustAppsTab({
             </Button>
           ) : undefined
         }
-      >
-        <div className="ideas-toolbar trust-apps-toolbar">
-          <span className="ideas-toolbar-meta trust-apps-toolbar-summary">{toolbarSummary}</span>
-        </div>
-      </PrimitivePageHeader>
+      />
+
+      <div className="trust-primitive-context-strip" role="status">
+        <span className="trust-primitive-context-text">{toolbarSummary}</span>
+      </div>
 
       {surface === "mail" && entity && (
         <MailPrimitivePage

@@ -69,6 +69,17 @@ function gatewayTitle(kind: string): string {
   return found?.label ?? kind;
 }
 
+function GatewayHeaderTitle({ count }: { count: number }) {
+  return (
+    <span className="trust-primitive-page-title">
+      <span className="trust-primitive-page-title-text">Gateways</span>
+      <span className="trust-primitive-page-count" aria-hidden="true">
+        {count}
+      </span>
+    </span>
+  );
+}
+
 export default function AgentChannelsTab({ agentId }: { agentId: string }) {
   const { goEntity, trustId } = useNav();
   const { itemId } = useParams<{ itemId?: string }>();
@@ -211,8 +222,8 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
     return (
       <div className="trust-overview trust-apps-page gateway-page">
         <PrimitivePageHeader
-          className="trust-apps-page-header"
-          title="Gateways"
+          className="trust-apps-page-header trust-apps-page-header--summary"
+          title={<GatewayHeaderTitle count={channels.length} />}
           aria-label="Gateway controls"
           actions={
             <Button
@@ -226,13 +237,13 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
               Cancel
             </Button>
           }
-        >
-          <div className="ideas-toolbar trust-apps-toolbar">
-            <span className="ideas-toolbar-meta trust-apps-toolbar-summary">
-              Add an external ingress and egress endpoint for this trust.
-            </span>
-          </div>
-        </PrimitivePageHeader>
+        />
+
+        <div className="trust-primitive-context-strip" role="status">
+          <span className="trust-primitive-context-text">
+            Add an external ingress and egress endpoint for this trust.
+          </span>
+        </div>
 
         <section className="trust-cockpit-card trust-cockpit-card--wide gateway-surface-card">
           <header className="trust-cockpit-card-header gateway-card-header">
@@ -298,8 +309,8 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
     return (
       <div className="trust-overview trust-apps-page gateway-page">
         <PrimitivePageHeader
-          className="trust-apps-page-header"
-          title="Gateways"
+          className="trust-apps-page-header trust-apps-page-header--summary"
+          title={<GatewayHeaderTitle count={channels.length} />}
           aria-label="Gateway controls"
           actions={
             <Button
@@ -311,11 +322,11 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
               New Gateway
             </Button>
           }
-        >
-          <div className="ideas-toolbar trust-apps-toolbar">
-            <span className="ideas-toolbar-meta trust-apps-toolbar-summary">{toolbarSummary}</span>
-          </div>
-        </PrimitivePageHeader>
+        />
+
+        <div className="trust-primitive-context-strip" role="status">
+          <span className="trust-primitive-context-text">{toolbarSummary}</span>
+        </div>
 
         <section className="trust-cockpit-card trust-cockpit-card--wide gateway-surface-card">
           <header className="trust-cockpit-card-header gateway-card-header">
@@ -391,8 +402,8 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
   return (
     <div className="trust-overview trust-apps-page gateway-page">
       <PrimitivePageHeader
-        className="trust-apps-page-header"
-        title="Gateways"
+        className="trust-apps-page-header trust-apps-page-header--summary"
+        title={<GatewayHeaderTitle count={channels.length} />}
         aria-label="Gateway controls"
         actions={
           <div className="gateway-header-actions">
@@ -430,11 +441,11 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
             </Button>
           </div>
         }
-      >
-        <div className="ideas-toolbar trust-apps-toolbar">
-          <span className="ideas-toolbar-meta trust-apps-toolbar-summary">{selectedSummary}</span>
-        </div>
-      </PrimitivePageHeader>
+      />
+
+      <div className="trust-primitive-context-strip" role="status">
+        <span className="trust-primitive-context-text">{selectedSummary}</span>
+      </div>
 
       {error && (
         <div className="channel-form-error gateway-form-error gateway-alert" role="alert">

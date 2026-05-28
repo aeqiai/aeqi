@@ -2,7 +2,7 @@ import type { StoryObj } from "@storybook/react";
 import { SelectOption } from "./SelectOption";
 
 const meta = {
-  title: "Components/SelectOption",
+  title: "Primitives/Inputs/SelectOption",
   component: SelectOption,
   tags: ["autodocs"],
   argTypes: {

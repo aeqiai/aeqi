@@ -34,5 +34,6 @@ export default create({
 
   // Typography
   fontBase: '"Inter", -apple-system, sans-serif',
-  fontCode: '"JetBrains Mono", monospace',
+  fontCode:
+    'var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace)',
 });

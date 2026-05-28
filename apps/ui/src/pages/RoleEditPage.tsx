@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useCurrentTrust } from "@/hooks/useCurrentTrust";
 import { api } from "@/lib/api";
 import { GRANT_CATALOG } from "@/lib/grants";
 import type { Role, RoleType } from "@/lib/types";
@@ -14,7 +15,8 @@ const ROLE_TYPE_OPTIONS: { value: RoleType; label: string; desc: string }[] = [
 ];
 
 export default function RoleEditPage() {
-  const { trustId = "", roleId = "" } = useParams<{ trustId: string; roleId: string }>();
+  const { roleId = "" } = useParams<{ roleId: string }>();
+  const { trustId } = useCurrentTrust();
   const navigate = useNavigate();
   const entitiesList = useDaemonStore((s) => s.entities);
 

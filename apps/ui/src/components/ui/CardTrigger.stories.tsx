@@ -4,7 +4,7 @@ import { CardTrigger } from "./CardTrigger";
 import { Card } from "./Card";
 
 const meta: Meta<typeof CardTrigger> = {
-  title: "UI/CardTrigger",
+  title: "Primitives/Actions/CardTrigger",
   component: CardTrigger,
   argTypes: {
     onClick: { action: "clicked" },

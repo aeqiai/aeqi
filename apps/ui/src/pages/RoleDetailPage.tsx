@@ -1,5 +1,6 @@
 import { useMemo, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useCurrentTrust } from "@/hooks/useCurrentTrust";
 import { api } from "@/lib/api";
 import { GRANT_CATALOG } from "@/lib/grants";
 import { formatMediumDate } from "@/lib/i18n";
@@ -20,7 +21,8 @@ function grantLabel(id: string): string {
 }
 
 export default function RoleDetailPage() {
-  const { trustId = "", roleId = "" } = useParams<{ trustId: string; roleId: string }>();
+  const { roleId = "" } = useParams<{ roleId: string }>();
+  const { trustId } = useCurrentTrust();
   const navigate = useNavigate();
 
   const [role, setRole] = useState<Role | null>(null);

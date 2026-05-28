@@ -8,21 +8,28 @@ export default function TrustCampaignsTab() {
   return (
     <div className="trust-overview trust-apps-page">
       <PrimitivePageHeader
-        className="trust-apps-page-header"
-        title="Campaigns"
+        className="trust-apps-page-header trust-apps-page-header--summary"
+        title={
+          <span className="trust-primitive-page-title">
+            <span className="trust-primitive-page-title-text">Campaigns</span>
+            <span className="trust-primitive-page-count" aria-hidden="true">
+              0
+            </span>
+          </span>
+        }
         aria-label="Campaign controls"
         actions={
           <Button variant="primary" size="md" disabled leadingIcon={<Megaphone size={14} />}>
             New Campaign
           </Button>
         }
-      >
-        <div className="ideas-toolbar trust-apps-toolbar">
-          <span className="ideas-toolbar-meta trust-apps-toolbar-summary">
-            0 active · budget not set · Mails primary
-          </span>
-        </div>
-      </PrimitivePageHeader>
+      />
+
+      <div className="trust-primitive-context-strip" role="status">
+        <span className="trust-primitive-context-text">
+          0 active · budget not set · Mails primary
+        </span>
+      </div>
 
       <section
         className="trust-cockpit-card trust-cockpit-card--wide"

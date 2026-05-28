@@ -43,19 +43,26 @@ export default function TrustToolsTab({ agentId }: { agentId: string }) {
       )}
 
       <PrimitivePageHeader
-        className="trust-tools-page-header"
-        title="Tools"
+        className="trust-tools-page-header trust-apps-page-header--summary"
+        title={
+          <span className="trust-primitive-page-title">
+            <span className="trust-primitive-page-title-text">Tools</span>
+            <span className="trust-primitive-page-count" aria-hidden="true">
+              {activeCount}
+            </span>
+          </span>
+        }
         aria-label="Tool controls"
         actions={
-          <span className="tools-list-summary-n trust-tools-toolbar-count">
+          <span className="tools-list-summary-n">
             {activeCount}/{ALL_TOOLS.length}
           </span>
         }
-      >
-        <div className="ideas-toolbar trust-tools-toolbar">
-          <span className="ideas-toolbar-meta trust-tools-toolbar-summary">{subtitle}</span>
-        </div>
-      </PrimitivePageHeader>
+      />
+
+      <div className="trust-primitive-context-strip" role="status">
+        <span className="trust-primitive-context-text">{subtitle}</span>
+      </div>
 
       <main className="trust-tools-page-body" aria-label="Trust tools">
         {resolvedAgentId ? (

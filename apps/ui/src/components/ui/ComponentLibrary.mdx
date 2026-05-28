@@ -26,6 +26,8 @@ import {
   Banner,
   Button,
   Card,
+  CardFooter,
+  CardHeader,
   CardTrigger,
   ChipClose,
   Combobox,
@@ -35,11 +37,26 @@ import {
   ErrorBoundary,
   Icon,
   IconButton,
-  Input,
   Inline,
+  InspectorChips,
+  InspectorField,
+  InspectorHeader,
+  InspectorPanel,
+  InspectorSection,
+  Input,
   Menu,
+  MetricCard,
+  MetricGrid,
   Modal,
+  Page,
+  PageBody,
+  PageHeader,
+  PageSection,
+  PageToolbar,
   Popover,
+  PrimitivePageHeader,
+  PrimitiveSearchField,
+  ProgressList,
   QRCode,
   Select,
   SelectOption,
@@ -52,6 +69,7 @@ import {
   TagList,
   Textarea,
   ThinkingDot,
+  ToolbarRadioPopover,
   Tooltip,
 } from "@/components/ui";
 ```
@@ -84,24 +102,37 @@ story `Primitives/<bucket>/<name>` to keep the navigation aligned.
 
 ### Containers And Layout
 
-| Primitive | Purpose                                               |
-| --------- | ----------------------------------------------------- |
-| `Card`    | Generic grouped container with optional header/footer |
-| `Tabs`    | Accessible tablist with counts and panel content      |
-| `Stack`   | Tokenized vertical spacing                            |
-| `Inline`  | Tokenized horizontal spacing                          |
+| Primitive                          | Purpose                                               |
+| ---------------------------------- | ----------------------------------------------------- |
+| `Card`, `CardHeader`, `CardFooter` | Generic grouped container with optional header/footer |
+| `Tabs`                             | Accessible tablist with counts and panel content      |
+| `Stack`                            | Tokenized vertical spacing                            |
+| `Inline`                           | Tokenized horizontal spacing                          |
 
 ### Data Display
 
-| Primitive     | Purpose                                           |
-| ------------- | ------------------------------------------------- |
-| `Badge`       | Status and metadata chips                         |
-| `StatusRow`   | Row-level status with semantic dot and label      |
-| `DetailField` | Label/value pair for settings and detail views    |
-| `Icon`        | Lucide-backed icon wrapper with system sizing     |
-| `QRCode`      | Local-only QR rendering for sensitive setup flows |
-| `Table`       | Canonical tabular data layout                     |
-| `TagList`     | Tag/chip list with optional empty fallback        |
+| Primitive                                                                                   | Purpose                                           |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `Badge`, `StatusBadge`                                                                      | Status and metadata chips                         |
+| `StatusRow`                                                                                 | Row-level status with semantic dot and label      |
+| `DetailField`                                                                               | Label/value pair for settings and detail views    |
+| `InspectorPanel`, `InspectorHeader`, `InspectorSection`, `InspectorField`, `InspectorChips` | Canonical inspector/detail composition            |
+| `Icon`                                                                                      | Lucide-backed icon wrapper with system sizing     |
+| `MetricCard`, `MetricGrid`                                                                  | Numeric summaries with shared density             |
+| `QRCode`                                                                                    | Local-only QR rendering for sensitive setup flows |
+| `Table`                                                                                     | Canonical tabular data layout                     |
+| `TagList`                                                                                   | Tag/chip list with optional empty fallback        |
+
+### Layout
+
+| Primitive             | Purpose                                               |
+| --------------------- | ----------------------------------------------------- |
+| `Page`                | Page shell with shared padding and max-width variants |
+| `PageHeader`          | Title/action/header composition for app surfaces      |
+| `PageBody`            | Main page content spacing                             |
+| `PageSection`         | Section grouping without inventing local cards        |
+| `PageToolbar`         | Row for search, filters, view toggles, and sort       |
+| `PrimitivePageHeader` | Trust primitive title, count, toolbar, and action row |
 
 ### Overlays
 
@@ -121,6 +152,13 @@ story `Primitives/<bucket>/<name>` to keep the navigation aligned.
 | `EmptyState`    | No-data and zero-result placeholders            |
 | `Banner`        | Inline feedback for notices and warnings        |
 | `ErrorBoundary` | Render fallback UI when a subtree throws        |
+
+### Toolbar
+
+| Primitive              | Purpose                                         |
+| ---------------------- | ----------------------------------------------- |
+| `PrimitiveSearchField` | Compact search control for primitive toolbars   |
+| `ToolbarRadioPopover`  | Radio-backed popover for sort, filter, and view |
 
 ## Adding a new primitive
 
