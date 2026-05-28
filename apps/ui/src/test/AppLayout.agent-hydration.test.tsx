@@ -1,14 +1,17 @@
 import { StrictMode, type ReactElement } from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
+import { userEvent } from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import AppLayout from "@/components/AppLayout";
 import AgentSessionContextHeader from "@/components/shell/AgentSessionContextHeader";
 import { agentKeys, entityKeys, questKeys, runtimeKeys, activityKeys } from "@/queries/keys";
+import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
 import { useChatStore } from "@/store/chat";
 import type { Trust } from "@/lib/types";
+import type { SessionInfo } from "@/components/session/types";
 
 function LocationProbe() {
   const location = useLocation();
@@ -31,6 +34,7 @@ function withQueryClient(ui: ReactElement) {
 
 describe("AppLayout drilled-agent hydration", () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
     useDaemonStore.setState({
       status: null,
       dashboard: null,
@@ -184,7 +188,100 @@ describe("AppLayout drilled-agent hydration", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("Interview prep")).toBeInTheDocument();
+    expect(screen.getAllByText("Interview prep").length).toBeGreaterThan(0);
     expect(screen.getByText("WhatsApp · Ada · +15550001111")).toBeInTheDocument();
+  });
+
+  it("opens the mobile session switcher and closes it after selecting a session", async () => {
+    const user = userEvent.setup();
+
+    useDaemonStore.setState({
+      agents: [
+        {
+          id: "agent-1",
+          name: "Chief of Staff",
+          status: "active",
+          trust_id: "root-1",
+        },
+      ] as never,
+      agentsLoaded: true,
+    });
+    const sessions: SessionInfo[] = [
+      {
+        id: "session-1",
+        agent_id: "agent-1",
+        agent_name: "Chief of Staff",
+        name: "WhatsApp: First session",
+        status: "active",
+        created_at: "2026-05-28T08:00:00Z",
+        last_active: "2026-05-28T08:02:00Z",
+        message_count: 2,
+        gateway_transport: "whatsapp",
+        gateway_sender_name: "Ada",
+      },
+      {
+        id: "session-2",
+        agent_id: "agent-1",
+        agent_name: "Chief of Staff",
+        name: "Telegram: Second session",
+        status: "active",
+        created_at: "2026-05-28T07:00:00Z",
+        last_active: "2026-05-28T08:03:00Z",
+        message_count: 4,
+        gateway_transport: "telegram",
+        gateway_sender_name: "Lin",
+      },
+    ];
+    useChatStore.setState({ sessionsByAgent: { "agent-1": sessions } });
+    vi.spyOn(api, "getSessions").mockResolvedValue({ sessions });
+    vi.spyOn(api, "getSessionMessages").mockResolvedValue({ messages: [] });
+
+    render(
+      withQueryClient(
+        <StrictMode>
+          <MemoryRouter
+            initialEntries={[
+              "/trust/F9s1sSJRm2CobSLkd1BN1Vj4UigRo9zpZhb6raXsQzPq/agents/agent-1/inbox/session-1",
+            ]}
+          >
+            <Routes>
+              <Route
+                path="/trust/:trustAddress/agents/:agentId/:tab/:itemId"
+                element={
+                  <>
+                    <AppLayout />
+                    <LocationProbe />
+                  </>
+                }
+              />
+            </Routes>
+          </MemoryRouter>
+        </StrictMode>,
+      ),
+    );
+
+    const trigger = await screen.findByRole("button", { name: /switch session/i });
+    expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(trigger);
+
+    const dialog = await screen.findByRole("dialog", { name: "Sessions" });
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+
+    const first = within(dialog).getByRole("button", { name: /First session/i });
+    const second = within(dialog).getByRole("button", { name: /Second session/i });
+    expect(first).toHaveAttribute("aria-current", "page");
+
+    await user.click(second);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("location").textContent).toBe(
+        "/trust/F9s1sSJRm2CobSLkd1BN1Vj4UigRo9zpZhb6raXsQzPq/agents/agent-1/inbox/session-2",
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Sessions" })).not.toBeInTheDocument(),
+    );
   });
 });

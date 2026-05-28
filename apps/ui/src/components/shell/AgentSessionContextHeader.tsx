@@ -6,6 +6,7 @@ import { useRelativeNow } from "@/hooks/useRelativeNow";
 import { timeAgo } from "@/lib/format";
 import { useChatStore } from "@/store/chat";
 import { useDaemonStore } from "@/store/daemon";
+import MobileSessionsSwitcher from "./MobileSessionsSwitcher";
 
 const NO_SESSIONS: SessionInfo[] = [];
 
@@ -84,9 +85,10 @@ export default function AgentSessionContextHeader() {
           )}
         </div>
       </div>
-      {itemId && (
-        <div className="session-detail-header-extras">
-          <ParticipantStrip sessionId={itemId} trustId={resolvedTrustId || undefined} />
+      {(itemId || agentId) && (
+        <div className="session-detail-header-extras agent-session-context-header-extras">
+          <MobileSessionsSwitcher currentTitle={title} />
+          <ParticipantStrip sessionId={itemId ?? null} trustId={resolvedTrustId || undefined} />
         </div>
       )}
     </div>

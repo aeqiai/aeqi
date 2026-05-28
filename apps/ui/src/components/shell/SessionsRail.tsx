@@ -11,6 +11,10 @@ import { useAgentInboxControls } from "./AgentInboxControls";
 
 const NO_SESSIONS: SessionInfo[] = [];
 
+interface SessionsRailProps {
+  onSelectSession?: () => void;
+}
+
 function sessionStatusLabel(status: string | undefined): string {
   if (!status) return "Session";
   if (status === "running") return "Active";
@@ -42,7 +46,7 @@ function sessionSecondaryLabel(s: SessionInfo): string {
  * Row shape is single-line h=32 across both adopters — visual parity
  * with the inbox through the compact card rail variant.
  */
-export default function SessionsRail() {
+export default function SessionsRail({ onSelectSession }: SessionsRailProps = {}) {
   // Mounted under `/trust/<addr>/agents/<agent>/inbox[/...]`. The route
   // exposes `trustAddress` as the param; resolve it back to a trustId via
   // the daemon entities array so the URL builder can pick the canonical
@@ -112,8 +116,9 @@ export default function SessionsRail() {
     (id: string) => {
       if (!resolvedEntityId || !agentId) return;
       navigate(sessionDeepUrlFromId(entities, resolvedEntityId, agentId, id), { replace: true });
+      onSelectSession?.();
     },
-    [resolvedEntityId, agentId, entities, navigate],
+    [resolvedEntityId, agentId, entities, navigate, onSelectSession],
   );
 
   // Empty-state copy distinguishes "no sessions yet" from "no matches"

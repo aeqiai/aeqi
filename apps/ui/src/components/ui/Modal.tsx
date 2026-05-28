@@ -3,17 +3,20 @@ import { createPortal } from "react-dom";
 import styles from "./Modal.module.css";
 
 export interface ModalProps {
+  id?: string;
   open: boolean;
   onClose: () => void;
   title?: string;
   children: React.ReactNode;
   className?: string;
+  closeLabel?: string;
 }
 
-export function Modal({ open, onClose, title, children, className }: ModalProps) {
+export function Modal({ id, open, onClose, title, children, className, closeLabel }: ModalProps) {
   const surfaceRef = useRef<HTMLDivElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
-  const dialogId = useRef(`modal-${Math.random().toString(36).slice(2, 9)}`).current;
+  const generatedDialogId = useRef(`modal-${Math.random().toString(36).slice(2, 9)}`).current;
+  const dialogId = id ?? generatedDialogId;
   const titleId = `${dialogId}-title`;
 
   const handleKeyDown = useCallback(
@@ -79,6 +82,7 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
   return createPortal(
     <div className={styles.backdrop} onClick={onClose} role="presentation">
       <div
+        id={dialogId}
         ref={surfaceRef}
         className={[styles.surface, className].filter(Boolean).join(" ")}
         role="dialog"
@@ -95,7 +99,7 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
             <button
               className={styles.close}
               onClick={onClose}
-              aria-label="Close dialog"
+              aria-label={closeLabel ?? "Close dialog"}
               type="button"
             >
               <svg
