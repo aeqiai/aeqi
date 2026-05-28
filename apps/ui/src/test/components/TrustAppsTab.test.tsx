@@ -100,12 +100,18 @@ describe("TrustAppsTab", () => {
     expect(toolbar).not.toBeNull();
     expect(within(header).getByRole("button", { name: "Gateways" })).toBeInTheDocument();
     expect(actionSlot).not.toBeNull();
-    expect(heading.compareDocumentPosition(screen.getByText("Platform integrations"))).toBe(
+    expect(heading.compareDocumentPosition(screen.getByText("Google Workspace"))).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
     await waitFor(() => {
-      expect(screen.getByText(/connected ·/)).toHaveClass("trust-apps-toolbar-summary");
+      expect(screen.getByText(/workspace apps ·/)).toHaveClass("trust-apps-toolbar-summary");
     });
+    expect(screen.getByRole("heading", { name: "Gmail" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Docs" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sheets" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Slides" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Meet" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reconnect Workspace" })).toBeInTheDocument();
     expect(screen.getAllByText("Routes")).toHaveLength(2);
     expect(screen.queryByText("Chats")).not.toBeInTheDocument();
   });

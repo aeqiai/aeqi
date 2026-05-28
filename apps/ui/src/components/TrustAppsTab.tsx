@@ -1,7 +1,21 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Cloud, CreditCard, MessageCircle, Plus, Send, Smartphone } from "lucide-react";
+import {
+  CalendarDays,
+  Cloud,
+  CreditCard,
+  FileText,
+  FolderOpen,
+  Mail,
+  MessageCircle,
+  Plus,
+  Presentation,
+  Send,
+  Smartphone,
+  Table2,
+  Video,
+} from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 import { integrationsApi } from "@/api/integrations";
@@ -24,12 +38,72 @@ import {
 import "@/styles/overview.css";
 
 const APP_ICONS: Record<TrustAppKind, ReactNode> = {
-  telegram: <Send size={18} strokeWidth={1.5} />,
-  whatsapp: <MessageCircle size={18} strokeWidth={1.5} />,
-  stripe: <CreditCard size={18} strokeWidth={1.5} />,
+  telegram: <AppLogo kind="telegram" icon={<Send size={18} strokeWidth={1.5} />} />,
+  whatsapp: <AppLogo kind="whatsapp" icon={<MessageCircle size={18} strokeWidth={1.5} />} />,
+  stripe: <AppLogo kind="stripe" icon={<CreditCard size={18} strokeWidth={1.5} />} />,
 };
 
 export type TrustAppsSurface = "integrations" | "mail" | "websites";
+
+type WorkspaceAppKind = "gmail" | "calendar" | "drive" | "docs" | "sheets" | "slides" | "meet";
+
+const GOOGLE_WORKSPACE_APPS: readonly {
+  kind: WorkspaceAppKind;
+  name: string;
+  summary: string;
+  access: string;
+  icon: ReactNode;
+}[] = [
+  {
+    kind: "gmail",
+    name: "Gmail",
+    summary: "Read, draft, and send trust mail",
+    access: "Mail",
+    icon: <Mail size={18} strokeWidth={1.5} />,
+  },
+  {
+    kind: "calendar",
+    name: "Calendar",
+    summary: "Schedule meetings and reminders",
+    access: "Schedule",
+    icon: <CalendarDays size={18} strokeWidth={1.5} />,
+  },
+  {
+    kind: "drive",
+    name: "Drive",
+    summary: "Find and organize shared files",
+    access: "Files",
+    icon: <FolderOpen size={18} strokeWidth={1.5} />,
+  },
+  {
+    kind: "docs",
+    name: "Docs",
+    summary: "Create and edit documents",
+    access: "Docs",
+    icon: <FileText size={18} strokeWidth={1.5} />,
+  },
+  {
+    kind: "sheets",
+    name: "Sheets",
+    summary: "Work with spreadsheets and reports",
+    access: "Tables",
+    icon: <Table2 size={18} strokeWidth={1.5} />,
+  },
+  {
+    kind: "slides",
+    name: "Slides",
+    summary: "Draft decks and presentation notes",
+    access: "Decks",
+    icon: <Presentation size={18} strokeWidth={1.5} />,
+  },
+  {
+    kind: "meet",
+    name: "Meet",
+    summary: "Prepare and join video calls",
+    access: "Calls",
+    icon: <Video size={18} strokeWidth={1.5} />,
+  },
+];
 
 export default function TrustAppsTab({
   surface = "integrations",
@@ -72,7 +146,7 @@ export default function TrustAppsTab({
     staleTime: 20_000,
   });
   const googleConnected = googleStatus.data?.connected === true;
-  const connectedIntegrations = installed.connectedApps + (googleConnected ? 1 : 0);
+  const workspaceServices = GOOGLE_WORKSPACE_APPS.length;
   const gatewaysPath = `${basePath}/gateways`;
   const gatewayActionLabel = "Open Gateways";
   const channelApps = summaries.filter((summary) => summary.entry.category === "channel");
@@ -129,7 +203,7 @@ export default function TrustAppsTab({
           : `${primaryWebsiteDomain} · ${formatInteger(externalDomainCount)} external domains · ${websiteViews} today`
         : isLoading
           ? "Loading integration status"
-          : `${formatInteger(connectedIntegrations)} connected · ${formatInteger(
+          : `${formatInteger(workspaceServices)} workspace apps · ${formatInteger(
               installed.enabledChannels,
             )} gateway endpoints · ${formatInteger(
               trustAgents.length,
@@ -213,31 +287,60 @@ export default function TrustAppsTab({
             <header className="trust-cockpit-card-header">
               <div>
                 <h2 id="platform-integrations-heading" className="trust-cockpit-card-title">
-                  Platform integrations
+                  Google Workspace
                 </h2>
                 <p className="trust-cockpit-card-sub">
-                  Workspace, billing, and account-level services.
+                  Connect once, then expose each workspace app as its own trust capability.
                 </p>
               </div>
-            </header>
-            <div className="trust-apps-grid trust-apps-grid--workspace">
-              <GoogleWorkspaceCard
+              <GoogleWorkspaceAction
                 connected={googleConnected}
                 loading={googleStatus.isLoading}
                 status={googleStatus.data}
                 trustId={trustId}
               />
-              {billingApps.map((summary) => (
-                <AppDetailCard
-                  key={summary.entry.kind}
-                  selected={selectedKind === summary.entry.kind}
-                  summary={summary}
-                  channelsPath="/account/billing"
-                  actionLabel="Open Billing"
+            </header>
+            <div className="trust-apps-grid trust-apps-grid--services">
+              {GOOGLE_WORKSPACE_APPS.map((app) => (
+                <GoogleWorkspaceServiceCard
+                  key={app.kind}
+                  app={app}
+                  connected={googleConnected}
+                  loading={googleStatus.isLoading}
+                  status={googleStatus.data}
                 />
               ))}
             </div>
           </section>
+
+          {billingApps.length > 0 && (
+            <section
+              className="trust-cockpit-card trust-cockpit-card--wide"
+              aria-labelledby="business-integrations-heading"
+            >
+              <header className="trust-cockpit-card-header">
+                <div>
+                  <h2 id="business-integrations-heading" className="trust-cockpit-card-title">
+                    Business integrations
+                  </h2>
+                  <p className="trust-cockpit-card-sub">
+                    Billing, checkout, and account-level services.
+                  </p>
+                </div>
+              </header>
+              <div className="trust-apps-grid trust-apps-grid--workspace">
+                {billingApps.map((summary) => (
+                  <AppDetailCard
+                    key={summary.entry.kind}
+                    selected={selectedKind === summary.entry.kind}
+                    summary={summary}
+                    channelsPath="/account/billing"
+                    actionLabel="Open Billing"
+                  />
+                ))}
+              </div>
+            </section>
+          )}
 
           <section
             className="trust-cockpit-card trust-cockpit-card--wide"
@@ -274,7 +377,7 @@ export default function TrustAppsTab({
   );
 }
 
-function GoogleWorkspaceCard({
+function GoogleWorkspaceAction({
   connected,
   loading,
   status,
@@ -300,24 +403,14 @@ function GoogleWorkspaceCard({
   }
 
   return (
-    <article className="trust-app-card" data-selected={connected ? "true" : undefined}>
-      <header className="trust-app-card-header">
-        <span className="trust-app-card-icon" aria-hidden>
-          <Cloud size={18} strokeWidth={1.5} />
-        </span>
-        <div className="trust-app-card-title-block">
-          <h3 className="trust-app-card-title">Google Workspace</h3>
-          <p className="trust-app-card-summary">Gmail, Calendar, Drive, Slides</p>
-        </div>
-        <span className="trust-app-status-pill" data-status={connected ? "connected" : undefined}>
-          {loading ? "Checking" : connected ? "Connected" : "Ready"}
-        </span>
-      </header>
-      <div className="trust-app-card-stats trust-app-card-stats--workspace">
-        <Stat label="Account" value={account} />
-        <Stat label="Scopes" value={formatInteger(scopes)} />
-        <Stat label="Owner" value="Trust" />
-      </div>
+    <div className="trust-workspace-action">
+      <span className="trust-workspace-action-meta">
+        {loading
+          ? "Checking"
+          : connected
+            ? `${account} · ${formatInteger(scopes)} scopes`
+            : "No Google account connected"}
+      </span>
       <Button
         className="trust-app-card-button"
         variant={connected ? "secondary" : "primary"}
@@ -326,9 +419,57 @@ function GoogleWorkspaceCard({
         onClick={connect}
         leadingIcon={<Cloud size={14} strokeWidth={1.5} />}
       >
-        {connected ? "Reconnect" : "Connect"}
+        {connected ? "Reconnect Workspace" : "Connect Workspace"}
       </Button>
+    </div>
+  );
+}
+
+function GoogleWorkspaceServiceCard({
+  app,
+  connected,
+  loading,
+  status,
+}: {
+  app: (typeof GOOGLE_WORKSPACE_APPS)[number];
+  connected: boolean;
+  loading: boolean;
+  status?: Awaited<ReturnType<typeof integrationsApi.getTrustGoogleStatus>>;
+}) {
+  const account = status?.account_email || "TRUST";
+  const scopes = status?.scopes?.length ?? 0;
+
+  return (
+    <article
+      className="trust-app-card trust-app-card--service"
+      data-selected={connected ? "true" : undefined}
+    >
+      <header className="trust-app-card-header">
+        <span className="trust-app-card-icon" aria-hidden>
+          <AppLogo kind={app.kind} icon={app.icon} />
+        </span>
+        <div className="trust-app-card-title-block">
+          <h3 className="trust-app-card-title">{app.name}</h3>
+          <p className="trust-app-card-summary">{app.summary}</p>
+        </div>
+        <span className="trust-app-status-pill" data-status={connected ? "connected" : undefined}>
+          {loading ? "Checking" : connected ? "Connected" : "Ready"}
+        </span>
+      </header>
+      <div className="trust-app-card-stats trust-app-card-stats--service">
+        <Stat label="Account" value={account} />
+        <Stat label="Access" value={app.access} />
+        <Stat label="Scopes" value={formatInteger(scopes)} />
+      </div>
     </article>
+  );
+}
+
+function AppLogo({ icon, kind }: { icon: ReactNode; kind: WorkspaceAppKind | TrustAppKind }) {
+  return (
+    <span className="trust-app-logo" data-app={kind} aria-hidden>
+      {icon}
+    </span>
   );
 }
 
