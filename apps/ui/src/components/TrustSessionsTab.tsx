@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Bot, Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import { entityPathFromId } from "@/lib/entityPath";
-import { recencyBucket, timeShort } from "@/lib/format";
+import { recencyBucket, timeAgo, timeShort } from "@/lib/format";
 import { inboxMessagesAdapter } from "@/components/inbox/inboxMessagesAdapter";
 import {
   gatewayLabel,
@@ -11,6 +11,7 @@ import {
   type Message,
   type SessionInfo,
 } from "@/components/session/types";
+import ParticipantStrip from "@/components/sessions/ParticipantStrip";
 import SessionDetail from "@/components/sessions/SessionDetail";
 import SessionRail, { type SessionRailRow } from "@/components/sessions/SessionRail";
 import SessionsFilterPopover, {
@@ -19,6 +20,7 @@ import SessionsFilterPopover, {
 import SessionsSortPopover, { type SessionsSort } from "@/components/sessions/SessionsSortPopover";
 import SessionsToolbar from "@/components/sessions/SessionsToolbar";
 import { Button, Icon, Loading, PrimitivePageHeader, ToolbarRadioPopover } from "@/components/ui";
+import { useRelativeNow } from "@/hooks/useRelativeNow";
 import { useChatStore } from "@/store/chat";
 import { useDaemonStore } from "@/store/daemon";
 
@@ -39,6 +41,10 @@ function sessionSecondaryLabel(session: SessionInfo, agentName: string | null): 
     .join(" · ");
 }
 
+function formatRelative(ms: number): string {
+  return timeAgo(new Date(ms).toISOString());
+}
+
 export default function TrustSessionsTab({
   trustId,
   itemId,
@@ -47,6 +53,7 @@ export default function TrustSessionsTab({
   itemId?: string;
 }) {
   const navigate = useNavigate();
+  useRelativeNow();
   const entities = useDaemonStore((s) => s.entities);
   const agents = useDaemonStore((s) => s.agents);
   const streamingSessions = useChatStore((s) => s.streamingSessions);
@@ -139,6 +146,29 @@ export default function TrustSessionsTab({
   const selected = sessions.find((session) => session.id === selectedId) ?? null;
   const selectedAgentName =
     selected?.agent_name || (selected?.agent_id ? agentNameById.get(selected.agent_id) : null);
+  const selectedTitle = selected ? sessionLabel(selected) : "Sessions";
+  const selectedSubtitle = selected
+    ? sessionSecondaryLabel(selected, selectedAgentName ?? null)
+    : "Choose a session from the rail.";
+  const selectedStreaming = !!selectedId && !!streamingSessions[selectedId];
+  const lastMessageTimestamp = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const timestamp = messages[i]?.timestamp;
+      if (typeof timestamp === "number" && timestamp > 0) return timestamp;
+    }
+    return null;
+  }, [messages]);
+  const selectedLastActiveTimestamp = selected?.last_active
+    ? Date.parse(selected.last_active)
+    : NaN;
+  const activityTimestamp =
+    lastMessageTimestamp ??
+    (Number.isFinite(selectedLastActiveTimestamp) ? selectedLastActiveTimestamp : null);
+  const selectedActivityLabel = selectedStreaming
+    ? "Streaming…"
+    : activityTimestamp != null
+      ? `Active ${formatRelative(activityTimestamp)}`
+      : null;
 
   const loadMessages = useCallback(
     async (sessionId: string, agentName?: string | null) => {
@@ -320,6 +350,38 @@ export default function TrustSessionsTab({
         />
       </PrimitivePageHeader>
 
+      {selectedId && (
+        <div className="trust-session-detail-strip">
+          <div className="session-detail-header trust-session-detail-header">
+            <div className="session-detail-header-from">
+              <span className="session-detail-header-title">{selectedTitle}</span>
+              <div className="session-detail-header-meta">
+                <span className="session-detail-header-subtitle">{selectedSubtitle}</span>
+                {selectedActivityLabel && (
+                  <span className="session-detail-header-meta-sep" aria-hidden>
+                    ·
+                  </span>
+                )}
+                {selectedActivityLabel && (
+                  <span
+                    className={`session-detail-header-activity${
+                      selectedStreaming ? " is-streaming" : ""
+                    }`}
+                    role="status"
+                    aria-live="polite"
+                  >
+                    {selectedActivityLabel}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="session-detail-header-extras">
+              <ParticipantStrip sessionId={selectedId} trustId={trustId} />
+            </div>
+          </div>
+        </div>
+      )}
+
       <div
         className={["inbox-shell", empty ? "is-empty" : "", selectedId ? "has-selection" : ""]
           .filter(Boolean)
@@ -353,18 +415,15 @@ export default function TrustSessionsTab({
             sessionId={selectedId ?? null}
             trustId={trustId}
             agentId={selected?.agent_id}
-            title={selected ? sessionLabel(selected) : "Sessions"}
-            subtitle={
-              selected
-                ? sessionSecondaryLabel(selected, selectedAgentName ?? null)
-                : "Choose a session from the rail."
-            }
+            title={selectedTitle}
+            subtitle={selectedSubtitle}
             messages={messages}
-            isStreaming={!!selectedId && !!streamingSessions[selectedId]}
+            isStreaming={selectedStreaming}
             onSend={handleSend}
             composerDisabled={sending || !selectedId}
             composerPlaceholder={`Message ${selectedAgentName || "session"}...`}
             errorMessage={sendError}
+            hideHeader
             surface="recessed"
             emptyTitle={messagesLoading ? "loading messages" : "no messages yet"}
             emptyHint={messagesLoading ? "fetching the transcript" : "select another session"}

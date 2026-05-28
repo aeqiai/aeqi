@@ -156,6 +156,29 @@
   overflow: visible;
 }
 
+.trust-session-detail-strip {
+  flex-shrink: 0;
+  padding: 0 var(--space-5);
+}
+
+.trust-session-detail-header.session-detail-header {
+  min-height: 52px;
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+
+.trust-session-detail-header .asv-participant-strip {
+  padding: 3px;
+  border-radius: var(--radius-full);
+  background: var(--bg-row);
+}
+
+.trust-sessions-page .inbox-shell {
+  margin-top: var(--space-2);
+}
+
 /* Left pane — fixed-width light recessed slab, matching the active
    conversation canvas. The shared rail inside owns row states; the pane
    does not add another border layer. */
@@ -804,6 +827,15 @@
 
   .trust-sessions-count {
     align-self: flex-start;
+  }
+
+  .trust-session-detail-strip {
+    padding-inline: var(--space-3);
+  }
+
+  .trust-session-detail-header.session-detail-header {
+    min-height: 48px;
+    padding: var(--space-2) var(--space-3);
   }
 
   .inbox-page > .inbox-head,

@@ -110,6 +110,26 @@ describe("TrustSessionsTab", () => {
     });
   });
 
+  it("keeps the selected session detail above the rail and message canvas", async () => {
+    renderTab();
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Chief of Staff.*1 messages/).length).toBeGreaterThan(0);
+    });
+
+    const detailStrip = document.querySelector(".trust-session-detail-strip");
+    const shell = document.querySelector(".inbox-shell");
+    const detailPane = document.querySelector(".inbox-pane-detail");
+
+    expect(detailStrip).toBeTruthy();
+    expect(shell).toBeTruthy();
+    expect(detailPane).toBeTruthy();
+    expect(detailStrip?.compareDocumentPosition(shell as Element)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(detailPane?.querySelector(".session-detail-header")).toBeNull();
+  });
+
   it("sends from the selected trust-wide session composer", async () => {
     const user = userEvent.setup();
     renderTab();
