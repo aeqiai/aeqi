@@ -71,15 +71,11 @@ const COMPANY_PAGE_TABS = new Set([
   // Legacy alias: Website moved into Apps. TrustTabPage redirects
   // `/trust/<addr>/website` to `/trust/<addr>/apps`.
   "website",
-  // AEQI ownership grammar: assets · equity · quorum · incorporation.
-  "assets",
-  "equity",
-  "quorum",
-  "incorporation",
   // Roles is its own peer slot (sits directly under Trust, outside both
   // Ownership and Execution groups) — renders TrustRolesTab.
   "roles",
   "apps",
+  "sessions",
   "channels",
   "tools",
   "agents",
@@ -337,11 +333,11 @@ export default function AppLayout() {
     return <Navigate to={`${base}${search}`} replace />;
   }
 
-  // The drilled-agent inbox URL is `/trust/<addr>/agents/<agent>/inbox[/<sid>]`.
-  if (tab === "sessions" && encodedEntityId) {
+  // Legacy drilled-agent sessions URL rewrites to the drilled agent inbox.
+  // Trust-level `/trust/<addr>/sessions` is its own all-agent session index.
+  if (drilledAgent && tab === "sessions" && encodedEntityId) {
     const suffix = itemId ? `/inbox/${encodeURIComponent(itemId)}` : "/inbox";
-    const sessionAgentId = drilledAgent?.id ?? defaultAgent?.id ?? entity?.agent_id ?? "";
-    const agentSeg = sessionAgentId ? `/agents/${encodeURIComponent(sessionAgentId)}` : "";
+    const agentSeg = `/agents/${encodeURIComponent(drilledAgent.id)}`;
     return <Navigate to={`${base}${agentSeg}${suffix}${search}`} replace />;
   }
 

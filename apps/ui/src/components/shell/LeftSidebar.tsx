@@ -4,16 +4,12 @@ import {
   Inbox,
   House,
   LayoutDashboard,
-  Coins,
-  PieChart,
-  Scale,
   Workflow,
   MessagesSquare,
   Bot,
   Activity,
   Target,
   Lightbulb,
-  Landmark,
   Search,
   Plus,
   PanelLeftClose,
@@ -21,7 +17,7 @@ import {
   Globe,
   Blocks,
   Plug,
-  Smartphone,
+  Hash,
   Wrench,
 } from "lucide-react";
 import ActingAsSelector from "@/components/shell/ActingAsSelector";
@@ -56,20 +52,8 @@ const EventsIcon = () => <Activity />;
 const QuestsIcon = () => <Target />;
 const IdeasIcon = () => <Lightbulb />;
 const SessionsIcon = () => <MessagesSquare />;
-const ChannelsIcon = () => <Smartphone />;
+const ChannelsIcon = () => <Hash />;
 const ToolsIcon = () => <Wrench />;
-
-// AEQI Ownership primitives — Lucide picks anchored to each row's semantic.
-// Assets (a) → Coins: stacked-coin = stored value.
-// Equity (e) → PieChart: cap-table slice.
-// Quorum (q) → Scale: balance-of-votes; cleaner symmetry than the prior
-//   Vote glyph (hand-with-ballot) and reads as institutional gravity.
-// Incorporation (i) → Landmark: columned facade = the institution itself,
-//   replacing the curled ScrollText whose ornament didn't hold at 16px.
-const AssetsIcon = () => <Coins />;
-const EquityIcon = () => <PieChart />;
-const QuorumIcon = () => <Scale />;
-const IncorporationIcon = () => <Landmark />;
 // Roles — its own peer slot under Trust, outside both AEQI groups. The
 // org-chart authority graph (RoleNewPage / RoleDetailPage et al). Workflow
 // reads parent + child boxes = hierarchy.
@@ -159,21 +143,9 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
 
   // Derive canonical base path for sidebar tabs.
   const entities = useDaemonStore((s) => s.entities);
-  const agents = useDaemonStore((s) => s.agents);
   const activeEntityObj = trustId ? (entities.find((e) => e.id === trustId) ?? null) : null;
   const base = activeEntityObj ? entityBasePath(activeEntityObj) : "";
   const hasCompany = !!trustId;
-  const defaultAgentId =
-    activeEntityObj?.agent_id || agents.find((agent) => agent.trust_id === trustId)?.id || "";
-  const defaultAgentPath = defaultAgentId
-    ? `${base}/agents/${encodeURIComponent(defaultAgentId)}`
-    : "";
-  const sessionsHref = defaultAgentPath ? `${defaultAgentPath}/inbox` : `${base}/sessions`;
-  const sessionsActive =
-    !!defaultAgentPath &&
-    (path === defaultAgentPath ||
-      path === `${defaultAgentPath}/inbox` ||
-      path.startsWith(`${defaultAgentPath}/inbox/`));
 
   // Runtime gate cue — when the TRUST has no runtime attached, the
   // execution-tab rows (Agents/Events/Quests/Ideas) read as locked
@@ -394,8 +366,6 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
               {navItem("inbox", "Inbox", <InboxIcon />)}
               {navItem("sessions", "Sessions", <SessionsIcon />, {
                 locked: runtimeLocked,
-                href: sessionsHref,
-                active: sessionsActive,
               })}
               {/* Roles — the org-chart / authority graph. Sits inside the
                   Trust group alongside Overview; both describe what the
@@ -416,9 +386,8 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
             </nav>
 
             {/* The sidebar keeps semantic nav zones for spacing and a11y, but
-                no longer prints Ownership/Operations headers. The final row
-                set should scan as one trust surface, with the org-chart first,
-                then capabilities, execution, and ownership primitives. */}
+                no longer prints section headers. The final row set should scan
+                as one trust surface. */}
             <nav
               className="sidebar-surface-nav sidebar-zone sidebar-zone--unlabeled"
               aria-label="Operations"
@@ -451,18 +420,6 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
                   navigate(`${base}/ideas?compose=1`);
                 }),
               })}
-            </nav>
-
-            {/* AEQI ownership grammar — assets · equity · quorum · incorporation.
-                The four rows spell the wordmark in order. */}
-            <nav
-              className="sidebar-surface-nav sidebar-zone sidebar-zone--unlabeled"
-              aria-label="Ownership"
-            >
-              {navItem("assets", "Assets", <AssetsIcon />)}
-              {navItem("equity", "Equity", <EquityIcon />)}
-              {navItem("quorum", "Quorum", <QuorumIcon />)}
-              {navItem("incorporation", "Incorporation", <IncorporationIcon />, { soon: true })}
             </nav>
           </>
         )}

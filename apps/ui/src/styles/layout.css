@@ -8891,7 +8891,7 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
 }
 .sidebar-zone + .sidebar-zone--unlabeled {
   margin-top: 0;
-  padding-top: 2px;
+  padding-top: 0;
 }
 .sidebar-zone--unlabeled + .sidebar-zone--unlabeled {
   padding-top: 0;

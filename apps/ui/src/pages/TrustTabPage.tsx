@@ -19,13 +19,10 @@ const MeInboxPage = lazy(() => import("@/pages/MeInboxPage"));
 // remains visible on `/trust/<addr>/...`.
 const TrustAgentsTab = lazy(() => import("@/components/TrustAgentsTab"));
 const TrustAppsTab = lazy(() => import("@/components/TrustAppsTab"));
+const TrustSessionsTab = lazy(() => import("@/components/TrustSessionsTab"));
 const AgentChannelsTab = lazy(() => import("@/components/AgentChannelsTab"));
 const TrustToolsTab = lazy(() => import("@/components/TrustToolsTab"));
 const TrustRolesTab = lazy(() => import("@/components/TrustRolesTab"));
-const AssetsPage = lazy(() => import("@/pages/AssetsPage"));
-const EquityPage = lazy(() => import("@/pages/EquityPage"));
-const QuorumPage = lazy(() => import("@/pages/QuorumPage"));
-const IncorporationPage = lazy(() => import("@/pages/IncorporationPage"));
 const AgentEventsTab = lazy(() => import("@/components/AgentEventsTab"));
 const AgentQuestsTab = lazy(() => import("@/components/AgentQuestsTab"));
 const AgentIdeasTab = lazy(() => import("@/components/AgentIdeasTab"));
@@ -52,6 +49,7 @@ interface TrustTabPageProps {
  *   /trust/:trustAddress/website       → redirect to Apps (legacy website tab)
  *   /trust/:trustAddress/roles         → TrustRolesTab (org chart)
  *   /trust/:trustAddress/agents        → TrustAgentsTab (LIST)
+ *   /trust/:trustAddress/sessions      → TrustSessionsTab (all trust sessions)
  *   /trust/:trustAddress/apps          → TrustAppsTab (channel-backed apps)
  *   /trust/:trustAddress/events        → AgentEventsTab(agent lens rail)
  *   /trust/:trustAddress/quests        → AgentQuestsTab(entity scope)
@@ -64,11 +62,11 @@ interface TrustTabPageProps {
 /** Tabs that require a per-tenant runtime service.
  *  When `has_runtime === false`, render `<ProvisionRuntimeUpsell>` in
  *  their slot instead of the real tab body. The 6 ownership/governance
- *  tabs (Overview / Roles / Assets / Equity / Quorum / Incorporation)
- *  read on-chain state and stay reachable on free TRUSTs. */
+ *  tabs (Overview / Roles) read trust state and stay reachable on free TRUSTs. */
 const RUNTIME_GATED_TABS: Record<string, UpsellSurface> = {
   agents: "agents",
   apps: "apps",
+  sessions: "sessions",
   channels: "apps",
   tools: "apps",
   events: "events",
@@ -184,6 +182,13 @@ export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTab
       </Suspense>
     );
   }
+  if (tab === "sessions") {
+    return (
+      <Suspense>
+        <TrustSessionsTab trustId={trustId} itemId={itemId} />
+      </Suspense>
+    );
+  }
   if (tab === "channels") {
     return (
       <Suspense>
@@ -210,37 +215,6 @@ export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTab
     return (
       <Suspense>
         <TrustRolesTab trustId={trustId} />
-      </Suspense>
-    );
-  }
-  // Incorporation — `i` in the AEQI grammar. The TRUST's constitutional
-  // surface (charter, founders, registration). Renamed from "Identity"
-  // 2026-05-18 when the role-graph moved to its own `roles` row.
-  if (tab === "incorporation") {
-    return (
-      <Suspense>
-        <IncorporationPage trustId={trustId} />
-      </Suspense>
-    );
-  }
-  if (tab === "assets") {
-    return (
-      <Suspense>
-        <AssetsPage trustId={trustId} />
-      </Suspense>
-    );
-  }
-  if (tab === "equity") {
-    return (
-      <Suspense>
-        <EquityPage trustId={trustId} />
-      </Suspense>
-    );
-  }
-  if (tab === "quorum") {
-    return (
-      <Suspense>
-        <QuorumPage trustId={trustId} />
       </Suspense>
     );
   }
