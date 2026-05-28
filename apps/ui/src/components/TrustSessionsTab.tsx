@@ -305,8 +305,8 @@ export default function TrustSessionsTab({
         title={
           <span className="trust-sessions-title">
             <span className="trust-sessions-title-text">Sessions</span>
-            <span className="trust-sessions-count">
-              {visibleConversationCount} {visibleConversationCount === 1 ? "session" : "sessions"}
+            <span className="trust-sessions-count" aria-label={`${visibleConversationCount} shown`}>
+              {visibleConversationCount}
             </span>
           </span>
         }
