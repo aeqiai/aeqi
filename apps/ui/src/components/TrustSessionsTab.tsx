@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bot } from "lucide-react";
+import { Bot, Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import { entityPathFromId } from "@/lib/entityPath";
 import { recencyBucket, timeShort } from "@/lib/format";
@@ -18,7 +18,7 @@ import SessionsFilterPopover, {
 } from "@/components/sessions/SessionsFilterPopover";
 import SessionsSortPopover, { type SessionsSort } from "@/components/sessions/SessionsSortPopover";
 import SessionsToolbar from "@/components/sessions/SessionsToolbar";
-import { Icon, Loading, ToolbarRadioPopover } from "@/components/ui";
+import { Button, Icon, Loading, PrimitivePageHeader, ToolbarRadioPopover } from "@/components/ui";
 import { useChatStore } from "@/store/chat";
 import { useDaemonStore } from "@/store/daemon";
 
@@ -58,6 +58,9 @@ export default function TrustSessionsTab({
   const [sort, setSort] = useState<SessionsSort>("recent");
   const [filter, setFilter] = useState<SessionsFilterState>({ status: "all" });
   const [agentFilter, setAgentFilter] = useState("all");
+  const [creatingSession, setCreatingSession] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   const agentNameById = useMemo(
     () => new Map(agents.map((agent) => [agent.id, agent.name])),
@@ -137,6 +140,14 @@ export default function TrustSessionsTab({
   const selectedAgentName =
     selected?.agent_name || (selected?.agent_id ? agentNameById.get(selected.agent_id) : null);
 
+  const loadMessages = useCallback(
+    async (sessionId: string, agentName?: string | null) => {
+      const data = await api.getSessionMessages(sessionId, 500, trustId);
+      return inboxMessagesAdapter(data, agentName ?? undefined);
+    },
+    [trustId],
+  );
+
   useEffect(() => {
     if (!selectedId) {
       setMessages([]);
@@ -144,11 +155,9 @@ export default function TrustSessionsTab({
     }
     let alive = true;
     setMessagesLoading(true);
-    api
-      .getSessionMessages(selectedId, 500, trustId)
-      .then((data) => {
-        if (!alive) return;
-        setMessages(inboxMessagesAdapter(data, selectedAgentName ?? undefined));
+    loadMessages(selectedId, selectedAgentName)
+      .then((next) => {
+        if (alive) setMessages(next);
       })
       .catch(() => {
         if (alive) setMessages([]);
@@ -159,13 +168,96 @@ export default function TrustSessionsTab({
     return () => {
       alive = false;
     };
-  }, [selectedAgentName, selectedId, trustId]);
+  }, [loadMessages, selectedAgentName, selectedId]);
 
   const handleSelect = useCallback(
     (id: string) => {
       navigate(entityPathFromId(entities, trustId, "sessions", id), { replace: true });
     },
     [entities, navigate, trustId],
+  );
+
+  const targetAgentId =
+    selected?.agent_id ||
+    (agentFilter !== "all" ? agentFilter : null) ||
+    agents.find((agent) => agent.trust_id === trustId)?.id ||
+    agents[0]?.id ||
+    null;
+
+  const handleNewSession = useCallback(async () => {
+    if (!targetAgentId || creatingSession) return;
+    setCreatingSession(true);
+    setSendError(null);
+    try {
+      const data = await api.createSession(targetAgentId, trustId);
+      const sessionId = (data.session_id as string | undefined) ?? null;
+      if (!sessionId) throw new Error("No session id returned");
+      const agentName = agentNameById.get(targetAgentId) ?? "Agent";
+      const createdAt = new Date().toISOString();
+      setSessions((prev) => [
+        {
+          id: sessionId,
+          agent_id: targetAgentId,
+          agent_name: agentName,
+          status: "active",
+          created_at: createdAt,
+          last_active: createdAt,
+          first_message: "New session",
+          message_count: 0,
+        } as SessionInfo,
+        ...prev,
+      ]);
+      navigate(entityPathFromId(entities, trustId, "sessions", sessionId));
+    } catch {
+      setSendError("Could not start a new session.");
+    } finally {
+      setCreatingSession(false);
+    }
+  }, [agentNameById, creatingSession, entities, navigate, targetAgentId, trustId]);
+
+  const handleSend = useCallback(
+    async (body: string) => {
+      if (!selectedId) return;
+      setSending(true);
+      setSendError(null);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "user",
+          from_kind: "user",
+          content: body,
+          timestamp: Date.now(),
+        },
+      ]);
+      try {
+        await api.sendSessionMessage(
+          {
+            message: body,
+            agent_id: selected?.agent_id || undefined,
+            session_id: selectedId,
+          },
+          trustId,
+        );
+        const now = new Date().toISOString();
+        setSessions((prev) =>
+          prev.map((session) =>
+            session.id === selectedId
+              ? {
+                  ...session,
+                  last_active: now,
+                  message_count: (session.message_count ?? 0) + 1,
+                  first_message: session.first_message || body.slice(0, 60),
+                }
+              : session,
+          ),
+        );
+      } catch {
+        setSendError("Message was not sent.");
+      } finally {
+        setSending(false);
+      }
+    },
+    [selected?.agent_id, selectedId, trustId],
   );
 
   const empty = !loading && rows.length === 0;
@@ -180,42 +272,53 @@ export default function TrustSessionsTab({
 
   return (
     <div className="inbox-page trust-sessions-page">
-      <div className="inbox-page-header">
-        <div>
-          <span className="inbox-page-heading">Trust</span>
-          <h1 className="inbox-page-title">Sessions</h1>
-          <p className="agent-settings-card-subtitle">
-            All conversations in this trust, across every agent.
-          </p>
-        </div>
-        <span className="trust-sessions-count">
-          {totalConversationCount} {totalConversationCount === 1 ? "session" : "sessions"}
-        </span>
-      </div>
-
-      <SessionsToolbar
-        query={query}
-        onQuery={setQuery}
-        searchPlaceholder="Search sessions"
-        sort={<SessionsSortPopover sort={sort} onChange={setSort} />}
-        filter={
+      <PrimitivePageHeader
+        className="trust-sessions-page-header"
+        title="Sessions"
+        aria-label="Session controls"
+        actions={
           <>
-            <SessionsFilterPopover
-              filter={filter}
-              onChange={(patch) => setFilter((prev) => ({ ...prev, ...patch }))}
-            />
-            <ToolbarRadioPopover
-              label="Agent"
-              current={agentOptions.find((option) => option.id === agentFilter)?.label ?? "Agent"}
-              glyph={<Icon icon={Bot} size="sm" />}
-              options={agentOptions}
-              value={agentFilter}
-              onChange={setAgentFilter}
-              indicator={agentFilter !== "all"}
-            />
+            <span className="trust-sessions-count">
+              {totalConversationCount} {totalConversationCount === 1 ? "session" : "sessions"}
+            </span>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => void handleNewSession()}
+              disabled={!targetAgentId}
+              loading={creatingSession}
+              leadingIcon={<Plus size={14} strokeWidth={1.6} />}
+            >
+              New Session
+            </Button>
           </>
         }
-      />
+      >
+        <SessionsToolbar
+          inline
+          query={query}
+          onQuery={setQuery}
+          searchPlaceholder="Search sessions"
+          sort={<SessionsSortPopover sort={sort} onChange={setSort} />}
+          filter={
+            <>
+              <SessionsFilterPopover
+                filter={filter}
+                onChange={(patch) => setFilter((prev) => ({ ...prev, ...patch }))}
+              />
+              <ToolbarRadioPopover
+                label="Agent"
+                current={agentOptions.find((option) => option.id === agentFilter)?.label ?? "Agent"}
+                glyph={<Icon icon={Bot} size="sm" />}
+                options={agentOptions}
+                value={agentFilter}
+                onChange={setAgentFilter}
+                indicator={agentFilter !== "all"}
+              />
+            </>
+          }
+        />
+      </PrimitivePageHeader>
 
       <div
         className={["inbox-shell", empty ? "is-empty" : "", selectedId ? "has-selection" : ""]
@@ -258,11 +361,10 @@ export default function TrustSessionsTab({
             }
             messages={messages}
             isStreaming={!!selectedId && !!streamingSessions[selectedId]}
-            onSend={() => {
-              /* trust-wide session index is read-only for now */
-            }}
-            composerDisabled
-            hideComposer
+            onSend={handleSend}
+            composerDisabled={sending || !selectedId}
+            composerPlaceholder={`Message ${selectedAgentName || "session"}...`}
+            errorMessage={sendError}
             surface="recessed"
             emptyTitle={messagesLoading ? "loading messages" : "no messages yet"}
             emptyHint={messagesLoading ? "fetching the transcript" : "select another session"}

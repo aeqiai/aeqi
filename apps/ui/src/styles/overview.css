@@ -981,6 +981,59 @@
   box-shadow: var(--card-elevation);
 }
 
+.trust-tools-page {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.trust-tools-page-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 0 var(--space-6) var(--space-5);
+}
+
+.trust-tools-card.agent-settings-card,
+.trust-tools-card {
+  gap: var(--space-4);
+  margin: 0;
+  padding: var(--space-5);
+  background: var(--bg-row);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--card-elevation);
+}
+
+.trust-tools-card .agent-settings-card-title {
+  font-family: var(--font-display);
+  font-size: var(--font-size-lg);
+  font-weight: 500;
+  letter-spacing: -0.015em;
+}
+
+.trust-tools-card .agent-settings-card-subtitle {
+  max-width: 48rem;
+}
+
+.trust-tools-card .agent-settings-tools-list {
+  gap: var(--space-2);
+}
+
+.trust-tools-card .agent-settings-tool-row {
+  min-height: var(--sidebar-row-h);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-card-elevated);
+  border: 0;
+  border-radius: var(--radius-md);
+}
+
+.trust-tools-card .agent-settings-tool-row:hover {
+  background: var(--color-card-muted);
+}
+
+.trust-tools-card .agent-settings-tool-row:focus-visible {
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+
 .gateway-page {
   min-height: 0;
   overflow-y: auto;
@@ -1827,6 +1880,15 @@
 
   .trust-apps-page > .trust-cockpit-card {
     margin-inline: var(--space-4);
+  }
+
+  .trust-tools-page-body {
+    padding: 0 var(--space-4) var(--space-4);
+  }
+
+  .trust-tools-card.agent-settings-card,
+  .trust-tools-card {
+    padding: var(--space-4);
   }
 
   .gateway-list-row {

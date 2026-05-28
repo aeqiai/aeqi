@@ -105,6 +105,8 @@ describe("TrustAppsTab", () => {
     await waitFor(() => {
       expect(screen.getByText(/connected ·/)).toHaveClass("trust-apps-toolbar-summary");
     });
+    expect(screen.getAllByText("Routes")).toHaveLength(2);
+    expect(screen.queryByText("Chats")).not.toBeInTheDocument();
   });
 
   it("renders Mails and Websites as native trust surfaces", async () => {

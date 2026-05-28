@@ -30,12 +30,14 @@ describe("TrustToolsTab", () => {
 
     const header = screen.getByLabelText("Tool controls");
     const main = screen.getByRole("main", { name: "Trust tools" });
+    const card = screen.getByLabelText("Trust tools").querySelector(".trust-tools-card");
     const heading = within(header).getByRole("heading", { name: "Tools" });
     const summary = within(header).getByText("Default agent policy for Chief of Staff.");
     const count = within(header).getByText(`${ALL_TOOLS.length - 1}/${ALL_TOOLS.length}`);
 
     expect(header).toHaveClass("trust-tools-page-header");
     expect(header).toHaveAttribute("data-title-variant", "plain");
+    expect(card).toHaveClass("trust-cockpit-card");
     expect(summary.closest(".trust-tools-toolbar")).not.toBeNull();
     expect(count).toHaveClass("trust-tools-toolbar-count");
     expect(screen.getAllByText(`${ALL_TOOLS.length - 1}/${ALL_TOOLS.length}`)).toHaveLength(1);

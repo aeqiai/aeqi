@@ -8,6 +8,7 @@ interface AgentToolSettingsProps {
   agent: Agent | undefined;
   resolvedAgentId: string;
   showToast: (msg: string, isError?: boolean) => void;
+  className?: string;
   titleId?: string;
   subtitle?: string;
   showSummary?: boolean;
@@ -15,6 +16,7 @@ interface AgentToolSettingsProps {
 
 export default function AgentToolSettings({
   agent,
+  className,
   resolvedAgentId,
   showToast,
   titleId = "agent-settings-tools-title",
@@ -49,7 +51,10 @@ export default function AgentToolSettings({
   };
 
   return (
-    <section className="agent-settings-card" aria-labelledby={titleId}>
+    <section
+      className={["agent-settings-card", className].filter(Boolean).join(" ")}
+      aria-labelledby={titleId}
+    >
       <div className="agent-settings-card-head">
         <div>
           <h2 id={titleId} className="agent-settings-card-title">

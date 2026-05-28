@@ -190,9 +190,14 @@ export default function TrustAppsTab({
             aria-labelledby="platform-integrations-heading"
           >
             <header className="trust-cockpit-card-header">
-              <h2 id="platform-integrations-heading" className="trust-cockpit-card-title">
-                Platform integrations
-              </h2>
+              <div>
+                <h2 id="platform-integrations-heading" className="trust-cockpit-card-title">
+                  Platform integrations
+                </h2>
+                <p className="trust-cockpit-card-sub">
+                  Workspace, billing, and account-level services.
+                </p>
+              </div>
             </header>
             <div className="trust-apps-grid trust-apps-grid--workspace">
               <GoogleWorkspaceCard
@@ -218,9 +223,14 @@ export default function TrustAppsTab({
             aria-labelledby="gateway-integrations-heading"
           >
             <header className="trust-cockpit-card-header">
-              <h2 id="gateway-integrations-heading" className="trust-cockpit-card-title">
-                Gateway integrations
-              </h2>
+              <div>
+                <h2 id="gateway-integrations-heading" className="trust-cockpit-card-title">
+                  Gateway integrations
+                </h2>
+                <p className="trust-cockpit-card-sub">
+                  External messaging providers managed through Gateways.
+                </p>
+              </div>
               <Link to={gatewaysPath} className="trust-apps-link">
                 {gatewayActionLabel}
               </Link>
@@ -528,7 +538,7 @@ function AppDetailCard({
         <div className="trust-app-card-stats">
           <Stat label="Gateways" value={formatInteger(summary.connectedChannels)} />
           <Stat label="Enabled" value={formatInteger(summary.enabledChannels)} />
-          <Stat label="Chats" value={formatInteger(summary.allowedChats)} />
+          <Stat label="Routes" value={formatInteger(summary.allowedChats)} />
           <Stat label="Agents" value={formatInteger(summary.agentCount)} />
         </div>
       )}

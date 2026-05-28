@@ -3,6 +3,7 @@ import AgentToolSettings from "@/components/AgentToolSettings";
 import { ALL_TOOLS } from "@/lib/tools";
 import { useDaemonStore } from "@/store/daemon";
 import { PrimitivePageHeader } from "./ui";
+import "@/styles/overview.css";
 
 export default function TrustToolsTab({ agentId }: { agentId: string }) {
   const agents = useDaemonStore((s) => s.agents);
@@ -31,7 +32,7 @@ export default function TrustToolsTab({ agentId }: { agentId: string }) {
   }, []);
 
   return (
-    <div className="agent-settings-surface">
+    <div className="trust-overview trust-apps-page trust-tools-page">
       {toast && (
         <div
           className={`agent-settings-toast${toast.isError ? " agent-settings-toast--error" : ""}`}
@@ -56,10 +57,11 @@ export default function TrustToolsTab({ agentId }: { agentId: string }) {
         </div>
       </PrimitivePageHeader>
 
-      <main className="agent-settings-page trust-tools-page-body" aria-label="Trust tools">
+      <main className="trust-tools-page-body" aria-label="Trust tools">
         {resolvedAgentId ? (
           <AgentToolSettings
             agent={agent}
+            className="trust-cockpit-card trust-cockpit-card--wide trust-tools-card"
             resolvedAgentId={resolvedAgentId}
             showToast={showToast}
             titleId="trust-tools-title"
@@ -67,7 +69,10 @@ export default function TrustToolsTab({ agentId }: { agentId: string }) {
             showSummary={false}
           />
         ) : (
-          <section className="agent-settings-card" aria-labelledby="trust-tools-title">
+          <section
+            className="trust-cockpit-card trust-cockpit-card--wide trust-tools-card"
+            aria-labelledby="trust-tools-title"
+          >
             <div className="agent-settings-card-head">
               <div>
                 <h2 id="trust-tools-title" className="agent-settings-card-title">

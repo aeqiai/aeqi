@@ -72,6 +72,35 @@
   white-space: nowrap;
 }
 
+.trust-sessions-page-header {
+  background: transparent;
+  padding-block: var(--space-2);
+}
+
+.trust-sessions-page-header .ideas-toolbar {
+  gap: var(--space-2);
+}
+
+.trust-sessions-page-header .ideas-list-search {
+  padding: 10px 32px 10px 34px;
+  font-size: var(--font-size-sm);
+  border-radius: var(--radius-full);
+  background: var(--color-card-elevated);
+}
+
+.trust-sessions-page-header .ideas-list-search-glyph {
+  left: 12px;
+  width: 14px;
+  height: 14px;
+}
+
+.trust-sessions-page-header .ideas-toolbar-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background: var(--color-card-elevated);
+}
+
 .inbox-page > .inbox-head {
   flex-shrink: 0;
   background: transparent;
@@ -765,6 +794,10 @@
     padding-inline: var(--space-4);
   }
 
+  .trust-sessions-page-header {
+    padding-inline: var(--space-4);
+  }
+
   .inbox-page-actions {
     justify-content: flex-start;
   }
@@ -808,6 +841,7 @@
   }
 
   .inbox-page:has(.inbox-shell.has-selection) .inbox-page-header,
+  .inbox-page:has(.inbox-shell.has-selection) .trust-sessions-page-header,
   .inbox-page:has(.inbox-shell.has-selection) > .inbox-head,
   .inbox-page:has(.inbox-shell.has-selection) .inbox-filter-chips {
     display: none;
