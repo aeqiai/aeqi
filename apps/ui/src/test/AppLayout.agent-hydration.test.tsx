@@ -140,6 +140,49 @@ describe("AppLayout drilled-agent hydration", () => {
     expect(container.querySelectorAll(".asv .session-detail-header")).toHaveLength(0);
   });
 
+  it("renders drilled-agent settings without redirecting itself blank", async () => {
+    useDaemonStore.setState({
+      agents: [
+        {
+          id: "agent-1",
+          name: "Chief of Staff",
+          status: "active",
+          trust_id: "root-1",
+        },
+      ] as never,
+      agentsLoaded: true,
+    });
+
+    render(
+      withQueryClient(
+        <StrictMode>
+          <MemoryRouter
+            initialEntries={[
+              "/trust/F9s1sSJRm2CobSLkd1BN1Vj4UigRo9zpZhb6raXsQzPq/agents/agent-1/settings",
+            ]}
+          >
+            <Routes>
+              <Route
+                path="/trust/:trustAddress/agents/:agentId/settings"
+                element={
+                  <>
+                    <AppLayout />
+                    <LocationProbe />
+                  </>
+                }
+              />
+            </Routes>
+          </MemoryRouter>
+        </StrictMode>,
+      ),
+    );
+
+    expect(await screen.findByLabelText("Agent settings")).toBeInTheDocument();
+    expect(screen.getByTestId("location").textContent).toBe(
+      "/trust/F9s1sSJRm2CobSLkd1BN1Vj4UigRo9zpZhb6raXsQzPq/agents/agent-1/settings",
+    );
+  });
+
   it("renders active session identity and gateway metadata in the context header", () => {
     useDaemonStore.setState({
       agents: [

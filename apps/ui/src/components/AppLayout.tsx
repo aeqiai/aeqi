@@ -339,7 +339,7 @@ export default function AppLayout() {
     return <Navigate to={`${base}${agentSeg}${suffix}${search}`} replace />;
   }
 
-  if (drilledAgent && !tab) {
+  if (drilledAgent && !tab && !agentSettingsSegment) {
     const agentSeg = `/agents/${encodeURIComponent(drilledAgent.id)}`;
     return <Navigate to={`${base}${agentSeg}/settings${search}`} replace />;
   }
