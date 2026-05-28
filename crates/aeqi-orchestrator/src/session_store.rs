@@ -1790,6 +1790,58 @@ impl SessionStore {
         Ok(rows)
     }
 
+    /// List sessions owned by any of the provided agent IDs, newest first.
+    /// Used by tenant-scoped platform surfaces where the user is allowed to
+    /// see every agent inside one trust but must not see sibling trusts.
+    pub async fn list_sessions_for_agents(
+        &self,
+        agent_ids: &std::collections::HashSet<String>,
+        limit: usize,
+    ) -> Result<Vec<Session>> {
+        if agent_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let db = self.db.lock().await;
+        let mut ids: Vec<String> = agent_ids.iter().cloned().collect();
+        ids.sort();
+        let placeholders = (1..=ids.len())
+            .map(|i| format!("?{i}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let limit_idx = ids.len() + 1;
+        let sql = format!(
+            "SELECT s.id, s.agent_id, s.session_type, s.name, s.status, s.created_at, \
+                    s.closed_at, s.parent_id, s.quest_id, s.first_message, \
+                    s.gateway_channel_id, cs.channel_key, \
+                    gs.id, gs.display_name, gs.transport_id \
+             FROM sessions s \
+             LEFT JOIN channel_sessions cs ON cs.session_id = s.id \
+             LEFT JOIN senders gs \
+               ON gs.transport = SUBSTR(cs.channel_key, 1, INSTR(cs.channel_key, ':') - 1) \
+              AND gs.transport_id = SUBSTR( \
+                    SUBSTR(cs.channel_key, INSTR(cs.channel_key, ':') + 1), \
+                    INSTR(SUBSTR(cs.channel_key, INSTR(cs.channel_key, ':') + 1), ':') + 1 \
+                  ) \
+             WHERE s.agent_id IN ({placeholders}) \
+             ORDER BY s.created_at DESC LIMIT ?{limit_idx}"
+        );
+
+        let mut boxed_params: Vec<Box<dyn rusqlite::types::ToSql>> = ids
+            .into_iter()
+            .map(|id| Box::new(id) as Box<dyn rusqlite::types::ToSql>)
+            .collect();
+        boxed_params.push(Box::new(limit as i64));
+        let param_refs: Vec<&dyn rusqlite::types::ToSql> =
+            boxed_params.iter().map(|p| p.as_ref()).collect();
+        let mut stmt = db.prepare(&sql)?;
+        let rows = stmt
+            .query_map(param_refs.as_slice(), session_from_row)?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(rows)
+    }
+
     /// Create a new session. Returns the session UUID.
     pub async fn create_session(
         &self,
@@ -3311,6 +3363,33 @@ mod tests {
 
         let by_agent = store.list_sessions(Some("a1"), 100).await.unwrap();
         assert_eq!(by_agent.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn list_sessions_for_agents_filters_before_limit() {
+        let store = test_store().await;
+
+        store
+            .create_session("outside", "web", "outside", None, None)
+            .await
+            .unwrap();
+        store
+            .create_session("a1", "web", "s1", None, None)
+            .await
+            .unwrap();
+        store
+            .create_session("a2", "web", "s2", None, None)
+            .await
+            .unwrap();
+
+        let allowed = std::collections::HashSet::from(["a1".to_string(), "a2".to_string()]);
+        let sessions = store.list_sessions_for_agents(&allowed, 1).await.unwrap();
+        let agent_ids = sessions
+            .iter()
+            .map(|session| session.agent_id.as_deref())
+            .collect::<Vec<_>>();
+        assert_eq!(agent_ids.len(), 1);
+        assert!(matches!(agent_ids[0], Some("a1" | "a2")));
     }
 
     #[tokio::test]

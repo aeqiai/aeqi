@@ -56,12 +56,9 @@ interface TrustTabPageProps {
  *   /trust/:trustAddress/events        → AgentEventsTab(agent lens rail)
  *   /trust/:trustAddress/quests        → AgentQuestsTab(entity scope)
  *   /trust/:trustAddress/ideas         → AgentIdeasTab(entity scope)
+ *   /trust/:trustAddress/settings      → TrustSettingsTab
  *   /trust/:trustAddress/health        → 308 redirect to bare cockpit (legacy URL)
  *   /trust/:trustAddress/website       → redirect to Apps (legacy website tab)
- *
- * The former `/trust/:trustAddress/settings` tab was retired — workspace label,
- * tagline, public toggle, and plan link now live in the TrustHeroStrip
- * on Overview. Workspace billing remains at `/account/billing`.
  */
 /** Tabs that require a per-tenant runtime service.
  *  When `has_runtime === false`, render `<ProvisionRuntimeUpsell>` in

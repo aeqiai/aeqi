@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Bot } from "lucide-react";
 import { api } from "@/lib/api";
 import { entityPathFromId } from "@/lib/entityPath";
 import { recencyBucket, timeShort } from "@/lib/format";
@@ -12,7 +13,12 @@ import {
 } from "@/components/session/types";
 import SessionDetail from "@/components/sessions/SessionDetail";
 import SessionRail, { type SessionRailRow } from "@/components/sessions/SessionRail";
-import { Loading } from "@/components/ui";
+import SessionsFilterPopover, {
+  type SessionsFilterState,
+} from "@/components/sessions/SessionsFilterPopover";
+import SessionsSortPopover, { type SessionsSort } from "@/components/sessions/SessionsSortPopover";
+import SessionsToolbar from "@/components/sessions/SessionsToolbar";
+import { Icon, Loading, ToolbarRadioPopover } from "@/components/ui";
 import { useChatStore } from "@/store/chat";
 import { useDaemonStore } from "@/store/daemon";
 
@@ -48,6 +54,10 @@ export default function TrustSessionsTab({
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [messagesLoading, setMessagesLoading] = useState(false);
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<SessionsSort>("recent");
+  const [filter, setFilter] = useState<SessionsFilterState>({ status: "all" });
+  const [agentFilter, setAgentFilter] = useState("all");
 
   const agentNameById = useMemo(
     () => new Map(agents.map((agent) => [agent.id, agent.name])),
@@ -74,9 +84,31 @@ export default function TrustSessionsTab({
     };
   }, [trustId]);
 
+  const agentOptions = useMemo(() => {
+    const ids = new Set(sessions.map((session) => session.agent_id).filter(Boolean) as string[]);
+    const options = [...ids]
+      .map((id) => ({ id, label: agentNameById.get(id) ?? "Unknown agent" }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+    return [{ id: "all", label: "All agents" }, ...options];
+  }, [agentNameById, sessions]);
+
+  useEffect(() => {
+    if (agentFilter === "all") return;
+    if (!agentOptions.some((option) => option.id === agentFilter)) {
+      setAgentFilter("all");
+    }
+  }, [agentFilter, agentOptions]);
+
   const rows = useMemo<SessionRailRow[]>(() => {
+    const q = query.trim().toLowerCase();
     return sessions
       .filter((session) => session.session_type !== "task")
+      .filter((session) => {
+        if (agentFilter !== "all" && session.agent_id !== agentFilter) return false;
+        if (filter.status === "all") return true;
+        const isActive = session.status === "active" || session.status === "running";
+        return filter.status === "active" ? isActive : !isActive;
+      })
       .map((session) => {
         const tsRaw = session.last_active || session.created_at;
         const ts = tsRaw ? Date.parse(tsRaw) : 0;
@@ -93,8 +125,12 @@ export default function TrustSessionsTab({
           sortKey: Number.isFinite(ts) ? ts : 0,
         };
       })
-      .sort((a, b) => b.sortKey - a.sortKey);
-  }, [agentNameById, sessions]);
+      .filter((row) => {
+        if (!q) return true;
+        return `${row.primary} ${row.secondary}`.toLowerCase().includes(q);
+      })
+      .sort((a, b) => (sort === "recent" ? b.sortKey - a.sortKey : a.sortKey - b.sortKey));
+  }, [agentFilter, agentNameById, filter.status, query, sessions, sort]);
 
   const selectedId = itemId && rows.some((row) => row.id === itemId) ? itemId : rows[0]?.id;
   const selected = sessions.find((session) => session.id === selectedId) ?? null;
@@ -133,6 +169,14 @@ export default function TrustSessionsTab({
   );
 
   const empty = !loading && rows.length === 0;
+  const totalConversationCount = sessions.filter(
+    (session) => session.session_type !== "task",
+  ).length;
+  const filtering = query.trim() !== "" || filter.status !== "all" || agentFilter !== "all";
+  const emptyTitle = filtering ? "no matching sessions" : "no sessions yet";
+  const emptyHint = filtering
+    ? "clear a filter or search term"
+    : "agent conversations will appear here";
 
   return (
     <div className="inbox-page trust-sessions-page">
@@ -144,7 +188,34 @@ export default function TrustSessionsTab({
             All conversations in this trust, across every agent.
           </p>
         </div>
+        <span className="trust-sessions-count">
+          {totalConversationCount} {totalConversationCount === 1 ? "session" : "sessions"}
+        </span>
       </div>
+
+      <SessionsToolbar
+        query={query}
+        onQuery={setQuery}
+        searchPlaceholder="Search sessions"
+        sort={<SessionsSortPopover sort={sort} onChange={setSort} />}
+        filter={
+          <>
+            <SessionsFilterPopover
+              filter={filter}
+              onChange={(patch) => setFilter((prev) => ({ ...prev, ...patch }))}
+            />
+            <ToolbarRadioPopover
+              label="Agent"
+              current={agentOptions.find((option) => option.id === agentFilter)?.label ?? "Agent"}
+              glyph={<Icon icon={Bot} size="sm" />}
+              options={agentOptions}
+              value={agentFilter}
+              onChange={setAgentFilter}
+              indicator={agentFilter !== "all"}
+            />
+          </>
+        }
+      />
 
       <div
         className={["inbox-shell", empty ? "is-empty" : "", selectedId ? "has-selection" : ""]
@@ -166,8 +237,8 @@ export default function TrustSessionsTab({
                 surface="card"
                 tone="recessed"
                 streamingIds={streamingSessions}
-                emptyTitle="no sessions yet"
-                emptyHint="agent conversations will appear here"
+                emptyTitle={emptyTitle}
+                emptyHint={emptyHint}
                 emptyStateClassName="sessions-rail-empty--compact"
               />
             )}

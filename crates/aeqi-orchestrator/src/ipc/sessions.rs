@@ -4,7 +4,7 @@
 //! for streaming mode.
 
 use super::request_field;
-use super::tenancy::check_agent_access;
+use super::tenancy::{allowed_agent_ids, check_agent_access};
 pub async fn handle_list_sessions(
     ctx: &super::CommandContext,
     request: &serde_json::Value,
@@ -12,8 +12,16 @@ pub async fn handle_list_sessions(
 ) -> serde_json::Value {
     if let Some(ref ss) = ctx.session_store {
         let hint = request_field(request, "agent_id").unwrap_or("");
+        let limit = request.get("limit").and_then(|v| v.as_u64()).unwrap_or(100) as usize;
         if hint.is_empty() {
-            return serde_json::json!({"ok": false, "error": "agent_id is required"});
+            let result = match allowed_agent_ids(&ctx.agent_registry, allowed).await {
+                Some(agent_ids) => ss.list_sessions_for_agents(&agent_ids, limit).await,
+                None => ss.list_sessions(None, limit).await,
+            };
+            return match result {
+                Ok(sessions) => serde_json::json!({"ok": true, "sessions": sessions}),
+                Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+            };
         }
         let resolved_id = if hint.len() == 36 && hint.contains('-') {
             hint.to_string()
@@ -26,7 +34,7 @@ pub async fn handle_list_sessions(
         if !check_agent_access(&ctx.agent_registry, allowed, &resolved_id).await {
             return serde_json::json!({"ok": false, "error": "access denied"});
         }
-        match ss.list_sessions(Some(&resolved_id), 100).await {
+        match ss.list_sessions(Some(&resolved_id), limit).await {
             Ok(sessions) => serde_json::json!({"ok": true, "sessions": sessions}),
             Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
         }
@@ -42,10 +50,6 @@ pub async fn handle_sessions(
 ) -> serde_json::Value {
     let agent_id = request_field(request, "agent_id").map(|s| s.to_string());
     let limit = request.get("limit").and_then(|v| v.as_u64()).unwrap_or(50) as usize;
-
-    if allowed.is_some() && agent_id.is_none() {
-        return serde_json::json!({"ok": true, "sessions": []});
-    }
     if allowed.is_some()
         && agent_id.as_deref().is_some()
         && !check_agent_access(&ctx.agent_registry, allowed, agent_id.as_deref().unwrap()).await
@@ -54,7 +58,15 @@ pub async fn handle_sessions(
     }
 
     if let Some(ref ss) = ctx.session_store {
-        match ss.list_sessions(agent_id.as_deref(), limit).await {
+        let result = if let Some(agent_id) = agent_id.as_deref() {
+            ss.list_sessions(Some(agent_id), limit).await
+        } else {
+            match allowed_agent_ids(&ctx.agent_registry, allowed).await {
+                Some(agent_ids) => ss.list_sessions_for_agents(&agent_ids, limit).await,
+                None => ss.list_sessions(None, limit).await,
+            }
+        };
+        match result {
             Ok(sessions) => serde_json::json!({"ok": true, "sessions": sessions}),
             Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
         }

@@ -76,7 +76,9 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
   const entitiesList = useDaemonStore((s) => s.entities);
   const openAgent = useCallback(
     (agentId: string) =>
-      navigate(entityPathFromId(entitiesList, trustId, "agents", encodeURIComponent(agentId))),
+      navigate(
+        entityPathFromId(entitiesList, trustId, "agents", encodeURIComponent(agentId), "settings"),
+      ),
     [navigate, trustId, entitiesList],
   );
   const [searchParams, setSearchParams] = useSearchParams();

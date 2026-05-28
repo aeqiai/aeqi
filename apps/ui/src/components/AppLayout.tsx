@@ -290,10 +290,9 @@ export default function AppLayout() {
   // dashboard is the canonical landing). `/` is served outside this
   // shell as the public Discover page, so it never reaches AppLayout.
   //
-  // Drilled-agent default is the inbox/chat shape (no rail) — bare
-  // `/trust/<addr>/agents/<aid>/` opens the agent into the chat surface.
-  // The settings sub-surface lives at `/trust/<addr>/agents/<aid>/settings`
-  // as a small model/tools surface.
+  // Drilled-agent default is Settings. Conversations are first-class under
+  // trust-wide Sessions, with drilled-agent `/inbox` kept as the direct chat
+  // deep link for existing conversations.
   const isEntityRoute = !!routeTrustAddress;
   // Are we on the agent's settings sub-surface? The route shape is
   // `agents/:agentId/settings[/:settingsTab[/:itemId]]`. We detect via
@@ -338,6 +337,11 @@ export default function AppLayout() {
     const suffix = itemId ? `/inbox/${encodeURIComponent(itemId)}` : "/inbox";
     const agentSeg = `/agents/${encodeURIComponent(drilledAgent.id)}`;
     return <Navigate to={`${base}${agentSeg}${suffix}${search}`} replace />;
+  }
+
+  if (drilledAgent && !tab) {
+    const agentSeg = `/agents/${encodeURIComponent(drilledAgent.id)}`;
+    return <Navigate to={`${base}${agentSeg}/settings${search}`} replace />;
   }
 
   // Personality and the old drilled-agent primitive tabs no longer have a

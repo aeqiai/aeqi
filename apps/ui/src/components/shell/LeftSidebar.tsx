@@ -19,6 +19,7 @@ import {
   Hash,
   Wrench,
   Users,
+  Settings,
 } from "lucide-react";
 import ActingAsSelector from "@/components/shell/ActingAsSelector";
 import AccountDropdown from "@/components/shell/AccountDropdown";
@@ -60,6 +61,7 @@ const ToolsIcon = () => <Wrench />;
 const RolesIcon = () => <Workflow />;
 const MembersIcon = () => <Users />;
 const AppsIcon = () => <Plug />;
+const SettingsIcon = () => <Settings />;
 // Economy — Globe reads "the wider network / world economy" — the
 // marketplace + inference + stake activity is happening *out there*
 // across every trust, not in your local store.
@@ -391,6 +393,7 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
               {navItem("ideas", "Ideas", <IdeasIcon />, {
                 locked: runtimeLocked,
               })}
+              {navItem("settings", "Settings", <SettingsIcon />)}
             </nav>
           </>
         )}
