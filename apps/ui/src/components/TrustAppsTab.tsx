@@ -1,31 +1,26 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import {
-  ArrowUpRight,
-  Check,
-  Cloud,
-  Copy,
-  CreditCard,
-  Globe,
-  Mail,
-  MessageCircle,
-  Send,
-  Smartphone,
-} from "lucide-react";
+import { Cloud, CreditCard, MessageCircle, Plus, Send, Smartphone } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 import { integrationsApi } from "@/api/integrations";
 import { useTrustApps } from "@/hooks/useTrustApps";
 import { api } from "@/lib/api";
 import { entityBasePath } from "@/lib/entityPath";
-import { formatDateTime, formatInteger } from "@/lib/i18n";
+import { formatInteger } from "@/lib/i18n";
 import { goExternal } from "@/lib/navigation";
 import { publicWebsiteDomain, publicWebsiteUrl } from "@/lib/publicWebsite";
 import { trustEmailAddress, trustEmailDomain } from "@/lib/trustEmail";
 import type { TrustAppKind, TrustAppSummary } from "@/lib/trustApps";
 import { useDaemonStore } from "@/store/daemon";
 import { Button, PrimitivePageHeader } from "./ui";
+import {
+  MailPrimitivePage,
+  WebsitesPrimitivePage,
+  normalizeEmailIdentities,
+  normalizeWebsiteDomains,
+} from "./TrustPrimitiveApps";
 import "@/styles/overview.css";
 
 const APP_ICONS: Record<TrustAppKind, ReactNode> = {
@@ -45,6 +40,8 @@ export default function TrustAppsTab({
 }) {
   const navigate = useNavigate();
   const [params] = useSearchParams();
+  const [mailCreatorOpen, setMailCreatorOpen] = useState(false);
+  const [websiteCreatorOpen, setWebsiteCreatorOpen] = useState(false);
   const selectedKind = params.get("app");
   const entities = useDaemonStore((s) => s.entities);
   const entity = entities.find((item) => item.id === trustId);
@@ -68,6 +65,12 @@ export default function TrustAppsTab({
     enabled: Boolean(entity),
     staleTime: 20_000,
   });
+  const hostingDomains = useQuery({
+    queryKey: ["hosting-domains", trustId],
+    queryFn: () => api.listHostingDomains(),
+    enabled: surface === "websites" && Boolean(entity),
+    staleTime: 20_000,
+  });
   const googleConnected = googleStatus.data?.connected === true;
   const connectedIntegrations = installed.connectedApps + (googleConnected ? 1 : 0);
   const gatewaysPath = `${basePath}/gateways`;
@@ -76,8 +79,17 @@ export default function TrustAppsTab({
   const billingApps = summaries.filter((summary) => summary.entry.category === "billing");
   const billingReady = billingApps.length > 0;
   const email = entity ? trustEmailAddress(entity) : "Trust mailbox";
+  const emailDomain = entity ? trustEmailDomain(entity) : "aeqi.ai";
   const emailMessages = emailStatus.data?.messages ?? [];
   const emailCount = emailStatus.data?.message_count ?? emailMessages.length;
+  const emailIdentities = normalizeEmailIdentities(emailStatus.data?.identities, email);
+  const primaryWebsiteDomain = entity ? publicWebsiteDomain(entity) : "Trust website";
+  const trustDomains = normalizeWebsiteDomains(
+    primaryWebsiteDomain,
+    hostingDomains.data?.domains,
+    trustId,
+  );
+  const externalDomainCount = trustDomains.filter((domain) => domain.kind === "external").length;
   const websiteViews = websiteAnalytics.data?.stats
     ? formatInteger(websiteAnalytics.data.stats.last_24h.pageviews)
     : websiteAnalytics.isLoading
@@ -85,19 +97,36 @@ export default function TrustAppsTab({
       : "Ready";
   const pageTitle =
     surface === "mail" ? "Mails" : surface === "websites" ? "Websites" : "Integrations";
+  const primitiveCount =
+    surface === "mail"
+      ? emailIdentities.length
+      : surface === "websites"
+        ? trustDomains.length
+        : null;
+  const headerTitle =
+    primitiveCount == null ? (
+      pageTitle
+    ) : (
+      <span className="trust-primitive-page-title">
+        <span className="trust-primitive-page-title-text">{pageTitle}</span>
+        <span className="trust-primitive-page-count" aria-hidden="true">
+          {primitiveCount}
+        </span>
+      </span>
+    );
   const toolbarSummary =
     surface === "mail"
       ? emailStatus.isLoading
         ? "Checking mailbox"
-        : `${email} · ${formatInteger(emailCount)} messages · outbound ${
+        : `${formatInteger(emailIdentities.length)} mailboxes · ${formatInteger(
+            emailCount,
+          )} messages · outbound ${
             emailStatus.data?.outbound_status === "ready" ? "ready" : "setup"
           }`
       : surface === "websites"
         ? websiteAnalytics.isLoading
           ? "Checking website status"
-          : `${entity ? publicWebsiteDomain(entity) : "Trust website"} · ${
-              entity?.public ? "live" : "private"
-            } · ${websiteViews} today`
+          : `${primaryWebsiteDomain} · ${formatInteger(externalDomainCount)} external domains · ${websiteViews} today`
         : isLoading
           ? "Loading integration status"
           : `${formatInteger(connectedIntegrations)} connected · ${formatInteger(
@@ -109,10 +138,28 @@ export default function TrustAppsTab({
     <div className="trust-overview trust-apps-page">
       <PrimitivePageHeader
         className="trust-apps-page-header"
-        title={pageTitle}
+        title={headerTitle}
         aria-label={`${pageTitle} controls`}
         actions={
-          surface === "integrations" ? (
+          surface === "mail" ? (
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => setMailCreatorOpen((value) => !value)}
+              leadingIcon={<Plus size={14} strokeWidth={1.6} />}
+            >
+              New Mail
+            </Button>
+          ) : surface === "websites" ? (
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => setWebsiteCreatorOpen((value) => !value)}
+              leadingIcon={<Plus size={14} strokeWidth={1.6} />}
+            >
+              New Website
+            </Button>
+          ) : surface === "integrations" ? (
             <Button
               variant="secondary"
               size="md"
@@ -130,57 +177,31 @@ export default function TrustAppsTab({
       </PrimitivePageHeader>
 
       {surface === "mail" && entity && (
-        <section
-          className="trust-cockpit-card trust-cockpit-card--wide"
-          aria-labelledby="trust-mail-heading"
-        >
-          <header className="trust-cockpit-card-header">
-            <div>
-              <h2 id="trust-mail-heading" className="trust-cockpit-card-title">
-                Trust mailboxes
-              </h2>
-              <p className="trust-cockpit-card-sub">
-                Provisioned email identities that route work into this TRUST.
-              </p>
-            </div>
-          </header>
-          <div className="trust-apps-grid trust-apps-grid--launch">
-            <TrustEmailCard
-              trustId={trustId}
-              email={email}
-              domain={trustEmailDomain(entity)}
-              loading={emailStatus.isLoading}
-              status={emailStatus.data}
-            />
-          </div>
-        </section>
+        <MailPrimitivePage
+          accessBasePath={basePath}
+          creatorOpen={mailCreatorOpen}
+          domain={emailDomain}
+          identities={emailIdentities}
+          loading={emailStatus.isLoading}
+          status={emailStatus.data}
+          trustAgents={trustAgents}
+          trustId={trustId}
+        />
       )}
 
       {surface === "websites" && entity && (
-        <section
-          className="trust-cockpit-card trust-cockpit-card--wide"
-          aria-labelledby="trust-websites-heading"
-        >
-          <header className="trust-cockpit-card-header">
-            <div>
-              <h2 id="trust-websites-heading" className="trust-cockpit-card-title">
-                Trust websites
-              </h2>
-              <p className="trust-cockpit-card-sub">
-                Owned web properties, domains, publishing state, and analytics.
-              </p>
-            </div>
-          </header>
-          <div className="trust-apps-grid trust-apps-grid--launch">
-            <WebsiteAppCard
-              domain={publicWebsiteDomain(entity)}
-              href={publicWebsiteUrl(entity)}
-              live={entity.public === true}
-              loading={websiteAnalytics.isLoading}
-              analytics={websiteAnalytics.data}
-            />
-          </div>
-        </section>
+        <WebsitesPrimitivePage
+          analytics={websiteAnalytics.data}
+          basePath={basePath}
+          creatorOpen={websiteCreatorOpen}
+          domains={trustDomains}
+          href={publicWebsiteUrl(entity)}
+          live={entity.public === true}
+          loading={websiteAnalytics.isLoading || hostingDomains.isLoading}
+          onDomainAdded={() => void hostingDomains.refetch()}
+          primaryDomain={primaryWebsiteDomain}
+          trustId={trustId}
+        />
       )}
 
       {surface === "integrations" && (
@@ -253,181 +274,6 @@ export default function TrustAppsTab({
   );
 }
 
-function WebsiteAppCard({
-  analytics,
-  domain,
-  href,
-  live,
-  loading,
-}: {
-  analytics?: Awaited<ReturnType<typeof api.getTrustWebsiteAnalytics>>;
-  domain: string;
-  href: string;
-  live: boolean;
-  loading: boolean;
-}) {
-  const tracking = analyticsTrackingLabel(analytics, loading, live);
-  const views24h = analytics?.stats ? formatInteger(analytics.stats.last_24h.pageviews) : "—";
-  const viewsValue = loading
-    ? "Checking"
-    : analytics?.status === "setup_required"
-      ? "Setup"
-      : views24h;
-  return (
-    <article className="trust-app-card trust-app-card--identity" data-selected="true">
-      <header className="trust-app-card-header">
-        <span className="trust-app-card-icon" aria-hidden>
-          <Globe size={18} strokeWidth={1.5} />
-        </span>
-        <div className="trust-app-card-title-block">
-          <h3 className="trust-app-card-title">Website</h3>
-          <p className="trust-app-card-summary">Public TRUST website and launch page</p>
-        </div>
-        <span className="trust-app-status-pill" data-status={live ? "connected" : undefined}>
-          {live ? "Live" : "Private"}
-        </span>
-      </header>
-      <div className="trust-app-card-stats trust-app-card-stats--identity">
-        <Stat label="Domain" value={domain} />
-        <Stat label="Visibility" value={live ? "Public" : "Private"} />
-        <Stat label="Tracking" value={tracking} />
-        <Stat label="Today Views" value={viewsValue} />
-      </div>
-      <a className="trust-app-card-action" href={href} target="_blank" rel="noreferrer">
-        <ArrowUpRight size={14} strokeWidth={1.5} aria-hidden />
-        Open Website
-      </a>
-    </article>
-  );
-}
-
-function analyticsTrackingLabel(
-  analytics: Awaited<ReturnType<typeof api.getTrustWebsiteAnalytics>> | undefined,
-  loading: boolean,
-  live: boolean,
-): string {
-  if (loading) return "Checking";
-  if (analytics?.tracking_status === "installed") return "Installed";
-  if (live) return "Installed";
-  return "Ready";
-}
-
-function TrustEmailCard({
-  domain,
-  email,
-  loading,
-  status,
-  trustId,
-}: {
-  domain: string;
-  email: string;
-  loading: boolean;
-  status?: Awaited<ReturnType<typeof api.getTrustEmailMessages>>;
-  trustId: string;
-}) {
-  const [copied, setCopied] = useState(false);
-  const [sendState, setSendState] = useState<"idle" | "sending" | "sent" | "failed">("idle");
-  const messages = status?.messages ?? [];
-  const latest = messages[0];
-  const routingLabel = loading
-    ? "Checking"
-    : status?.routing_status === "maildrop"
-      ? "Active"
-      : "Ready";
-  const outboundLabel = loading
-    ? "Checking"
-    : status?.outbound_status === "ready"
-      ? "Ready"
-      : "Setup";
-
-  async function copyEmail() {
-    try {
-      await navigator.clipboard?.writeText(email);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1400);
-    } catch {
-      setCopied(false);
-    }
-  }
-
-  async function sendTestEmail() {
-    setSendState("sending");
-    try {
-      await api.sendTrustEmailTest(trustId);
-      setSendState("sent");
-      window.setTimeout(() => setSendState("idle"), 2400);
-    } catch {
-      setSendState("failed");
-    }
-  }
-
-  return (
-    <article className="trust-app-card trust-app-card--identity" data-selected="true">
-      <header className="trust-app-card-header">
-        <span className="trust-app-card-icon" aria-hidden>
-          <Mail size={18} strokeWidth={1.5} />
-        </span>
-        <div className="trust-app-card-title-block">
-          <h3 className="trust-app-card-title">Email</h3>
-          <p className="trust-app-card-summary">Canonical inbox identity for this TRUST</p>
-        </div>
-        <span
-          className="trust-app-status-pill"
-          data-status={status?.routing_status === "maildrop" ? "connected" : undefined}
-        >
-          {routingLabel}
-        </span>
-      </header>
-      <div className="trust-app-card-stats trust-app-card-stats--email">
-        <Stat label="Address" value={email} />
-        <Stat label="Domain" value={domain} />
-        <Stat label="Inbox" value={formatInteger(status?.message_count ?? messages.length)} />
-        <Stat label="Outbound" value={outboundLabel} />
-      </div>
-      <div className="trust-app-card-actions">
-        <Button
-          className="trust-app-card-button"
-          variant="secondary"
-          size="md"
-          onClick={copyEmail}
-          leadingIcon={
-            copied ? <Check size={14} strokeWidth={1.5} /> : <Copy size={14} strokeWidth={1.5} />
-          }
-        >
-          {copied ? "Copied" : "Copy Email"}
-        </Button>
-        <Button
-          className="trust-app-card-button"
-          variant="secondary"
-          size="md"
-          onClick={sendTestEmail}
-          disabled={sendState === "sending" || status?.outbound_status !== "ready"}
-          leadingIcon={
-            sendState === "sent" ? (
-              <Check size={14} strokeWidth={1.5} />
-            ) : (
-              <Send size={14} strokeWidth={1.5} />
-            )
-          }
-        >
-          {sendState === "sending"
-            ? "Sending"
-            : sendState === "sent"
-              ? "Sent"
-              : sendState === "failed"
-                ? "Failed"
-                : "Send Test"}
-        </Button>
-      </div>
-      <div className="trust-app-card-footnote">
-        {latest?.received_at
-          ? `Latest inbound ${formatInboxTime(latest.received_at)}`
-          : "Replies land in this trust inbox."}
-      </div>
-    </article>
-  );
-}
-
 function GoogleWorkspaceCard({
   connected,
   loading,
@@ -484,10 +330,6 @@ function GoogleWorkspaceCard({
       </Button>
     </article>
   );
-}
-
-function formatInboxTime(value: string): string {
-  return formatDateTime(value, { fallback: "Received" });
 }
 
 function Stat({ label, value }: { label: string; value: string }) {

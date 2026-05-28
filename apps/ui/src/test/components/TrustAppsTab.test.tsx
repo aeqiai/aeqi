@@ -39,6 +39,7 @@ describe("TrustAppsTab", () => {
       tracking_status: "installed",
       stats: { last_24h: { pageviews: 0 } },
     } as never);
+    vi.spyOn(api, "listHostingDomains").mockResolvedValue({ ok: true, domains: [] });
     useDaemonStore.setState({
       entities: [
         {
@@ -112,11 +113,18 @@ describe("TrustAppsTab", () => {
   it("renders Mails and Websites as native trust surfaces", async () => {
     renderTab("mail");
     expect(screen.getByRole("heading", { name: "Mails" })).toBeInTheDocument();
-    expect(screen.getByText("Trust mailboxes")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "New Mail" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Mailboxes" })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getAllByText("hello@root.aeqi.ai").length).toBeGreaterThan(0);
+    });
+    expect(screen.getByRole("heading", { name: "Access" })).toBeInTheDocument();
 
     queryClient.clear();
     renderTab("websites");
     expect(screen.getByRole("heading", { name: "Websites" })).toBeInTheDocument();
-    expect(await screen.findByText("Trust websites")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "New Website" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Canonical website" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Domains" })).toBeInTheDocument();
   });
 });

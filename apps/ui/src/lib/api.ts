@@ -808,6 +808,31 @@ export const api = {
       message: string;
     }>(`/trusts/${encodeURIComponent(trustId)}/website/analytics`),
 
+  listHostingDomains: () =>
+    request<{
+      ok: boolean;
+      domains: Array<{
+        domain: string;
+        root?: string | null;
+        app_id?: string | null;
+        ssl?: boolean | null;
+        created_at?: string | null;
+      }>;
+    }>("/hosting/domains"),
+
+  addHostingDomain: (data: { domain: string; app_id: string; trust_id: string }) =>
+    request<{
+      ok: boolean;
+      domain: string;
+      app_id: string;
+      root?: string | null;
+      ssl?: boolean | null;
+      created_at?: string | null;
+    }>("/hosting/domains", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
   tryUnifuturesFirstBuy: (data: { entity_id: string }) =>
     request<{
       ok: boolean;
