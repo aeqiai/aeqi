@@ -10,7 +10,7 @@ import { Textarea } from "./ui";
 /**
  * `TrustHeroStrip` — compact Trust identity header.
  *
- * Private Overview uses this as cockpit chrome, not a second Home hero. Public
+ * Private Views uses this as cockpit chrome, not a second Home hero. Public
  * profile mode can still carry the atmospheric image because that route has no
  * surrounding operator shell.
  */
@@ -26,7 +26,7 @@ interface TrustHeroStripProps {
   /** Public-mode data source; required when `public={true}`. */
   publicEntity?: PublicEntityShape;
   /**
-   * Optional right-side slot. The trust overview surfaces a
+   * Optional right-side slot. The trust Views landing surfaces a
    * consolidated Execution + Ownership panel here; public mode and
    * minimal embeds can leave it undefined.
    */

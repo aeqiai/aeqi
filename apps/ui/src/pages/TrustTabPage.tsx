@@ -7,9 +7,9 @@ import ProvisionRuntimeUpsell, {
   type UpsellSurface,
 } from "@/components/upsell/ProvisionRuntimeUpsell";
 
-// TrustOverviewTab is the canonical bare-`/trust/<addr>/` landing — renders
-// TrustHeroStrip + roles / quests / activity. Lazy-loaded to keep this
-// dispatch shell light. Mirrors the lazy pattern used in AgentPage.
+// TrustOverviewTab is the legacy implementation name for the canonical
+// bare-`/trust/<addr>/` Views landing — renders TrustHeroStrip + roles /
+// quests / activity. Lazy-loaded to keep this dispatch shell light.
 const TrustOverviewTab = lazy(() => import("@/components/TrustOverviewTab"));
 const MeInboxPage = lazy(() => import("@/pages/MeInboxPage"));
 // Trust-scope primitive tabs. `TrustAgentsTab` is entity-typed (takes
@@ -32,8 +32,8 @@ const TrustSettingsTab = lazy(() => import("@/components/TrustSettingsTab"));
 interface TrustTabPageProps {
   agentId: string;
   trustId: string;
-  /** Resolved tab — defaulted to "overview" upstream. The bare
-   *  `/trust/<addr>` URL renders Overview through this tab default. */
+  /** Resolved tab — defaulted to the legacy "overview" id upstream. The
+   *  bare `/trust/<addr>` URL renders the Views landing through it. */
   tab: string;
   itemId?: string;
 }
@@ -44,7 +44,7 @@ interface TrustTabPageProps {
  * dispatches the right component per tab.
  *
  * Routes:
- *   /trust/:trustAddress               → TrustOverviewTab (cockpit — Health folded in)
+ *   /trust/:trustAddress               → TrustOverviewTab (Views landing — Health folded in)
  *   /trust/:trustAddress/roles         → TrustRolesTab (org chart)
  *   /trust/:trustAddress/members       → TrustMembersTab (humans + pending invites)
  *   /trust/:trustAddress/agents        → TrustAgentsTab (LIST)
@@ -62,8 +62,8 @@ interface TrustTabPageProps {
  */
 /** Tabs that require a per-tenant runtime service.
  *  When `has_runtime === false`, render `<ProvisionRuntimeUpsell>` in
- *  their slot instead of the real tab body. Overview, Roles, and Members
- *  read trust state and stay reachable on free TRUSTs. */
+ *  their slot instead of the real tab body. Views, Roles, and Members read
+ *  trust state and stay reachable on free TRUSTs. */
 const RUNTIME_GATED_TABS: Record<string, UpsellSurface> = {
   agents: "agents",
   apps: "apps",
@@ -147,8 +147,8 @@ export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTab
     return <Navigate to={target} replace />;
   }
 
-  // Bare `/trust/<addr>/` Overview renders TrustOverviewTab directly — the
-  // canonical entity cockpit (TrustHeroStrip + roles / quests / activity).
+  // Bare `/trust/<addr>/` Views renders TrustOverviewTab directly — the
+  // canonical entity landing (TrustHeroStrip + roles / quests / activity).
   // Routing through AgentPage's `isDrilledAgent` branch was wrong for
   // root agents whose `trust_id` is populated and differs from
   // `agent.id` (the post-2026-04-29 schema): the branch flagged the
@@ -156,7 +156,7 @@ export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTab
   // TrustHeroStrip never mounted. TrustTabPage already knows it's the
   // bare entity URL (drilled URLs bypass TrustTabPage entirely in
   // AppLayout) — render the entity surface explicitly.
-  if (tab === "overview") {
+  if (tab === "overview" || tab === "views") {
     return (
       <Suspense>
         <TrustOverviewTab trustId={trustId} />

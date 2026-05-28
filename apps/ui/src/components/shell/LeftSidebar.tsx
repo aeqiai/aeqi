@@ -42,10 +42,9 @@ interface LeftSidebarProps {
 // spot; the icon prop here just controls glyph identity.
 const InboxIcon = () => <Inbox />;
 const HomeIcon = () => <House />;
-// Overview — the trust cockpit. LayoutDashboard reads "this is the
-// canonical landing for the trust." The Trust group header carries the
-// institution semantic so this glyph doesn't need to.
-const OverviewIcon = () => <LayoutDashboard />;
+// Views — the composable trust landing. LayoutDashboard reads "saved
+// operating view" without overloading the Trust group itself.
+const ViewsIcon = () => <LayoutDashboard />;
 const AgentsIcon = () => <Bot />;
 // Events — Activity: single-line waveform reads as the event stream
 // without the busy three-node pretzel of the prior Webhook glyph.
@@ -159,10 +158,10 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
 
   const navHref = (id: string) => `${base}/${id}`;
 
-  // The Organization cockpit row stays lit ONLY at the bare trust URL —
+  // The Views row stays lit ONLY at the bare trust URL —
   // Phase 1 promotes Treasury / Ownership / Governance / Roles to
   // top-level rows, so they own their own "active" state and shouldn't
-  // double-light Organization.
+  // double-light the trust landing.
   const isActiveTab = (id: string) => {
     if (!base) return false;
     return path === `${base}/${id}` || path.startsWith(`${base}/${id}/`);
@@ -346,23 +345,23 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
             <nav className="sidebar-surface-nav sidebar-zone" aria-label="Trust">
               <div className="sidebar-section-label">Trust</div>
               <ActingAsSelector />
-              <div key="overview" className="sidebar-nav-row">
+              <div key="views" className="sidebar-nav-row">
                 <a
                   className={`sidebar-nav-item ${isCompanyOverview ? "active" : ""}`}
                   href={base}
-                  title="Overview"
+                  title="Views"
                   aria-current={isCompanyOverview ? "page" : undefined}
                   onClick={(e) => {
                     e.preventDefault();
                     navigate(base);
                   }}
                 >
-                  <OverviewIcon />
-                  <span className="sidebar-nav-label">Overview</span>
+                  <ViewsIcon />
+                  <span className="sidebar-nav-label">Views</span>
                 </a>
               </div>
               {/* Roles — the org-chart / authority graph. Sits inside the
-                  Trust group alongside Overview; both describe what the
+                  Trust group alongside Views; both describe what the
                   Trust IS rather than what it owns or what it does. */}
               {navItem("roles", "Roles", <RolesIcon />)}
               {/* Members — humans with trust access or pending invites. Kept

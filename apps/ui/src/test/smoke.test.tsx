@@ -32,7 +32,6 @@ import { useUIStore } from "@/store/ui";
  * root agent renders at `/trust/:trustAddress/...`; per-agent drilldowns
  * live at `/trust/:trustAddress/agents/:agentId/...`.
  */
-
 /** Inline helper — renders the component tree, returns any errors React logged. */
 function captureRenderErrors(ui: React.ReactElement): unknown[] {
   const errors: unknown[] = [];
@@ -442,7 +441,7 @@ describe("shell components smoke", () => {
     expect(errors.find(isLoopError)).toBeUndefined();
   });
 
-  it("LeftSidebar exposes Inbox only under the Trust group", () => {
+  it("LeftSidebar exposes Views and Inbox under the Trust group", () => {
     const { getAllByRole, queryByText } = render(
       withQueryClient(
         <StrictMode>
@@ -457,8 +456,7 @@ describe("shell components smoke", () => {
         </StrictMode>,
       ),
     );
-
-    expect(getAllByRole("link", { name: "Inbox" })).toHaveLength(1);
+    expect(getAllByRole("link", { name: /^(Views|Inbox)$/ })).toHaveLength(2);
     expect(queryByText(/^(Operations|Ownership)$/)).not.toBeInTheDocument();
   });
 

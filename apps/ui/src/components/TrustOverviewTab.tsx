@@ -12,10 +12,12 @@ import TrustWebsitePanel from "./TrustWebsitePanel";
 import "@/styles/overview.css";
 
 /**
- * Bare `/trust/<addr>` — private Trust cockpit.
+ * Bare `/trust/<addr>` — private Trust Views landing.
  *
- * MVP layout: identity/status header, one activity readout, then the three
- * route groups the operator needs to orient: authority, operations, capital.
+ * Today this is the standard template view: identity/status, operating
+ * console, activity, and grouped route cards. Future Views should make these
+ * blocks composable so humans and agents can author saved dashboards for a
+ * specific reader or decision.
  */
 export default function TrustOverviewTab({ trustId }: { trustId: string }) {
   const entities = useDaemonStore((s) => s.entities);

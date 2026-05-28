@@ -53,7 +53,7 @@ const BLUEPRINT_KINDS = new Set(["companies", "agents", "events", "quests", "ide
 
 // Tabs that route through TrustTabPage. Each is now a top-level sidebar
 // row in the Phase-1 lock — TrustTabPage is a thin per-tab dispatcher.
-// Inbox is the company-scoped action queue; Overview is the cockpit;
+// Inbox is the company-scoped action queue; Views is the composable trust landing;
 // Roles, Members, Agents, Sessions, Inbox, Channels, Apps, Tools, Events,
 // Quests, and Ideas sit together as one continuous trust surface.
 //
@@ -66,6 +66,7 @@ const BLUEPRINT_KINDS = new Set(["companies", "agents", "events", "quests", "ide
 // non-null `routeAgentId` and bypasses TrustTabPage entirely upstream.
 const COMPANY_PAGE_TABS = new Set([
   "overview",
+  "views",
   "roles",
   "members",
   "agents",
@@ -286,9 +287,9 @@ export default function AppLayout() {
     if (routeTrustAddress) return `/trust/${routeTrustAddress}`;
     return "";
   })();
-  // No-tab default at entity scope = "overview" (the company
-  // dashboard is the canonical landing). `/` is served outside this
-  // shell as the public Discover page, so it never reaches AppLayout.
+  // No-tab default at entity scope = "overview" internally. The product
+  // label is Views, but the legacy tab id remains the compatibility path
+  // behind the canonical bare trust URL.
   //
   // Drilled-agent default is Settings. Conversations are first-class under
   // trust-wide Sessions, with drilled-agent `/inbox` kept as the direct chat
@@ -321,9 +322,9 @@ export default function AppLayout() {
   }
 
   // Bare `/trust/<addr>` doesn't render independently — `effectiveTab`
-  // defaults to "overview" so TrustTabPage handles the bare URL with
-  // tab="overview". The "Company" sidebar row points at this bare URL
-  // and lights up only when no sub-tab is active.
+  // defaults to the legacy "overview" id so TrustTabPage handles the
+  // canonical Views landing. The sidebar row points at this bare URL and
+  // lights up only when no sub-tab is active.
 
   // Defensive: route should be unreachable if `agents/<agent>` resolves
   // to nothing — bounce up to the company shell.
@@ -370,10 +371,10 @@ export default function AppLayout() {
     return <NotFoundPage />;
   }
 
-  // The bare `/trust/<addr>` URL IS the company cockpit — there is no
-  // separate `/overview` segment. Replace-navigate any stale link/bookmark
-  // onto the bare URL so the sidebar's "Company" row activates correctly.
-  if (tab === "overview" && isEntityRoute && !drilledAgent) {
+  // The bare `/trust/<addr>` URL IS the canonical Views landing — there is
+  // no separate `/overview` or `/views` segment. Replace-navigate stale or
+  // guessed links onto the bare URL so the sidebar activates correctly.
+  if ((tab === "overview" || tab === "views") && isEntityRoute && !drilledAgent) {
     return <Navigate to={`${base}${search}`} replace />;
   }
 
