@@ -484,10 +484,9 @@ fn validate_browser_request(args: &serde_json::Value, url: &str) -> anyhow::Resu
         .and_then(|v| v.as_str())
         .map(str::trim)
         .filter(|s| !s.is_empty())
+        .filter(|backend| *backend != "playwright")
     {
-        if backend != "playwright" {
-            anyhow::bail!("browser backend `{backend}` is not enabled; use `playwright`");
-        }
+        anyhow::bail!("browser backend `{backend}` is not enabled; use `playwright`");
     }
     Ok(())
 }
@@ -544,12 +543,12 @@ fn browser_capture_script() -> std::path::PathBuf {
             return candidate;
         }
     }
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(parent) = exe.parent() {
-            let candidate = parent.join("scripts").join("browser-capture.mjs");
-            if candidate.exists() {
-                return candidate;
-            }
+    if let Ok(exe) = std::env::current_exe()
+        && let Some(parent) = exe.parent()
+    {
+        let candidate = parent.join("scripts").join("browser-capture.mjs");
+        if candidate.exists() {
+            return candidate;
         }
     }
     let deployed_repo = std::path::PathBuf::from("/home/claudedev/aeqi")

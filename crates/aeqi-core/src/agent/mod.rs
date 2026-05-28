@@ -754,11 +754,7 @@ impl Agent {
             let patterns = detector.detect(ctx).await;
             for fired in patterns {
                 if let Some(ref dispatcher) = self.pattern_dispatcher {
-                    use crate::tool_registry::ExecutionContext;
-                    let mut ectx = self
-                        .tool_execution_context
-                        .clone()
-                        .unwrap_or_else(ExecutionContext::default);
+                    let mut ectx = self.tool_execution_context.clone().unwrap_or_default();
                     ectx.session_id = session_id.clone();
                     ectx.agent_id = agent_id.clone();
                     dispatcher
@@ -795,11 +791,7 @@ impl Agent {
             for fired in patterns {
                 fired_patterns.push(fired.pattern.clone());
                 if let Some(ref dispatcher) = self.pattern_dispatcher {
-                    use crate::tool_registry::ExecutionContext;
-                    let mut ectx = self
-                        .tool_execution_context
-                        .clone()
-                        .unwrap_or_else(ExecutionContext::default);
+                    let mut ectx = self.tool_execution_context.clone().unwrap_or_default();
                     ectx.session_id = session_id.clone();
                     ectx.agent_id = agent_id.clone();
                     dispatcher
