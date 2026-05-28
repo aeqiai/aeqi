@@ -551,11 +551,14 @@ fn browser_capture_script() -> std::path::PathBuf {
             return candidate;
         }
     }
-    let deployed_repo = std::path::PathBuf::from("/home/claudedev/aeqi")
-        .join("scripts")
-        .join("browser-capture.mjs");
-    if deployed_repo.exists() {
-        return deployed_repo;
+    if let Some(home) = std::env::var_os("HOME") {
+        let candidate = std::path::PathBuf::from(home)
+            .join("aeqi")
+            .join("scripts")
+            .join("browser-capture.mjs");
+        if candidate.exists() {
+            return candidate;
+        }
     }
     std::path::PathBuf::from("scripts/browser-capture.mjs")
 }

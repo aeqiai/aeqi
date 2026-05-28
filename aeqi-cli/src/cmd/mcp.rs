@@ -370,11 +370,14 @@ fn browser_capture_script() -> PathBuf {
             return candidate;
         }
     }
-    let deployed_repo = Path::new("/home/claudedev/aeqi")
-        .join("scripts")
-        .join("browser-capture.mjs");
-    if deployed_repo.exists() {
-        return deployed_repo;
+    if let Some(home) = std::env::var_os("HOME") {
+        let candidate = PathBuf::from(home)
+            .join("aeqi")
+            .join("scripts")
+            .join("browser-capture.mjs");
+        if candidate.exists() {
+            return candidate;
+        }
     }
     PathBuf::from("scripts/browser-capture.mjs")
 }
