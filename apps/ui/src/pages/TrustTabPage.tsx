@@ -22,6 +22,7 @@ const TrustAppsTab = lazy(() => import("@/components/TrustAppsTab"));
 const TrustSessionsTab = lazy(() => import("@/components/TrustSessionsTab"));
 const AgentChannelsTab = lazy(() => import("@/components/AgentChannelsTab"));
 const TrustToolsTab = lazy(() => import("@/components/TrustToolsTab"));
+const TrustMembersTab = lazy(() => import("@/components/TrustMembersTab"));
 const TrustRolesTab = lazy(() => import("@/components/TrustRolesTab"));
 const AgentEventsTab = lazy(() => import("@/components/AgentEventsTab"));
 const AgentQuestsTab = lazy(() => import("@/components/AgentQuestsTab"));
@@ -44,16 +45,19 @@ interface TrustTabPageProps {
  *
  * Routes:
  *   /trust/:trustAddress               → TrustOverviewTab (cockpit — Health folded in)
- *   /trust/:trustAddress/inbox         → MeInboxPage
- *   /trust/:trustAddress/health        → 308 redirect to bare cockpit (legacy URL)
- *   /trust/:trustAddress/website       → redirect to Apps (legacy website tab)
  *   /trust/:trustAddress/roles         → TrustRolesTab (org chart)
+ *   /trust/:trustAddress/members       → TrustMembersTab (humans + pending invites)
  *   /trust/:trustAddress/agents        → TrustAgentsTab (LIST)
  *   /trust/:trustAddress/sessions      → TrustSessionsTab (all trust sessions)
+ *   /trust/:trustAddress/inbox         → MeInboxPage
+ *   /trust/:trustAddress/channels      → AgentChannelsTab(default/root agent lens)
  *   /trust/:trustAddress/apps          → TrustAppsTab (channel-backed apps)
+ *   /trust/:trustAddress/tools         → TrustToolsTab(default/root agent lens)
  *   /trust/:trustAddress/events        → AgentEventsTab(agent lens rail)
  *   /trust/:trustAddress/quests        → AgentQuestsTab(entity scope)
  *   /trust/:trustAddress/ideas         → AgentIdeasTab(entity scope)
+ *   /trust/:trustAddress/health        → 308 redirect to bare cockpit (legacy URL)
+ *   /trust/:trustAddress/website       → redirect to Apps (legacy website tab)
  *
  * The former `/trust/:trustAddress/settings` tab was retired — workspace label,
  * tagline, public toggle, and plan link now live in the TrustHeroStrip
@@ -61,8 +65,8 @@ interface TrustTabPageProps {
  */
 /** Tabs that require a per-tenant runtime service.
  *  When `has_runtime === false`, render `<ProvisionRuntimeUpsell>` in
- *  their slot instead of the real tab body. The 6 ownership/governance
- *  tabs (Overview / Roles) read trust state and stay reachable on free TRUSTs. */
+ *  their slot instead of the real tab body. Overview, Roles, and Members
+ *  read trust state and stay reachable on free TRUSTs. */
 const RUNTIME_GATED_TABS: Record<string, UpsellSurface> = {
   agents: "agents",
   apps: "apps",
@@ -206,6 +210,16 @@ export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTab
   if (tab === "website") {
     const target = location.pathname.replace(/\/website\/?$/, "/apps") + location.search;
     return <Navigate to={target} replace />;
+  }
+  // Members — humans with trust access or pending trust invitations. This is
+  // deliberately separate from Roles: a human can belong to the trust before
+  // holding an authority seat, just like agents can exist before assignment.
+  if (tab === "members") {
+    return (
+      <Suspense>
+        <TrustMembersTab trustId={trustId} />
+      </Suspense>
+    );
   }
   // Roles — the org-chart / authority-graph surface. Hoisted from inside the
   // AEQI Ownership group on 2026-05-18 to its own peer slot under Trust, so

@@ -54,8 +54,8 @@ const BLUEPRINT_KINDS = new Set(["companies", "agents", "events", "quests", "ide
 // Tabs that route through TrustTabPage. Each is now a top-level sidebar
 // row in the Phase-1 lock — TrustTabPage is a thin per-tab dispatcher.
 // Inbox is the company-scoped action queue; Overview is the cockpit;
-// Roles and Apps sit together in the Trust group: authority first,
-// capabilities directly beneath it.
+// Roles, Members, Agents, Sessions, Inbox, Channels, Apps, Tools, Events,
+// Quests, and Ideas sit together as one continuous trust surface.
 //
 // The runtime primitive tabs (agents/events/quests/ideas) ALSO route through
 // TrustTabPage at the entity scope. Without this, `/trust/<addr>/agents`
@@ -66,22 +66,21 @@ const BLUEPRINT_KINDS = new Set(["companies", "agents", "events", "quests", "ide
 // non-null `routeAgentId` and bypasses TrustTabPage entirely upstream.
 const COMPANY_PAGE_TABS = new Set([
   "overview",
+  "roles",
+  "members",
+  "agents",
+  "sessions",
   "inbox",
+  "channels",
+  "apps",
+  "tools",
+  "events",
+  "quests",
+  "ideas",
   "health",
   // Legacy alias: Website moved into Apps. TrustTabPage redirects
   // `/trust/<addr>/website` to `/trust/<addr>/apps`.
   "website",
-  // Roles is its own peer slot (sits directly under Trust, outside both
-  // Ownership and Execution groups) — renders TrustRolesTab.
-  "roles",
-  "apps",
-  "sessions",
-  "channels",
-  "tools",
-  "agents",
-  "events",
-  "quests",
-  "ideas",
   // Trust-level Settings surface: irreversible administrative actions
   // (ownership transfer; future archival / principal rotation). Reachable
   // from the Ownership group footer link on TrustOverviewTab.

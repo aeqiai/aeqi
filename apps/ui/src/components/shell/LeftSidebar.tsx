@@ -11,7 +11,6 @@ import {
   Target,
   Lightbulb,
   Search,
-  Plus,
   PanelLeftClose,
   PanelLeftOpen,
   Globe,
@@ -19,6 +18,7 @@ import {
   Plug,
   Hash,
   Wrench,
+  Users,
 } from "lucide-react";
 import ActingAsSelector from "@/components/shell/ActingAsSelector";
 import AccountDropdown from "@/components/shell/AccountDropdown";
@@ -58,6 +58,7 @@ const ToolsIcon = () => <Wrench />;
 // org-chart authority graph (RoleNewPage / RoleDetailPage et al). Workflow
 // reads parent + child boxes = hierarchy.
 const RolesIcon = () => <Workflow />;
+const MembersIcon = () => <Users />;
 const AppsIcon = () => <Plug />;
 // Economy — Globe reads "the wider network / world economy" — the
 // marketplace + inference + stake activity is happening *out there*
@@ -67,7 +68,6 @@ const BlueprintsIcon = () => <Blocks />;
 
 // Admin — Lucide's Shield is the same silhouette as the prior hand-rolled.
 const SearchIcon = () => <Search />;
-const PlusIcon = () => <Plus />;
 // Sidebar collapse/expand — state-aware glyphs so the affordance reads
 // in both directions.
 const CollapseSidebarIcon = () => <PanelLeftClose />;
@@ -336,13 +336,9 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
           {topLevelItem("/blueprints", "Blueprints", <BlueprintsIcon />, isBlueprints)}
         </nav>
 
-        {/* ── Trust group — folds the identity selector (the operating-
-            context ID badge) and the trust-scoped tabs (Overview, Roles, Apps)
-            into one coherent block. Viewing the current trust and the
-            role/capabilities it exposes are the SAME concern — splitting them
-            into "Identity" + "Trust" groups was redundant. The selector
-            sits at the top of the group (click to switch context), then
-            the trust-scoped tabs below. ── */}
+        {/* ── Trust group — one continuous trust surface. Order follows the
+            mental model: state, authority, humans, agents, conversations,
+            channel/app/tool capabilities, then work records. ── */}
         {hasCompany && (
           <>
             <nav className="sidebar-surface-nav sidebar-zone" aria-label="Trust">
@@ -363,62 +359,37 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
                   <span className="sidebar-nav-label">Overview</span>
                 </a>
               </div>
-              {navItem("inbox", "Inbox", <InboxIcon />)}
-              {navItem("sessions", "Sessions", <SessionsIcon />, {
-                locked: runtimeLocked,
-              })}
               {/* Roles — the org-chart / authority graph. Sits inside the
                   Trust group alongside Overview; both describe what the
                   Trust IS rather than what it owns or what it does. */}
               {navItem("roles", "Roles", <RolesIcon />)}
-              {/* Apps — Trust capabilities/connectors. This sits directly
-                  under Roles so the shell matches the overview: authority
-                  first, then capabilities, before day-to-day Operations. */}
-              {navItem("apps", "Apps", <AppsIcon />, {
+              {/* Members — humans with trust access or pending invites. Kept
+                  separate from Roles so unassigned humans are visible. */}
+              {navItem("members", "Members", <MembersIcon />)}
+              {navItem("agents", "Agents", <AgentsIcon />, {
                 locked: runtimeLocked,
               })}
+              {navItem("sessions", "Sessions", <SessionsIcon />, {
+                locked: runtimeLocked,
+              })}
+              {navItem("inbox", "Inbox", <InboxIcon />)}
               {navItem("channels", "Channels", <ChannelsIcon />, {
+                locked: runtimeLocked,
+              })}
+              {navItem("apps", "Apps", <AppsIcon />, {
                 locked: runtimeLocked,
               })}
               {navItem("tools", "Tools", <ToolsIcon />, {
                 locked: runtimeLocked,
               })}
-            </nav>
-
-            {/* The sidebar keeps semantic nav zones for spacing and a11y, but
-                no longer prints section headers. The final row set should scan
-                as one trust surface. */}
-            <nav
-              className="sidebar-surface-nav sidebar-zone sidebar-zone--unlabeled"
-              aria-label="Operations"
-            >
-              {navItem("agents", "Agents", <AgentsIcon />, {
-                locked: runtimeLocked,
-                action: rowAction("New agent", <PlusIcon />, () => {
-                  // TrustAgentsTab listens for `aeqi:create` to open the
-                  // BlueprintPickerModal. Navigate first so the listener is
-                  // mounted, then dispatch on the next tick.
-                  navigate(`${base}/agents`);
-                  setTimeout(() => window.dispatchEvent(new CustomEvent("aeqi:create")), 0);
-                }),
-              })}
               {navItem("events", "Events", <EventsIcon />, {
                 locked: runtimeLocked,
-                action: rowAction("New event", <PlusIcon />, () => {
-                  navigate(`${base}/events?compose=1`);
-                }),
               })}
               {navItem("quests", "Quests", <QuestsIcon />, {
                 locked: runtimeLocked,
-                action: rowAction("New quest", <PlusIcon />, () => {
-                  navigate(`${base}/quests/new`);
-                }),
               })}
               {navItem("ideas", "Ideas", <IdeasIcon />, {
                 locked: runtimeLocked,
-                action: rowAction("New idea", <PlusIcon />, () => {
-                  navigate(`${base}/ideas?compose=1`);
-                }),
               })}
             </nav>
           </>
