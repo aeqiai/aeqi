@@ -44,7 +44,6 @@ export default function TrustToolsTab({ agentId }: { agentId: string }) {
       <PrimitivePageHeader
         className="trust-tools-page-header"
         title="Tools"
-        titleVariant="plain"
         aria-label="Tool controls"
         actions={
           <span className="tools-list-summary-n trust-tools-toolbar-count">

@@ -35,6 +35,7 @@ describe("TrustToolsTab", () => {
     const count = within(header).getByText(`${ALL_TOOLS.length - 1}/${ALL_TOOLS.length}`);
 
     expect(header).toHaveClass("trust-tools-page-header");
+    expect(header).toHaveAttribute("data-title-variant", "plain");
     expect(summary.closest(".trust-tools-toolbar")).not.toBeNull();
     expect(count).toHaveClass("trust-tools-toolbar-count");
     expect(screen.getAllByText(`${ALL_TOOLS.length - 1}/${ALL_TOOLS.length}`)).toHaveLength(1);

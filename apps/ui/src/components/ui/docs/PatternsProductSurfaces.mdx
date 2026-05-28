@@ -80,6 +80,9 @@ Use **Patterns -> Toolbar** for implementation details. The short rule:
 Current shared primitives:
 
 - `PrimitivePageHeader` — title/action row for primitive product pages.
+  Page and destination titles are plain by default; use `titleVariant="chip"`
+  only when the title is a selected object, scope, filter, or breadcrumb-like
+  context inside the page.
 - `PrimitiveSearchField` — canonical search field for toolbar chrome.
 - `.ideas-list-head` + `.ideas-toolbar` — existing toolbar band/chrome
   grammar shared by Ideas, Quests, Roles, Events, and adjacent surfaces.

@@ -67,10 +67,12 @@ describe("TrustAgentsTab", () => {
     renderTab();
 
     const heading = screen.getByRole("heading", { name: /Agents/ });
+    const header = screen.getByLabelText("Agent controls");
     const search = screen.getByPlaceholderText("Search agents");
     const snapshot = screen.getByRole("region", { name: "Agent snapshot" });
 
-    expect(screen.getByLabelText("Agent controls")).toContainElement(heading);
+    expect(header).toContainElement(heading);
+    expect(header).toHaveAttribute("data-title-variant", "plain");
     expect(screen.queryByRole("link", { name: "Agents" })).not.toBeInTheDocument();
     expect(search.closest(".trust-agents-toolbar")).not.toBeNull();
     expect(heading.compareDocumentPosition(search)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);

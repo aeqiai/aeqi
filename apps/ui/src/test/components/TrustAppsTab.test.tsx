@@ -92,6 +92,7 @@ describe("TrustAppsTab", () => {
     const toolbar = header.querySelector(".trust-apps-toolbar");
     const actionSlot = header.querySelector(":scope > div:last-child");
 
+    expect(header).toHaveAttribute("data-title-variant", "plain");
     expect(toolbar).not.toBeNull();
     expect(within(header).getByRole("button", { name: "Channels" })).toBeInTheDocument();
     expect(actionSlot).not.toBeNull();

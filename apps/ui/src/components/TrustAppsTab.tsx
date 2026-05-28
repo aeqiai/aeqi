@@ -82,7 +82,6 @@ export default function TrustAppsTab({ trustId }: { trustId: string }) {
       <PrimitivePageHeader
         className="trust-apps-page-header"
         title="Apps"
-        titleVariant="plain"
         aria-label="App controls"
         actions={
           <Button

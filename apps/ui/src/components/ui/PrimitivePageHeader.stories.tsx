@@ -71,3 +71,15 @@ export const WithSearchChrome: Story = {
     ),
   },
 };
+
+export const ObjectScopeChip: Story = {
+  args: {
+    title: "Chief of Staff",
+    titleVariant: "chip",
+    actions: (
+      <Button variant="secondary" size="md">
+        Open
+      </Button>
+    ),
+  },
+};

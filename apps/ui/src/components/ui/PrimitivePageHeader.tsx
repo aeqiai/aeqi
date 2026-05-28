@@ -14,7 +14,7 @@ export interface PrimitivePageHeaderProps extends Omit<HTMLAttributes<HTMLElemen
 
 export const PrimitivePageHeader = forwardRef<HTMLElement, PrimitivePageHeaderProps>(
   function PrimitivePageHeader(
-    { title, actions, padding = "standard", titleVariant = "chip", className, children, ...rest },
+    { title, actions, padding = "standard", titleVariant = "plain", className, children, ...rest },
     ref,
   ) {
     const hasChrome = Boolean(children);
