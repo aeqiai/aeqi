@@ -40,6 +40,16 @@
   text-overflow: ellipsis;
 }
 
+.header[data-title-variant="plain"] .title {
+  min-height: 32px;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: var(--font-size-xl);
+  font-weight: 560;
+}
+
 .chrome {
   display: flex;
   align-items: center;

@@ -10,6 +10,7 @@ interface AgentToolSettingsProps {
   showToast: (msg: string, isError?: boolean) => void;
   titleId?: string;
   subtitle?: string;
+  showSummary?: boolean;
 }
 
 export default function AgentToolSettings({
@@ -18,6 +19,7 @@ export default function AgentToolSettings({
   showToast,
   titleId = "agent-settings-tools-title",
   subtitle = "Allow or block what this agent can call.",
+  showSummary = true,
 }: AgentToolSettingsProps) {
   const fetchAgents = useDaemonStore((s) => s.fetchAgents);
   const [savingTool, setSavingTool] = useState<string | null>(null);
@@ -55,9 +57,11 @@ export default function AgentToolSettings({
           </h2>
           <p className="agent-settings-card-subtitle">{subtitle}</p>
         </div>
-        <span className="tools-list-summary-n">
-          {activeCount}/{ALL_TOOLS.length}
-        </span>
+        {showSummary && (
+          <span className="tools-list-summary-n">
+            {activeCount}/{ALL_TOOLS.length}
+          </span>
+        )}
       </div>
 
       <div className="agent-settings-tools-list">

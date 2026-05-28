@@ -25,7 +25,7 @@ import { publicWebsiteDomain, publicWebsiteUrl } from "@/lib/publicWebsite";
 import { trustEmailAddress, trustEmailDomain } from "@/lib/trustEmail";
 import type { TrustAppKind, TrustAppSummary } from "@/lib/trustApps";
 import { useDaemonStore } from "@/store/daemon";
-import { Button } from "./ui";
+import { Button, PrimitivePageHeader } from "./ui";
 import "@/styles/overview.css";
 
 const APP_ICONS: Record<TrustAppKind, ReactNode> = {
@@ -70,22 +70,21 @@ export default function TrustAppsTab({ trustId }: { trustId: string }) {
   const channelApps = summaries.filter((summary) => summary.entry.category === "channel");
   const billingApps = summaries.filter((summary) => summary.entry.category === "billing");
   const billingReady = billingApps.length > 0;
+  const toolbarSummary = isLoading
+    ? "Loading app status"
+    : `${formatInteger(connectedApps)} connected · ${formatInteger(
+        identityApps,
+      )} identity · ${formatInteger(installed.enabledChannels)} channels · ${formatInteger(
+        trustAgents.length,
+      )} agents${billingReady ? " · billing ready" : ""}${entity?.public ? " · website live" : ""}`;
   return (
     <div className="trust-overview trust-apps-page">
-      <header className="trust-apps-page-header">
-        <h1 className="trust-apps-page-title">Apps</h1>
-        <div className="ideas-toolbar trust-apps-toolbar" aria-label="App controls">
-          <span className="ideas-toolbar-meta trust-apps-toolbar-summary">
-            {isLoading
-              ? "Loading app status"
-              : `${formatInteger(connectedApps)} connected · ${formatInteger(
-                  identityApps,
-                )} identity · ${formatInteger(
-                  installed.enabledChannels,
-                )} channels · ${formatInteger(trustAgents.length)} agents${
-                  billingReady ? " · billing ready" : ""
-                }${entity?.public ? " · website live" : ""}`}
-          </span>
+      <PrimitivePageHeader
+        className="trust-apps-page-header"
+        title="Apps"
+        titleVariant="plain"
+        aria-label="App controls"
+        actions={
           <Button
             variant="secondary"
             size="md"
@@ -94,8 +93,12 @@ export default function TrustAppsTab({ trustId }: { trustId: string }) {
           >
             {defaultAgent ? "Channels" : "Agents"}
           </Button>
+        }
+      >
+        <div className="ideas-toolbar trust-apps-toolbar">
+          <span className="ideas-toolbar-meta trust-apps-toolbar-summary">{toolbarSummary}</span>
         </div>
-      </header>
+      </PrimitivePageHeader>
 
       {entity && (
         <section

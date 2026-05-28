@@ -1,11 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import AgentToolSettings from "@/components/AgentToolSettings";
+import { ALL_TOOLS } from "@/lib/tools";
 import { useDaemonStore } from "@/store/daemon";
+import { PrimitivePageHeader } from "./ui";
 
 export default function TrustToolsTab({ agentId }: { agentId: string }) {
   const agents = useDaemonStore((s) => s.agents);
   const agent = agents.find((a) => a.id === agentId);
   const resolvedAgentId = agent?.id || agentId;
+  const denied = agent?.tool_deny || [];
+  const activeCount = ALL_TOOLS.filter((tool) =>
+    tool.id === "question.ask" ? !!agent?.can_ask_director : !denied.includes(tool.id),
+  ).length;
+  const subtitle = agent
+    ? `Default agent policy for ${agent.name}.`
+    : "Tool access is scoped to the trust's default agent.";
   const [toast, setToast] = useState<{ message: string; isError: boolean } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -32,18 +41,31 @@ export default function TrustToolsTab({ agentId }: { agentId: string }) {
         </div>
       )}
 
-      <main className="agent-settings-page" aria-label="Trust tools">
+      <PrimitivePageHeader
+        className="trust-tools-page-header"
+        title="Tools"
+        titleVariant="plain"
+        aria-label="Tool controls"
+        actions={
+          <span className="tools-list-summary-n trust-tools-toolbar-count">
+            {activeCount}/{ALL_TOOLS.length}
+          </span>
+        }
+      >
+        <div className="ideas-toolbar trust-tools-toolbar">
+          <span className="ideas-toolbar-meta trust-tools-toolbar-summary">{subtitle}</span>
+        </div>
+      </PrimitivePageHeader>
+
+      <main className="agent-settings-page trust-tools-page-body" aria-label="Trust tools">
         {resolvedAgentId ? (
           <AgentToolSettings
             agent={agent}
             resolvedAgentId={resolvedAgentId}
             showToast={showToast}
             titleId="trust-tools-title"
-            subtitle={
-              agent
-                ? `Default agent policy for ${agent.name}.`
-                : "Tool access is scoped to the trust's default agent."
-            }
+            subtitle="Allow or block what this agent can call."
+            showSummary={false}
           />
         ) : (
           <section className="agent-settings-card" aria-labelledby="trust-tools-title">

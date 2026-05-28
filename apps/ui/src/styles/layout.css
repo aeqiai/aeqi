@@ -3541,6 +3541,32 @@
   box-shadow: var(--card-elevation);
 }
 
+.trust-tools-page-header {
+  flex-shrink: 0;
+}
+
+.trust-tools-page-body.agent-settings-page {
+  max-width: none;
+  padding: 0 var(--space-6) var(--space-5);
+  background: transparent;
+}
+
+.trust-tools-toolbar {
+  justify-content: flex-start;
+}
+
+.trust-tools-toolbar-summary {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trust-tools-toolbar-count {
+  min-width: 64px;
+  text-align: right;
+}
+
 .agent-settings-card-head {
   display: flex;
   align-items: flex-start;
@@ -3676,6 +3702,15 @@
 @media (max-width: 640px) {
   .agent-settings-page {
     padding: var(--space-3);
+  }
+
+  .trust-tools-page-body.agent-settings-page {
+    padding: 0 var(--space-4) var(--space-4);
+  }
+
+  .trust-tools-toolbar-summary {
+    white-space: normal;
+    line-height: 1.35;
   }
 
   .agent-settings-card {

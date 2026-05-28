@@ -9,11 +9,12 @@ export interface PrimitivePageHeaderProps extends Omit<HTMLAttributes<HTMLElemen
   title: ReactNode;
   actions?: ReactNode;
   padding?: "standard" | "none";
+  titleVariant?: "chip" | "plain";
 }
 
 export const PrimitivePageHeader = forwardRef<HTMLElement, PrimitivePageHeaderProps>(
   function PrimitivePageHeader(
-    { title, actions, padding = "standard", className, children, ...rest },
+    { title, actions, padding = "standard", titleVariant = "chip", className, children, ...rest },
     ref,
   ) {
     const hasChrome = Boolean(children);
@@ -23,6 +24,7 @@ export const PrimitivePageHeader = forwardRef<HTMLElement, PrimitivePageHeaderPr
         className={cx(styles.header, className)}
         data-padding={padding}
         data-has-chrome={hasChrome ? "true" : undefined}
+        data-title-variant={titleVariant}
         {...rest}
       >
         <h1 className={styles.title}>{title}</h1>
