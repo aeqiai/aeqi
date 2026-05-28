@@ -1276,7 +1276,10 @@
 
 .agent-session-context-header {
   margin: var(--space-3) var(--space-3) 0;
-  min-height: 64px;
+  min-height: 56px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-faint);
+  box-shadow: none;
 }
 
 .agent-session-context-header .session-detail-header-title,
@@ -1309,8 +1312,8 @@
 }
 
 .content-body-row:has(.sessions-rail-col):has(.asv .session-detail--recessed) .sessions-rail-col {
-  width: clamp(288px, 29vw, 368px);
-  min-width: 264px;
+  width: clamp(272px, 27vw, 344px);
+  min-width: 248px;
   background: var(--color-card-muted);
   color: var(--color-text-primary);
   box-shadow: none;
@@ -1977,6 +1980,40 @@
   flex: 1;
   min-height: 0;
   height: 100%;
+}
+
+.content-main-col:has(.asv .session-detail--recessed) .session-detail-thread {
+  gap: 0;
+  padding: var(--space-3) var(--space-4)
+    calc(var(--inbox-composer-height, var(--composer-height, 96px)) + 28px);
+}
+
+.content-main-col:has(.asv .session-detail--recessed)
+  .session-detail--recessed
+  .asv-msg-assistant:not(.asv-msg-ask)
+  .asv-msg-body,
+.content-main-col:has(.asv .session-detail--recessed)
+  .session-detail--recessed
+  .asv-msg-streaming
+  .asv-msg-body {
+  max-width: 760px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-sm);
+  box-shadow: none;
+}
+
+.content-main-col:has(.asv .session-detail--recessed) .asv-msg-user .asv-msg-body {
+  max-width: min(72%, 520px);
+}
+
+.content-main-col:has(.asv .session-detail--recessed)
+  .session-detail--recessed
+  .asv-msg-user
+  .asv-msg-content {
+  padding: 9px 12px;
+  line-height: 1.5;
+  box-shadow: none;
 }
 
 .content-main-col:has(.asv .session-detail--recessed) {
