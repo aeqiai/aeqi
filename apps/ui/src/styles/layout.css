@@ -5360,9 +5360,9 @@
  * rest so the toolbar reads as a single set of related controls — the
  * search field and the ring of circles beside it wear the same fill and
  * hairline. Hover lifts to --bg-row + a darker border; open/active
- * states pick up the accent. 40px rounded square, aligned to the search
- * field's block height so product surfaces share the same stronger toolbar
- * density as Quests.
+ * states pick up the accent. 40px circle, aligned to the search field's
+ * block height so product surfaces share the same stronger toolbar density
+ * as Quests.
  *
  * REUSE: this is the canonical "icon button matching input field" for
  * the ideas surface. Other surfaces should copy this pattern verbatim
@@ -5374,6 +5374,12 @@
   justify-content: center;
   width: 40px;
   height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  inline-size: 40px;
+  block-size: 40px;
+  flex: 0 0 40px;
+  aspect-ratio: 1 / 1;
   padding: 0;
   /* v5.1: icons read at full ink-text strength on the new white
      button surface. Pre-bump rest was --text-secondary (54%) ×
