@@ -1082,7 +1082,7 @@
    labels floating tight against the row above. The 8px below keeps
    the label tethered to its own group. */
 .sidebar-surface-nav .sidebar-section-label {
-  margin: 24px 8px 8px;
+  margin: 10px 8px 6px;
   padding: 0;
   font-size: 10px;
   font-weight: 600;
@@ -4160,8 +4160,8 @@
   .left-sidebar.mobile-open {
     flex-direction: column;
     align-items: stretch;
-    height: min(82vh, 640px);
-    max-height: calc(100vh - 20px);
+    height: calc(100dvh - var(--shell-footer-h, 28px));
+    max-height: calc(100dvh - var(--shell-footer-h, 28px));
     box-shadow: var(--card-elevation);
     z-index: 30;
   }

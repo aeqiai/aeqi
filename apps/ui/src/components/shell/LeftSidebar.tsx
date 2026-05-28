@@ -8,6 +8,7 @@ import {
   PieChart,
   Scale,
   Workflow,
+  MessagesSquare,
   Bot,
   Activity,
   Target,
@@ -20,6 +21,8 @@ import {
   Globe,
   Blocks,
   Plug,
+  Smartphone,
+  Wrench,
 } from "lucide-react";
 import ActingAsSelector from "@/components/shell/ActingAsSelector";
 import AccountDropdown from "@/components/shell/AccountDropdown";
@@ -52,6 +55,9 @@ const AgentsIcon = () => <Bot />;
 const EventsIcon = () => <Activity />;
 const QuestsIcon = () => <Target />;
 const IdeasIcon = () => <Lightbulb />;
+const SessionsIcon = () => <MessagesSquare />;
+const ChannelsIcon = () => <Smartphone />;
+const ToolsIcon = () => <Wrench />;
 
 // AEQI Ownership primitives — Lucide picks anchored to each row's semantic.
 // Assets (a) → Coins: stacked-coin = stored value.
@@ -153,9 +159,21 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
 
   // Derive canonical base path for sidebar tabs.
   const entities = useDaemonStore((s) => s.entities);
+  const agents = useDaemonStore((s) => s.agents);
   const activeEntityObj = trustId ? (entities.find((e) => e.id === trustId) ?? null) : null;
   const base = activeEntityObj ? entityBasePath(activeEntityObj) : "";
   const hasCompany = !!trustId;
+  const defaultAgentId =
+    activeEntityObj?.agent_id || agents.find((agent) => agent.trust_id === trustId)?.id || "";
+  const defaultAgentPath = defaultAgentId
+    ? `${base}/agents/${encodeURIComponent(defaultAgentId)}`
+    : "";
+  const sessionsHref = defaultAgentPath ? `${defaultAgentPath}/inbox` : `${base}/sessions`;
+  const sessionsActive =
+    !!defaultAgentPath &&
+    (path === defaultAgentPath ||
+      path === `${defaultAgentPath}/inbox` ||
+      path.startsWith(`${defaultAgentPath}/inbox/`));
 
   // Runtime gate cue — when the TRUST has no runtime attached, the
   // execution-tab rows (Agents/Events/Quests/Ideas) read as locked
@@ -186,7 +204,13 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
     id: string,
     label: string,
     icon: React.ReactNode,
-    opts: { soon?: boolean; action?: React.ReactNode; locked?: boolean } = {},
+    opts: {
+      soon?: boolean;
+      action?: React.ReactNode;
+      locked?: boolean;
+      href?: string;
+      active?: boolean;
+    } = {},
   ) => {
     if (opts.soon) {
       return (
@@ -203,19 +227,20 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
         </div>
       );
     }
-    const active = isActiveTab(id);
+    const active = opts.active ?? isActiveTab(id);
     const lockedCls = opts.locked ? "sidebar-nav-item--locked" : "";
     const titleHint = opts.locked ? `${label} — runtime required` : label;
+    const href = opts.href ?? navHref(id);
     return (
       <div key={id} className="sidebar-nav-row">
         <a
           className={`sidebar-nav-item ${active ? "active" : ""} ${lockedCls}`.trim()}
-          href={navHref(id)}
+          href={href}
           title={titleHint}
           aria-current={active ? "page" : undefined}
           onClick={(e) => {
             e.preventDefault();
-            navigate(navHref(id));
+            navigate(href);
           }}
         >
           {icon}
@@ -367,6 +392,11 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
                 </a>
               </div>
               {navItem("inbox", "Inbox", <InboxIcon />)}
+              {navItem("sessions", "Sessions", <SessionsIcon />, {
+                locked: runtimeLocked,
+                href: sessionsHref,
+                active: sessionsActive,
+              })}
               {/* Roles — the org-chart / authority graph. Sits inside the
                   Trust group alongside Overview; both describe what the
                   Trust IS rather than what it owns or what it does. */}
@@ -375,6 +405,12 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
                   under Roles so the shell matches the overview: authority
                   first, then capabilities, before day-to-day Operations. */}
               {navItem("apps", "Apps", <AppsIcon />, {
+                locked: runtimeLocked,
+              })}
+              {navItem("channels", "Channels", <ChannelsIcon />, {
+                locked: runtimeLocked,
+              })}
+              {navItem("tools", "Tools", <ToolsIcon />, {
                 locked: runtimeLocked,
               })}
             </nav>

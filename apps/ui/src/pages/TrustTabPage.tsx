@@ -19,6 +19,8 @@ const MeInboxPage = lazy(() => import("@/pages/MeInboxPage"));
 // remains visible on `/trust/<addr>/...`.
 const TrustAgentsTab = lazy(() => import("@/components/TrustAgentsTab"));
 const TrustAppsTab = lazy(() => import("@/components/TrustAppsTab"));
+const AgentChannelsTab = lazy(() => import("@/components/AgentChannelsTab"));
+const TrustToolsTab = lazy(() => import("@/components/TrustToolsTab"));
 const TrustRolesTab = lazy(() => import("@/components/TrustRolesTab"));
 const AssetsPage = lazy(() => import("@/pages/AssetsPage"));
 const EquityPage = lazy(() => import("@/pages/EquityPage"));
@@ -67,6 +69,8 @@ interface TrustTabPageProps {
 const RUNTIME_GATED_TABS: Record<string, UpsellSurface> = {
   agents: "agents",
   apps: "apps",
+  channels: "apps",
+  tools: "apps",
   events: "events",
   quests: "quests",
   ideas: "ideas",
@@ -177,6 +181,20 @@ export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTab
     return (
       <Suspense>
         <TrustAppsTab trustId={trustId} />
+      </Suspense>
+    );
+  }
+  if (tab === "channels") {
+    return (
+      <Suspense>
+        <AgentChannelsTab agentId={agentId} />
+      </Suspense>
+    );
+  }
+  if (tab === "tools") {
+    return (
+      <Suspense>
+        <TrustToolsTab agentId={agentId} />
       </Suspense>
     );
   }

@@ -44,15 +44,7 @@ const AgentSettingsPage = lazy(() => import("@/pages/AgentSettingsPage"));
 // Legacy drilled-agent segments. MVP agent detail exposes only Sessions
 // and Settings; stale deep links collapse to Settings rather than
 // duplicating full primitive pages under an agent.
-const RELOCATED_AGENT_TABS = new Set([
-  "overview",
-  "quests",
-  "events",
-  "ideas",
-  "channels",
-  "tools",
-  "integrations",
-]);
+const RELOCATED_AGENT_TABS = new Set(["overview", "quests", "events", "ideas", "integrations"]);
 
 // Top-level segments under /blueprints that are catalog-kind tabs, not
 // blueprint ids. Anything else after /blueprints/ is treated as a blueprint
@@ -88,6 +80,8 @@ const COMPANY_PAGE_TABS = new Set([
   // Ownership and Execution groups) — renders TrustRolesTab.
   "roles",
   "apps",
+  "channels",
+  "tools",
   "agents",
   "events",
   "quests",
@@ -346,7 +340,8 @@ export default function AppLayout() {
   // The drilled-agent inbox URL is `/trust/<addr>/agents/<agent>/inbox[/<sid>]`.
   if (tab === "sessions" && encodedEntityId) {
     const suffix = itemId ? `/inbox/${encodeURIComponent(itemId)}` : "/inbox";
-    const agentSeg = drilledAgent ? `/agents/${encodeURIComponent(drilledAgent.id)}` : "";
+    const sessionAgent = drilledAgent ?? defaultAgent;
+    const agentSeg = sessionAgent ? `/agents/${encodeURIComponent(sessionAgent.id)}` : "";
     return <Navigate to={`${base}${agentSeg}${suffix}${search}`} replace />;
   }
 
@@ -374,15 +369,6 @@ export default function AppLayout() {
 
   if (drilledAgent && tab === "treasury" && !agentSettingsSegment) {
     return <NotFoundPage />;
-  }
-
-  // Channels are an agent-rail primitive only — see
-  // `apps/ui/CLAUDE.md` "Channels are an agent-rail primitive only".
-  // The company-scope `/trust/<addr>/channels` URL is not a surface.
-  // The drilled-agent path `/trust/<addr>/agents/<aid>/channels` is the
-  // canonical surface and is unaffected (gated by `!drilledAgent` here).
-  if (tab === "channels" && isEntityRoute && !drilledAgent) {
-    return <Navigate to={`${base}${search}`} replace />;
   }
 
   // The bare `/trust/<addr>` URL IS the company cockpit — there is no
