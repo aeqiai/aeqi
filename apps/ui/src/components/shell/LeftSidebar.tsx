@@ -379,17 +379,14 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
               })}
             </nav>
 
-            {/* IA order on the sidebar mirrors the user-facing mental
-                model: Roles + Apps (TRUST section above) → Operations (who runs
-                it) → Ownership (who owns it). Operations sits closer
-                to the TRUST section because day-to-day work
-                lives there; ownership is the longer-term layer below.
-                "Operations" replaced "Execution" 2026-05-20 as part
-                of the Owners/Directors/Operators role-tier pivot —
-                operators do operations, directors govern the boundary,
-                owners hold the upside. */}
-            <nav className="sidebar-surface-nav sidebar-zone" aria-label="Operations">
-              <div className="sidebar-section-label">Operations</div>
+            {/* The sidebar keeps semantic nav zones for spacing and a11y, but
+                no longer prints Ownership/Operations headers. The final row
+                set should scan as one trust surface, with the org-chart first,
+                then capabilities, execution, and ownership primitives. */}
+            <nav
+              className="sidebar-surface-nav sidebar-zone sidebar-zone--unlabeled"
+              aria-label="Operations"
+            >
               {navItem("agents", "Agents", <AgentsIcon />, {
                 locked: runtimeLocked,
                 action: rowAction("New agent", <PlusIcon />, () => {
@@ -422,8 +419,10 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
 
             {/* AEQI ownership grammar — assets · equity · quorum · incorporation.
                 The four rows spell the wordmark in order. */}
-            <nav className="sidebar-surface-nav sidebar-zone" aria-label="Ownership">
-              <div className="sidebar-section-label">Ownership</div>
+            <nav
+              className="sidebar-surface-nav sidebar-zone sidebar-zone--unlabeled"
+              aria-label="Ownership"
+            >
               {navItem("assets", "Assets", <AssetsIcon />)}
               {navItem("equity", "Equity", <EquityIcon />)}
               {navItem("quorum", "Quorum", <QuorumIcon />)}

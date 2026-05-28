@@ -1,13 +1,14 @@
 import type { ChannelEntry } from "@/api/channels";
 import type { Agent } from "@/lib/types";
 
-export type TrustAppKind = "telegram" | "whatsapp";
+export type TrustAppKind = "telegram" | "whatsapp" | "stripe";
+export type TrustAppCategory = "channel" | "billing";
 export type TrustAppStatus = "connected" | "available";
 
 export interface TrustAppCatalogEntry {
   kind: TrustAppKind;
   name: string;
-  category: "channel";
+  category: TrustAppCategory;
   summary: string;
   channelKinds: readonly string[];
 }
@@ -35,6 +36,13 @@ export const TRUST_APP_CATALOG: readonly TrustAppCatalogEntry[] = [
     category: "channel",
     summary: "Cloud API or QR-paired channel",
     channelKinds: ["whatsapp", "whatsapp-baileys"],
+  },
+  {
+    kind: "stripe",
+    name: "Stripe",
+    category: "billing",
+    summary: "Billing, subscriptions, and checkout events",
+    channelKinds: [],
   },
 ] as const;
 

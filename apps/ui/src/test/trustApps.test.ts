@@ -21,12 +21,13 @@ function channel(
 }
 
 describe("trust app summaries", () => {
-  it("marks Telegram and WhatsApp as available when no matching channels exist", () => {
+  it("marks catalog apps as available when no matching channels exist", () => {
     const summaries = summarizeTrustApps(agents, []);
 
     expect(summaries.map((summary) => [summary.entry.kind, summary.status])).toEqual([
       ["telegram", "available"],
       ["whatsapp", "available"],
+      ["stripe", "available"],
     ]);
   });
 
@@ -55,6 +56,7 @@ describe("trust app summaries", () => {
 
     const telegram = summaries.find((summary) => summary.entry.kind === "telegram");
     const whatsapp = summaries.find((summary) => summary.entry.kind === "whatsapp");
+    const stripe = summaries.find((summary) => summary.entry.kind === "stripe");
 
     expect(telegram).toMatchObject({
       status: "connected",
@@ -69,6 +71,13 @@ describe("trust app summaries", () => {
       enabledChannels: 1,
       allowedChats: 1,
       agentCount: 2,
+    });
+    expect(stripe).toMatchObject({
+      status: "available",
+      connectedChannels: 0,
+      enabledChannels: 0,
+      allowedChats: 0,
+      agentCount: 0,
     });
     expect(summarizeInstalledApps(summaries)).toMatchObject({
       connectedApps: 2,

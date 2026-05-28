@@ -443,7 +443,7 @@ describe("shell components smoke", () => {
   });
 
   it("LeftSidebar exposes Inbox only under the Trust group", () => {
-    const { getAllByRole } = render(
+    const { getAllByRole, queryByText } = render(
       withQueryClient(
         <StrictMode>
           <MemoryRouter initialEntries={["/trust/root-1"]}>
@@ -459,6 +459,7 @@ describe("shell components smoke", () => {
     );
 
     expect(getAllByRole("link", { name: "Inbox" })).toHaveLength(1);
+    expect(queryByText(/^(Operations|Ownership)$/)).not.toBeInTheDocument();
   });
 
   it("LeftSidebar renders with a drilled-in child agent", () => {

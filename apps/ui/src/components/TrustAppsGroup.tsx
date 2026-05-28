@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { MessageCircle, Send, Smartphone, Waypoints } from "lucide-react";
+import { CreditCard, MessageCircle, Send, Smartphone, Waypoints } from "lucide-react";
 
 import { useTrustApps } from "@/hooks/useTrustApps";
 import { formatInteger } from "@/lib/i18n";
@@ -13,6 +13,7 @@ interface TrustAppsGroupProps {
 const APP_ICONS: Record<TrustAppKind, React.ReactNode> = {
   telegram: <Send size={16} strokeWidth={1.5} />,
   whatsapp: <MessageCircle size={16} strokeWidth={1.5} />,
+  stripe: <CreditCard size={16} strokeWidth={1.5} />,
 };
 
 export default function TrustAppsGroup({ trustId, basePath }: TrustAppsGroupProps) {

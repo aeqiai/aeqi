@@ -6,6 +6,7 @@ import {
   Check,
   Cloud,
   Copy,
+  CreditCard,
   Globe,
   Mail,
   MessageCircle,
@@ -30,6 +31,7 @@ import "@/styles/overview.css";
 const APP_ICONS: Record<TrustAppKind, ReactNode> = {
   telegram: <Send size={18} strokeWidth={1.5} />,
   whatsapp: <MessageCircle size={18} strokeWidth={1.5} />,
+  stripe: <CreditCard size={18} strokeWidth={1.5} />,
 };
 
 export default function TrustAppsTab({ trustId }: { trustId: string }) {
@@ -65,6 +67,9 @@ export default function TrustAppsTab({ trustId }: { trustId: string }) {
     ? `${basePath}/agents/${encodeURIComponent(defaultAgent.id)}/settings/channels`
     : `${basePath}/agents`;
   const channelActionLabel = defaultAgent ? "Open Channels" : "Open Agents";
+  const channelApps = summaries.filter((summary) => summary.entry.category === "channel");
+  const billingApps = summaries.filter((summary) => summary.entry.category === "billing");
+  const billingReady = billingApps.length > 0;
   return (
     <div className="trust-overview trust-apps-page">
       <header className="trust-apps-page-header">
@@ -78,8 +83,8 @@ export default function TrustAppsTab({ trustId }: { trustId: string }) {
                 )} identity · ${formatInteger(
                   installed.enabledChannels,
                 )} channels · ${formatInteger(trustAgents.length)} agents${
-                  entity?.public ? " · website live" : ""
-                }`}
+                  billingReady ? " · billing ready" : ""
+                }${entity?.public ? " · website live" : ""}`}
           </span>
           <Button
             variant="secondary"
@@ -128,11 +133,11 @@ export default function TrustAppsTab({ trustId }: { trustId: string }) {
 
       <section
         className="trust-cockpit-card trust-cockpit-card--wide"
-        aria-labelledby="workspace-apps-heading"
+        aria-labelledby="platform-apps-heading"
       >
         <header className="trust-cockpit-card-header">
-          <h2 id="workspace-apps-heading" className="trust-cockpit-card-title">
-            Workspace apps
+          <h2 id="platform-apps-heading" className="trust-cockpit-card-title">
+            Platform apps
           </h2>
         </header>
         <div className="trust-apps-grid trust-apps-grid--workspace">
@@ -142,6 +147,15 @@ export default function TrustAppsTab({ trustId }: { trustId: string }) {
             status={googleStatus.data}
             trustId={trustId}
           />
+          {billingApps.map((summary) => (
+            <AppDetailCard
+              key={summary.entry.kind}
+              selected={selectedKind === summary.entry.kind}
+              summary={summary}
+              channelsPath="/account/billing"
+              actionLabel="Open Billing"
+            />
+          ))}
         </div>
       </section>
 
@@ -158,7 +172,7 @@ export default function TrustAppsTab({ trustId }: { trustId: string }) {
           </Link>
         </header>
         <div className="trust-apps-grid">
-          {summaries.map((summary) => (
+          {channelApps.map((summary) => (
             <AppDetailCard
               key={summary.entry.kind}
               selected={selectedKind === summary.entry.kind}
@@ -431,6 +445,7 @@ function AppDetailCard({
   summary: TrustAppSummary;
 }) {
   const connected = summary.status === "connected";
+  const billing = summary.entry.category === "billing";
 
   return (
     <article className="trust-app-card" data-selected={selected ? "true" : undefined}>
@@ -446,14 +461,27 @@ function AppDetailCard({
           {connected ? "Connected" : "Ready"}
         </span>
       </header>
-      <div className="trust-app-card-stats">
-        <Stat label="Channels" value={formatInteger(summary.connectedChannels)} />
-        <Stat label="Enabled" value={formatInteger(summary.enabledChannels)} />
-        <Stat label="Chats" value={formatInteger(summary.allowedChats)} />
-        <Stat label="Agents" value={formatInteger(summary.agentCount)} />
-      </div>
+      {billing ? (
+        <div className="trust-app-card-stats trust-app-card-stats--billing">
+          <Stat label="Scope" value="Account" />
+          <Stat label="Checkout" value="Ready" />
+          <Stat label="Webhooks" value="Ready" />
+          <Stat label="Portal" value="Stripe" />
+        </div>
+      ) : (
+        <div className="trust-app-card-stats">
+          <Stat label="Channels" value={formatInteger(summary.connectedChannels)} />
+          <Stat label="Enabled" value={formatInteger(summary.enabledChannels)} />
+          <Stat label="Chats" value={formatInteger(summary.allowedChats)} />
+          <Stat label="Agents" value={formatInteger(summary.agentCount)} />
+        </div>
+      )}
       <Link to={channelsPath} className="trust-app-card-action">
-        <Smartphone size={14} strokeWidth={1.5} aria-hidden />
+        {billing ? (
+          <CreditCard size={14} strokeWidth={1.5} aria-hidden />
+        ) : (
+          <Smartphone size={14} strokeWidth={1.5} aria-hidden />
+        )}
         {actionLabel}
       </Link>
     </article>

@@ -1246,7 +1246,8 @@
 
 .trust-app-card-stats--workspace .trust-apps-stat:first-child .trust-apps-stat-value,
 .trust-app-card-stats--identity .trust-apps-stat:first-child .trust-apps-stat-value,
-.trust-app-card-stats--email .trust-apps-stat:nth-child(-n + 2) .trust-apps-stat-value {
+.trust-app-card-stats--email .trust-apps-stat:nth-child(-n + 2) .trust-apps-stat-value,
+.trust-app-card-stats--billing .trust-apps-stat-value {
   overflow: hidden;
   font-family: var(--font-sans);
   font-size: var(--font-size-sm);
