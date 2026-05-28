@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import AgentEventsTab from "@/components/AgentEventsTab";
@@ -92,7 +92,7 @@ function renderEvents(initialEntry = "/trust/0xabc/events") {
   );
 }
 
-describe("AgentEventsTab agent rail", () => {
+describe("AgentEventsTab agent filter", () => {
   beforeEach(() => {
     localStorage.clear();
     useDaemonStore.setState({
@@ -120,20 +120,23 @@ describe("AgentEventsTab agent rail", () => {
     expect(await screen.findByText("Operator loop check")).toBeInTheDocument();
     expect(eventsApi.listAgentEvents).toHaveBeenCalledWith("agent-2");
 
-    const rail = screen.getByRole("complementary", { name: "Event agent lens" });
-    expect(within(rail).getByText("Janus")).toBeInTheDocument();
-    expect(within(rail).getByText("Operator")).toBeInTheDocument();
-    expect(within(rail).getByText("idle · 1 handler")).toBeInTheDocument();
-    expect(within(rail).getByText("online · 1 handler")).toBeInTheDocument();
-    expect(screen.getByText("Agent loop")).toBeInTheDocument();
-    expect(screen.getAllByText("Operator").length).toBeGreaterThanOrEqual(2);
+    expect(
+      screen.queryByRole("complementary", { name: "Event agent lens" }),
+    ).not.toBeInTheDocument();
+
+    const agentFilter = screen.getByRole("button", { name: "Agent: Operator" });
+    fireEvent.click(agentFilter);
+
+    expect(screen.getByRole("radio", { name: "Janus" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Operator" })).toBeInTheDocument();
   });
 
   it("switches the selected agent without leaving the Events page", async () => {
     renderEvents("/trust/0xabc/events?agent=agent-2");
     expect(await screen.findByText("Operator loop check")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /janus/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Agent: Operator" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Janus" }));
 
     await waitFor(() => expect(eventsApi.listAgentEvents).toHaveBeenCalledWith("agent-1"));
     expect(await screen.findByText("Session birth context")).toBeInTheDocument();

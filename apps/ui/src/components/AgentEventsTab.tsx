@@ -1,12 +1,20 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { Bot, Plus } from "lucide-react";
 import { useNav } from "@/hooks/useNav";
 import * as eventsApi from "@/api/events";
-import { useAgentEventCounts, useAgentEvents, useAgentEventsCache } from "@/queries/events";
-import type { Agent, AgentEvent, ScopeValue } from "@/lib/types";
+import { useAgentEvents, useAgentEventsCache } from "@/queries/events";
+import type { AgentEvent, ScopeValue } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
-import { Button, Icon, Select, Loading, PrimitivePageHeader, Tooltip } from "./ui";
+import {
+  Button,
+  Icon,
+  Select,
+  Loading,
+  PrimitivePageHeader,
+  ToolbarRadioPopover,
+  Tooltip,
+} from "./ui";
 import { Events as TrackEvents, useTrack } from "@/lib/analytics";
 import EventsToolbar from "./events/EventsToolbar";
 import {
@@ -20,7 +28,6 @@ import { eventLifecycle } from "./events/lifecycle";
 import EventsOverview from "./EventsOverview";
 import EventDetail from "./events/EventDetail";
 import { SCOPE_LABEL, SCOPE_PICKER_VALUES } from "./ideas/types";
-import AgentAvatar from "./AgentAvatar";
 
 const NO_EVENTS: AgentEvent[] = [];
 
@@ -94,17 +101,6 @@ function parseGroup(raw: string | null): EventsGroup {
   return EVENTS_GROUP_VALUES.includes(raw as EventsGroup) ? (raw as EventsGroup) : "all";
 }
 
-function agentLivenessLabel(agent: Agent | null | undefined): string {
-  if (!agent) return "agent";
-  if (agent.status === "active") return "online";
-  if (agent.status === "stopped") return "offline";
-  return "idle";
-}
-
-function handlerCountLabel(count: number): string {
-  return `${count} handler${count === 1 ? "" : "s"}`;
-}
-
 function paramsRecord(params: URLSearchParams): Record<string, string> {
   const out: Record<string, string> = {};
   params.forEach((value, key) => {
@@ -131,8 +127,6 @@ export default function AgentEventsTab({
     () => (agentRail && trustId ? allAgents.filter((a) => a.trust_id === trustId) : []),
     [agentRail, allAgents, trustId],
   );
-  const entityAgentIds = useMemo(() => entityAgents.map((agent) => agent.id), [entityAgents]);
-  const { counts: eventCounts } = useAgentEventCounts(agentRail ? entityAgentIds : []);
   const selectedAgentParam = searchParams.get("agent");
   const activeAgentId = useMemo(() => {
     if (!agentRail) return agentId;
@@ -145,6 +139,16 @@ export default function AgentEventsTab({
     () => allAgents.find((a) => a.id === activeAgentId) ?? null,
     [allAgents, activeAgentId],
   );
+  const agentOptions = useMemo(
+    () => entityAgents.map((agent) => ({ id: agent.id, label: agent.name || "Agent" })),
+    [entityAgents],
+  );
+  const activeAgentLabel =
+    agentOptions.find((option) => option.id === activeAgentId)?.label ??
+    activeAgent?.name ??
+    "Agent";
+  const toolbarAgentOptions =
+    agentOptions.length > 0 ? agentOptions : [{ id: activeAgentId, label: activeAgentLabel }];
 
   const filter: EventsFilterState = {
     scope: parseScope(searchParams.get("scope")),
@@ -308,29 +312,11 @@ export default function AgentEventsTab({
     return `${entityPath(trustId, "events")}${qs ? `?${qs}` : ""}`;
   }, [activeAgentId, agentRail, entityPath, searchParams, trustId]);
 
-  const frame = useCallback(
-    (content: ReactNode) => {
-      if (!agentRail) return content;
-      return (
-        <div className="events-workbench">
-          <EventAgentRail
-            agents={entityAgents}
-            activeAgentId={activeAgentId}
-            eventCounts={eventCounts}
-            onSelect={switchAgent}
-          />
-          <div className="events-workbench-main">{content}</div>
-        </div>
-      );
-    },
-    [activeAgentId, agentRail, entityAgents, eventCounts, switchAgent],
-  );
-
   /* ── Render branches ─────────────────────────────────────────── */
 
   if (composing) {
     const preset = TRANSPORT_PRESETS.find((t) => t.id === newTransport) ?? TRANSPORT_PRESETS[0];
-    return frame(
+    return (
       <div className="asv-main events-surface">
         <div className="events-surface-body">
           <div className="events-addform">
@@ -458,7 +444,7 @@ export default function AgentEventsTab({
             </div>
           </div>
         </div>
-      </div>,
+      </div>
     );
   }
 
@@ -468,7 +454,7 @@ export default function AgentEventsTab({
     // EventDetail can claim full available height — mirrors the
     // IdeaCanvas shape. The `.events-surface-body` auto-scroll wrapper
     // only fits the list/compose branches.
-    return frame(
+    return (
       <div className="asv-main events-surface">
         <EventDetail
           event={selected}
@@ -491,12 +477,12 @@ export default function AgentEventsTab({
             }
           }}
         />
-      </div>,
+      </div>
     );
   }
 
   if (eventsLoading) {
-    return frame(
+    return (
       <div className="asv-main events-surface">
         <div
           className="events-surface-body"
@@ -504,25 +490,20 @@ export default function AgentEventsTab({
         >
           <Loading size="md" />
         </div>
-      </div>,
+      </div>
     );
   }
 
-  return frame(
+  return (
     <div className="asv-main events-surface">
       <PrimitivePageHeader
         className="events-list-header"
         title={
           <span className="events-list-title-block">
             <span>Events</span>
-            {agentRail && (
-              <span className="events-list-context">
-                <span>Agent loop</span>
-                <strong>{activeAgent?.name ?? "Select an agent"}</strong>
-                <span>{agentLivenessLabel(activeAgent)}</span>
-                <span>{handlerCountLabel(events.length)}</span>
-              </span>
-            )}
+            <span className="events-list-count" aria-label={`${filteredEvents.length} shown`}>
+              {filteredEvents.length}
+            </span>
           </span>
         }
         children={
@@ -533,6 +514,19 @@ export default function AgentEventsTab({
             scopeCounts={scopeCounts}
             groupCounts={groupCounts}
             onNew={openCompose}
+            rightExtra={
+              agentRail ? (
+                <ToolbarRadioPopover
+                  label="Agent"
+                  current={activeAgentLabel}
+                  glyph={<Icon icon={Bot} size="sm" />}
+                  options={toolbarAgentOptions}
+                  value={activeAgentId}
+                  onChange={switchAgent}
+                  indicator={activeAgentId !== agentId}
+                />
+              ) : null
+            }
           />
         }
         actions={
@@ -562,50 +556,6 @@ export default function AgentEventsTab({
           onNew={openCompose}
         />
       </div>
-    </div>,
-  );
-}
-
-function EventAgentRail({
-  agents,
-  activeAgentId,
-  eventCounts,
-  onSelect,
-}: {
-  agents: Agent[];
-  activeAgentId: string;
-  eventCounts: Map<string, number>;
-  onSelect: (agentId: string) => void;
-}) {
-  return (
-    <aside className="events-agent-rail" aria-label="Event agent lens">
-      <header className="events-agent-rail-head">
-        <span className="events-agent-rail-kicker">Agent lens</span>
-        <span className="events-agent-rail-count">{agents.length}</span>
-      </header>
-      <div className="events-agent-rail-list">
-        {agents.map((agent) => {
-          const active = agent.id === activeAgentId;
-          const count = eventCounts.get(agent.id) ?? 0;
-          return (
-            <button
-              key={agent.id}
-              type="button"
-              className={`events-agent-rail-row${active ? " is-active" : ""}`}
-              onClick={() => onSelect(agent.id)}
-              aria-current={active ? "true" : undefined}
-            >
-              <AgentAvatar name={agent.name} src={agent.avatar} />
-              <span className="events-agent-rail-row-main">
-                <span className="events-agent-rail-row-name">{agent.name}</span>
-                <span className="events-agent-rail-row-meta">
-                  {agentLivenessLabel(agent)} · {handlerCountLabel(count)}
-                </span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </aside>
+    </div>
   );
 }

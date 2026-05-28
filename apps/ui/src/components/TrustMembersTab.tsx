@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ExternalLink, UsersRound } from "lucide-react";
 import { api } from "@/lib/api";
@@ -138,6 +138,25 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
     }
     return { total: rows.length, active, invited, noRole };
   }, [rows]);
+  const inviteTargetRole = useMemo(
+    () => roles.find((role) => role.occupant_kind === "vacant") ?? null,
+    [roles],
+  );
+  const handleInviteHuman = useCallback(() => {
+    if (inviteTargetRole) {
+      navigate(
+        entityPathFromId(
+          entities,
+          trustId,
+          "roles",
+          encodeURIComponent(inviteTargetRole.id),
+          "invite",
+        ),
+      );
+      return;
+    }
+    navigate(entityPathFromId(entities, trustId, "roles", "new"));
+  }, [entities, inviteTargetRole, navigate, trustId]);
 
   const columns = useMemo<Array<TableColumn<MemberRow>>>(
     () => [
@@ -211,6 +230,22 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
         className="trust-members-page-header"
         title="Members"
         aria-label="Member controls"
+        actions={
+          <Button
+            variant="primary"
+            size="md"
+            onClick={handleInviteHuman}
+            disabled={loading}
+            title={
+              inviteTargetRole
+                ? `Invite a human to ${inviteTargetRole.title}`
+                : "Create a role before inviting a human"
+            }
+            leadingIcon={<UsersRound size={14} strokeWidth={1.8} />}
+          >
+            Invite human
+          </Button>
+        }
       >
         <div className="ideas-toolbar trust-members-toolbar">
           <PrimitiveSearchField
