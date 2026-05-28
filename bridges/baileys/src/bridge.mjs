@@ -42,6 +42,7 @@ import {
 
 const rl = readline.createInterface({ input: process.stdin });
 const logger = pino({ level: process.env.AEQI_BAILEYS_LOG || "warn" }, process.stderr);
+const traceMessages = process.env.AEQI_BAILEYS_TRACE_MESSAGES === "1";
 
 let sock = null;
 let sessionDir = null;
@@ -72,6 +73,21 @@ function normalizeJid(jid) {
   return jid ? jidNormalizedUser(jid) : null;
 }
 
+function ownJids(sock, state) {
+  return [
+    sock?.user?.id,
+    sock?.user?.lid,
+    state?.creds?.me?.id,
+    state?.creds?.me?.lid,
+  ]
+    .map(normalizeJid)
+    .filter(Boolean);
+}
+
+function isOwnChat(jid, knownOwnJids) {
+  return !!jid && knownOwnJids.some((own) => areJidsSameUser(jid, own));
+}
+
 function extractText(msg) {
   const m = msg.message;
   if (!m) return null;
@@ -85,6 +101,12 @@ function extractText(msg) {
   if (m.ephemeralMessage?.message?.extendedTextMessage?.text)
     return m.ephemeralMessage.message.extendedTextMessage.text;
   return null;
+}
+
+function messageType(msg) {
+  const m = msg.message;
+  if (!m || typeof m !== "object") return null;
+  return Object.keys(m).join(",");
 }
 
 async function startSocket(dir) {
@@ -141,22 +163,46 @@ async function startSocket(dir) {
   });
 
   sock.ev.on("messages.upsert", ({ messages, type }) => {
+    if (traceMessages) {
+      logger.info({ type, count: messages?.length ?? 0 }, "messages.upsert");
+    }
     if (type !== "notify") return;
     for (const msg of messages) {
       const text = extractText(msg);
-      if (text === null) continue;
       const jid = normalizeJid(msg.key.remoteJid);
       const fromMe = !!msg.key.fromMe;
-      const meJid = normalizeJid(sock?.user?.id);
-      const isSelfChat = !!jid && !!meJid && areJidsSameUser(jid, meJid);
+      const knownOwnJids = ownJids(sock, state);
+      const isSelfChat = isOwnChat(jid, knownOwnJids);
+      if (traceMessages) {
+        logger.info(
+          {
+            id: msg.key.id,
+            jid,
+            fromMe,
+            selfChat: isSelfChat,
+            ownJidKinds: knownOwnJids.map((own) => own.split("@").at(-1)),
+            participant: normalizeJid(msg.key.participant),
+            messageType: messageType(msg),
+            hasText: text !== null,
+          },
+          "message candidate",
+        );
+      }
+      if (text === null) continue;
       // Drop our own replies bouncing back through the event stream.
       // Also drop self-authored messages to other chats; only a real
       // chat-with-yourself thread should wake the agent.
       if (fromMe && sentMessageIds.has(msg.key.id)) {
+        if (traceMessages) {
+          logger.info({ id: msg.key.id, jid }, "dropping sent-message echo");
+        }
         sentMessageIds.delete(msg.key.id);
         continue;
       }
       if (fromMe && !isSelfChat) {
+        if (traceMessages) {
+          logger.info({ id: msg.key.id, jid }, "dropping self-authored non-self-chat");
+        }
         continue;
       }
       emit("message_in", {
