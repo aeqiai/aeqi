@@ -1300,21 +1300,22 @@
 }
 
 /* Drilled-agent inbox = the same master/detail geometry as `/inbox`:
-   a recessed rail slab with raised white row tiles, then the recessed
-   conversation canvas to the right. */
+   one recessed rail slab with dense rows, then the conversation canvas
+   to the right. The rail primitive stays borderless inside the slab so
+   the surface does not read as cards inside cards. */
 .content-body-row:has(.sessions-rail-col):has(.asv .session-detail--recessed) {
   gap: var(--space-3);
   padding: var(--space-3);
 }
 
 .content-body-row:has(.sessions-rail-col):has(.asv .session-detail--recessed) .sessions-rail-col {
-  width: clamp(300px, 32vw, 420px);
-  min-width: 280px;
+  width: clamp(288px, 29vw, 368px);
+  min-width: 264px;
   background: var(--color-card-muted);
   color: var(--color-text-primary);
-  box-shadow: inset 0 0 0 1px var(--border-faint);
+  box-shadow: none;
   border-radius: var(--radius-sm);
-  padding: var(--space-3);
+  padding: var(--space-2);
 }
 @media (max-width: 768px) {
   .sessions-rail-col {
@@ -1350,10 +1351,10 @@
   background: transparent;
 }
 .sessions-rail--recessed {
-  background: var(--color-card-muted);
+  background: transparent;
   color: var(--color-text-primary);
-  border-radius: var(--radius-sm);
-  box-shadow: inset 0 0 0 1px var(--border-faint);
+  border-radius: 0;
+  box-shadow: none;
 }
 .sessions-rail--recessed .sessions-rail-group-label {
   color: var(--color-text-muted);
@@ -1535,7 +1536,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
-  padding-bottom: 8px;
+  padding-bottom: var(--space-1);
 }
 .sessions-rail--card .sessions-rail-list {
   padding: 0;
@@ -1626,67 +1627,67 @@
   background: var(--state-selected);
 }
 .sessions-rail--card .sessions-rail-group {
-  padding: var(--space-4) 0 var(--space-2);
+  padding: var(--space-3) 0 var(--space-1);
 }
 .sessions-rail--card .sessions-rail-group:first-child {
-  padding-top: var(--space-2);
+  padding-top: var(--space-1);
 }
 .sessions-rail--card .sessions-rail-group-rule {
   display: none;
 }
 .sessions-rail--card .sessions-rail-row {
   width: 100%;
-  margin: 0 0 var(--space-2);
+  margin: 0 0 var(--space-1);
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  background: var(--bg-row);
+  border-radius: 6px;
+  background: transparent;
   box-shadow: none;
   overflow: hidden;
 }
 .sessions-rail--card.sessions-rail--compact .sessions-rail-row {
-  min-height: 40px;
-  padding: var(--space-2) var(--space-3);
+  min-height: 34px;
+  padding: 5px var(--space-2);
 }
 .sessions-rail--card.sessions-rail--comfortable .sessions-rail-row {
-  min-height: 76px;
-  padding: var(--space-3);
+  min-height: 56px;
+  padding: 7px var(--space-2);
 }
 .sessions-rail--card .sessions-rail-row:hover,
 .sessions-rail--card .sessions-rail-row:focus-visible {
-  background: var(--color-card-subtle);
-  border-color: var(--border-faint);
+  background: var(--color-card);
+  border-color: transparent;
 }
 .sessions-rail--card .sessions-rail-row.active {
-  background: var(--bg-row);
+  background: var(--color-card-elevated);
   border-color: var(--border-hover);
-  box-shadow: inset 0 0 0 1px var(--accent-dim);
+  box-shadow: inset 0 0 0 1px var(--border);
 }
 .sessions-rail--card .sessions-rail-row:focus-visible {
   box-shadow: var(--focus-ring);
 }
 .sessions-rail--card .sessions-rail-row.active:focus-visible {
   box-shadow:
-    inset 0 0 0 1px var(--accent-dim),
+    inset 0 0 0 1px var(--border),
     var(--focus-ring);
 }
 
 .sessions-rail--card.sessions-rail--recessed .sessions-rail-row {
-  background: var(--color-card-elevated);
-  border-color: var(--border-faint);
+  background: transparent;
+  border-color: transparent;
   color: var(--color-text-primary);
   box-shadow: none;
 }
 
 .sessions-rail--card.sessions-rail--recessed .sessions-rail-row:hover,
 .sessions-rail--card.sessions-rail--recessed .sessions-rail-row:focus-visible {
-  background: var(--color-card-elevated);
-  border-color: var(--border-hover);
+  background: var(--color-card);
+  border-color: transparent;
 }
 
 .sessions-rail--card.sessions-rail--recessed .sessions-rail-row.active {
   background: var(--color-card-elevated);
   border-color: var(--border-hover);
-  box-shadow: inset 0 0 0 1px var(--accent-dim);
+  box-shadow: inset 0 0 0 1px var(--border);
 }
 
 .sessions-rail--card.sessions-rail--recessed .sessions-rail-row:focus-visible {
@@ -1695,7 +1696,7 @@
 
 .sessions-rail--card.sessions-rail--recessed .sessions-rail-row.active:focus-visible {
   box-shadow:
-    inset 0 0 0 1px var(--accent-dim),
+    inset 0 0 0 1px var(--border),
     var(--focus-ring);
 }
 
@@ -1704,7 +1705,7 @@
 }
 
 .sessions-rail--card.sessions-rail--comfortable .sessions-rail-row-body {
-  gap: var(--space-1);
+  gap: 2px;
 }
 .sessions-rail-row-body {
   display: flex;
@@ -1744,7 +1745,7 @@
   text-overflow: clip;
 }
 .sessions-rail--card.sessions-rail--comfortable .sessions-rail-row-primary--wrap {
-  line-height: 1.35;
+  line-height: 1.25;
 }
 .sessions-rail-row-secondary {
   font-family: var(--font-sans);
@@ -1803,12 +1804,13 @@
   font-weight: 500;
 }
 .sessions-rail--card.sessions-rail--comfortable .sessions-rail-row-primary {
-  font-size: var(--font-size-sm);
-  font-weight: 550;
-  letter-spacing: -0.005em;
+  font-size: 12px;
+  font-weight: 520;
+  letter-spacing: 0;
 }
 .sessions-rail--card.sessions-rail--comfortable .sessions-rail-row-secondary {
-  font-size: var(--font-size-xs);
+  font-size: 11px;
+  line-height: 1.25;
   color: var(--color-text-secondary);
 }
 .sessions-rail--card .sessions-rail-row.active .sessions-rail-row-status {
@@ -1818,14 +1820,14 @@
   color: var(--color-text-primary);
 }
 .sessions-rail--card.sessions-rail--comfortable .sessions-rail-row-status {
-  width: 6px;
-  height: 6px;
-  margin-top: 6px;
+  width: 4px;
+  height: 4px;
+  margin-top: 5px;
 }
 .sessions-rail--card.sessions-rail--comfortable
   .sessions-rail-row--multi
   .sessions-rail-row-status {
-  min-height: 52px;
+  min-height: 38px;
 }
 .sessions-rail-row-time {
   font-family: var(--font-sans);

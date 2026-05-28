@@ -114,19 +114,20 @@
 }
 
 /* Left pane — fixed-width light recessed slab, matching the active
-   conversation canvas. Session rows lift to white tiles on top. */
+   conversation canvas. The shared rail inside owns row states; the pane
+   does not add another border layer. */
 .inbox-pane-list {
   display: flex;
   flex-direction: column;
-  width: 420px;
-  min-width: 280px;
+  width: clamp(304px, 30vw, 376px);
+  min-width: 264px;
   flex-shrink: 0;
   overflow: hidden;
   background: var(--color-card-muted);
   color: var(--color-text-primary);
   box-shadow: none;
   border-radius: var(--radius-sm);
-  padding: var(--space-3);
+  padding: var(--space-2);
 }
 
 /* Pass-through flex column — `<SessionRail>` inside owns the actual
@@ -760,14 +761,14 @@
   }
 
   .inbox-shell {
-    margin: var(--space-4);
+    margin: var(--space-3);
     gap: 0;
   }
 
   .inbox-pane-list {
     width: 100%;
     min-width: unset;
-    padding: var(--space-2);
+    padding: var(--space-1);
   }
 
   .inbox-pane-detail {
