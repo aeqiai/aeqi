@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import AgentSettingsPage from "@/pages/AgentSettingsPage";
 import { api } from "@/lib/api";
@@ -74,5 +74,12 @@ describe("AgentSettingsPage", () => {
     expect(screen.queryByText("Danger zone")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Overview" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Integrations" })).not.toBeInTheDocument();
+    const nav = screen.getByRole("navigation", { name: "Agent views" });
+    expect(within(nav).getByRole("link", { name: "Settings" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Settings" })).not.toBeInTheDocument();
   });
 });

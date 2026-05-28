@@ -3476,7 +3476,7 @@
   box-shadow: var(--focus-ring);
 }
 
-.agent-surface-header-switch.is-active {
+.agent-surface-header-switch[aria-current="page"] {
   color: var(--color-text-primary);
   background: var(--color-card-elevated);
   box-shadow: inset 0 0 0 1px var(--border);

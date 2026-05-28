@@ -62,15 +62,12 @@ export default function AgentSurfaceHeader({
 
   const actions = (
     <>
-      <div className="agent-surface-header-switcher" role="tablist" aria-label="Agent detail">
+      <nav className="agent-surface-header-switcher" aria-label="Agent views">
         <Tooltip content="Agent sessions inbox">
           <Link
             to={sessionHref}
-            role="tab"
-            aria-selected={activeMode === "sessions"}
-            className={`agent-surface-header-switch${
-              activeMode === "sessions" ? " is-active" : ""
-            }`}
+            aria-current={activeMode === "sessions" ? "page" : undefined}
+            className="agent-surface-header-switch"
           >
             <MessagesSquare size={14} strokeWidth={1.5} aria-hidden="true" />
             Inbox
@@ -79,17 +76,14 @@ export default function AgentSurfaceHeader({
         <Tooltip content="Agent settings">
           <Link
             to={settingsHref}
-            role="tab"
-            aria-selected={activeMode === "settings"}
-            className={`agent-surface-header-switch${
-              activeMode === "settings" ? " is-active" : ""
-            }`}
+            aria-current={activeMode === "settings" ? "page" : undefined}
+            className="agent-surface-header-switch"
           >
             <Settings size={14} strokeWidth={1.5} aria-hidden="true" />
             Settings
           </Link>
         </Tooltip>
-      </div>
+      </nav>
       {variant === "default" && (
         <>
           <Tooltip content="Start a fresh conversation with this agent">

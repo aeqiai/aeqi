@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import AgentSurfaceHeader from "@/components/AgentSurfaceHeader";
 import { useDaemonStore } from "@/store/daemon";
@@ -45,7 +45,7 @@ describe("AgentSurfaceHeader", () => {
     );
   }
 
-  it("uses Agents as the back pill and exposes Inbox plus Settings modes", () => {
+  it("uses Agents as the back pill and exposes Inbox plus Settings navigation", () => {
     renderHeader();
 
     expect(screen.getByRole("link", { name: "Agents" })).toHaveAttribute(
@@ -53,11 +53,15 @@ describe("AgentSurfaceHeader", () => {
       "/trust/root-1/agents",
     );
     expect(screen.getByText("Research Agent")).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Inbox" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("tab", { name: "Settings" })).toHaveAttribute(
-      "href",
-      "/trust/root-1/agents/agent-1/settings",
-    );
+    const nav = screen.getByRole("navigation", { name: "Agent views" });
+    const inbox = within(nav).getByRole("link", { name: "Inbox" });
+    const settings = within(nav).getByRole("link", { name: "Settings" });
+    expect(inbox).toHaveAttribute("href", "/trust/root-1/agents/agent-1");
+    expect(inbox).toHaveAttribute("aria-current", "page");
+    expect(settings).not.toHaveAttribute("aria-current");
+    expect(settings).toHaveAttribute("href", "/trust/root-1/agents/agent-1/settings");
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Inbox" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "New" })).toBeInTheDocument();
   });
 
@@ -68,7 +72,14 @@ describe("AgentSurfaceHeader", () => {
       "href",
       "/trust/root-1/agents",
     );
-    expect(screen.getByRole("tab", { name: "Settings" })).toHaveAttribute("aria-selected", "true");
+    const nav = screen.getByRole("navigation", { name: "Agent views" });
+    const inbox = within(nav).getByRole("link", { name: "Inbox" });
+    const settings = within(nav).getByRole("link", { name: "Settings" });
+    expect(inbox).not.toHaveAttribute("aria-current");
+    expect(settings).toHaveAttribute("aria-current", "page");
+    expect(settings).toHaveAttribute("href", "/trust/root-1/agents/agent-1/settings");
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Settings" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "New" })).not.toBeInTheDocument();
   });
 });
