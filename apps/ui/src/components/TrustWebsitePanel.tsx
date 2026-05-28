@@ -1,16 +1,6 @@
 import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  ArrowUpRight,
-  BarChart3,
-  Coins,
-  Globe,
-  Landmark,
-  PieChart,
-  Scale,
-  ShieldCheck,
-  Workflow,
-} from "lucide-react";
+import { ArrowUpRight, BarChart3, Globe, ShieldCheck, Workflow } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui";
@@ -31,24 +21,6 @@ const publicModules = [
     detail: "Publish the authority graph without exposing private reporting lines.",
     to: "/roles",
     icon: Workflow,
-  },
-  {
-    label: "Assets",
-    detail: "Show public treasury and budget posture when a marketplace needs proof.",
-    to: "/assets",
-    icon: Coins,
-  },
-  {
-    label: "Equity",
-    detail: "Make ownership legible from the same trust surface.",
-    to: "/equity",
-    icon: PieChart,
-  },
-  {
-    label: "Quorum",
-    detail: "Expose governance rules, thresholds, and proposal state.",
-    to: "/quorum",
-    icon: Scale,
   },
 ];
 
@@ -114,7 +86,7 @@ export default function TrustWebsitePanel({ trustId, mode = "card" }: TrustWebsi
             Website
           </h2>
           <p className="trust-cockpit-card-sub trust-website-subtitle">
-            Public website created with the TRUST for demos, marketplaces, and ownership proof.
+            Public website created with the TRUST for demos and marketplaces.
           </p>
         </div>
         <span
@@ -163,17 +135,6 @@ export default function TrustWebsitePanel({ trustId, mode = "card" }: TrustWebsi
           {publicModules.map((item) => (
             <TrustWebsiteModule key={item.label} item={item} basePath={basePath} />
           ))}
-          <Link to={`${basePath}/incorporation`} className="trust-public-item">
-            <span className="trust-public-item-icon" aria-hidden>
-              <Landmark size={15} strokeWidth={1.5} />
-            </span>
-            <span className="trust-public-item-copy">
-              <span className="trust-public-item-label">Incorporation</span>
-              <span className="trust-public-item-detail">
-                Keep the constitutional record connected to the public view.
-              </span>
-            </span>
-          </Link>
           <Link to={`${basePath}/quests`} className="trust-public-item">
             <span className="trust-public-item-icon" aria-hidden>
               <BarChart3 size={15} strokeWidth={1.5} />

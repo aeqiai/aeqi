@@ -5,7 +5,6 @@ import TrustHeroOverview from "./TrustHeroOverview";
 import TrustRolesGroup from "./TrustRolesGroup";
 import TrustAppsGroup from "./TrustAppsGroup";
 import TrustExecutionGroup from "./TrustExecutionGroup";
-import TrustOwnershipGroup from "./TrustOwnershipGroup";
 import TrustOperatingConsole from "./TrustOperatingConsole";
 import TrustActivityCard from "./TrustActivityCard";
 import TrustPublicRow from "./TrustPublicRow";
@@ -39,7 +38,6 @@ export default function TrustOverviewTab({ trustId }: { trustId: string }) {
         <TrustRolesGroup trustId={trustId} basePath={basePath} />
         <TrustAppsGroup trustId={trustId} basePath={basePath} />
         <TrustExecutionGroup trustId={trustId} basePath={basePath} />
-        <TrustOwnershipGroup trustAddress={trustAddress} basePath={basePath} />
       </div>
       <TrustPublicRow basePath={basePath} />
     </div>
