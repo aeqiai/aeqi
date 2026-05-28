@@ -61,11 +61,30 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
     setLoading(true);
     setError(null);
 
-    Promise.all([api.getRoles(trustId), api.listEntityInvitations(trustId)])
-      .then(([rolesResp, invitationsResp]) => {
+    async function loadMembers() {
+      const rolesResp = await api.getRoles(trustId);
+      let invitationRows: RoleInvitation[] = [];
+
+      if (user?.id) {
+        const grantsResp = await api
+          .getUserGrants(trustId, user.id)
+          .catch(() => ({ ok: false, grants: [] }));
+        if (canManageInvitations(grantsResp.grants)) {
+          const invitationsResp = await api
+            .listEntityInvitations(trustId)
+            .catch(() => ({ ok: false, invitations: [] }));
+          invitationRows = invitationsResp.invitations ?? [];
+        }
+      }
+
+      return { roles: rolesResp.roles ?? [], invitations: invitationRows };
+    }
+
+    loadMembers()
+      .then(({ roles, invitations }) => {
         if (cancelled) return;
-        setRoles(rolesResp.roles ?? []);
-        setInvitations(invitationsResp.invitations ?? []);
+        setRoles(roles);
+        setInvitations(invitations);
       })
       .catch((e: Error) => {
         if (cancelled) return;
@@ -78,7 +97,7 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [trustId]);
+  }, [trustId, user?.id]);
 
   const roleTitleById = useMemo(() => {
     const m = new Map<string, string>();
@@ -422,6 +441,10 @@ function buildMemberRows({
 
 function hasTrustAccess(user: { roots?: string[]; entities?: string[] }, trustId: string): boolean {
   return !!trustId && (user.roots?.includes(trustId) || user.entities?.includes(trustId) || false);
+}
+
+function canManageInvitations(grants: string[]): boolean {
+  return grants.includes("*") || grants.includes("roles.manage");
 }
 
 function invitationTarget(invitation: RoleInvitation): string {
