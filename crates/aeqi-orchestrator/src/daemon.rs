@@ -2639,6 +2639,18 @@ impl Daemon {
                                             "name": i.name,
                                             "content": i.content,
                                             "tags": i.tags,
+                                            "agent_id": i.agent_id,
+                                            "scope": i.scope.as_str(),
+                                            "created_at": i.created_at.to_rfc3339(),
+                                            "session_id": i.session_id,
+                                            "score": i.score,
+                                            "inheritance": i.inheritance,
+                                            "tool_allow": i.tool_allow,
+                                            "tool_deny": i.tool_deny,
+                                            "parent_idea_id": i.parent_idea_id,
+                                            "properties": i.properties,
+                                            "kind": i.kind,
+                                            "file_id": i.file_id,
                                         })
                                     })
                                     .collect();
