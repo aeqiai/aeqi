@@ -178,21 +178,33 @@
 }
 
 .trust-session-detail-header.session-detail-header {
-  min-height: 52px;
+  min-height: 42px;
   margin: 0;
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--bg-row);
   box-shadow: none;
+}
+
+.trust-session-detail-header .session-detail-header-title {
+  font-size: 13.5px;
+  font-weight: 620;
+  letter-spacing: -0.01em;
+}
+
+.trust-session-detail-header .session-detail-header-meta {
+  font-size: 11.5px;
+  line-height: 1.2;
 }
 
 .trust-session-detail-header .asv-participant-strip {
   padding: 3px;
   border-radius: var(--radius-full);
-  background: var(--bg-row);
+  background: var(--color-card-elevated);
 }
 
 .trust-sessions-page .inbox-shell {
-  margin-top: var(--space-2);
+  margin-top: var(--space-3);
 }
 
 /* Left pane — fixed-width light recessed slab, matching the active
@@ -850,7 +862,7 @@
   }
 
   .trust-session-detail-header.session-detail-header {
-    min-height: 48px;
+    min-height: 42px;
     padding: var(--space-2) var(--space-3);
   }
 
