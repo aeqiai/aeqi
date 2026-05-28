@@ -184,7 +184,7 @@ pub struct AgentConfig {
 impl Default for AgentConfig {
     fn default() -> Self {
         Self {
-            model: "anthropic/claude-sonnet-4.6".to_string(),
+            model: "deepseek/deepseek-v4-flash".to_string(),
             max_iterations: 20,
             max_tokens: 4_096,
             temperature: 0.0,

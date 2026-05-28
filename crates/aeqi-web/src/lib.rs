@@ -7,6 +7,7 @@ pub mod embedded_ui;
 pub mod error;
 pub mod extractors;
 pub mod ipc;
+pub mod model_catalog;
 pub mod passkey;
 pub mod rate_limit;
 pub mod routes;

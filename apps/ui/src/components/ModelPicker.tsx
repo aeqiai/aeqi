@@ -100,6 +100,7 @@ export default function ModelPicker({
   disabled?: boolean;
 }) {
   const [models, setModels] = useState<ModelEntry[] | null>(null);
+  const [allowCustom, setAllowCustom] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [customDraft, setCustomDraft] = useState("");
 
@@ -109,8 +110,10 @@ export default function ModelPicker({
       .getModels()
       .then((res) => {
         if (cancelled) return;
-        if (res.ok) setModels(res.models);
-        else setLoadError("Couldn't load the model catalog");
+        if (res.ok) {
+          setModels(res.models);
+          setAllowCustom(res.allow_custom ?? true);
+        } else setLoadError("Couldn't load the model catalog");
       })
       .catch((err) => {
         if (!cancelled) setLoadError(err instanceof Error ? err.message : "Failed to load models");
@@ -155,7 +158,9 @@ export default function ModelPicker({
     );
   }
 
-  const triggerLabel = current?.display_name ?? (isCustom ? "Custom slug" : undefined);
+  const triggerLabel =
+    current?.display_name ??
+    (isCustom ? (allowCustom ? "Custom slug" : "Unavailable model") : undefined);
   const triggerSub = value || "—";
 
   const customSlugFooter = (
@@ -218,7 +223,7 @@ export default function ModelPicker({
         emptyLabel="No models match. Try a family name or tier."
         disabled={disabled}
         className="mp-combobox"
-        footer={customSlugFooter}
+        footer={allowCustom ? customSlugFooter : undefined}
       />
     </div>
   );

@@ -20,6 +20,7 @@ use tracing::info;
 use crate::accounts::AccountStore;
 use crate::auth;
 use crate::ipc::IpcClient;
+use crate::model_catalog::ModelCatalogPolicy;
 use crate::passkey::PasskeyContext;
 use crate::rate_limit;
 use crate::routes::{api_routes, auth as auth_routes, webhook_routes};
@@ -52,6 +53,7 @@ pub struct AppState {
     /// chosen one explicitly. Sourced from `[blueprints] default` in
     /// `aeqi.toml`; defaults to the runtime's bundled fallback.
     pub default_blueprint_slug: String,
+    pub model_catalog_policy: ModelCatalogPolicy,
     /// Project/repo map used by the HTTP MCP code graph tool. Mirrors the
     /// runtime config's `[[projects]]` entries so HTTP MCP and stdio MCP expose
     /// the same code intelligence surface.
@@ -189,6 +191,7 @@ pub async fn start(config: &AEQIConfig) -> Result<()> {
         twilio_auth_token: web.twilio_auth_token.clone(),
         data_dir: data_dir.clone(),
         default_blueprint_slug: config.blueprints.default.clone(),
+        model_catalog_policy: crate::model_catalog::policy_for_config(config),
         mcp_projects: config.agent_spawns.clone(),
         bootstrap_registry: Arc::new(crate::routes::integrations::BootstrapRegistry::new()),
     };

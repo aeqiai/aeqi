@@ -331,7 +331,7 @@ pub enum AgentAction {
         /// Parent agent id — attach the new agent under an existing one.
         #[arg(short = 'p', long = "parent")]
         parent: Option<String>,
-        /// Optional model override (e.g. `anthropic/claude-sonnet-4.6`).
+        /// Optional model override (e.g. `deepseek/deepseek-v4-flash`).
         #[arg(short = 'm', long = "model")]
         model: Option<String>,
     },

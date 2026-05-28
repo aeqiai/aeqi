@@ -353,7 +353,7 @@ impl Tool for AgentsTool {
                     },
                     "model": {
                         "type": "string",
-                        "description": "Optional model override, e.g. 'anthropic/claude-sonnet-4.6' (for hire)"
+                        "description": "Optional model override, e.g. 'deepseek/deepseek-v4-flash' (for hire)"
                     },
                     "system_prompt": {
                         "type": "string",

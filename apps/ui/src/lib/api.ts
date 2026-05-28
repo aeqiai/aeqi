@@ -1563,6 +1563,8 @@ export const api = {
         recommended: boolean;
         tags: string[];
       }>;
+      allow_custom?: boolean;
+      scope?: string;
     }>("/models"),
 
   setAgentTools: (agentId: string, toolDeny: string[]) =>

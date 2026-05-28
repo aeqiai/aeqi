@@ -341,16 +341,16 @@ impl ModelTierConfig {
 }
 
 fn default_model_capable() -> String {
-    "anthropic/claude-sonnet-4-6".to_string()
+    "deepseek/deepseek-v4-pro".to_string()
 }
 fn default_model_balanced() -> String {
-    "anthropic/claude-sonnet-4-6".to_string()
+    "deepseek/deepseek-v4-flash".to_string()
 }
 fn default_model_fast() -> String {
-    "anthropic/claude-haiku-4-5".to_string()
+    "deepseek/deepseek-v4-flash".to_string()
 }
 fn default_model_cheapest() -> String {
-    "anthropic/claude-haiku-4-5".to_string()
+    "deepseek/deepseek-v4-flash".to_string()
 }
 
 /// Configuration for a single agent (peer entity).
