@@ -16,7 +16,7 @@ import {
   Globe,
   Blocks,
   Plug,
-  Hash,
+  Waypoints,
   Wrench,
   Users,
   Settings,
@@ -56,7 +56,7 @@ const EventsIcon = () => <Activity />;
 const QuestsIcon = () => <Target />;
 const IdeasIcon = () => <Lightbulb />;
 const SessionsIcon = () => <MessagesSquare />;
-const ChannelsIcon = () => <Hash />;
+const GatewaysIcon = () => <Waypoints />;
 const ToolsIcon = () => <Wrench />;
 const MailIcon = () => <Mail />;
 const WebsitesIcon = () => <Globe />;
@@ -384,14 +384,14 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
               {navItem("sessions", "Sessions", <SessionsIcon />, {
                 locked: runtimeLocked,
               })}
-              {navItem("mail", "Mail", <MailIcon />)}
+              {navItem("mail", "Mails", <MailIcon />)}
               {navItem("websites", "Websites", <WebsitesIcon />)}
               {navItem("campaigns", "Campaigns", <CampaignsIcon />, {
                 locked: runtimeLocked,
               })}
               {navItem("budgets", "Budgets", <BudgetsIcon />)}
               {navItem("transactions", "Transactions", <TransactionsIcon />)}
-              {navItem("channels", "Channels", <ChannelsIcon />, {
+              {navItem("gateways", "Gateways", <GatewaysIcon />, {
                 locked: runtimeLocked,
               })}
               {navItem("integrations", "Integrations", <IntegrationsIcon />, {

@@ -87,8 +87,12 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
       setNewChannelFields({});
       setSaving(false); // Reset stale "Connecting…" if a prior submit hung.
     };
+    window.addEventListener("aeqi:new-gateway", handler);
     window.addEventListener("aeqi:new-channel", handler);
-    return () => window.removeEventListener("aeqi:new-channel", handler);
+    return () => {
+      window.removeEventListener("aeqi:new-gateway", handler);
+      window.removeEventListener("aeqi:new-channel", handler);
+    };
   }, []);
 
   const selected = channels.find((c) => c.id === selectedId);
@@ -187,7 +191,7 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
   if (showAddForm) {
     return (
       <div className="asv-main" style={{ padding: "20px 28px", overflowY: "auto" }}>
-        <h3 className="events-detail-name">Add Channel</h3>
+        <h3 className="events-detail-name">Add Gateway</h3>
         <div className="channel-type-picker" style={{ marginBottom: 12 }}>
           {CHANNEL_TYPES.map((ct) => (
             <TabTrigger
@@ -222,7 +226,7 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
         {newChannelType === "whatsapp-baileys" && (
           <p className="channel-form-hint">
             Pairing is done by scanning a QR code with WhatsApp on your phone. After you press
-            Connect, a QR will appear on this channel's detail page. The session is stored on the
+            Connect, a QR will appear on this gateway's detail page. The session is stored on the
             server and survives restarts.
           </p>
         )}
@@ -246,13 +250,13 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
   }
 
   if (!selected) {
-    const fireNew = () => window.dispatchEvent(new CustomEvent("aeqi:new-channel"));
+    const fireNew = () => window.dispatchEvent(new CustomEvent("aeqi:new-gateway"));
     return (
       <div className="asv-main channels-list" style={{ overflowY: "auto" }}>
         {channels.length === 0 ? (
           <button type="button" className="inline-picker-empty-cta" onClick={fireNew}>
-            <span className="inline-picker-empty-cta-label">No channels yet</span>
-            <span className="inline-picker-empty-cta-hint">Add channel</span>
+            <span className="inline-picker-empty-cta-label">No gateways yet</span>
+            <span className="inline-picker-empty-cta-hint">Add gateway</span>
           </button>
         ) : (
           <>
@@ -267,11 +271,11 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
                 <CardTrigger
                   key={c.id}
                   className="channels-list-row"
-                  onClick={() => goEntity(trustId, "channels", c.id)}
-                  aria-label={`Open ${c.kind} channel`}
+                  onClick={() => goEntity(trustId, "gateways", c.id)}
+                  aria-label={`Open ${c.kind} gateway`}
                 >
                   <span className="channels-list-row-kind">{c.kind.toUpperCase()}</span>
-                  <span className="channels-list-row-name">channel:{c.kind}</span>
+                  <span className="channels-list-row-name">gateway:{c.kind}</span>
                   <span
                     className={`channels-list-row-dot${c.enabled ? " is-on" : ""}`}
                     aria-hidden
@@ -324,13 +328,13 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
       <div className="events-detail-header">
         <div>
           <h3 className="events-detail-name">{selected.kind}</h3>
-          <span className="events-detail-pattern">channel:{selected.kind}</span>
+          <span className="events-detail-pattern">gateway:{selected.kind}</span>
         </div>
         <Button
           variant="secondary"
           size="sm"
           className="channel-disconnect-btn"
-          aria-label={`Disconnect ${selected.kind} channel`}
+          aria-label={`Disconnect ${selected.kind} gateway`}
           disabled={deleting}
           loading={deleting}
           onClick={async () => {
@@ -340,7 +344,7 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
             try {
               await channelsApi.deleteAgentChannel(selected.id);
               removeChannel(selected.id);
-              goEntity(trustId, "channels", undefined, { replace: true });
+              goEntity(trustId, "gateways", undefined, { replace: true });
             } catch (e) {
               setError(e instanceof Error ? e.message : "Failed to disconnect");
               setDeleting(false);
@@ -375,7 +379,7 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
         <EmptyState
           eyebrow="chats"
           title="No active chats yet"
-          description="Messages on this channel will show up here once they arrive."
+          description="Messages through this gateway will show up here once they arrive."
         />
       ) : (
         <div>

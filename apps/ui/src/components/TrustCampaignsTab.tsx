@@ -19,7 +19,7 @@ export default function TrustCampaignsTab() {
       >
         <div className="ideas-toolbar trust-apps-toolbar">
           <span className="ideas-toolbar-meta trust-apps-toolbar-summary">
-            0 active · budget not set · Mail primary
+            0 active · budget not set · Mails primary
           </span>
         </div>
       </PrimitivePageHeader>
@@ -34,17 +34,17 @@ export default function TrustCampaignsTab() {
               Campaign operating model
             </h2>
             <p className="trust-cockpit-card-sub">
-              Planned outbound work across Mail, Websites, Channels, agents, and budget.
+              Planned outbound work across Mails, Websites, Gateways, agents, and budget.
             </p>
           </div>
         </header>
         <div className="trust-apps-grid trust-apps-grid--workspace">
           <CampaignModelCard
             icon={<Mail size={18} strokeWidth={1.5} />}
-            title="Outbound channel"
-            summary="Start with trust-owned Mail, then add WhatsApp, Telegram, or website forms."
+            title="Outbound gateway"
+            summary="Start with trust-owned Mails, then add WhatsApp, Telegram, or website forms."
             label="Primary"
-            value="Mail"
+            value="Mails"
           />
           <CampaignModelCard
             icon={<WalletCards size={18} strokeWidth={1.5} />}
@@ -70,7 +70,7 @@ export default function TrustCampaignsTab() {
         <EmptyState
           eyebrow="Campaigns"
           title="No campaigns yet"
-          description="Campaigns will let this TRUST run governed outbound work with audience lists, channel mix, budget, cadence, agent ownership, and result tracking."
+          description="Campaigns will let this TRUST run governed outbound work with audience lists, gateway mix, budget, cadence, agent ownership, and result tracking."
         />
       </section>
     </div>

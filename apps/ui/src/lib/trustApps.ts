@@ -27,14 +27,14 @@ export const TRUST_APP_CATALOG: readonly TrustAppCatalogEntry[] = [
     kind: "telegram",
     name: "Telegram",
     category: "channel",
-    summary: "Bot and group message channel",
+    summary: "Bot and group message gateway",
     channelKinds: ["telegram"],
   },
   {
     kind: "whatsapp",
     name: "WhatsApp",
     category: "channel",
-    summary: "Cloud API or QR-paired channel",
+    summary: "Cloud API or QR-paired gateway",
     channelKinds: ["whatsapp", "whatsapp-baileys"],
   },
   {

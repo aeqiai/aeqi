@@ -55,7 +55,7 @@ const BLUEPRINT_KINDS = new Set(["companies", "agents", "events", "quests", "ide
 // dispatcher for entity-scoped surfaces. Your Inbox keeps the entity route for
 // context, but the sidebar presents it as a personal attention surface above
 // Trust. Views is the composable trust landing; Roles, Members, Agents,
-// Sessions, Mail, Websites, Campaigns, Budgets, Transactions, Channels,
+// Sessions, Mails, Websites, Campaigns, Budgets, Transactions, Gateways,
 // Integrations, Tools, Events, Quests, and Ideas sit together as one continuous
 // trust surface.
 //
@@ -79,6 +79,9 @@ const COMPANY_PAGE_TABS = new Set([
   "campaigns",
   "budgets",
   "transactions",
+  "gateways",
+  // Legacy alias: Channels was renamed to Gateways. TrustTabPage redirects
+  // `/trust/<addr>/channels` to `/trust/<addr>/gateways`.
   "channels",
   "integrations",
   // Legacy alias: Apps was renamed to Integrations. TrustTabPage redirects

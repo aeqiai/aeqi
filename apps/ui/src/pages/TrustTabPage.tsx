@@ -23,7 +23,7 @@ const TrustBudgetsTab = lazy(() => import("@/components/TrustBudgetsTab"));
 const TrustCampaignsTab = lazy(() => import("@/components/TrustCampaignsTab"));
 const TrustTransactionsTab = lazy(() => import("@/components/TrustTransactionsTab"));
 const TrustSessionsTab = lazy(() => import("@/components/TrustSessionsTab"));
-const AgentChannelsTab = lazy(() => import("@/components/AgentChannelsTab"));
+const AgentGatewaysTab = lazy(() => import("@/components/AgentChannelsTab"));
 const TrustToolsTab = lazy(() => import("@/components/TrustToolsTab"));
 const TrustMembersTab = lazy(() => import("@/components/TrustMembersTab"));
 const TrustRolesTab = lazy(() => import("@/components/TrustRolesTab"));
@@ -53,12 +53,12 @@ interface TrustTabPageProps {
  *   /trust/:trustAddress/agents        → TrustAgentsTab (LIST)
  *   /trust/:trustAddress/sessions      → TrustSessionsTab (all trust sessions)
  *   /trust/:trustAddress/inbox         → MeInboxPage
- *   /trust/:trustAddress/mail          → TrustAppsTab(mail surface)
+ *   /trust/:trustAddress/mail          → TrustAppsTab(mails surface)
  *   /trust/:trustAddress/websites      → TrustAppsTab(websites surface)
  *   /trust/:trustAddress/campaigns     → TrustCampaignsTab
  *   /trust/:trustAddress/budgets       → TrustBudgetsTab
  *   /trust/:trustAddress/transactions  → TrustTransactionsTab
- *   /trust/:trustAddress/channels      → AgentChannelsTab(default/root agent lens)
+ *   /trust/:trustAddress/gateways      → AgentGatewaysTab(default/root agent lens)
  *   /trust/:trustAddress/integrations  → TrustAppsTab (external connections)
  *   /trust/:trustAddress/tools         → TrustToolsTab(default/root agent lens)
  *   /trust/:trustAddress/events        → AgentEventsTab(agent lens rail)
@@ -67,6 +67,7 @@ interface TrustTabPageProps {
  *   /trust/:trustAddress/settings      → TrustSettingsTab
  *   /trust/:trustAddress/health        → 308 redirect to bare cockpit (legacy URL)
  *   /trust/:trustAddress/apps          → redirect to Integrations (legacy apps tab)
+ *   /trust/:trustAddress/channels      → redirect to Gateways (legacy channels tab)
  *   /trust/:trustAddress/website       → redirect to Websites (legacy website tab)
  */
 /** Tabs that require a per-tenant runtime service.
@@ -79,7 +80,8 @@ const RUNTIME_GATED_TABS: Record<string, UpsellSurface> = {
   apps: "apps",
   campaigns: "campaigns",
   sessions: "sessions",
-  channels: "apps",
+  gateways: "gateways",
+  channels: "gateways",
   tools: "apps",
   events: "events",
   quests: "quests",
@@ -130,6 +132,21 @@ export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTab
     // Replace the history entry so the user doesn't pollute their back-button
     navigate(targetPath, { replace: true });
   }, [entity?.trust_address, tab, itemId, navigate, location.pathname, location.search]);
+
+  // Canonicalize legacy aliases before the runtime gate so stale links
+  // still land on the current route names even when the trust has no runtime.
+  if (tab === "apps") {
+    const target = location.pathname.replace(/\/apps(?=\/|$)/, "/integrations") + location.search;
+    return <Navigate to={target} replace />;
+  }
+  if (tab === "channels") {
+    const target = location.pathname.replace(/\/channels(?=\/|$)/, "/gateways") + location.search;
+    return <Navigate to={target} replace />;
+  }
+  if (tab === "website") {
+    const target = location.pathname.replace(/\/website(?=\/|$)/, "/websites") + location.search;
+    return <Navigate to={target} replace />;
+  }
 
   // Runtime gate — applied before the per-tab dispatch so all gated
   // surfaces share one branch. While the status query is in-flight we
@@ -229,10 +246,6 @@ export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTab
       </Suspense>
     );
   }
-  if (tab === "apps") {
-    const target = location.pathname.replace(/\/apps\/?$/, "/integrations") + location.search;
-    return <Navigate to={target} replace />;
-  }
   if (tab === "sessions") {
     return (
       <Suspense>
@@ -240,10 +253,10 @@ export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTab
       </Suspense>
     );
   }
-  if (tab === "channels") {
+  if (tab === "gateways") {
     return (
       <Suspense>
-        <AgentChannelsTab agentId={agentId} />
+        <AgentGatewaysTab agentId={agentId} />
       </Suspense>
     );
   }
@@ -253,10 +266,6 @@ export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTab
         <TrustToolsTab agentId={agentId} />
       </Suspense>
     );
-  }
-  if (tab === "website") {
-    const target = location.pathname.replace(/\/website\/?$/, "/websites") + location.search;
-    return <Navigate to={target} replace />;
   }
   // Members — humans with trust access or pending trust invitations. This is
   // deliberately separate from Roles: a human can belong to the trust before

@@ -25,7 +25,7 @@ import BudgetMeter from "./BudgetMeter";
  */
 
 // Only the four W-primitives earn a breadcrumb. `sessions` is the
-// agent's default surface (no crumb), and settings/tools/channels are
+// agent's default surface (no crumb), and settings/tools/gateways are
 // carried by the lit Settings button + the settings-shell sub-tab row
 // below; repeating them here is just noise.
 const PRIMITIVE_WORDS: Record<string, string> = {
@@ -33,11 +33,12 @@ const PRIMITIVE_WORDS: Record<string, string> = {
   views: "Views",
   roles: "Roles",
   agents: "Agents",
-  mail: "Mail",
+  mail: "Mails",
   websites: "Websites",
   campaigns: "Campaigns",
   budgets: "Budgets",
   transactions: "Transactions",
+  gateways: "Gateways",
   integrations: "Integrations",
   events: "Events",
   quests: "Quests",
@@ -149,7 +150,7 @@ export default function ContentTopBar() {
 
       <div className="content-topbar-right">
         {agent && (
-          <Tooltip content="Agent settings — model, tools, channels">
+          <Tooltip content="Agent settings — model, tools, gateways">
             <Button
               variant="secondary"
               size="sm"

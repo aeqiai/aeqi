@@ -49,7 +49,7 @@ export default function TrustAppsTab({
   const entities = useDaemonStore((s) => s.entities);
   const entity = entities.find((item) => item.id === trustId);
   const basePath = entity ? entityBasePath(entity) : "/launch";
-  const { defaultAgent, installed, isLoading, summaries, trustAgents } = useTrustApps(trustId);
+  const { installed, isLoading, summaries, trustAgents } = useTrustApps(trustId);
   const googleStatus = useQuery({
     queryKey: ["trust-google-status", trustId],
     queryFn: () => integrationsApi.getTrustGoogleStatus(trustId),
@@ -70,10 +70,8 @@ export default function TrustAppsTab({
   });
   const googleConnected = googleStatus.data?.connected === true;
   const connectedIntegrations = installed.connectedApps + (googleConnected ? 1 : 0);
-  const agentChannelsPath = defaultAgent
-    ? `${basePath}/agents/${encodeURIComponent(defaultAgent.id)}/settings/channels`
-    : `${basePath}/agents`;
-  const channelActionLabel = defaultAgent ? "Open Channels" : "Open Agents";
+  const gatewaysPath = `${basePath}/gateways`;
+  const gatewayActionLabel = "Open Gateways";
   const channelApps = summaries.filter((summary) => summary.entry.category === "channel");
   const billingApps = summaries.filter((summary) => summary.entry.category === "billing");
   const billingReady = billingApps.length > 0;
@@ -86,7 +84,7 @@ export default function TrustAppsTab({
       ? "Checking"
       : "Ready";
   const pageTitle =
-    surface === "mail" ? "Mail" : surface === "websites" ? "Websites" : "Integrations";
+    surface === "mail" ? "Mails" : surface === "websites" ? "Websites" : "Integrations";
   const toolbarSummary =
     surface === "mail"
       ? emailStatus.isLoading
@@ -104,7 +102,7 @@ export default function TrustAppsTab({
           ? "Loading integration status"
           : `${formatInteger(connectedIntegrations)} connected · ${formatInteger(
               installed.enabledChannels,
-            )} channel endpoints · ${formatInteger(
+            )} gateway endpoints · ${formatInteger(
               trustAgents.length,
             )} agents${billingReady ? " · billing ready" : ""}`;
   return (
@@ -118,10 +116,10 @@ export default function TrustAppsTab({
             <Button
               variant="secondary"
               size="md"
-              onClick={() => navigate(agentChannelsPath)}
+              onClick={() => navigate(gatewaysPath)}
               leadingIcon={<Smartphone size={14} strokeWidth={1.6} />}
             >
-              {defaultAgent ? "Channels" : "Agents"}
+              Gateways
             </Button>
           ) : undefined
         }
@@ -217,14 +215,14 @@ export default function TrustAppsTab({
 
           <section
             className="trust-cockpit-card trust-cockpit-card--wide"
-            aria-labelledby="channel-integrations-heading"
+            aria-labelledby="gateway-integrations-heading"
           >
             <header className="trust-cockpit-card-header">
-              <h2 id="channel-integrations-heading" className="trust-cockpit-card-title">
-                Channel integrations
+              <h2 id="gateway-integrations-heading" className="trust-cockpit-card-title">
+                Gateway integrations
               </h2>
-              <Link to={agentChannelsPath} className="trust-apps-link">
-                {channelActionLabel}
+              <Link to={gatewaysPath} className="trust-apps-link">
+                {gatewayActionLabel}
               </Link>
             </header>
             <div className="trust-apps-grid">
@@ -233,8 +231,8 @@ export default function TrustAppsTab({
                   key={summary.entry.kind}
                   selected={selectedKind === summary.entry.kind}
                   summary={summary}
-                  channelsPath={agentChannelsPath}
-                  actionLabel={channelActionLabel}
+                  channelsPath={gatewaysPath}
+                  actionLabel={gatewayActionLabel}
                 />
               ))}
             </div>
@@ -528,7 +526,7 @@ function AppDetailCard({
         </div>
       ) : (
         <div className="trust-app-card-stats">
-          <Stat label="Channels" value={formatInteger(summary.connectedChannels)} />
+          <Stat label="Gateways" value={formatInteger(summary.connectedChannels)} />
           <Stat label="Enabled" value={formatInteger(summary.enabledChannels)} />
           <Stat label="Chats" value={formatInteger(summary.allowedChats)} />
           <Stat label="Agents" value={formatInteger(summary.agentCount)} />

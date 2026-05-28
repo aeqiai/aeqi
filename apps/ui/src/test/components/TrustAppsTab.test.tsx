@@ -97,7 +97,7 @@ describe("TrustAppsTab", () => {
 
     expect(header).toHaveAttribute("data-title-variant", "plain");
     expect(toolbar).not.toBeNull();
-    expect(within(header).getByRole("button", { name: "Channels" })).toBeInTheDocument();
+    expect(within(header).getByRole("button", { name: "Gateways" })).toBeInTheDocument();
     expect(actionSlot).not.toBeNull();
     expect(heading.compareDocumentPosition(screen.getByText("Platform integrations"))).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
@@ -107,9 +107,9 @@ describe("TrustAppsTab", () => {
     });
   });
 
-  it("renders Mail and Websites as native trust surfaces", async () => {
+  it("renders Mails and Websites as native trust surfaces", async () => {
     renderTab("mail");
-    expect(screen.getByRole("heading", { name: "Mail" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Mails" })).toBeInTheDocument();
     expect(screen.getByText("Trust mailboxes")).toBeInTheDocument();
 
     queryClient.clear();

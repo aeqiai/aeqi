@@ -17,10 +17,8 @@ const APP_ICONS: Record<TrustAppKind, React.ReactNode> = {
 };
 
 export default function TrustAppsGroup({ trustId, basePath }: TrustAppsGroupProps) {
-  const { defaultAgent, installed, isLoading, summaries } = useTrustApps(trustId);
-  const agentChannelsPath = defaultAgent
-    ? `${basePath}/agents/${encodeURIComponent(defaultAgent.id)}/settings/channels`
-    : `${basePath}/agents`;
+  const { installed, isLoading, summaries } = useTrustApps(trustId);
+  const gatewaysPath = `${basePath}/gateways`;
 
   return (
     <section
@@ -55,13 +53,9 @@ export default function TrustAppsGroup({ trustId, basePath }: TrustAppsGroupProp
           </span>
           <span className="trust-cockpit-secondary-hint">connected</span>
         </Link>
-        <Link
-          to={agentChannelsPath}
-          className="trust-cockpit-secondary-cell"
-          aria-label="Agent channels"
-        >
+        <Link to={gatewaysPath} className="trust-cockpit-secondary-cell" aria-label="Gateways">
           <Smartphone size={14} strokeWidth={1.5} aria-hidden />
-          <span className="trust-cockpit-secondary-label">Channels</span>
+          <span className="trust-cockpit-secondary-label">Gateways</span>
           <span className="trust-cockpit-secondary-value">
             {isLoading ? "..." : formatInteger(installed.enabledChannels)}
           </span>
@@ -79,7 +73,7 @@ interface AppPrimitiveCardProps {
 
 function AppPrimitiveCard({ summary, to }: AppPrimitiveCardProps) {
   const connected = summary.status === "connected";
-  const channelLabel = summary.connectedChannels === 1 ? "channel" : "channels";
+  const gatewayLabel = summary.connectedChannels === 1 ? "gateway" : "gateways";
 
   return (
     <Link to={`${to}?app=${summary.entry.kind}`} className="trust-cockpit-mini">
@@ -89,7 +83,7 @@ function AppPrimitiveCard({ summary, to }: AppPrimitiveCardProps) {
       <span className="trust-primitive-label">{summary.entry.name}</span>
       <span className="trust-primitive-value">
         {connected ? formatInteger(summary.connectedChannels) : "Ready"}
-        {connected && <span className="trust-primitive-hint"> {channelLabel}</span>}
+        {connected && <span className="trust-primitive-hint"> {gatewayLabel}</span>}
       </span>
       <span className="trust-app-signal" data-status={summary.status}>
         <span className="trust-app-dot" aria-hidden />

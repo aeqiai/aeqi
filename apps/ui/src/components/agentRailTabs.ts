@@ -9,7 +9,7 @@ export const AGENT_RAIL_TABS = [
   { id: "quests", label: "Quests" },
   { id: "events", label: "Events" },
   { id: "ideas", label: "Ideas" },
-  { id: "channels", label: "Channels" },
+  { id: "channels", label: "Gateways" },
   { id: "tools", label: "Tools" },
   { id: "integrations", label: "Integrations" },
 ];

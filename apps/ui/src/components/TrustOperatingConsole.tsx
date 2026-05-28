@@ -160,7 +160,7 @@ export default function TrustOperatingConsole({ trustId, basePath }: TrustOperat
           <Sparkles size={16} strokeWidth={1.6} aria-hidden />
           <span>
             <strong>Connect integrations</strong>
-            <small>Give the TRUST channels and tools to act through.</small>
+            <small>Give the TRUST gateways and tools to act through.</small>
           </span>
           <ArrowRight size={14} strokeWidth={1.7} aria-hidden />
         </Link>

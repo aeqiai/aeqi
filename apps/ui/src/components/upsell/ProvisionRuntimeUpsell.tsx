@@ -41,6 +41,7 @@ export type UpsellSurface =
   | "agents"
   | "apps"
   | "campaigns"
+  | "gateways"
   | "quests"
   | "ideas"
   | "events"
@@ -51,6 +52,7 @@ const SURFACE_LABELS: Record<UpsellSurface, string> = {
   agents: "Agents",
   apps: "Integrations",
   campaigns: "Campaigns",
+  gateways: "Gateways",
   quests: "Quests",
   ideas: "Ideas",
   events: "Events",
