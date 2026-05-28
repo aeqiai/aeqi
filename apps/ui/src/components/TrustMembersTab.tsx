@@ -261,16 +261,59 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
             </div>
           )}
           {!loading && !error && filteredRows.length > 0 && (
-            <Table
-              columns={columns}
-              data={filteredRows}
-              rowKey={(row) => row.id}
-              density="compact"
-              stickyHeader
-              scrollWidth="md"
-              ariaLabel="Trust members"
-              defaultSort={{ key: "member", dir: "asc" }}
-            />
+            <>
+              <div className="trust-members-table">
+                <Table
+                  columns={columns}
+                  data={filteredRows}
+                  rowKey={(row) => row.id}
+                  density="compact"
+                  stickyHeader
+                  scrollWidth="md"
+                  ariaLabel="Trust members"
+                  defaultSort={{ key: "member", dir: "asc" }}
+                />
+              </div>
+              <div className="trust-members-card-list" aria-label="Trust members">
+                {filteredRows.map((row) => (
+                  <article className="trust-members-card" key={row.id}>
+                    <div className="trust-members-card-main">
+                      <MemberIdentity row={row} />
+                      <Badge variant={STATUS_VARIANT[row.status]} size="sm" dot>
+                        {STATUS_LABEL[row.status]}
+                      </Badge>
+                    </div>
+                    <dl className="trust-members-card-meta">
+                      <div>
+                        <dt>Roles</dt>
+                        <dd>{roleList(row.roles) || "None"}</dd>
+                      </div>
+                      <div>
+                        <dt>Since</dt>
+                        <dd>
+                          {row.createdAt
+                            ? formatMediumDate(row.createdAt, { fallback: "Unknown" })
+                            : "Unknown"}
+                        </dd>
+                      </div>
+                    </dl>
+                    {row.roleIds[0] && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        trailingIcon={<ExternalLink size={13} strokeWidth={1.8} />}
+                        trailingIconMode="inline"
+                        onClick={() =>
+                          navigate(entityPathFromId(entities, trustId, "roles", row.roleIds[0]))
+                        }
+                      >
+                        Role
+                      </Button>
+                    )}
+                  </article>
+                ))}
+              </div>
+            </>
           )}
         </section>
       </main>
