@@ -21,6 +21,12 @@ export interface RefsRowProps {
   onOpen?: (targetId: string) => void;
 }
 
+function relationLabel(relation: IdeaRelation): string {
+  if (relation === "mentions") return "mention";
+  if (relation === "embeds") return "embed";
+  return "direct";
+}
+
 /**
  * Inline reference strip — pure presentation. One row of `§name` pills
  * (matching the `#tag` shape) plus a `+ ref` picker. The three relation
@@ -73,7 +79,11 @@ export default function RefsRow({
         const removable = r.relation === "adjacent";
         const label = r.name ?? r.target_id.slice(0, 8);
         return (
-          <span key={r.target_id} className={`ideas-ref-chip${removable ? " removable" : ""}`}>
+          <span
+            key={r.target_id}
+            className={`ideas-ref-chip ideas-ref-chip--${r.relation}${removable ? " removable" : ""}`}
+          >
+            <span className="ideas-ref-chip-relation" aria-label={relationLabel(r.relation)} />
             <button
               type="button"
               className="ideas-ref-chip-label"

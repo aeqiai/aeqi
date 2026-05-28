@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Canvas renderer owns simulation, hit-testing, and drawing state together. */
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   forceCenter,
@@ -71,6 +72,9 @@ function loadPalette(): Palette {
 // Edge relations map to dash + weight, not hue, to preserve the
 // single-accent discipline of the design system.
 const RELATION_STYLE: Record<string, { dash: number[]; weight: number }> = {
+  mentions: { dash: [], weight: 1.15 },
+  embeds: { dash: [6, 2], weight: 1.35 },
+  adjacent: { dash: [1, 3], weight: 1 },
   supports: { dash: [], weight: 1.25 },
   supersedes: { dash: [], weight: 1.6 },
   contradicts: { dash: [3, 3], weight: 1.25 },
@@ -81,6 +85,10 @@ const RELATION_STYLE: Record<string, { dash: number[]; weight: number }> = {
 
 function styleFor(relation: string) {
   return RELATION_STYLE[relation] ?? RELATION_STYLE.related_to;
+}
+
+export function formatRelationLabel(relation: string): string {
+  return relation.replace(/_/g, " ");
 }
 
 function primaryTag(node: Pick<GraphNode, "tags">): string {
@@ -174,6 +182,7 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
     moved: boolean;
   } | null>(null);
   const hoverRef = useRef<SimNode | null>(null);
+  const hoverLinkRef = useRef<SimLink | null>(null);
   const pendingDeselectRef = useRef(false);
   const paletteRef = useRef<Palette | null>(null);
   const selectedIdRef = useRef<string | null>(selectedId ?? null);
@@ -370,6 +379,15 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
       }
 
       const selectedNeighbors = new Set<string>();
+      const selectedEdgeCount = sel
+        ? edgs.reduce((count, e) => {
+            const sId =
+              typeof e.source === "object" ? (e.source as SimNode).id : (e.source as string);
+            const tId =
+              typeof e.target === "object" ? (e.target as SimNode).id : (e.target as string);
+            return count + (sId === sel || tId === sel ? 1 : 0);
+          }, 0)
+        : 0;
       if (sel) {
         for (const e of edgs) {
           const sId =
@@ -397,21 +415,75 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
           if (pass === 1 && !isConnected) continue;
 
           const sty = styleFor(e.relation);
+          const isHoveredEdge = hoverLinkRef.current === e;
           ctx!.beginPath();
           ctx!.moveTo(s.x, s.y);
           ctx!.lineTo(tn.x, tn.y);
           if (sty.dash.length) ctx!.setLineDash(sty.dash.map((d) => d / k));
           else ctx!.setLineDash([]);
-          if (isConnected) {
+          if (isHoveredEdge) {
+            ctx!.strokeStyle = pal.accent;
+            ctx!.globalAlpha = 0.9;
+          } else if (isConnected) {
             ctx!.strokeStyle = pal.accent;
             ctx!.globalAlpha = 0.55 + e.strength * 0.35;
           } else {
             ctx!.strokeStyle = pal.ink;
             ctx!.globalAlpha = sel ? 0.04 + e.strength * 0.03 : 0.1 + e.strength * 0.12;
           }
-          ctx!.lineWidth = sty.weight / k;
+          ctx!.lineWidth = (isHoveredEdge ? sty.weight + 0.85 : sty.weight) / k;
           ctx!.stroke();
           ctx!.globalAlpha = 1;
+
+          if (isConnected || isHoveredEdge) {
+            const dx = tn.x - s.x;
+            const dy = tn.y - s.y;
+            const len = Math.hypot(dx, dy);
+            if (len > 18) {
+              const ux = dx / len;
+              const uy = dy / len;
+              const r = nodeRadius(tn) + 4 / k;
+              const ax = tn.x - ux * r;
+              const ay = tn.y - uy * r;
+              const size = (isHoveredEdge ? 8 : 6) / k;
+              ctx!.beginPath();
+              ctx!.moveTo(ax, ay);
+              ctx!.lineTo(ax - ux * size - uy * (size * 0.55), ay - uy * size + ux * (size * 0.55));
+              ctx!.lineTo(ax - ux * size + uy * (size * 0.55), ay - uy * size - ux * (size * 0.55));
+              ctx!.closePath();
+              ctx!.fillStyle = pal.accent;
+              ctx!.globalAlpha = isHoveredEdge ? 0.9 : 0.5;
+              ctx!.fill();
+              ctx!.globalAlpha = 1;
+            }
+          }
+
+          if (
+            isHoveredEdge ||
+            (isConnected && selectedEdgeCount <= 8 && (k > 0.5 || selectedEdgeCount <= 3))
+          ) {
+            const mx = (s.x + tn.x) / 2;
+            const my = (s.y + tn.y) / 2;
+            const label = formatRelationLabel(e.relation);
+            const fontPx = 10 / k;
+            ctx!.font = `600 ${fontPx}px 'Inter', system-ui, sans-serif`;
+            const metrics = ctx!.measureText(label);
+            const padX = 4 / k;
+            const boxH = 15 / k;
+            const boxW = metrics.width + padX * 2;
+            ctx!.fillStyle = pal.paper;
+            ctx!.globalAlpha = isHoveredEdge ? 0.96 : 0.78;
+            ctx!.fillRect(mx - boxW / 2, my - boxH / 2, boxW, boxH);
+            ctx!.strokeStyle = pal.border;
+            ctx!.lineWidth = 0.75 / k;
+            ctx!.strokeRect(mx - boxW / 2, my - boxH / 2, boxW, boxH);
+            ctx!.globalAlpha = isHoveredEdge ? 1 : 0.72;
+            ctx!.fillStyle = pal.ink;
+            ctx!.textAlign = "center";
+            ctx!.textBaseline = "middle";
+            ctx!.fillText(label, mx, my + 0.5 / k);
+            ctx!.globalAlpha = 1;
+          }
         }
       }
       ctx!.setLineDash([]);
@@ -556,6 +628,39 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
     return null;
   }, []);
 
+  const hitTestEdge = useCallback((screenX: number, screenY: number): SimLink | null => {
+    const t = transformRef.current;
+    const wx = (screenX - t.x) / t.k;
+    const wy = (screenY - t.y) / t.k;
+    const tolerance = 7 / Math.max(0.4, t.k);
+    for (let i = simLinksRef.current.length - 1; i >= 0; i--) {
+      const edge = simLinksRef.current[i];
+      const source = typeof edge.source === "object" ? (edge.source as SimNode) : null;
+      const target = typeof edge.target === "object" ? (edge.target as SimNode) : null;
+      if (
+        !source ||
+        !target ||
+        source.x == null ||
+        source.y == null ||
+        target.x == null ||
+        target.y == null
+      ) {
+        continue;
+      }
+      const vx = target.x - source.x;
+      const vy = target.y - source.y;
+      const len2 = vx * vx + vy * vy;
+      if (len2 <= 1) continue;
+      const u = Math.max(0, Math.min(1, ((wx - source.x) * vx + (wy - source.y) * vy) / len2));
+      const px = source.x + u * vx;
+      const py = source.y + u * vy;
+      const dx = wx - px;
+      const dy = wy - py;
+      if (dx * dx + dy * dy <= tolerance * tolerance) return edge;
+    }
+    return null;
+  }, []);
+
   const getCanvasPos = useCallback((e: React.MouseEvent) => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
@@ -619,11 +724,13 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
       } else {
         const node = hitTest(pos.x, pos.y);
         hoverRef.current = node;
+        hoverLinkRef.current = node ? null : hitTestEdge(pos.x, pos.y);
         const canvas = canvasRef.current;
-        if (canvas) canvas.style.cursor = node ? "pointer" : "grab";
+        if (canvas)
+          canvas.style.cursor = node ? "pointer" : hoverLinkRef.current ? "crosshair" : "grab";
       }
     },
-    [hitTest, getCanvasPos],
+    [hitTest, hitTestEdge, getCanvasPos],
   );
 
   const handleMouseUp = useCallback(() => {

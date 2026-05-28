@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Existing Ideas document primitive; splitting it is a separate refactor. */
 import {
   forwardRef,
   useCallback,
@@ -28,6 +29,7 @@ import IdeaCanvasDecisionPanel from "./ideas/IdeaCanvasDecisionPanel";
 import { isMarkdownFile } from "./ideas/ideaImport";
 import { mergeTags } from "./ideas/ideaTagUtils";
 import { ImportMenu } from "./blueprints/ImportMenu";
+import { Textarea } from "./ui";
 
 /**
  * Imperative handle for callers that supply their own toolbar (the
@@ -175,13 +177,20 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
   // pre-existing canvas's "embedded read-only" surface (compose mode is
   // always editable; edit mode also editable; the canvas can be passed
   // `editable={false}` later for a future read-only embed).
-  const titleRef = useRef<HTMLInputElement>(null);
+  const titleRef = useRef<HTMLTextAreaElement>(null);
   const flashRef = useRef<number | null>(null);
   const dirtyRef = useRef(false);
   const inflightRef = useRef(false);
   const latestRef = useRef({ name, content, typedTags });
 
   latestRef.current = { name, content, typedTags };
+
+  const resizeTitle = useCallback(() => {
+    const title = titleRef.current;
+    if (!title) return;
+    title.style.height = "auto";
+    title.style.height = `${title.scrollHeight}px`;
+  }, []);
 
   const markDirty = useCallback(() => {
     if (!isEdit) return;
@@ -402,6 +411,10 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
     if (!onDirtyChange) return;
     onDirtyChange(saveState === "dirty" || saveState === "saving");
   }, [saveState, onDirtyChange]);
+
+  useEffect(() => {
+    resizeTitle();
+  }, [name, resizeTitle]);
 
   // Tell the embedding caller whether `commit()` would succeed right
   // now. Edit mode is always commit-ready (the quest wrapper can save
@@ -691,15 +704,20 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
           )}
 
           <div className="ideas-canvas-content">
-            <input
+            <Textarea
               ref={titleRef}
               className="ideas-canvas-title"
-              type="text"
+              bare
               placeholder={isEdit ? "Untitled" : "Name this idea…"}
+              rows={1}
               value={name}
               onChange={(e) => {
-                setName(e.target.value);
+                setName(e.target.value.replace(/\s*\n+\s*/g, " "));
                 markDirty();
+                resizeTitle();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.preventDefault();
               }}
             />
 

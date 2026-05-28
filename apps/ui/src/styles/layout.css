@@ -4496,8 +4496,8 @@
 
 .ideas-workspace-layout {
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr) 268px;
-  gap: 14px;
+  grid-template-columns: 244px minmax(0, 1fr) 256px;
+  gap: 12px;
   flex: 1;
   min-height: 0;
   padding: 12px 20px 20px;
@@ -4511,7 +4511,7 @@
   min-height: 0;
   flex-direction: column;
   overflow: hidden;
-  background: var(--color-card);
+  background: var(--color-card-subtle, var(--bg-surface));
   border: 1px solid var(--border-subtle, var(--border-faint));
   border-radius: var(--radius-md);
 }
@@ -4556,6 +4556,19 @@
   grid-template-columns: 20px minmax(0, 1fr);
   align-items: center;
   padding-left: calc(var(--idea-tree-depth, 0) * 14px);
+  position: relative;
+}
+
+.ideas-workspace-tree-row::before {
+  content: "";
+  position: absolute;
+  left: calc(10px + var(--idea-tree-depth, 0) * 14px);
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border-faint);
+  opacity: 0.45;
+  pointer-events: none;
 }
 
 .ideas-workspace-tree-toggle,
@@ -4601,7 +4614,7 @@
   padding: 4px 7px;
   color: var(--color-text-secondary);
   background: transparent;
-  border: 0;
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
   cursor: pointer;
   font-family: var(--font-sans);
@@ -4614,8 +4627,13 @@
 .ideas-workspace-tree-item:focus-visible,
 .ideas-workspace-tree-row[aria-selected="true"] .ideas-workspace-tree-item {
   color: var(--color-text-primary);
-  background: var(--bg-surface-hover);
+  background: var(--color-card);
+  border-color: var(--border-subtle, var(--border-faint));
   outline: none;
+}
+
+.ideas-workspace-tree-row[aria-selected="true"] .ideas-workspace-tree-item {
+  box-shadow: inset 2px 0 0 var(--color-text-primary);
 }
 
 .ideas-workspace-tree-item span {
@@ -4636,10 +4654,10 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background: var(--color-card-muted, var(--bg-surface));
+  background: var(--color-card);
   border: 1px solid var(--border-subtle, var(--border-faint));
   border-radius: var(--radius-md);
-  box-shadow: inset 0 1px 2px var(--border-faint);
+  box-shadow: none;
 }
 
 .ideas-workspace-document > .ideas-canvas {
@@ -4655,17 +4673,19 @@
   border: 0;
   border-radius: 0;
   box-shadow: none;
-  background: var(--color-card-muted, var(--bg-surface));
+  background: var(--color-card);
 }
 
 .ideas-workspace-document .ideas-canvas-content {
-  --ideas-canvas-editor-gutter: 38px;
-  --ideas-canvas-editor-gutter-end: 6px;
-  padding: 24px 24px 32px;
+  --ideas-canvas-editor-gutter: 42px;
+  --ideas-canvas-editor-gutter-end: 8px;
+  width: min(100%, 900px);
+  margin: 0 auto;
+  padding: 30px 30px 42px;
 }
 
 .ideas-workspace-document .ideas-canvas-title {
-  font-size: clamp(26px, 2vw, 31px);
+  font-size: 30px;
 }
 
 .ideas-workspace-inspector {
@@ -6789,7 +6809,7 @@
   min-height: 0;
   display: flex;
   position: relative;
-  padding: 4px 28px 20px;
+  padding: 4px 24px 20px;
   overflow: hidden;
 }
 .ideas-graph-surface {
@@ -6797,13 +6817,183 @@
   min-height: 0;
   display: flex;
   position: relative;
-  background: var(--bg-row);
+  background: var(--color-card-subtle, var(--bg-surface));
+  border: 1px solid var(--border-subtle, var(--border-faint));
   border-radius: var(--radius-sm);
   overflow: hidden;
 }
 .ideas-graph-surface > * {
   flex: 1;
   min-height: 0;
+}
+
+.ideas-graph-readout,
+.ideas-graph-context {
+  position: absolute;
+  z-index: 2;
+  font-family: var(--font-sans);
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-card) 94%, transparent);
+  border: 1px solid var(--border-subtle, var(--border-faint));
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.04);
+}
+
+.ideas-graph-readout {
+  top: 12px;
+  left: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  max-width: min(720px, calc(100% - 24px));
+  gap: 4px;
+  padding: 5px;
+  pointer-events: none;
+}
+
+.ideas-graph-readout span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  min-height: 24px;
+  padding: 3px 7px;
+  border-radius: calc(var(--radius-sm) - 2px);
+}
+
+.ideas-graph-readout strong {
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
+
+.ideas-graph-readout small {
+  color: var(--color-text-muted);
+  font-size: 10.5px;
+  font-weight: 500;
+}
+
+.ideas-graph-readout .is-warning {
+  background: var(--bg-row);
+}
+
+.ideas-graph-relation i,
+.ideas-graph-relation-swatch,
+.ideas-ref-chip-relation {
+  display: inline-block;
+  width: 14px;
+  height: 0;
+  border-top: 2px solid currentColor;
+  opacity: 0.8;
+}
+
+.ideas-graph-relation--embeds i,
+.ideas-graph-relation--caused-by i,
+.ideas-graph-relation-swatch--embeds,
+.ideas-graph-relation-swatch--caused-by,
+.ideas-ref-chip--embeds .ideas-ref-chip-relation {
+  border-top-style: dashed;
+}
+
+.ideas-graph-relation--adjacent i,
+.ideas-graph-relation--derived-from i,
+.ideas-graph-relation-swatch--adjacent,
+.ideas-graph-relation-swatch--derived-from,
+.ideas-ref-chip--adjacent .ideas-ref-chip-relation {
+  border-top-style: dotted;
+}
+
+.ideas-graph-context {
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  width: min(330px, calc(100% - 24px));
+  max-height: min(360px, calc(100% - 24px));
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ideas-graph-context-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 36px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-subtle, var(--border-faint));
+}
+
+.ideas-graph-context-head span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ideas-graph-context-head small,
+.ideas-graph-context-row small {
+  color: var(--color-text-muted);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ideas-graph-context-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.ideas-graph-context-row {
+  display: grid;
+  grid-template-columns: 18px 68px minmax(0, 1fr) auto;
+  gap: 7px;
+  align-items: center;
+  min-height: 30px;
+  padding: 5px 6px;
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: 0;
+  border-radius: calc(var(--radius-sm) - 2px);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ideas-graph-context-row:hover,
+.ideas-graph-context-row:focus-visible {
+  color: var(--color-text-primary);
+  background: var(--bg-row);
+  outline: none;
+}
+
+.ideas-graph-context-relation {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ideas-graph-context-target {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-size: 11.5px;
+  font-weight: 560;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ideas-graph-context-empty {
+  margin: 0;
+  padding: 10px;
+  color: var(--color-text-muted);
+  font-size: 12px;
 }
 .ideas-graph-loading {
   flex: 1;
@@ -7485,7 +7675,7 @@
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: 5px;
   padding: 1px 8px 1px 7px;
   font-family: var(--font-mono);
   font-size: 11px;
@@ -7498,6 +7688,16 @@
     border-color 0.15s,
     color 0.15s,
     background 0.15s;
+}
+
+.ideas-ref-chip-relation {
+  flex: 0 0 auto;
+  width: 12px;
+  color: var(--color-text-muted);
+}
+
+.ideas-ref-chip--mentions .ideas-ref-chip-relation {
+  border-top-style: solid;
 }
 .ideas-ref-chip:hover {
   color: var(--color-text-primary);
@@ -7610,8 +7810,8 @@
   border: none;
   outline: none;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  resize: none;
+  white-space: pre-wrap;
 }
 
 @media (max-width: 720px) {
