@@ -1274,6 +1274,16 @@
   min-height: 0;
 }
 
+.agent-session-context-header {
+  margin: var(--space-3) var(--space-3) 0;
+  min-height: 64px;
+}
+
+.agent-session-context-header .session-detail-header-title,
+.agent-session-context-header .session-detail-header-subtitle {
+  min-width: 0;
+}
+
 /* Sessions rail — legacy shell wrapper for the drilled-agent inbox.
    The chat-specific rule below upgrades this into the same white-card
    master column used by `/inbox`; the base shape stays quiet for any
@@ -1309,6 +1319,13 @@
 @media (max-width: 768px) {
   .sessions-rail-col {
     display: none;
+  }
+
+  .agent-session-context-header {
+    align-items: flex-start;
+    gap: var(--space-3);
+    margin: var(--space-2) var(--space-2) 0;
+    padding: var(--space-3);
   }
 }
 /* Drilled-agent surface tablet collapse — at <=1024px the LeftSidebar

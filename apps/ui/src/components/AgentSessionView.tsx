@@ -446,6 +446,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
           /* composer chrome lives in AppLayout; SessionDetail's composer is hidden */
         }}
         hideComposer={true}
+        hideHeader={true}
         preThreadSlot={preThreadSlot}
         threadTrailingSlot={threadTrailingSlot}
         onFork={handleFork}

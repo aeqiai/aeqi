@@ -103,6 +103,8 @@ export interface SessionDetailProps {
   /** Hide the composer chrome entirely (e.g. when an external chrome owns it).
    * Default: composer renders inside the primitive. */
   hideComposer?: boolean;
+  /** Hide the pane-local header when a parent shell owns the context header. */
+  hideHeader?: boolean;
   /** Shared visual surface. Recessed is the Inbox/agent chat canvas. */
   surface?: "plain" | "recessed";
 }
@@ -145,6 +147,7 @@ export default function SessionDetail({
   onResend,
   errorMessage,
   hideComposer = false,
+  hideHeader = false,
   surface = "plain",
 }: SessionDetailProps) {
   // Subscribe to the shared 60 s tick so the header's "Active 2m ago" label
@@ -273,7 +276,7 @@ export default function SessionDetail({
 
   return (
     <div className={className}>
-      {(title || headerExtras || sessionId) && (
+      {!hideHeader && (title || headerExtras || sessionId) && (
         <div className="session-detail-header">
           <div className="session-detail-header-from">
             {title && <span className="session-detail-header-title">{title}</span>}

@@ -20,6 +20,7 @@ import { entityPathFromId } from "@/lib/entityPath";
 const CommandPalette = lazy(() => import("./CommandPalette"));
 const AgentPage = lazy(() => import("./AgentPage"));
 const AgentSurfaceHeader = lazy(() => import("./AgentSurfaceHeader"));
+const AgentSessionContextHeader = lazy(() => import("./shell/AgentSessionContextHeader"));
 const SessionsRail = lazy(() => import("./shell/SessionsRail"));
 const ComposerRow = lazy(() => import("./shell/ComposerRow"));
 const ShortcutsOverlay = lazy(() => import("./ShortcutsOverlay"));
@@ -515,6 +516,9 @@ export default function AppLayout() {
                   <div className="agent-inbox-shell">
                     <Suspense fallback={null}>
                       <AgentSurfaceHeader agentId={activeAgentId} middle={<AgentInboxToolbar />} />
+                    </Suspense>
+                    <Suspense fallback={null}>
+                      <AgentSessionContextHeader />
                     </Suspense>
                     {contentBody}
                   </div>
