@@ -190,7 +190,11 @@ export default function ParticipantStrip({
             <ParticipantAvatar key={`${p.kind}:${p.id}`} p={p} trustId={trustId} />
           ))}
           {overflow > 0 && (
-            <div className="asv-participant-overflow" title={`${overflow} more`}>
+            <div
+              className="asv-participant-overflow"
+              title={`${overflow} more`}
+              aria-label={`${overflow} more participants`}
+            >
               +{overflow}
             </div>
           )}

@@ -1998,9 +1998,95 @@
   .asv-msg-body {
   max-width: 760px;
   padding: 10px 14px;
-  border: 1px solid var(--border-faint);
+  border: 0;
   border-radius: var(--radius-sm);
   box-shadow: none;
+}
+
+.content-main-col:has(.asv .session-detail--recessed)
+  .session-detail--recessed
+  :is(.asv-msg-assistant:not(.asv-msg-ask), .asv-msg-streaming)
+  .asv-msg-content {
+  font-size: 14px;
+  line-height: 1.58;
+  overflow-wrap: anywhere;
+}
+
+.content-main-col:has(.asv .session-detail--recessed)
+  .session-detail--recessed
+  :is(.asv-msg-assistant:not(.asv-msg-ask), .asv-msg-streaming)
+  .asv-msg-content
+  p {
+  margin: 0 0 var(--space-2);
+}
+
+.content-main-col:has(.asv .session-detail--recessed)
+  .session-detail--recessed
+  :is(.asv-msg-assistant:not(.asv-msg-ask), .asv-msg-streaming)
+  .asv-msg-content
+  ul,
+.content-main-col:has(.asv .session-detail--recessed)
+  .session-detail--recessed
+  :is(.asv-msg-assistant:not(.asv-msg-ask), .asv-msg-streaming)
+  .asv-msg-content
+  ol {
+  margin: var(--space-1) 0 var(--space-2);
+}
+
+.content-main-col:has(.asv .session-detail--recessed)
+  .session-detail--recessed
+  :is(.asv-msg-assistant:not(.asv-msg-ask), .asv-msg-streaming)
+  .asv-msg-content
+  li {
+  margin: 2px 0;
+}
+
+.content-main-col:has(.asv .session-detail--recessed)
+  .session-detail--recessed
+  :is(.asv-msg-assistant:not(.asv-msg-ask), .asv-msg-streaming)
+  .asv-msg-content
+  h1,
+.content-main-col:has(.asv .session-detail--recessed)
+  .session-detail--recessed
+  :is(.asv-msg-assistant:not(.asv-msg-ask), .asv-msg-streaming)
+  .asv-msg-content
+  h2,
+.content-main-col:has(.asv .session-detail--recessed)
+  .session-detail--recessed
+  :is(.asv-msg-assistant:not(.asv-msg-ask), .asv-msg-streaming)
+  .asv-msg-content
+  h3,
+.content-main-col:has(.asv .session-detail--recessed)
+  .session-detail--recessed
+  :is(.asv-msg-assistant:not(.asv-msg-ask), .asv-msg-streaming)
+  .asv-msg-content
+  h4,
+.content-main-col:has(.asv .session-detail--recessed)
+  .session-detail--recessed
+  :is(.asv-msg-assistant:not(.asv-msg-ask), .asv-msg-streaming)
+  .asv-msg-content
+  h5,
+.content-main-col:has(.asv .session-detail--recessed)
+  .session-detail--recessed
+  :is(.asv-msg-assistant:not(.asv-msg-ask), .asv-msg-streaming)
+  .asv-msg-content
+  h6 {
+  margin: var(--space-3) 0 var(--space-1);
+}
+
+.content-main-col:has(.asv .session-detail--recessed) .asv-msg-has-trail .asv-msg-card {
+  box-shadow: none;
+  border-color: var(--border-faint);
+}
+
+.content-main-col:has(.asv .session-detail--recessed) .asv-msg-chrome {
+  margin-top: var(--space-1);
+  gap: var(--space-2);
+}
+
+.content-main-col:has(.asv .session-detail--recessed) .asv-msg-chrome-meta {
+  gap: var(--space-2);
+  opacity: 0.72;
 }
 
 .content-main-col:has(.asv .session-detail--recessed) .asv-msg-user .asv-msg-body {

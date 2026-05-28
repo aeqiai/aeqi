@@ -57,11 +57,17 @@ export default function AgentSessionContextHeader() {
   const isStreaming = !!(itemId && streamingSessions[itemId]);
 
   return (
-    <div className="agent-session-context-header session-detail-header">
+    <div className="agent-session-context-header session-detail-header" aria-label={title}>
       <div className="session-detail-header-from">
-        <span className="session-detail-header-title">{title}</span>
+        <span className="session-detail-header-title" title={title}>
+          {title}
+        </span>
         <div className="session-detail-header-meta">
-          {subtitle && <span className="session-detail-header-subtitle">{subtitle}</span>}
+          {subtitle && (
+            <span className="session-detail-header-subtitle" title={subtitle}>
+              {subtitle}
+            </span>
+          )}
           {subtitle && active && (
             <span className="session-detail-header-meta-sep" aria-hidden>
               ·
