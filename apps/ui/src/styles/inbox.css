@@ -777,6 +777,7 @@
   }
 
   .inbox-shell.is-empty .inbox-pane-detail {
+    display: flex;
     min-height: 560px;
   }
 
