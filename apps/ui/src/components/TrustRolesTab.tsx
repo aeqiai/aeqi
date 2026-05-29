@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { PanelRightClose, PanelRightOpen, Plus } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { PanelRightOpen, Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Role, RoleEdge } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
@@ -22,7 +22,7 @@ import RolesSortPopover from "./roles/RolesSortPopover";
 import RolesFilterPopover from "./roles/RolesFilterPopover";
 import RolesViewPopover from "./roles/RolesViewPopover";
 import RoleInspector from "./roles/RoleInspector";
-import RoleEditorPane from "./roles/RoleEditorPane";
+import NewRoleModal from "./roles/NewRoleModal";
 import {
   type OccupantFilter,
   type RolesFilterState,
@@ -46,13 +46,12 @@ const OCCUPANT_RANK: Record<string, number> = { agent: 0, human: 1, vacant: 2 };
  */
 export default function TrustRolesTab({ trustId }: { trustId: string }) {
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
   const view = parseView(searchParams.get("view"));
   const sort = parseSort(searchParams.get("sort"));
   const occupantFilter = parseOccupantFilter(searchParams.get("occupant"));
   const search = searchParams.get("q") ?? "";
   const selectedRoleId = searchParams.get("role");
-  const mode = searchParams.get("mode");
+  const createRoleOpen = searchParams.get("new") === "1";
 
   const [roles, setRoles] = useState<Role[]>([]);
   const [edges, setEdges] = useState<RoleEdge[]>([]);
@@ -149,27 +148,26 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
     [patchParams],
   );
 
+  const openCreateRole = useCallback(
+    () =>
+      patchParams((p) => {
+        p.set("new", "1");
+      }),
+    [patchParams],
+  );
+
+  const closeCreateRole = useCallback(
+    () =>
+      patchParams((p) => {
+        p.delete("new");
+      }),
+    [patchParams],
+  );
+
   const setSelectedRole = useCallback(
     (id: string) =>
       patchParams((p) => {
         p.set("role", id);
-        p.delete("mode");
-      }),
-    [patchParams],
-  );
-
-  const startEditingRole = useCallback(
-    (id: string) =>
-      patchParams((p) => {
-        p.set("role", id);
-        p.set("mode", "edit");
-      }),
-    [patchParams],
-  );
-
-  const stopEditingRole = useCallback(
-    () =>
-      patchParams((p) => {
         p.delete("mode");
       }),
     [patchParams],
@@ -256,15 +254,9 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
     }
     return defaultSelectedRole;
   }, [selectedRoleId, rolesById, defaultSelectedRole]);
-  const isEditingRole = mode === "edit" && selectedRole !== null;
-
-  const handleRoleSaved = useCallback(
-    (updated: Role) => {
-      setRoles((prev) => prev.map((role) => (role.id === updated.id ? updated : role)));
-      stopEditingRole();
-    },
-    [stopEditingRole],
-  );
+  const handleRoleUpdated = useCallback((updated: Role) => {
+    setRoles((prev) => prev.map((role) => (role.id === updated.id ? updated : role)));
+  }, []);
 
   const handleSelectRole = useCallback(
     (role: Role) => {
@@ -273,11 +265,25 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
     [setSelectedRole],
   );
 
+  const handleRoleCreated = useCallback(
+    async (role: Role) => {
+      const refreshed = await api.getRoles(trustId);
+      setRoles(refreshed.roles ?? []);
+      setEdges(refreshed.edges ?? []);
+      patchParams((p) => {
+        p.delete("new");
+        p.set("role", role.id);
+      });
+      setDetailsOpen(true);
+    },
+    [patchParams, trustId],
+  );
+
   const showEmpty = !loading && !error && roles.length === 0;
   const showNoMatch = !loading && !error && roles.length > 0 && filtered.length === 0;
 
   return (
-    <div className={isEditingRole ? "trust-roles trust-roles--editing" : "trust-roles"}>
+    <div className="trust-roles">
       <PrimitivePageHeader
         className="trust-roles-page-header"
         title={
@@ -294,7 +300,7 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
             className="trust-top-rail-cta"
             variant="primary"
             size="md"
-            onClick={() => navigate(entityPathFromId(entities, trustId, "roles", "new"))}
+            onClick={openCreateRole}
             leadingIcon={<Plus size={14} strokeWidth={1.8} />}
           >
             Role
@@ -325,92 +331,86 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
             : "trust-roles-main trust-roles-main--detail-collapsed"
         }
       >
-        {selectedRole && isEditingRole ? (
-          <div className="trust-roles-editor-shell">
-            <RoleEditorPane
-              role={selectedRole}
-              onBack={stopEditingRole}
-              onSaved={handleRoleSaved}
-            />
-          </div>
-        ) : (
-          <>
-            <div className="trust-roles-workspace">
-              {selectedRole && (
-                <IconButton
-                  type="button"
-                  variant="bordered"
-                  size="sm"
-                  className="trust-roles-detail-toggle"
-                  aria-label={detailsOpen ? "Collapse role detail" : "Expand role detail"}
-                  onClick={() => setDetailsOpen((open) => !open)}
-                >
-                  {detailsOpen ? (
-                    <PanelRightClose aria-hidden size={14} strokeWidth={1.7} />
-                  ) : (
-                    <PanelRightOpen aria-hidden size={14} strokeWidth={1.7} />
-                  )}
-                </IconButton>
+        <div className="trust-roles-workspace">
+          {selectedRole && !detailsOpen && (
+            <IconButton
+              type="button"
+              variant="bordered"
+              size="sm"
+              className="trust-roles-detail-toggle"
+              aria-label="Expand role detail"
+              onClick={() => setDetailsOpen((open) => !open)}
+            >
+              <PanelRightOpen aria-hidden size={14} strokeWidth={1.7} />
+            </IconButton>
+          )}
+          <section className="trust-roles-content" aria-label="Role workspace">
+            <div className="trust-roles-canvas">
+              {loading && <RolesLoading />}
+              {error && <RolesError message={error} />}
+              {showEmpty && <RolesEmptyState />}
+              {showNoMatch && (
+                <RolesNoMatch onReset={() => setFilter({ search: "", occupant: "all" })} />
               )}
-              <section className="trust-roles-content" aria-label="Role workspace">
-                <div className="trust-roles-canvas">
-                  {loading && <RolesLoading />}
-                  {error && <RolesError message={error} />}
-                  {showEmpty && <RolesEmptyState />}
-                  {showNoMatch && (
-                    <RolesNoMatch onReset={() => setFilter({ search: "", occupant: "all" })} />
-                  )}
-                  {!loading && !error && filtered.length > 0 && view === "chart" && (
-                    <RolesChart
-                      roles={filtered}
-                      edges={filteredEdges}
-                      agentNames={agentNames}
-                      agentAvatars={agentAvatars}
-                      onSelectRole={handleSelectRole}
-                      selectedRoleId={selectedRole?.id ?? null}
-                      newRolePath={entityPathFromId(entities, trustId, "roles", "new")}
-                    />
-                  )}
-                  {!loading && !error && filtered.length > 0 && view === "cards" && (
-                    <div className="trust-roles-scroll">
-                      <RolesCards
-                        roles={filtered}
-                        agentNames={agentNames}
-                        agentAvatars={agentAvatars}
-                        onSelectRole={handleSelectRole}
-                        selectedRoleId={selectedRole?.id ?? null}
-                      />
-                    </div>
-                  )}
-                  {!loading && !error && filtered.length > 0 && view === "list" && (
-                    <div className="trust-roles-scroll">
-                      <RolesList
-                        roles={filtered}
-                        edges={filteredEdges}
-                        agentNames={agentNames}
-                        agentAvatars={agentAvatars}
-                        onSelectRole={handleSelectRole}
-                      />
-                    </div>
-                  )}
-                </div>
-              </section>
-              {selectedRole && detailsOpen && (
-                <aside className="trust-roles-detail" aria-label="Selected role detail">
-                  <RoleInspector
-                    role={selectedRole}
-                    edges={edges}
-                    rolesById={rolesById}
-                    trustId={trustId}
-                    basePath={basePath}
-                    onEdit={() => startEditingRole(selectedRole.id)}
+              {!loading && !error && filtered.length > 0 && view === "chart" && (
+                <RolesChart
+                  roles={filtered}
+                  edges={filteredEdges}
+                  agentNames={agentNames}
+                  agentAvatars={agentAvatars}
+                  onSelectRole={handleSelectRole}
+                  selectedRoleId={selectedRole?.id ?? null}
+                  newRolePath={`${entityPathFromId(entities, trustId, "roles")}?new=1`}
+                />
+              )}
+              {!loading && !error && filtered.length > 0 && view === "cards" && (
+                <div className="trust-roles-scroll">
+                  <RolesCards
+                    roles={filtered}
+                    agentNames={agentNames}
+                    agentAvatars={agentAvatars}
+                    onSelectRole={handleSelectRole}
+                    selectedRoleId={selectedRole?.id ?? null}
                   />
-                </aside>
+                </div>
+              )}
+              {!loading && !error && filtered.length > 0 && view === "list" && (
+                <div className="trust-roles-scroll">
+                  <RolesList
+                    roles={filtered}
+                    edges={filteredEdges}
+                    agentNames={agentNames}
+                    agentAvatars={agentAvatars}
+                    onSelectRole={handleSelectRole}
+                  />
+                </div>
               )}
             </div>
-          </>
-        )}
+          </section>
+          {selectedRole && detailsOpen && (
+            <aside className="trust-roles-detail" aria-label="Selected role detail">
+              <RoleInspector
+                role={selectedRole}
+                edges={edges}
+                rolesById={rolesById}
+                trustId={trustId}
+                basePath={basePath}
+                onCollapse={() => setDetailsOpen(false)}
+                onRoleUpdated={handleRoleUpdated}
+                onEdgesUpdated={setEdges}
+              />
+            </aside>
+          )}
+        </div>
       </div>
+      <NewRoleModal
+        open={createRoleOpen}
+        onClose={closeCreateRole}
+        trustId={trustId}
+        roles={roles}
+        agents={agents}
+        onCreated={handleRoleCreated}
+      />
     </div>
   );
 }

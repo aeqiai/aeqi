@@ -42,11 +42,11 @@ export interface ShellSurface {
   /** `/admin` — operator dashboard. Backend gates on is_admin; the page
    *  itself returns null + bounces non-admins. */
   isAdmin: boolean;
-  /** In-shell Roles sub-pages — rendered inside AppLayout. The Roles
-   *  primitive moved out of the AEQI Ownership group on 2026-05-18 to a
-   *  peer slot directly under Trust (see TrustTabPage `tab === "roles"`).
-   *  URL slug is `/roles/...`; underlying page components are RoleNewPage /
-   *  RoleDetailPage / RoleEditPage / RoleInvitePage. */
+  /** Legacy in-shell Roles sub-routes. Roles now has one canonical workspace:
+   *  `/roles`, with selection and creation modeled as query state. Old
+   *  `/roles/new`, `/roles/:id`, and `/roles/:id/edit` URLs redirect there;
+   *  invite remains a dedicated flow while invitations are not yet modeled as
+   *  a Roles workspace modal. */
   isRolesNew: boolean;
   isRolesDetail: boolean;
   isRolesEdit: boolean;
@@ -69,9 +69,8 @@ export function useShellSurface(path: string): ShellSurface {
     // day — only /trust is supported.
     const isTrustsPicker = path === "/trust";
 
-    // In-shell Roles sub-pages on the canonical trust route. URL slug is
-    // `/roles/...`; underlying pages are RoleNewPage / RoleDetailPage /
-    // RoleEditPage / RoleInvitePage.
+    // Legacy Roles sub-routes on the canonical trust route. These are parsed
+    // only so AppLayout can redirect them into the canonical Roles workspace.
     const rolesPathMatch = path.match(/^\/trust\/[^/]+\/roles\/(.+)$/);
     const rolesSuffix = rolesPathMatch ? rolesPathMatch[1] : null;
     const isRolesNew = rolesSuffix === "new";

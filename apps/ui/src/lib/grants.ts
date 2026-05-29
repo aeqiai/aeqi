@@ -33,7 +33,14 @@ export const GRANT_CATALOG = [
   },
 ] as const;
 
+// Product language: roles expose capabilities under their Authority section.
+// The legacy wire/storage name is still "grants" because it models the
+// assignment record. Keep this alias so new UI code can speak the domain
+// language without forcing a risky schema rename in the same patch.
+export const CAPABILITY_CATALOG = GRANT_CATALOG;
+
 export type GrantId = (typeof GRANT_CATALOG)[number]["id"];
+export type CapabilityId = GrantId;
 
 export const DEFAULT_GRANTS: Record<RoleType, string[]> = {
   // Owner — ownership rights only. Reads treasury/governance for

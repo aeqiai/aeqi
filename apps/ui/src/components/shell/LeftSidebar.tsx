@@ -63,9 +63,8 @@ const WebsitesIcon = () => <Globe />;
 const CampaignsIcon = () => <Megaphone />;
 const BudgetsIcon = () => <WalletCards />;
 const TransactionsIcon = () => <ReceiptText />;
-// Roles — its own peer slot under Trust, outside both AEQI groups. The
-// org-chart authority graph (RoleNewPage / RoleDetailPage et al). Workflow
-// reads parent + child boxes = hierarchy.
+// Roles — its own peer slot under Trust. The org-chart authority graph owns
+// hierarchy, selection, creation, and inline property edits in one workspace.
 const RolesIcon = () => <Workflow />;
 const MembersIcon = () => <Users />;
 const IntegrationsIcon = () => <Plug />;

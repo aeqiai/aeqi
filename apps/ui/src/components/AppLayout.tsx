@@ -34,9 +34,6 @@ const StartPage = lazy(() => import("@/pages/StartPage"));
 const BlueprintDetailPage = lazy(() => import("@/pages/BlueprintDetailPage"));
 const TrustTabPage = lazy(() => import("@/pages/TrustTabPage"));
 const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
-const RoleNewPage = lazy(() => import("@/pages/RoleNewPage"));
-const RoleDetailPage = lazy(() => import("@/pages/RoleDetailPage"));
-const RoleEditPage = lazy(() => import("@/pages/RoleEditPage"));
 const RoleInvitePage = lazy(() => import("@/pages/RoleInvitePage"));
 const AgentHealthPage = lazy(() => import("@/pages/AgentHealthPage"));
 const AgentSettingsPage = lazy(() => import("@/pages/AgentSettingsPage"));
@@ -127,6 +124,7 @@ export default function AppLayout() {
     trustId: routeEntityId = "",
     trustAddress: routeTrustAddress = "",
     agentId: routeAgentId = "",
+    roleId = "",
     tab,
     itemId,
     settingsTab,
@@ -134,6 +132,7 @@ export default function AppLayout() {
     trustId?: string;
     trustAddress?: string;
     agentId?: string;
+    roleId?: string;
     tab?: string;
     itemId?: string;
     settingsTab?: string;
@@ -301,6 +300,20 @@ export default function AppLayout() {
     if (routeTrustAddress) return `/trust/${routeTrustAddress}`;
     return "";
   })();
+  const roleCreateTarget = (() => {
+    const params = new URLSearchParams(search);
+    params.set("new", "1");
+    const qs = params.toString();
+    return `${base}/roles${qs ? `?${qs}` : ""}`;
+  })();
+  const roleDeepLinkTarget = (() => {
+    if (!roleId) return null;
+    const params = new URLSearchParams(search);
+    params.set("role", roleId);
+    params.delete("mode");
+    const qs = params.toString();
+    return `${base}/roles${qs ? `?${qs}` : ""}`;
+  })();
   // No-tab default at entity scope = "overview" internally. The product
   // label is Views, but the legacy tab id remains the compatibility path
   // behind the canonical bare trust URL.
@@ -392,12 +405,18 @@ export default function AppLayout() {
     return <Navigate to={`${base}${search}`} replace />;
   }
 
+  // Roles has one canonical object surface: `/roles?role=<id>`. Historical
+  // full-page detail/edit links now collapse into the inline property sheet.
+  if (isRolesNew) {
+    return <Navigate to={roleCreateTarget} replace />;
+  }
+  if ((isRolesDetail || isRolesEdit) && roleDeepLinkTarget) {
+    return <Navigate to={roleDeepLinkTarget} replace />;
+  }
+
   const mainContent = (() => {
     if (isNotFound) return <NotFoundPage />;
-    if (isRolesNew) return <RoleNewPage />;
     if (isRolesInvite) return <RoleInvitePage />;
-    if (isRolesEdit) return <RoleEditPage />;
-    if (isRolesDetail) return <RoleDetailPage />;
     if (isLaunch) {
       // When the URL omits a blueprint id, TrustSetupPage resolves the
       // default blueprint internally so the launch surface is a single wizard.

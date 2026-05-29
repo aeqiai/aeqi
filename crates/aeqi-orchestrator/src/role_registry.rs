@@ -14,7 +14,7 @@ use anyhow::{Result, bail};
 use chrono::Utc;
 use rusqlite::{OptionalExtension, params};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::{collections::BTreeSet, sync::Arc};
 
 /// Who occupies a role. `Vacant` is a first-class state — useful for
 /// "we're hiring CFO" placeholders that already carry edges in the DAG.
@@ -106,6 +106,42 @@ pub const ALL_GRANTS: &[&str] = &[
     GRANT_GOVERNANCE_READ,
     GRANT_SETTINGS_MODIFY,
 ];
+
+// ── Authority SQL ────────────────────────────────────────────────────────────
+//
+// Keep policy queries named and colocated with the role domain. IPC handlers
+// should call intention-revealing registry methods, not assemble SQL.
+
+const SQL_ROLE_IN_ENTITY_EXISTS: &str = "SELECT 1 FROM roles WHERE id = ?1 AND trust_id = ?2";
+
+const SQL_ROLE_HAS_PARENT: &str = "SELECT 1 FROM role_edges WHERE child_role_id = ?1 LIMIT 1";
+
+const SQL_USER_CAN_MANAGE_ROLE: &str = "WITH RECURSIVE managed(role_id) AS (
+     SELECT r.id
+     FROM roles r
+     JOIN role_grants g ON g.role_id = r.id
+     WHERE r.trust_id = ?1
+       AND r.occupant_kind = 'human'
+       AND r.occupant_id = ?2
+       AND g.grant = ?3
+     UNION
+     SELECT e.child_role_id
+     FROM role_edges e
+     JOIN managed m ON m.role_id = e.parent_role_id
+     JOIN roles child ON child.id = e.child_role_id
+     WHERE child.trust_id = ?1
+ )
+ SELECT 1 FROM managed WHERE role_id = ?4 LIMIT 1";
+
+const SQL_USER_CAN_CREATE_ROOT_ROLE: &str = "SELECT 1
+ FROM roles r
+ JOIN role_grants g ON g.role_id = r.id
+ WHERE r.trust_id = ?1
+   AND r.occupant_kind = 'human'
+   AND r.occupant_id = ?2
+   AND r.role_type = 'director'
+   AND g.grant = ?3
+ LIMIT 1";
 
 /// Returns the default grant set for a given role type.
 pub fn default_grants_for_type(role_type: RoleType) -> Vec<String> {
@@ -386,6 +422,74 @@ impl RoleRegistry {
         Ok(grants.iter().any(|g| g == grant))
     }
 
+    /// Returns true iff `user_id` occupies a role in `trust_id` that carries
+    /// `roles.manage` and controls `target_role_id` through the role DAG.
+    ///
+    /// The controlled set includes the caller's own role. That keeps the
+    /// founding Director editable in newly-created TRUSTs while still blocking
+    /// edits to peers, ancestors, and unrelated branches.
+    pub async fn user_can_manage_role(
+        &self,
+        trust_id: &str,
+        user_id: &str,
+        target_role_id: &str,
+    ) -> Result<bool> {
+        let db = self.db.lock().await;
+        let target_belongs: Option<i64> = db
+            .query_row(
+                SQL_ROLE_IN_ENTITY_EXISTS,
+                params![target_role_id, trust_id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        if target_belongs.is_none() {
+            return Ok(false);
+        }
+
+        let has_parent: Option<i64> = db
+            .query_row(SQL_ROLE_HAS_PARENT, params![target_role_id], |row| {
+                row.get(0)
+            })
+            .optional()?;
+        if has_parent.is_none() {
+            let director_can_manage_root: Option<i64> = db
+                .query_row(
+                    SQL_USER_CAN_CREATE_ROOT_ROLE,
+                    params![trust_id, user_id, GRANT_ROLES_MANAGE],
+                    |row| row.get(0),
+                )
+                .optional()?;
+            if director_can_manage_root.is_some() {
+                return Ok(true);
+            }
+        }
+
+        let allowed: Option<i64> = db
+            .query_row(
+                SQL_USER_CAN_MANAGE_ROLE,
+                params![trust_id, user_id, GRANT_ROLES_MANAGE, target_role_id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        Ok(allowed.is_some())
+    }
+
+    /// Returns true iff the user can mint a root-level role in `trust_id`.
+    /// Root roles affect the top of the authority graph, so this is narrower
+    /// than generic `roles.manage`: the caller must occupy a Director role
+    /// carrying `roles.manage`.
+    pub async fn user_can_create_root_role(&self, trust_id: &str, user_id: &str) -> Result<bool> {
+        let db = self.db.lock().await;
+        let allowed: Option<i64> = db
+            .query_row(
+                SQL_USER_CAN_CREATE_ROOT_ROLE,
+                params![trust_id, user_id, GRANT_ROLES_MANAGE],
+                |row| row.get(0),
+            )
+            .optional()?;
+        Ok(allowed.is_some())
+    }
+
     /// Fetch grants for a role.
     pub async fn get_grants(&self, role_id: &str) -> Result<Vec<String>> {
         let db = self.db.lock().await;
@@ -611,6 +715,146 @@ impl RoleRegistry {
              VALUES (?1, ?2)
              ON CONFLICT(parent_role_id, child_role_id) DO NOTHING",
             params![parent_id, child_id],
+        )?;
+        Ok(())
+    }
+
+    /// Replace all incoming edges for a role. Every parent must live in the
+    /// same entity and cannot already be controlled by the target role.
+    pub async fn set_parent_edges(&self, role_id: &str, parent_ids: Vec<String>) -> Result<()> {
+        let parents: BTreeSet<String> =
+            parent_ids.into_iter().filter(|id| !id.is_empty()).collect();
+        if parents.iter().any(|id| id == role_id) {
+            bail!("self-loop edges are forbidden");
+        }
+
+        let now = Utc::now().to_rfc3339();
+        let db = self.db.lock().await;
+        let trust_id: String = db
+            .query_row(
+                "SELECT trust_id FROM roles WHERE id = ?1",
+                params![role_id],
+                |row| row.get(0),
+            )
+            .optional()?
+            .ok_or_else(|| anyhow::anyhow!("role not found"))?;
+
+        for parent_id in &parents {
+            let parent_trust_id: String = db
+                .query_row(
+                    "SELECT trust_id FROM roles WHERE id = ?1",
+                    params![parent_id],
+                    |row| row.get(0),
+                )
+                .optional()?
+                .ok_or_else(|| anyhow::anyhow!("parent role not found: {parent_id}"))?;
+            if parent_trust_id != trust_id {
+                bail!("role edge crosses entity boundary");
+            }
+            let would_cycle: Option<i64> = db
+                .query_row(
+                    "WITH RECURSIVE descendants(id) AS (
+                         SELECT child_role_id FROM role_edges WHERE parent_role_id = ?1
+                         UNION
+                         SELECT e.child_role_id
+                         FROM role_edges e
+                         JOIN descendants d ON e.parent_role_id = d.id
+                     )
+                     SELECT 1 FROM descendants WHERE id = ?2 LIMIT 1",
+                    params![role_id, parent_id],
+                    |row| row.get(0),
+                )
+                .optional()?;
+            if would_cycle.is_some() {
+                bail!("role edge would create a cycle");
+            }
+        }
+
+        db.execute(
+            "DELETE FROM role_edges WHERE child_role_id = ?1",
+            params![role_id],
+        )?;
+        for parent_id in &parents {
+            db.execute(
+                "INSERT INTO role_edges (parent_role_id, child_role_id)
+                 VALUES (?1, ?2)
+                 ON CONFLICT(parent_role_id, child_role_id) DO NOTHING",
+                params![parent_id, role_id],
+            )?;
+        }
+        db.execute(
+            "UPDATE roles SET updated_at = ?1 WHERE id = ?2",
+            params![now, role_id],
+        )?;
+        Ok(())
+    }
+
+    /// Replace all outgoing edges for a role. Every child must live in the
+    /// same entity and cannot already control the target role.
+    pub async fn set_child_edges(&self, role_id: &str, child_ids: Vec<String>) -> Result<()> {
+        let children: BTreeSet<String> =
+            child_ids.into_iter().filter(|id| !id.is_empty()).collect();
+        if children.iter().any(|id| id == role_id) {
+            bail!("self-loop edges are forbidden");
+        }
+
+        let now = Utc::now().to_rfc3339();
+        let db = self.db.lock().await;
+        let trust_id: String = db
+            .query_row(
+                "SELECT trust_id FROM roles WHERE id = ?1",
+                params![role_id],
+                |row| row.get(0),
+            )
+            .optional()?
+            .ok_or_else(|| anyhow::anyhow!("role not found"))?;
+
+        for child_id in &children {
+            let child_trust_id: String = db
+                .query_row(
+                    "SELECT trust_id FROM roles WHERE id = ?1",
+                    params![child_id],
+                    |row| row.get(0),
+                )
+                .optional()?
+                .ok_or_else(|| anyhow::anyhow!("child role not found: {child_id}"))?;
+            if child_trust_id != trust_id {
+                bail!("role edge crosses entity boundary");
+            }
+            let would_cycle: Option<i64> = db
+                .query_row(
+                    "WITH RECURSIVE descendants(id) AS (
+                         SELECT child_role_id FROM role_edges WHERE parent_role_id = ?1
+                         UNION
+                         SELECT e.child_role_id
+                         FROM role_edges e
+                         JOIN descendants d ON e.parent_role_id = d.id
+                     )
+                     SELECT 1 FROM descendants WHERE id = ?2 LIMIT 1",
+                    params![child_id, role_id],
+                    |row| row.get(0),
+                )
+                .optional()?;
+            if would_cycle.is_some() {
+                bail!("role edge would create a cycle");
+            }
+        }
+
+        db.execute(
+            "DELETE FROM role_edges WHERE parent_role_id = ?1",
+            params![role_id],
+        )?;
+        for child_id in &children {
+            db.execute(
+                "INSERT INTO role_edges (parent_role_id, child_role_id)
+                 VALUES (?1, ?2)
+                 ON CONFLICT(parent_role_id, child_role_id) DO NOTHING",
+                params![role_id, child_id],
+            )?;
+        }
+        db.execute(
+            "UPDATE roles SET updated_at = ?1 WHERE id = ?2",
+            params![now, role_id],
         )?;
         Ok(())
     }
@@ -905,6 +1149,65 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn set_parent_edges_replaces_incoming_edges() {
+        let (_dir, _agents, entities, roles) = open_test_registries();
+        let entity = make_entity(&entities, "acme").await;
+        let board = roles
+            .create(&entity.id, "Board", OccupantKind::Vacant, None)
+            .await
+            .expect("board");
+        let founder = roles
+            .create(&entity.id, "Founder", OccupantKind::Vacant, None)
+            .await
+            .expect("founder");
+        let operator = roles
+            .create(&entity.id, "Operator", OccupantKind::Vacant, None)
+            .await
+            .expect("operator");
+
+        roles
+            .add_edge(&board.id, &operator.id)
+            .await
+            .expect("initial edge");
+        roles
+            .set_parent_edges(&operator.id, vec![founder.id.clone()])
+            .await
+            .expect("replace parents");
+
+        let edges = roles
+            .list_edges_for_entity(&entity.id)
+            .await
+            .expect("edges");
+        assert_eq!(edges.len(), 1);
+        assert_eq!(edges[0].parent_role_id, founder.id);
+        assert_eq!(edges[0].child_role_id, operator.id);
+    }
+
+    #[tokio::test]
+    async fn set_child_edges_rejects_cycles() {
+        let (_dir, _agents, entities, roles) = open_test_registries();
+        let entity = make_entity(&entities, "acme").await;
+        let board = roles
+            .create(&entity.id, "Board", OccupantKind::Vacant, None)
+            .await
+            .expect("board");
+        let ceo = roles
+            .create(&entity.id, "CEO", OccupantKind::Vacant, None)
+            .await
+            .expect("ceo");
+        let ops = roles
+            .create(&entity.id, "Ops", OccupantKind::Vacant, None)
+            .await
+            .expect("ops");
+
+        roles.add_edge(&board.id, &ceo.id).await.expect("board-ceo");
+        roles.add_edge(&ceo.id, &ops.id).await.expect("ceo-ops");
+
+        let err = roles.set_child_edges(&ops.id, vec![board.id]).await;
+        assert!(err.is_err(), "cycle must be rejected");
+    }
+
+    #[tokio::test]
     async fn create_with_type_director_gets_all_grants() {
         let (_dir, _agents, entities, roles) = open_test_registries();
         let entity = make_entity(&entities, "acme").await;
@@ -983,6 +1286,92 @@ mod tests {
                 .user_has_grant(&entity.id, "user-other", GRANT_ROLES_MANAGE)
                 .await
                 .unwrap()
+        );
+    }
+
+    #[tokio::test]
+    async fn user_can_manage_only_own_role_and_descendants() {
+        let (_dir, _agents, entities, roles) = open_test_registries();
+        let entity = make_entity(&entities, "acme").await;
+
+        let founder = roles
+            .create_with_type(
+                &entity.id,
+                "Founder",
+                OccupantKind::Human,
+                Some("user-founder"),
+                RoleType::Director,
+                true,
+                None,
+            )
+            .await
+            .expect("founder");
+        let manager = roles
+            .create_with_type(
+                &entity.id,
+                "Manager",
+                OccupantKind::Human,
+                Some("user-manager"),
+                RoleType::Operational,
+                false,
+                None,
+            )
+            .await
+            .expect("manager");
+        let leaf = roles
+            .create(&entity.id, "Leaf", OccupantKind::Vacant, None)
+            .await
+            .expect("leaf");
+        let sibling = roles
+            .create(&entity.id, "Sibling", OccupantKind::Vacant, None)
+            .await
+            .expect("sibling");
+
+        roles.add_edge(&founder.id, &manager.id).await.unwrap();
+        roles.add_edge(&manager.id, &leaf.id).await.unwrap();
+        roles.add_edge(&founder.id, &sibling.id).await.unwrap();
+
+        assert!(
+            roles
+                .user_can_manage_role(&entity.id, "user-manager", &manager.id)
+                .await
+                .unwrap(),
+            "manager can update their own role"
+        );
+        assert!(
+            roles
+                .user_can_manage_role(&entity.id, "user-manager", &leaf.id)
+                .await
+                .unwrap(),
+            "manager can update descendants"
+        );
+        assert!(
+            !roles
+                .user_can_manage_role(&entity.id, "user-manager", &founder.id)
+                .await
+                .unwrap(),
+            "manager cannot update ancestors"
+        );
+        assert!(
+            !roles
+                .user_can_manage_role(&entity.id, "user-manager", &sibling.id)
+                .await
+                .unwrap(),
+            "manager cannot update sibling branches"
+        );
+        assert!(
+            roles
+                .user_can_create_root_role(&entity.id, "user-founder")
+                .await
+                .unwrap(),
+            "director can create root roles"
+        );
+        assert!(
+            !roles
+                .user_can_create_root_role(&entity.id, "user-manager")
+                .await
+                .unwrap(),
+            "non-director roles.manage cannot create root roles"
         );
     }
 

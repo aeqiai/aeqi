@@ -18,6 +18,7 @@ pub fn routes() -> Router<AppState> {
         .route("/roles/{id}", get(get_role))
         .route("/roles/{id}/occupant", post(change_occupant))
         .route("/roles/{id}/update", post(update_role))
+        .route("/roles/{id}/edges", post(update_role_edges))
         .route("/roles/{id}/archive", post(archive_role))
 }
 
@@ -61,7 +62,7 @@ async fn create_role(
 
 /// POST /api/roles/:id/update
 ///
-/// Body: `{ "title"?, "role_type"?, "grants"? }`
+/// Body: `{ "title"?, "role_type"?, "grants"?, "description_idea_id"? }`
 ///
 /// Gates on `roles.manage` (enforced in the IPC handler via `caller_user_id`
 /// injected by `ipc_proxy`).
@@ -73,6 +74,22 @@ async fn update_role(
 ) -> Response {
     body["role_id"] = serde_json::Value::String(id);
     ipc_proxy(state, scope.as_ref(), "update_role", body).await
+}
+
+/// POST /api/roles/:id/edges
+///
+/// Body: `{ "parent_role_ids"?, "child_role_ids"? }`
+///
+/// Each present array replaces that edge side exactly. Gates on
+/// `roles.manage`.
+async fn update_role_edges(
+    State(state): State<AppState>,
+    scope: Scope,
+    Path(id): Path<String>,
+    Json(mut body): Json<serde_json::Value>,
+) -> Response {
+    body["role_id"] = serde_json::Value::String(id);
+    ipc_proxy(state, scope.as_ref(), "update_role_edges", body).await
 }
 
 /// POST /api/roles/:id/archive

@@ -111,8 +111,8 @@ describe("TrustRolesTab", () => {
     const workspace = screen.getByLabelText("Role workspace");
     expect(heading.compareDocumentPosition(workspace)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(screen.queryByText("Authority ramp")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Collapse role detail" })).toHaveClass(
-      "trust-roles-detail-toggle",
+    expect(screen.getByRole("button", { name: "Collapse role panel" })).toHaveClass(
+      "role-inspector-icon-action",
     );
   });
 });

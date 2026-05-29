@@ -331,11 +331,31 @@ export const api = {
     });
   },
 
-  updateRole: (roleId: string, patch: { title?: string; role_type?: string; grants?: string[] }) =>
-    request<{ ok: boolean }>(`/roles/${encodeURIComponent(roleId)}/update`, {
+  updateRole: (
+    roleId: string,
+    patch: {
+      title?: string;
+      role_type?: string;
+      grants?: string[];
+      description_idea_id?: string | null;
+    },
+  ) =>
+    request<{ ok: boolean; role: Role }>(`/roles/${encodeURIComponent(roleId)}/update`, {
       method: "POST",
       body: JSON.stringify(patch),
     }),
+
+  updateRoleEdges: (
+    roleId: string,
+    patch: { parent_role_ids?: string[]; child_role_ids?: string[] },
+  ) =>
+    request<{ ok: boolean; role: Role; edges: RoleEdge[] }>(
+      `/roles/${encodeURIComponent(roleId)}/edges`,
+      {
+        method: "POST",
+        body: JSON.stringify(patch),
+      },
+    ),
 
   archiveRole: (roleId: string) =>
     request<{ ok: boolean }>(`/roles/${encodeURIComponent(roleId)}/archive`, {

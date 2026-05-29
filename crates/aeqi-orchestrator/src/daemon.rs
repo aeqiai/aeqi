@@ -1556,6 +1556,10 @@ impl Daemon {
                 "update_role" => {
                     crate::ipc::roles::handle_update_role(&ctx, &request, &allowed_roots).await
                 }
+                "update_role_edges" => {
+                    crate::ipc::roles::handle_update_role_edges(&ctx, &request, &allowed_roots)
+                        .await
+                }
                 "archive_role" => {
                     crate::ipc::roles::handle_archive_role(&ctx, &request, &allowed_roots).await
                 }

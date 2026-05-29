@@ -1,7 +1,8 @@
 //! Role IPC handlers.
 //!
 //! Commands: `list_roles`, `create_role`, `change_occupant`,
-//!           `update_role`, `archive_role`, `get_role`, `user_grants`.
+//!           `update_role`, `update_role_edges`, `archive_role`, `get_role`,
+//!           `user_grants`.
 //!
 //! `change_occupant` swaps the role's occupant and rotates the participant
 //! set on every session anchored to that role, then appends a system
@@ -10,9 +11,9 @@
 //! entity, so the caller's `allowed` list filters reads and rejects writes
 //! outside their scope.
 //!
-//! Mutation commands gate on the caller holding `roles.manage` at the
-//! relevant entity. The grant check uses `caller_user_id` injected by
-//! the HTTP layer via `ipc_proxy`.
+//! Mutation commands gate on the caller holding `roles.manage` inside the
+//! relevant role branch. The caller id comes from `caller_user_id` injected
+//! by the HTTP layer via `ipc_proxy`.
 
 use crate::role_registry::{OccupantKind, RoleType};
 
@@ -28,9 +29,35 @@ fn caller_user_id(request: &serde_json::Value) -> &str {
         .unwrap_or("")
 }
 
-/// Check that the caller holds `roles.manage` at `trust_id`.
-/// Returns `Some(error_json)` when the check fails, `None` when it passes.
-async fn require_roles_manage(
+/// Check that the caller can manage `role_id` through the role DAG.
+/// A caller must hold `roles.manage` on an occupied role that is the target
+/// role or one of its ancestors. This keeps authority edits scoped to the
+/// caller's delegated branch instead of making `roles.manage` global.
+async fn require_can_manage_role(
+    ctx: &super::CommandContext,
+    trust_id: &str,
+    role_id: &str,
+    caller_id: &str,
+) -> Option<serde_json::Value> {
+    if caller_id.is_empty() {
+        return Some(serde_json::json!({"ok": false, "error": "authentication required"}));
+    }
+    match ctx
+        .role_registry
+        .user_can_manage_role(trust_id, caller_id, role_id)
+        .await
+    {
+        Ok(true) => None,
+        Ok(false) => Some(serde_json::json!({
+            "ok": false,
+            "error": "forbidden: role is outside caller's managed branch",
+            "code": "forbidden",
+        })),
+        Err(e) => Some(serde_json::json!({"ok": false, "error": e.to_string()})),
+    }
+}
+
+async fn require_can_create_root_role(
     ctx: &super::CommandContext,
     trust_id: &str,
     caller_id: &str,
@@ -40,17 +67,15 @@ async fn require_roles_manage(
     }
     match ctx
         .role_registry
-        .user_has_grant(
-            trust_id,
-            caller_id,
-            crate::role_registry::GRANT_ROLES_MANAGE,
-        )
+        .user_can_create_root_role(trust_id, caller_id)
         .await
     {
         Ok(true) => None,
-        Ok(false) => Some(
-            serde_json::json!({"ok": false, "error": "forbidden: roles.manage required", "code": "forbidden"}),
-        ),
+        Ok(false) => Some(serde_json::json!({
+            "ok": false,
+            "error": "forbidden: director role required to create root roles",
+            "code": "forbidden",
+        })),
         Err(e) => Some(serde_json::json!({"ok": false, "error": e.to_string()})),
     }
 }
@@ -175,9 +200,16 @@ pub async fn handle_create_role(
         return serde_json::json!({"ok": false, "error": "access denied"});
     }
 
-    // Gate on roles.manage.
+    // Creating without a parent mints a root-level authority seat, so it is
+    // limited to Directors. Creating below a parent is scoped to the caller's
+    // managed branch.
     let caller_id = caller_user_id(request).to_string();
-    if let Some(err) = require_roles_manage(ctx, &trust_id, &caller_id).await {
+    let parent_role_id = super::request_field(request, "parent_role_id").map(str::to_string);
+    if let Some(parent_id) = parent_role_id.as_deref() {
+        if let Some(err) = require_can_manage_role(ctx, &trust_id, parent_id, &caller_id).await {
+            return err;
+        }
+    } else if let Some(err) = require_can_create_root_role(ctx, &trust_id, &caller_id).await {
         return err;
     }
 
@@ -218,8 +250,6 @@ pub async fn handle_create_role(
             .collect()
     });
 
-    let parent_role_id = super::request_field(request, "parent_role_id").map(str::to_string);
-
     // Pre-check: if the occupant already has a role in this entity (e.g. a
     // spawn-time row created by `spawn_with_entity_id`), adopt that row instead
     // of minting a second one.  Update its title, role_type, and grants so the
@@ -227,6 +257,11 @@ pub async fn handle_create_role(
     let role = if let Some(occ_id) = occupant_id.as_deref() {
         match ctx.role_registry.get_by_occupant(&trust_id, occ_id).await {
             Ok(Some(existing)) => {
+                if let Some(err) =
+                    require_can_manage_role(ctx, &trust_id, &existing.id, &caller_id).await
+                {
+                    return err;
+                }
                 let effective_grants = match grants {
                     Some(ref g) if !g.is_empty() => g.clone(),
                     _ => crate::role_registry::default_grants_for_type(role_type),
@@ -367,7 +402,7 @@ pub async fn handle_update_role(
     };
 
     let caller_id = caller_user_id(request).to_string();
-    if let Some(err) = require_roles_manage(ctx, &trust_id, &caller_id).await {
+    if let Some(err) = require_can_manage_role(ctx, &trust_id, &role_id, &caller_id).await {
         return err;
     }
 
@@ -413,6 +448,89 @@ pub async fn handle_update_role(
     }
 }
 
+/// Handle an `update_role_edges` IPC command.
+///
+/// # Request shape
+///
+/// ```json
+/// {
+///   "role_id":          "<uuid>",
+///   "parent_role_ids":  ["<uuid>"], // optional — replaces incoming edges
+///   "child_role_ids":   ["<uuid>"], // optional — replaces outgoing edges
+///   "caller_user_id":   "<user-id>" // injected by ipc_proxy
+/// }
+/// ```
+pub async fn handle_update_role_edges(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    _allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let role_id = match super::request_field(request, "role_id") {
+        Some(s) if !s.is_empty() => s.to_string(),
+        _ => return serde_json::json!({"ok": false, "error": "role_id is required"}),
+    };
+
+    let trust_id = match ctx.role_registry.get(&role_id).await {
+        Ok(Some(r)) => r.trust_id,
+        Ok(None) => {
+            return serde_json::json!({"ok": false, "error": "role not found", "code": "not_found"});
+        }
+        Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
+    };
+
+    let caller_id = caller_user_id(request).to_string();
+    if let Some(err) = require_can_manage_role(ctx, &trust_id, &role_id, &caller_id).await {
+        return err;
+    }
+
+    if let Some(parent_ids) = request.get("parent_role_ids").and_then(|v| v.as_array()) {
+        let parent_ids = parent_ids
+            .iter()
+            .filter_map(|v| v.as_str().map(str::to_string))
+            .collect::<Vec<_>>();
+        for parent_id in &parent_ids {
+            if let Some(err) = require_can_manage_role(ctx, &trust_id, parent_id, &caller_id).await
+            {
+                return err;
+            }
+        }
+        if let Err(e) = ctx
+            .role_registry
+            .set_parent_edges(&role_id, parent_ids)
+            .await
+        {
+            return serde_json::json!({"ok": false, "error": e.to_string()});
+        }
+    }
+
+    if let Some(child_ids) = request.get("child_role_ids").and_then(|v| v.as_array()) {
+        let child_ids = child_ids
+            .iter()
+            .filter_map(|v| v.as_str().map(str::to_string))
+            .collect::<Vec<_>>();
+        for child_id in &child_ids {
+            if let Some(err) = require_can_manage_role(ctx, &trust_id, child_id, &caller_id).await {
+                return err;
+            }
+        }
+        if let Err(e) = ctx.role_registry.set_child_edges(&role_id, child_ids).await {
+            return serde_json::json!({"ok": false, "error": e.to_string()});
+        }
+    }
+
+    let role = match ctx.role_registry.get(&role_id).await {
+        Ok(Some(role)) => role,
+        Ok(None) => return serde_json::json!({"ok": false, "error": "role not found after update"}),
+        Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
+    };
+    let edges = match ctx.role_registry.list_edges_for_entity(&trust_id).await {
+        Ok(edges) => edges,
+        Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
+    };
+
+    serde_json::json!({"ok": true, "role": role, "edges": edges})
+}
+
 /// Handle an `archive_role` IPC command.
 ///
 /// # Request shape
@@ -442,7 +560,7 @@ pub async fn handle_archive_role(
     };
 
     let caller_id = caller_user_id(request).to_string();
-    if let Some(err) = require_roles_manage(ctx, &trust_id, &caller_id).await {
+    if let Some(err) = require_can_manage_role(ctx, &trust_id, &role_id, &caller_id).await {
         return err;
     }
 
@@ -505,9 +623,9 @@ pub async fn handle_change_occupant(
         Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
     };
 
-    // Gate on roles.manage.
+    // Gate on branch-scoped roles.manage.
     let caller_id = caller_user_id(request).to_string();
-    if let Some(err) = require_roles_manage(ctx, &role.trust_id, &caller_id).await {
+    if let Some(err) = require_can_manage_role(ctx, &role.trust_id, &role_id, &caller_id).await {
         return err;
     }
 
@@ -673,6 +791,26 @@ mod tests {
         entity.id
     }
 
+    async fn founding_director_id(ctx: &CommandContext, trust_id: &str) -> String {
+        ctx.role_registry
+            .list_for_entity_with_grants(trust_id)
+            .await
+            .unwrap()
+            .0
+            .into_iter()
+            .find(|role| role.founder)
+            .expect("founding director")
+            .id
+    }
+
+    async fn attach_to_founding_director(ctx: &CommandContext, trust_id: &str, role_id: &str) {
+        let founder_id = founding_director_id(ctx, trust_id).await;
+        ctx.role_registry
+            .add_edge(&founder_id, role_id)
+            .await
+            .expect("attach to founder");
+    }
+
     /// Create an entity + agent-occupied role in the given ctx.
     async fn make_occupied_role(ctx: &CommandContext, agent_id: &str) -> (String, String) {
         let trust_id = make_entity_with_director(ctx, "owner-user").await;
@@ -689,6 +827,7 @@ mod tests {
             )
             .await
             .unwrap();
+        attach_to_founding_director(ctx, &trust_id, &role.id).await;
         (role.id, trust_id)
     }
 
@@ -854,6 +993,7 @@ mod tests {
             .create(&trust_id, "Old Title", OccupantKind::Vacant, None)
             .await
             .unwrap();
+        attach_to_founding_director(&ctx, &trust_id, &role.id).await;
 
         let req = serde_json::json!({
             "role_id": role.id,
@@ -876,6 +1016,7 @@ mod tests {
             .create(&trust_id, "Temp", OccupantKind::Vacant, None)
             .await
             .unwrap();
+        attach_to_founding_director(&ctx, &trust_id, &role.id).await;
 
         let req = serde_json::json!({
             "role_id": role.id,
@@ -887,6 +1028,54 @@ mod tests {
         let get_resp = handle_get_role(&ctx, &serde_json::json!({"role_id": role.id}), &None).await;
         assert_eq!(get_resp["ok"], false);
         assert_eq!(get_resp["code"], "not_found");
+    }
+
+    #[tokio::test]
+    async fn update_role_edges_replaces_parents() {
+        let dir = tempfile::tempdir().unwrap();
+        let (ctx, _ss) = build_test_ctx(dir.path()).await;
+        let trust_id = make_entity_with_director(&ctx, "owner").await;
+
+        let board = ctx
+            .role_registry
+            .create_with_type(
+                &trust_id,
+                "Board",
+                OccupantKind::Vacant,
+                None,
+                RoleType::Director,
+                false,
+                None,
+            )
+            .await
+            .expect("board");
+        let operator = ctx
+            .role_registry
+            .create_with_type(
+                &trust_id,
+                "Operator",
+                OccupantKind::Vacant,
+                None,
+                RoleType::Operational,
+                false,
+                None,
+            )
+            .await
+            .expect("operator");
+        attach_to_founding_director(&ctx, &trust_id, &board.id).await;
+        attach_to_founding_director(&ctx, &trust_id, &operator.id).await;
+
+        let req = serde_json::json!({
+            "role_id": operator.id,
+            "parent_role_ids": [board.id],
+            "caller_user_id": "owner",
+        });
+        let resp = handle_update_role_edges(&ctx, &req, &None).await;
+        assert_eq!(resp["ok"], true, "{resp}");
+        let edges = resp["edges"].as_array().expect("edges");
+        assert!(edges.iter().any(|edge| {
+            edge["parent_role_id"] == board.id && edge["child_role_id"] == operator.id
+        }));
     }
 
     #[tokio::test]

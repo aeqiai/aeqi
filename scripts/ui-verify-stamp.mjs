@@ -41,7 +41,7 @@ function fileHash(files) {
     const abs = path.join(root, file);
     hash.update(file);
     hash.update("\0");
-    hash.update(readFileSync(abs));
+    hash.update(existsSync(abs) ? readFileSync(abs) : "<deleted>");
     hash.update("\0");
   }
   return hash.digest("hex");

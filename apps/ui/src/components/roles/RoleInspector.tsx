@@ -1,11 +1,25 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { ArrowRight, Bot, Copy, Check, Landmark } from "lucide-react";
-import RoundAvatar from "@/components/RoundAvatar";
-import type { Role, RoleEdge, Quest } from "@/lib/types";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { ArrowRight, Check, Landmark, Link2, PanelRightClose } from "lucide-react";
+import type { Idea, OccupantKind, Role, RoleEdge, Quest, RoleType } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
 import { api } from "@/lib/api";
 import { formatMediumDate } from "@/lib/i18n";
+import {
+  CopyButton,
+  PropertyGroup,
+  PropertyRow,
+  ReadOnlyRow,
+  RoleEdgesModal,
+  compactAddress,
+  labelRoleType,
+} from "./RoleInspectorPrimitives";
+import {
+  RoleAssignmentModal,
+  RoleGrantsModal,
+  RoleMandateModal,
+  RoleNameModal,
+  RoleTypeModal,
+} from "./RoleInspectorModals";
 
 interface RoleInspectorProps {
   role: Role;
@@ -13,33 +27,23 @@ interface RoleInspectorProps {
   rolesById: ReadonlyMap<string, Role>;
   trustId: string;
   basePath: string;
-  onEdit?: () => void;
+  onCollapse?: () => void;
+  onRoleUpdated?: (role: Role) => void;
+  onEdgesUpdated?: (edges: RoleEdge[]) => void;
 }
 
-/**
- * Right-side inspector panel for the Roles surface. Always-rendered;
- * the parent picks a default (viewer's own role, falling back to a
- * founder) so this panel never shows an empty state.
- *
- * Shows: holder + role identifiers, mandate (placeholder until the
- * backend exposes a real field), grants count, explicit graph links,
- * active quests (from the daemon store, filtered by occupant_id),
- * created/updated metadata.
- *
- * Edit / invite affordances are surfaced but route to existing
- * standalone pages (`/roles/<id>/edit`, `/roles/<id>/invite`) rather
- * than opening modals — keeps the inspector composable, lets the
- * existing flows do the actual work.
- */
+type Editor = "name" | "type" | "assignment" | "mandate" | "parents" | "children" | "grants";
+
 export default function RoleInspector({
   role,
   edges,
   rolesById,
   trustId,
   basePath,
-  onEdit,
+  onCollapse,
+  onRoleUpdated,
+  onEdgesUpdated,
 }: RoleInspectorProps) {
-  void trustId;
   const agents = useDaemonStore((s) => s.agents);
   const quests = useDaemonStore((s) => s.quests) as unknown as Quest[];
   const entities = useDaemonStore((s) => s.entities);
@@ -50,19 +54,12 @@ export default function RoleInspector({
     return m;
   }, [agents]);
 
-  // Entity name lookup for `occupant_kind === "trust"` holders (a parent
-  // holding's TRUST occupying a Director / board seat). Falls back to
-  // null when the daemon store hasn't loaded the parent entity into
-  // the current viewer's scope.
   const entityNameById = useMemo(() => {
     const m = new Map<string, string>();
     for (const e of entities) m.set(e.id, e.name);
     return m;
   }, [entities]);
 
-  // Parent role(s) — who this role explicitly reports to. The canvas may
-  // synthesize governance connectors for layout/teaching, but the inspector
-  // only presents persisted edges as role facts.
   const parentRoles = useMemo(() => {
     const parents: Role[] = [];
     for (const e of edges) {
@@ -72,10 +69,8 @@ export default function RoleInspector({
       }
     }
     return parents;
-  }, [edges, rolesById, role]);
+  }, [edges, rolesById, role.id]);
 
-  // Children (delegates) — roles explicitly linked below this one. Keep
-  // inferred chart connectors out of the details pane.
   const childRoles = useMemo(() => {
     const children: Role[] = [];
     for (const e of edges) {
@@ -87,9 +82,11 @@ export default function RoleInspector({
     return children;
   }, [edges, rolesById, role.id]);
 
-  // Active quests held by THIS role's occupant when it's an agent.
-  // For human-held or vacant roles, this stays 0; quests are agent-
-  // owned in the AEQI model.
+  const candidateRoles = useMemo(
+    () => Array.from(rolesById.values()).filter((candidate) => candidate.id !== role.id),
+    [rolesById, role.id],
+  );
+
   const activeQuests = useMemo(() => {
     if (role.occupant_kind !== "agent" || !role.occupant_id) return 0;
     return quests.filter(
@@ -100,50 +97,66 @@ export default function RoleInspector({
           q.status === "todo" ||
           q.status === "backlog"),
     ).length;
-  }, [quests, role]);
+  }, [quests, role.occupant_id, role.occupant_kind]);
 
-  // Resolved holder display name OR null when only a raw UUID is
-  // available. The HOLDER chip below already shows the truncated ID;
-  // the inspector header line should NOT echo a 36-char UUID as prose.
-  // Renders as "Held by …" only when we have a real name.
   const occupantDisplayName = useMemo(() => {
     if (role.occupant_kind === "vacant") return null;
-    if (role.occupant_kind === "human") {
-      // Real name OR null — never the raw id (which is a UUID/address
-      // with no human signal).
-      return role.occupant_name || null;
-    }
+    if (role.occupant_kind === "human") return role.occupant_name || null;
     if (role.occupant_kind === "agent" && role.occupant_id) {
-      // Daemon-store name lookup; null if the agent lives outside this
-      // trust's runtime scope (cross-trust agent occupants are common).
       return agentNamesById.get(role.occupant_id) || null;
     }
     if (role.occupant_kind === "trust" && role.occupant_id) {
-      // TRUST-occupied seats (parent holding's TRUST in a Director seat).
-      // Resolve to the entity name from the daemon store.
       return entityNameById.get(role.occupant_id) || null;
     }
     return null;
   }, [role, agentNamesById, entityNameById]);
 
-  const [copiedField, setCopiedField] = useState<string | null>(null);
-  const copy = (value: string, fieldId: string) => {
-    navigator.clipboard.writeText(value);
-    setCopiedField(fieldId);
-    setTimeout(() => setCopiedField((cur) => (cur === fieldId ? null : cur)), 1500);
-  };
+  const roleTypeLabel = labelRoleType(role.role_type);
+  const holderLabel =
+    role.occupant_kind === "vacant"
+      ? "Vacant"
+      : occupantDisplayName ||
+        (role.occupant_kind === "human"
+          ? "Human"
+          : role.occupant_kind === "trust"
+            ? "TRUST"
+            : "Agent");
 
-  // Charter idea — the role's mandate document. The role row carries
-  // `description_idea_id`; the Mandate section renders the idea as a
-  // preview card (name + content excerpt + tags) that links to the
-  // canonical idea detail page on click. Falls back to the empty-state
-  // placeholder when no charter is linked.
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [editor, setEditor] = useState<Editor | null>(null);
+  const [titleDraft, setTitleDraft] = useState(role.title);
+  const [typeDraft, setTypeDraft] = useState<RoleType>(role.role_type);
+  const [assignmentDraft, setAssignmentDraft] = useState<{
+    kind: OccupantKind;
+    id: string;
+  }>({
+    kind: role.occupant_kind,
+    id: role.occupant_id ?? "",
+  });
+  const [mandateDraft, setMandateDraft] = useState(role.description_idea_id ?? "");
+  const [ideaQuery, setIdeaQuery] = useState("");
+  const [ideaOptions, setIdeaOptions] = useState<Idea[]>([]);
+  const [parentDraft, setParentDraft] = useState<string[]>(parentRoles.map((r) => r.id));
+  const [childDraft, setChildDraft] = useState<string[]>(childRoles.map((r) => r.id));
+  const [grantsDraft, setGrantsDraft] = useState<string[]>(role.grants ?? []);
+  const [charter, setCharter] = useState<Idea | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   const charterIdeaId = role.description_idea_id ?? null;
-  const [charter, setCharter] = useState<{
-    name: string;
-    content: string;
-    tags: string[];
-  } | null>(null);
+
+  useEffect(() => {
+    setTitleDraft(role.title);
+    setTypeDraft(role.role_type);
+    setAssignmentDraft({ kind: role.occupant_kind, id: role.occupant_id ?? "" });
+    setMandateDraft(role.description_idea_id ?? "");
+    setParentDraft(parentRoles.map((r) => r.id));
+    setChildDraft(childRoles.map((r) => r.id));
+    setGrantsDraft(role.grants ?? []);
+    setError(null);
+    setSubmitting(false);
+  }, [role, parentRoles, childRoles]);
+
   useEffect(() => {
     if (!charterIdeaId) {
       setCharter(null);
@@ -154,16 +167,7 @@ export default function RoleInspector({
       .getIdeasByIds([charterIdeaId])
       .then((resp) => {
         if (cancelled) return;
-        const idea = resp.ideas?.find((i) => i.id === charterIdeaId);
-        if (idea) {
-          setCharter({
-            name: idea.name ?? "",
-            content: idea.content ?? "",
-            tags: idea.tags ?? [],
-          });
-        } else {
-          setCharter(null);
-        }
+        setCharter((resp.ideas?.find((i) => i.id === charterIdeaId) as Idea | undefined) ?? null);
       })
       .catch(() => {
         if (!cancelled) setCharter(null);
@@ -173,265 +177,373 @@ export default function RoleInspector({
     };
   }, [charterIdeaId]);
 
-  const isVacant = role.occupant_kind === "vacant";
-  const isHuman = role.occupant_kind === "human";
-  const isTrust = role.occupant_kind === "trust";
-  const isAgent = role.occupant_kind === "agent";
-  const heldByLabel = isHuman
-    ? "a human"
-    : isTrust
-      ? "a TRUST"
-      : isAgent
-        ? "an agent"
-        : "an occupant";
-  // Role-type label — see RoleNode.pillLabel for why `founder` is NOT
-  // a distinct user-facing tier and why "operational" surfaces as
-  // "Operator" rather than the adjective form.
-  const roleTypeLabel =
-    role.role_type === "director"
-      ? "Director"
-      : role.role_type === "advisor"
-        ? "Advisor"
-        : "Operator";
+  useEffect(() => {
+    if (editor !== "mandate") return;
+    let cancelled = false;
+    api
+      .getIdeas({ root: trustId, query: ideaQuery, limit: 12 })
+      .then((data) => {
+        if (cancelled) return;
+        setIdeaOptions(((data.ideas as Idea[] | undefined) ?? []) as Idea[]);
+      })
+      .catch(() => {
+        if (!cancelled) setIdeaOptions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [editor, ideaQuery, trustId]);
+
+  const copy = (value: string, fieldId: string) => {
+    navigator.clipboard.writeText(value);
+    setCopiedField(fieldId);
+    setTimeout(() => setCopiedField((cur) => (cur === fieldId ? null : cur)), 1500);
+  };
+
+  const copyRoleLink = () => {
+    copy(
+      `${window.location.origin}${basePath}/roles?role=${encodeURIComponent(role.id)}`,
+      "roleLink",
+    );
+  };
+
+  const closeEditor = () => {
+    if (submitting) return;
+    setEditor(null);
+    setError(null);
+  };
+
+  const openEditor = (next: Editor) => {
+    setError(null);
+    setEditor(next);
+  };
+
+  const saveRolePatch = async (patch: {
+    title?: string;
+    role_type?: RoleType;
+    grants?: string[];
+    description_idea_id?: string | null;
+  }) => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const resp = await api.updateRole(role.id, patch);
+      onRoleUpdated?.(resp.role);
+      setEditor(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not update role.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const saveName = (event: FormEvent) => {
+    event.preventDefault();
+    const next = titleDraft.trim();
+    if (!next) {
+      setError("Name is required.");
+      return;
+    }
+    if (next === role.title) {
+      setEditor(null);
+      return;
+    }
+    void saveRolePatch({ title: next });
+  };
+
+  const saveType = (event: FormEvent) => {
+    event.preventDefault();
+    if (typeDraft === role.role_type) {
+      setEditor(null);
+      return;
+    }
+    void saveRolePatch({ role_type: typeDraft });
+  };
+
+  const saveAssignment = async (event: FormEvent) => {
+    event.preventDefault();
+    const id = assignmentDraft.kind === "vacant" ? undefined : assignmentDraft.id;
+    if (assignmentDraft.kind !== "vacant" && !id) {
+      setError("Choose an assignee.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      await api.assignRoleOccupant(role.id, {
+        occupant_kind: assignmentDraft.kind,
+        ...(id ? { occupant_id: id } : {}),
+      });
+      const resp = await api.getRole(role.id);
+      onRoleUpdated?.(resp.role);
+      setEditor(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not update assignment.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const saveMandate = (event: FormEvent) => {
+    event.preventDefault();
+    void saveRolePatch({ description_idea_id: mandateDraft.trim() || null });
+  };
+
+  const saveParents = async (event: FormEvent) => {
+    event.preventDefault();
+    await saveEdges({ parent_role_ids: parentDraft }, "Could not update reporting line.");
+  };
+
+  const saveChildren = async (event: FormEvent) => {
+    event.preventDefault();
+    await saveEdges({ child_role_ids: childDraft }, "Could not update delegate roles.");
+  };
+
+  const saveEdges = async (
+    patch: { parent_role_ids?: string[]; child_role_ids?: string[] },
+    fallback: string,
+  ) => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const resp = await api.updateRoleEdges(role.id, patch);
+      onRoleUpdated?.(resp.role);
+      onEdgesUpdated?.(resp.edges);
+      setEditor(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : fallback);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const saveGrants = (event: FormEvent) => {
+    event.preventDefault();
+    void saveRolePatch({ grants: grantsDraft });
+  };
+
+  const toggleGrant = (grantId: string, checked: boolean) => {
+    setGrantsDraft((prev) => (checked ? [...prev, grantId] : prev.filter((g) => g !== grantId)));
+  };
+
   return (
     <aside className="role-inspector" aria-label="Selected role">
-      {/* Header */}
-      <header className="role-inspector-head">
-        <div className="role-inspector-head-main">
-          <div
-            className={`role-inspector-avatar role-inspector-avatar--${role.occupant_kind}`}
-            aria-hidden
+      <header className="role-inspector-topbar">
+        <span className="role-inspector-object">Role</span>
+        <div className="role-inspector-actions" aria-label="Role actions">
+          <button
+            type="button"
+            className="role-inspector-icon-action"
+            onClick={copyRoleLink}
+            title={copiedField === "roleLink" ? "Copied role link" : "Copy role link"}
+            aria-label={copiedField === "roleLink" ? "Copied role link" : "Copy role link"}
+            data-pill-allowed=""
           >
-            {isVacant ? (
-              <span className="role-inspector-avatar-vacant">—</span>
-            ) : isHuman ? (
-              <RoundAvatar
-                name={occupantDisplayName ?? role.title}
-                src={role.occupant_avatar_url ?? null}
-                size={48}
-              />
-            ) : isTrust ? (
-              <span className="role-inspector-avatar-trust">
-                <Landmark size={28} strokeWidth={1.5} />
-              </span>
+            {copiedField === "roleLink" ? (
+              <Check size={13} strokeWidth={1.8} />
             ) : (
-              <span className="role-inspector-avatar-agent">
-                <Bot size={28} strokeWidth={1.5} />
-              </span>
+              <Link2 size={13} strokeWidth={1.7} />
             )}
-          </div>
-          <div className="role-inspector-titles">
-            <p className="role-inspector-eyebrow">{roleTypeLabel}</p>
-            <h2 className="role-inspector-title">{role.title}</h2>
-            {!isVacant && occupantDisplayName && (
-              <p className="role-inspector-holder">Held by {occupantDisplayName}</p>
-            )}
-            {!isVacant && !occupantDisplayName && (
-              <p className="role-inspector-holder">Held by {heldByLabel} · see ID below</p>
-            )}
-            {isVacant && <p className="role-inspector-holder">Seat open</p>}
-          </div>
+          </button>
+          {onCollapse && (
+            <button
+              type="button"
+              className="role-inspector-icon-action"
+              onClick={onCollapse}
+              title="Collapse role panel"
+              aria-label="Collapse role panel"
+              data-pill-allowed=""
+            >
+              <PanelRightClose size={13} strokeWidth={1.7} />
+            </button>
+          )}
         </div>
       </header>
 
       <div className="role-inspector-body">
-        <EditableRow
-          label="Role"
-          title={role.title}
-          actionLabel="Edit"
-          to={onEdit ? undefined : `${basePath}/roles/${encodeURIComponent(role.id)}/edit`}
-          onClick={onEdit}
-        />
-
-        <EditableRow
-          label="Assigned to"
-          title={
-            isVacant
-              ? "Seat open"
-              : occupantDisplayName
-                ? occupantDisplayName
-                : `Held by ${heldByLabel}`
-          }
-          actionLabel={isVacant ? "Invite" : "Change"}
-          to={`${basePath}/roles/${encodeURIComponent(role.id)}/invite`}
-        />
-
-        <EditableRow
-          label="Mandate"
-          title={charter?.name ?? (charterIdeaId ? "Loading charter" : "No mandate defined")}
-          actionLabel={charterIdeaId ? "Open" : "Edit"}
-          to={
-            charterIdeaId
-              ? `${basePath}/ideas/${encodeURIComponent(charterIdeaId)}`
-              : `${basePath}/roles/${encodeURIComponent(role.id)}/edit`
-          }
-        />
-
-        {!isVacant && role.occupant_id && (
-          <ReadOnlyRow label="Holder ID">
-            {isTrust ? (
-              <Link
-                to={`/trust/${encodeURIComponent(role.occupant_id)}`}
-                className="role-inspector-holder-link"
-                title={`Open ${occupantDisplayName ?? "TRUST"} profile`}
-              >
-                {occupantDisplayName && (
-                  <>
-                    <Landmark size={13} strokeWidth={1.6} aria-hidden />
-                    <span>{occupantDisplayName}</span>
-                  </>
-                )}
-                <code>{compactAddress(role.occupant_id)}</code>
-              </Link>
-            ) : (
-              <code>{compactAddress(role.occupant_id)}</code>
-            )}
-            <CopyButton
-              copied={copiedField === "holder"}
-              onClick={() => copy(role.occupant_id!, "holder")}
-            />
-          </ReadOnlyRow>
-        )}
-
-        <ReadOnlyRow label="Role ID">
-          <code>{compactAddress(role.id)}</code>
-          <CopyButton copied={copiedField === "roleId"} onClick={() => copy(role.id, "roleId")} />
-        </ReadOnlyRow>
-
-        <ReadOnlyRow label="Grants">
-          <span className="role-inspector-stat">{role.grants.length}</span>
-          {role.grants.length > 0 && (
-            <span className="role-inspector-meta">
-              {role.grants.slice(0, 2).join(" · ")}
-              {role.grants.length > 2 ? ` · +${role.grants.length - 2}` : ""}
-            </span>
-          )}
-        </ReadOnlyRow>
-
-        {parentRoles.length > 0 && (
-          <ReadOnlyRow label="Reports to">
-            {parentRoles.slice(0, 3).map((p) => (
-              <Link
-                key={p.id}
-                to={`${basePath}/roles?role=${encodeURIComponent(p.id)}`}
-                className="role-inspector-chip"
-              >
+        <PropertyGroup title="Properties" defaultOpen>
+          <PropertyRow label="Name" title={role.title} onClick={() => openEditor("name")} />
+          <PropertyRow label="Type" title={roleTypeLabel} onClick={() => openEditor("type")} />
+          <PropertyRow
+            label="Assigned to"
+            title={holderLabel}
+            onClick={() => openEditor("assignment")}
+          />
+          <PropertyRow
+            label="Mandate"
+            title={charter?.name ?? (charterIdeaId ? "Loading mandate" : "No mandate defined")}
+            onClick={() => openEditor("mandate")}
+          />
+          <PropertyRow
+            label="Reports to"
+            title={parentRoles.length === 0 && role.role_type === "director" ? "Root role" : ""}
+            onClick={() => openEditor("parents")}
+          >
+            {parentRoles.map((p) => (
+              <span key={p.id} className="role-inspector-chip">
                 {p.title}
-              </Link>
+              </span>
             ))}
-            {parentRoles.length > 3 && (
-              <span className="role-inspector-meta">+{parentRoles.length - 3} more</span>
-            )}
-          </ReadOnlyRow>
-        )}
-
-        {parentRoles.length === 0 && role.role_type === "director" && (
-          <ReadOnlyRow label="Reports to">
-            <span className="role-inspector-meta">Root role</span>
-          </ReadOnlyRow>
-        )}
-
-        {childRoles.length > 0 && (
-          <ReadOnlyRow label="Delegates to">
+          </PropertyRow>
+          <PropertyRow
+            label="Delegates to"
+            title={childRoles.length === 0 ? "No delegates" : ""}
+            onClick={() => openEditor("children")}
+          >
             {childRoles.slice(0, 3).map((c) => (
-              <Link
-                key={c.id}
-                to={`${basePath}/roles?role=${encodeURIComponent(c.id)}`}
-                className="role-inspector-chip"
-              >
+              <span key={c.id} className="role-inspector-chip">
                 {c.title}
-              </Link>
+              </span>
             ))}
             {childRoles.length > 3 && (
-              <span className="role-inspector-meta">+{childRoles.length - 3} more</span>
+              <span className="role-inspector-meta">+{childRoles.length - 3}</span>
             )}
+          </PropertyRow>
+          {!role.occupant_id ? null : (
+            <ReadOnlyRow label="Holder ID">
+              {role.occupant_kind === "trust" ? (
+                <a
+                  href={`/trust/${encodeURIComponent(role.occupant_id)}`}
+                  className="role-inspector-holder-link"
+                  title={`Open ${occupantDisplayName ?? "TRUST"} profile`}
+                >
+                  {occupantDisplayName && (
+                    <>
+                      <Landmark size={13} strokeWidth={1.6} aria-hidden />
+                      <span>{occupantDisplayName}</span>
+                    </>
+                  )}
+                  <code>{compactAddress(role.occupant_id)}</code>
+                </a>
+              ) : (
+                <code>{compactAddress(role.occupant_id)}</code>
+              )}
+              <CopyButton
+                copied={copiedField === "holder"}
+                onClick={() => copy(role.occupant_id!, "holder")}
+              />
+            </ReadOnlyRow>
+          )}
+          <ReadOnlyRow label="Role ID">
+            <code>{compactAddress(role.id)}</code>
+            <CopyButton copied={copiedField === "roleId"} onClick={() => copy(role.id, "roleId")} />
           </ReadOnlyRow>
-        )}
+        </PropertyGroup>
 
-        {role.occupant_kind === "agent" && activeQuests > 0 && (
-          <ReadOnlyRow label="Active quests">
-            <Link to={`${basePath}/quests`} className="role-inspector-link">
-              {activeQuests}
-              <ArrowRight size={12} strokeWidth={1.8} />
-            </Link>
+        <PropertyGroup title="Authority" defaultOpen={role.grants.length > 0}>
+          <PropertyRow
+            label="Capabilities"
+            title={`${role.grants.length} capabilit${role.grants.length === 1 ? "y" : "ies"}`}
+            onClick={() => openEditor("grants")}
+          />
+          {role.grants.length > 0 && (
+            <div className="role-inspector-grant-preview">
+              {role.grants.slice(0, 4).map((grant) => (
+                <span key={grant} className="role-inspector-meta">
+                  {grant}
+                </span>
+              ))}
+              {role.grants.length > 4 && (
+                <span className="role-inspector-meta">+{role.grants.length - 4}</span>
+              )}
+            </div>
+          )}
+        </PropertyGroup>
+
+        <PropertyGroup title="Activity">
+          {role.occupant_kind === "agent" && activeQuests > 0 && (
+            <ReadOnlyRow label="Active quests">
+              <a href={`${basePath}/quests`} className="role-inspector-link">
+                {activeQuests}
+                <ArrowRight size={12} strokeWidth={1.8} />
+              </a>
+            </ReadOnlyRow>
+          )}
+          <ReadOnlyRow label="Created">
+            <span className="role-inspector-meta">{formatMediumDate(role.created_at)}</span>
           </ReadOnlyRow>
-        )}
-
-        <ReadOnlyRow label="Created">
-          <span className="role-inspector-meta">{formatMediumDate(role.created_at)}</span>
-        </ReadOnlyRow>
+        </PropertyGroup>
       </div>
+
+      <RoleNameModal
+        open={editor === "name"}
+        titleDraft={titleDraft}
+        setTitleDraft={setTitleDraft}
+        onSubmit={saveName}
+        error={error}
+        submitting={submitting}
+        onClose={closeEditor}
+      />
+
+      <RoleTypeModal
+        open={editor === "type"}
+        typeDraft={typeDraft}
+        setTypeDraft={setTypeDraft}
+        onSubmit={saveType}
+        error={error}
+        submitting={submitting}
+        onClose={closeEditor}
+      />
+
+      <RoleAssignmentModal
+        open={editor === "assignment"}
+        agents={agents}
+        entities={entities}
+        trustId={trustId}
+        assignmentDraft={assignmentDraft}
+        setAssignmentDraft={setAssignmentDraft}
+        onSubmit={saveAssignment}
+        error={error}
+        submitting={submitting}
+        onClose={closeEditor}
+      />
+
+      <RoleMandateModal
+        open={editor === "mandate"}
+        ideaQuery={ideaQuery}
+        setIdeaQuery={setIdeaQuery}
+        mandateDraft={mandateDraft}
+        setMandateDraft={setMandateDraft}
+        ideaOptions={ideaOptions}
+        onSubmit={saveMandate}
+        error={error}
+        submitting={submitting}
+        onClose={closeEditor}
+      />
+
+      <RoleEdgesModal
+        open={editor === "parents"}
+        title="Reports to"
+        roles={candidateRoles}
+        selected={parentDraft}
+        onSelected={setParentDraft}
+        onClose={closeEditor}
+        onSubmit={saveParents}
+        submitting={submitting}
+        error={error}
+      />
+
+      <RoleEdgesModal
+        open={editor === "children"}
+        title="Delegates to"
+        roles={candidateRoles}
+        selected={childDraft}
+        onSelected={setChildDraft}
+        onClose={closeEditor}
+        onSubmit={saveChildren}
+        submitting={submitting}
+        error={error}
+      />
+
+      <RoleGrantsModal
+        open={editor === "grants"}
+        grantsDraft={grantsDraft}
+        toggleGrant={toggleGrant}
+        onSubmit={saveGrants}
+        error={error}
+        submitting={submitting}
+        onClose={closeEditor}
+      />
     </aside>
   );
-}
-
-interface EditableRowProps {
-  label: string;
-  title: string;
-  actionLabel: string;
-  to?: string;
-  onClick?: () => void;
-}
-
-function EditableRow({ label, title, actionLabel, to, onClick }: EditableRowProps) {
-  const content = (
-    <>
-      <span className="role-inspector-row-label">{label}</span>
-      <span className="role-inspector-row-control">
-        <span className="role-inspector-row-title">{title}</span>
-        <span className="role-inspector-row-action">{actionLabel}</span>
-      </span>
-    </>
-  );
-
-  if (to) {
-    return (
-      <Link to={to} className="role-inspector-row role-inspector-row--editable">
-        {content}
-      </Link>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      className="role-inspector-row role-inspector-row--editable"
-      onClick={onClick}
-    >
-      {content}
-    </button>
-  );
-}
-
-interface ReadOnlyRowProps {
-  label: string;
-  children: React.ReactNode;
-}
-
-function ReadOnlyRow({ label, children }: ReadOnlyRowProps) {
-  return (
-    <div className="role-inspector-row role-inspector-row--readonly">
-      <span className="role-inspector-row-label">{label}</span>
-      <div className="role-inspector-row-value">{children}</div>
-    </div>
-  );
-}
-
-function CopyButton({ copied, onClick }: { copied: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      className="role-inspector-copy"
-      onClick={onClick}
-      title={copied ? "Copied" : "Copy ID"}
-      data-pill-allowed=""
-    >
-      {copied ? <Check size={12} strokeWidth={1.8} /> : <Copy size={12} strokeWidth={1.5} />}
-    </button>
-  );
-}
-
-function compactAddress(value: string): string {
-  if (value.length <= 14) return value;
-  return `${value.slice(0, 6)}…${value.slice(-4)}`;
 }
