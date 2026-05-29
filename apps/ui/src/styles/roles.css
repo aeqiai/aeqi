@@ -1404,7 +1404,7 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  padding: 12px;
+  padding: 0;
 }
 
 .trust-role-detail-page--details-collapsed .trust-role-detail-canvas {
@@ -1441,12 +1441,7 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background: var(--color-card);
-  border-radius: var(--radius-md) 0 0 var(--radius-md);
-}
-
-.trust-role-detail-page--details-collapsed .trust-role-detail-document {
-  border-radius: var(--radius-md);
+  background: transparent;
 }
 
 .trust-role-detail-document > .ideas-canvas {
