@@ -87,6 +87,10 @@ export interface IdeaCanvasProps {
    * with `embedded` (which suppresses the toolbar entirely).
    */
   headerSlot?: ReactNode;
+  /** Local chrome rendered inside the document content, directly above
+   *  the idea title. Embedding pages use this for section-level controls
+   *  without adding external rows around the canvas. */
+  contentHeaderSlot?: ReactNode;
   /**
    * When set, the canvas's internal create/save flow calls this instead
    * of navigating to the persisted idea's detail page. The parent owns
@@ -128,6 +132,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
     hideMetaStrip = false,
     composeScope: controlledComposeScope,
     headerSlot,
+    contentHeaderSlot,
     onPersisted,
     onCanCommitChange,
     onDirtyChange,
@@ -708,6 +713,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
           )}
 
           <div className="ideas-canvas-content">
+            {contentHeaderSlot}
             <Textarea
               ref={titleRef}
               className="ideas-canvas-title"

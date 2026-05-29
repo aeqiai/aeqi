@@ -279,24 +279,6 @@ export default function TrustRoleDetailPage({
               )}
               {!loading && !error && role && (
                 <>
-                  <div className="trust-role-detail-surface-header">
-                    <div className="trust-role-detail-surface-title">Role idea</div>
-                    <Tooltip content={detailsCollapsed ? "Show details" : "Hide details"} portal>
-                      <IconButton
-                        variant="bordered"
-                        size="md"
-                        className="trust-role-detail-surface-action"
-                        aria-label={detailsCollapsed ? "Show role details" : "Hide role details"}
-                        onClick={() => setDetailsCollapsed((collapsed) => !collapsed)}
-                      >
-                        {detailsCollapsed ? (
-                          <PanelRightOpen size={14} strokeWidth={1.8} />
-                        ) : (
-                          <PanelRightClose size={14} strokeWidth={1.8} />
-                        )}
-                      </IconButton>
-                    </Tooltip>
-                  </div>
                   <main className="trust-role-detail-document" aria-label="Role idea">
                     {ideaLoading && (
                       <div className="trust-roles-state">
@@ -316,6 +298,32 @@ export default function TrustRoleDetailPage({
                         onDirtyChange={setBodyDirty}
                         embedded
                         hideMetaStrip
+                        contentHeaderSlot={
+                          <div className="trust-role-detail-surface-header">
+                            <div className="trust-role-detail-surface-title">Role idea</div>
+                            <Tooltip
+                              content={detailsCollapsed ? "Show details" : "Hide details"}
+                              portal
+                            >
+                              <button
+                                type="button"
+                                className="role-inspector-icon-action trust-role-detail-surface-action"
+                                aria-label={
+                                  detailsCollapsed ? "Show role details" : "Hide role details"
+                                }
+                                title={detailsCollapsed ? "Show details" : "Hide details"}
+                                onClick={() => setDetailsCollapsed((collapsed) => !collapsed)}
+                                data-pill-allowed=""
+                              >
+                                {detailsCollapsed ? (
+                                  <PanelRightOpen size={13} strokeWidth={1.7} />
+                                ) : (
+                                  <PanelRightClose size={13} strokeWidth={1.7} />
+                                )}
+                              </button>
+                            </Tooltip>
+                          </div>
+                        }
                         conversationActivity="tabs"
                       />
                     )}

@@ -1399,7 +1399,6 @@
 .trust-role-detail-canvas {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
-  grid-template-rows: auto minmax(0, 1fr);
   gap: 0;
   flex: 1;
   min-width: 0;
@@ -1413,14 +1412,13 @@
 }
 
 .trust-role-detail-surface-header {
-  grid-column: 1 / -1;
   display: flex;
   align-items: center;
   justify-content: space-between;
   min-width: 0;
-  min-height: 34px;
-  padding: 0 0 10px 24px;
-  border-bottom: 1px solid var(--border-subtle, var(--border-faint));
+  min-height: 30px;
+  margin: 0 0 8px;
+  padding: 0 var(--ideas-canvas-editor-gutter-end) 0 var(--ideas-canvas-editor-gutter);
 }
 
 .trust-role-detail-surface-title {
@@ -1444,11 +1442,11 @@
   min-height: 0;
   overflow: hidden;
   background: var(--color-card);
-  border-radius: 0 0 0 var(--radius-md);
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
 }
 
 .trust-role-detail-page--details-collapsed .trust-role-detail-document {
-  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  border-radius: var(--radius-md);
 }
 
 .trust-role-detail-document > .ideas-canvas {
@@ -1492,16 +1490,40 @@
 }
 
 .trust-role-detail-document .idea-convo-root {
-  padding: 0 24px 8px;
+  padding: 0 24px 12px;
 }
 
 .trust-role-detail-document .idea-convo-card {
-  padding: 14px 0 16px;
+  padding: 16px 0 16px;
   border: 0;
   border-top: 1px solid var(--border-subtle, var(--border-faint));
   border-radius: 0;
   background: transparent;
   box-shadow: none;
+}
+
+.trust-role-detail-document .idea-convo-tabs {
+  gap: 6px;
+  padding: 0;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.trust-role-detail-document .idea-convo-tab {
+  min-height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.trust-role-detail-document .idea-convo-tab[aria-selected="true"] {
+  border-color: var(--border);
+  background: var(--color-card-elevated);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-sm);
 }
 
 .trust-role-detail-inspector {
@@ -2037,7 +2059,7 @@
     min-height: 520px;
     border-right: 0;
     border-bottom: 1px solid var(--border-subtle, var(--border-faint));
-    border-radius: 0;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
   }
   .trust-role-detail-inspector {
     overflow: visible;
