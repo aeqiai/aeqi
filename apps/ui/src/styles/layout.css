@@ -188,13 +188,10 @@
      transition would lag behind the cursor and feel rubber-banded.
      Toggle-collapse remains snappy via the explicit collapsed class. */
   overflow: hidden;
-  /* Symmetric vertical insets matching .content-column's top + bottom
-     padding, so the sidebar's first row (profile) sits at the same
-     y-coordinate as .content-card's top edge, and its last row aligns
-     with the card's bottom edge. Without this the rail's top edge runs
-     flush against the viewport while the card floats — the asymmetry
-     reads as a misalignment between the two columns. */
-  padding-top: var(--shell-footer-h, 28px);
+  /* Vertical insets matching .content-column's shell frame. The top is
+     slightly tighter than the bottom so the global chrome sits closer to
+     the viewport edge without making the workspace feel bottom-heavy. */
+  padding-top: 8px;
   padding-bottom: var(--shell-footer-h, 28px);
 }
 .left-sidebar.collapsed {
@@ -204,8 +201,9 @@
 /* Sidebar resizer — wide hit band on the right edge that fills with
  * a subtle grey on hover/drag. Cursor flips to col-resize so the
  * affordance reads before any mouse-down. The visible 1px line
- * remains hairline at rest; hover/drag widens it to 4px without
- * shifting layout (pseudo-element absolute, never reflows). */
+ * separates shell navigation from the workspace at rest; hover/drag
+ * widens it without shifting layout (pseudo-element absolute, never
+ * reflows). */
 .sidebar-resizer {
   position: absolute;
   top: 0;
@@ -223,7 +221,7 @@
   bottom: 0;
   right: 0;
   width: 1px;
-  background: transparent;
+  background: color-mix(in srgb, var(--border) 76%, transparent);
   transition:
     background 0.12s,
     width 0.12s;
@@ -231,7 +229,7 @@
 .sidebar-resizer:hover::before,
 .sidebar-resizer:active::before {
   background: var(--border-hover);
-  width: 4px;
+  width: 3px;
 }
 .left-sidebar.collapsed {
   width: 48px;
@@ -1196,11 +1194,9 @@
      tint, not as white slabs. The content-card paints its own
      background on top; only the empty insets show this color. */
   background: var(--bg-sidebar);
-  /* Symmetric 18px insets on top, bottom, and right — card floats with
-     matching breathing room on three edges. The left edge stays flush
-     against the sidebar so the tinted frame reads as continuous with
-     the rail. */
-  padding-top: var(--shell-footer-h);
+  /* Tight top inset for the global chrome; bottom/right keep the frame
+     rhythm so the workspace still reads as a floating operating surface. */
+  padding-top: 8px;
   padding-bottom: var(--shell-footer-h);
   padding-right: var(--shell-footer-h);
 }

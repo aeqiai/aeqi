@@ -645,6 +645,8 @@
    into the discovery column. */
 .trust-roles,
 .trust-agents {
+  --toolbar-control-h: 34px;
+
   display: grid;
   height: 100%;
   overflow: hidden;
