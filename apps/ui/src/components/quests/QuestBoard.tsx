@@ -346,9 +346,18 @@ export default function QuestBoard({
   return (
     <div className="quest-board">
       <PrimitivePageHeader
-        title="Quests"
+        className="trust-quests-page-header"
+        title={
+          <span className="trust-primitive-page-title">
+            <span className="trust-primitive-page-title-text">Quests</span>
+            <span className="trust-primitive-page-count" aria-hidden="true">
+              {allQuests.length}
+            </span>
+          </span>
+        }
+        aria-label="Quest controls"
         children={
-          <div className="ideas-toolbar">
+          <div className="ideas-toolbar trust-quests-toolbar">
             <PrimitiveSearchField
               inputRef={searchRef}
               placeholder="Search quests"
@@ -390,245 +399,57 @@ export default function QuestBoard({
               onBlueprintSpawned={onCreated}
             />
             <Button
+              className="trust-top-rail-cta"
               variant="primary"
               size="md"
               onClick={() => onCompose()}
+              aria-label={boardScopeId ? "New subquest" : "New quest"}
               title={boardScopeId ? "New subquest in this scope (N)" : "New quest (N)"}
               leadingIcon={<Icon icon={Plus} size="sm" />}
             >
-              {boardScopeId ? "New subquest" : "New"}
+              {boardScopeId ? "Subquest" : "Quest"}
             </Button>
           </>
         }
       />
-      <QuestBoardScope
-        scope={boardScopeQuest}
-        childCount={
-          boardScopeQuest ? (childCounts.get(boardScopeQuest.id) ?? 0) : scopeOptions.length
-        }
-        parentScopeId={
-          boardScopeAncestors.length > 0
-            ? boardScopeAncestors[boardScopeAncestors.length - 1].id
-            : null
-        }
-        projectCount={scopeOptions.length}
-        scopeOptions={scopeOptions}
-        summary={scopeSummary}
-        dragging={dragging}
-        dropActive={scopeDropActive}
-        onDropActiveChange={setScopeDropActive}
-        onDrop={(id) => {
-          onBoardScopeChange(id);
-          setDragging(null);
-          setDropTarget(null);
-        }}
-        onScopeSelect={onBoardScopeChange}
-        onUp={() =>
-          onBoardScopeChange(
+      <div className="quest-board-main">
+        <QuestBoardScope
+          scope={boardScopeQuest}
+          childCount={
+            boardScopeQuest ? (childCounts.get(boardScopeQuest.id) ?? 0) : scopeOptions.length
+          }
+          parentScopeId={
             boardScopeAncestors.length > 0
               ? boardScopeAncestors[boardScopeAncestors.length - 1].id
-              : null,
-          )
-        }
-        onClear={() => onBoardScopeChange(null)}
-        onOpen={() => {
-          if (boardScopeQuest) onOpenQuest(boardScopeQuest.id);
-        }}
-        optimistic={optimistic}
-        focusId={focusId}
-        setDragging={setDragging}
-        setDropTarget={setDropTarget}
-        onTake={handleTake}
-        onCreated={onCreated}
-        onError={setErr}
-        agents={agents}
-        users={users}
-        searchMatches={searchMatchById}
-      />
-      {err && (
-        <Banner kind="error" className="quest-board-error">
-          {err}
-        </Banner>
-      )}
-
-      {view === "list" ? (
-        <QuestList
-          groups={columns.map((col) => ({
-            status: col.status,
-            label: col.label,
-            quests: grouped[col.status] || [],
-          }))}
-          collapsedStatuses={collapsedListGroups}
-          onToggleStatus={toggleListGroup}
-          optimistic={optimistic}
-          focusId={focusId}
-          totalCount={sortedVisibleQuests.length}
-          onPick={onPick}
-          onNew={() => onCompose()}
-          onCompose={onCompose}
-          onAssigneeChange={async (id, next) => {
-            try {
-              await api.updateQuest(id, { assignee: next });
-              onCreated();
-            } catch (e) {
-              setErr(e instanceof Error ? e.message : "Failed to reassign");
-            }
-          }}
-          onTake={handleTake}
-          search={search}
-          onClearSearch={() => setSearch("")}
-          agents={agents}
-          users={users}
-          childCounts={childCounts}
-          searchMatches={searchMatchById}
-        />
-      ) : hasSearch && sortedVisibleQuests.length === 0 ? (
-        <QuestBoardNoMatches onClear={() => setSearch("")} onCompose={() => onCompose()} />
-      ) : sortedVisibleQuests.length === 0 ? (
-        <QuestBoardEmptyState
-          isFiltered={hasBoardNarrowing}
-          onCompose={() => onCompose()}
-          onReset={() => {
-            onScopeChange("all");
-            onBoardScopeChange(null);
-          }}
-        />
-      ) : (
-        <div className="quest-board-grid">
-          {[
-            // Two independent sub-grids so collapsing Backlog doesn't
-            // affect Cancelled's row height (each block's bottom row
-            // sizes to its own archive column only).
-            { id: "left" as const, statuses: ["todo", "in_progress", "backlog"] as QuestStatus[] },
-            {
-              id: "right" as const,
-              statuses: ["in_review", "done", "cancelled"] as QuestStatus[],
-            },
-          ].map((block) => (
-            <div
-              key={block.id}
-              className="quest-board-block"
-              data-block={block.id}
-              data-archive-collapsed={
-                collapsedCols[block.id === "left" ? "backlog" : "cancelled"] || undefined
-              }
-            >
-              {columns
-                .filter((col) => block.statuses.includes(col.status))
-                .map((col) => {
-                  const list = grouped[col.status] || [];
-                  const isTarget = dropTarget === col.status;
-                  return (
-                    <section
-                      key={col.status}
-                      className="quest-col"
-                      data-status={col.status}
-                      data-drop-target={isTarget || undefined}
-                      onDragOver={(e) => {
-                        if (!dragging) return;
-                        e.preventDefault();
-                        e.dataTransfer.dropEffect = "move";
-                        if (dropTarget !== col.status) setDropTarget(col.status);
-                      }}
-                      onDragLeave={(e) => {
-                        // Only clear the highlight when the pointer actually leaves
-                        // the column's own rectangle — not when it crosses onto a
-                        // child card (relatedTarget would still be inside us).
-                        const related = e.relatedTarget as Node | null;
-                        if (related && e.currentTarget.contains(related)) return;
-                        if (dropTarget === col.status) setDropTarget(null);
-                      }}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        const id = e.dataTransfer.getData("text/plain") || dragging;
-                        if (id) void handleDrop(id, col.status);
-                        setDragging(null);
-                        setDropTarget(null);
-                      }}
-                    >
-                      {COLLAPSIBLE_STATUSES.has(col.status) ? (
-                        <button
-                          type="button"
-                          className="quest-col-header quest-col-header--toggle"
-                          onClick={() => toggleColumn(col.status)}
-                          aria-expanded={!collapsedCols[col.status]}
-                          aria-label={
-                            collapsedCols[col.status] ? "Expand column" : "Collapse column"
-                          }
-                        >
-                          <StatusDot status={col.status} />
-                          <span className="quest-col-label">{col.label}</span>
-                          <span className="quest-col-count">{list.length}</span>
-                          <span className="quest-col-collapse" aria-hidden>
-                            {collapsedCols[col.status] ? (
-                              <ChevronRight size={14} strokeWidth={1.8} />
-                            ) : (
-                              <ChevronDown size={14} strokeWidth={1.8} />
-                            )}
-                          </span>
-                        </button>
-                      ) : (
-                        <header className="quest-col-header">
-                          <StatusDot status={col.status} />
-                          <span className="quest-col-label">{col.label}</span>
-                          <span className="quest-col-count">{list.length}</span>
-                          <button
-                            type="button"
-                            className="quest-col-add"
-                            onClick={() => onCompose(col.status)}
-                            aria-label={`New ${col.label.toLowerCase()} quest`}
-                            title={`New quest in ${col.label}`}
-                          >
-                            <Icon icon={Plus} size="xs" />
-                          </button>
-                        </header>
-                      )}
-                      {!collapsedCols[col.status] && (
-                        <div className="quest-col-body">
-                          {list.length === 0 ? (
-                            <QuestColumnEmptyState status={col.status} isDropTarget={isTarget} />
-                          ) : (
-                            list.map((q) => (
-                              <QuestActiveCard
-                                key={q.id}
-                                q={q}
-                                optimistic={optimistic}
-                                dragging={dragging}
-                                focusId={focusId}
-                                setDragging={setDragging}
-                                setDropTarget={setDropTarget}
-                                onPick={q.id === boardScopeId ? () => onOpenQuest(q.id) : onPick}
-                                onTake={handleTake}
-                                onCreated={onCreated}
-                                onError={setErr}
-                                agents={agents}
-                                users={users}
-                                childCount={childCounts.get(q.id) ?? 0}
-                                isScope={q.id === boardScopeId}
-                                searchMatch={searchMatchById.get(q.id)}
-                              />
-                            ))
-                          )}
-                        </div>
-                      )}
-                    </section>
-                  );
-                })}
-            </div>
-          ))}
-        </div>
-      )}
-      {view !== "list" && splitLayout && (
-        <QuestArchiveStrips
-          grouped={grouped}
+              : null
+          }
+          projectCount={scopeOptions.length}
+          scopeOptions={scopeOptions}
+          summary={scopeSummary}
           dragging={dragging}
-          setDragging={setDragging}
-          dropTarget={dropTarget}
-          setDropTarget={setDropTarget}
-          onDrop={handleDrop}
+          dropActive={scopeDropActive}
+          onDropActiveChange={setScopeDropActive}
+          onDrop={(id) => {
+            onBoardScopeChange(id);
+            setDragging(null);
+            setDropTarget(null);
+          }}
+          onScopeSelect={onBoardScopeChange}
+          onUp={() =>
+            onBoardScopeChange(
+              boardScopeAncestors.length > 0
+                ? boardScopeAncestors[boardScopeAncestors.length - 1].id
+                : null,
+            )
+          }
+          onClear={() => onBoardScopeChange(null)}
+          onOpen={() => {
+            if (boardScopeQuest) onOpenQuest(boardScopeQuest.id);
+          }}
           optimistic={optimistic}
           focusId={focusId}
-          onPick={onPick}
+          setDragging={setDragging}
+          setDropTarget={setDropTarget}
           onTake={handleTake}
           onCreated={onCreated}
           onError={setErr}
@@ -636,7 +457,202 @@ export default function QuestBoard({
           users={users}
           searchMatches={searchMatchById}
         />
-      )}
+        {err && (
+          <Banner kind="error" className="quest-board-error">
+            {err}
+          </Banner>
+        )}
+
+        {view === "list" ? (
+          <QuestList
+            groups={columns.map((col) => ({
+              status: col.status,
+              label: col.label,
+              quests: grouped[col.status] || [],
+            }))}
+            collapsedStatuses={collapsedListGroups}
+            onToggleStatus={toggleListGroup}
+            optimistic={optimistic}
+            focusId={focusId}
+            totalCount={sortedVisibleQuests.length}
+            onPick={onPick}
+            onNew={() => onCompose()}
+            onCompose={onCompose}
+            onAssigneeChange={async (id, next) => {
+              try {
+                await api.updateQuest(id, { assignee: next });
+                onCreated();
+              } catch (e) {
+                setErr(e instanceof Error ? e.message : "Failed to reassign");
+              }
+            }}
+            onTake={handleTake}
+            search={search}
+            onClearSearch={() => setSearch("")}
+            agents={agents}
+            users={users}
+            childCounts={childCounts}
+            searchMatches={searchMatchById}
+          />
+        ) : hasSearch && sortedVisibleQuests.length === 0 ? (
+          <QuestBoardNoMatches onClear={() => setSearch("")} onCompose={() => onCompose()} />
+        ) : sortedVisibleQuests.length === 0 ? (
+          <QuestBoardEmptyState
+            isFiltered={hasBoardNarrowing}
+            onCompose={() => onCompose()}
+            onReset={() => {
+              onScopeChange("all");
+              onBoardScopeChange(null);
+            }}
+          />
+        ) : (
+          <div className="quest-board-grid">
+            {[
+              // Two independent sub-grids so collapsing Backlog doesn't
+              // affect Cancelled's row height (each block's bottom row
+              // sizes to its own archive column only).
+              {
+                id: "left" as const,
+                statuses: ["todo", "in_progress", "backlog"] as QuestStatus[],
+              },
+              {
+                id: "right" as const,
+                statuses: ["in_review", "done", "cancelled"] as QuestStatus[],
+              },
+            ].map((block) => (
+              <div
+                key={block.id}
+                className="quest-board-block"
+                data-block={block.id}
+                data-archive-collapsed={
+                  collapsedCols[block.id === "left" ? "backlog" : "cancelled"] || undefined
+                }
+              >
+                {columns
+                  .filter((col) => block.statuses.includes(col.status))
+                  .map((col) => {
+                    const list = grouped[col.status] || [];
+                    const isTarget = dropTarget === col.status;
+                    return (
+                      <section
+                        key={col.status}
+                        className="quest-col"
+                        data-status={col.status}
+                        data-drop-target={isTarget || undefined}
+                        onDragOver={(e) => {
+                          if (!dragging) return;
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = "move";
+                          if (dropTarget !== col.status) setDropTarget(col.status);
+                        }}
+                        onDragLeave={(e) => {
+                          // Only clear the highlight when the pointer actually leaves
+                          // the column's own rectangle — not when it crosses onto a
+                          // child card (relatedTarget would still be inside us).
+                          const related = e.relatedTarget as Node | null;
+                          if (related && e.currentTarget.contains(related)) return;
+                          if (dropTarget === col.status) setDropTarget(null);
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          const id = e.dataTransfer.getData("text/plain") || dragging;
+                          if (id) void handleDrop(id, col.status);
+                          setDragging(null);
+                          setDropTarget(null);
+                        }}
+                      >
+                        {COLLAPSIBLE_STATUSES.has(col.status) ? (
+                          <button
+                            type="button"
+                            className="quest-col-header quest-col-header--toggle"
+                            onClick={() => toggleColumn(col.status)}
+                            aria-expanded={!collapsedCols[col.status]}
+                            aria-label={
+                              collapsedCols[col.status] ? "Expand column" : "Collapse column"
+                            }
+                          >
+                            <StatusDot status={col.status} />
+                            <span className="quest-col-label">{col.label}</span>
+                            <span className="quest-col-count">{list.length}</span>
+                            <span className="quest-col-collapse" aria-hidden>
+                              {collapsedCols[col.status] ? (
+                                <ChevronRight size={14} strokeWidth={1.8} />
+                              ) : (
+                                <ChevronDown size={14} strokeWidth={1.8} />
+                              )}
+                            </span>
+                          </button>
+                        ) : (
+                          <header className="quest-col-header">
+                            <StatusDot status={col.status} />
+                            <span className="quest-col-label">{col.label}</span>
+                            <span className="quest-col-count">{list.length}</span>
+                            <button
+                              type="button"
+                              className="quest-col-add"
+                              onClick={() => onCompose(col.status)}
+                              aria-label={`New ${col.label.toLowerCase()} quest`}
+                              title={`New quest in ${col.label}`}
+                            >
+                              <Icon icon={Plus} size="xs" />
+                            </button>
+                          </header>
+                        )}
+                        {!collapsedCols[col.status] && (
+                          <div className="quest-col-body">
+                            {list.length === 0 ? (
+                              <QuestColumnEmptyState status={col.status} isDropTarget={isTarget} />
+                            ) : (
+                              list.map((q) => (
+                                <QuestActiveCard
+                                  key={q.id}
+                                  q={q}
+                                  optimistic={optimistic}
+                                  dragging={dragging}
+                                  focusId={focusId}
+                                  setDragging={setDragging}
+                                  setDropTarget={setDropTarget}
+                                  onPick={q.id === boardScopeId ? () => onOpenQuest(q.id) : onPick}
+                                  onTake={handleTake}
+                                  onCreated={onCreated}
+                                  onError={setErr}
+                                  agents={agents}
+                                  users={users}
+                                  childCount={childCounts.get(q.id) ?? 0}
+                                  isScope={q.id === boardScopeId}
+                                  searchMatch={searchMatchById.get(q.id)}
+                                />
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </section>
+                    );
+                  })}
+              </div>
+            ))}
+          </div>
+        )}
+        {view !== "list" && splitLayout && (
+          <QuestArchiveStrips
+            grouped={grouped}
+            dragging={dragging}
+            setDragging={setDragging}
+            dropTarget={dropTarget}
+            setDropTarget={setDropTarget}
+            onDrop={handleDrop}
+            optimistic={optimistic}
+            focusId={focusId}
+            onPick={onPick}
+            onTake={handleTake}
+            onCreated={onCreated}
+            onError={setErr}
+            agents={agents}
+            users={users}
+            searchMatches={searchMatchById}
+          />
+        )}
+      </div>
     </div>
   );
 }

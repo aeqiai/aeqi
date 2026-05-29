@@ -197,7 +197,7 @@ export default function AgentQuestsTab({
         { replace: false },
       );
     };
-    return (
+    const board = (
       <QuestBoard
         agentId={agentId}
         resolvedAgentId={agent?.id || agentId}
@@ -230,9 +230,10 @@ export default function AgentQuestsTab({
         onSortChange={setSort}
         agents={agents}
         users={assigneeUsers}
-        splitLayout={false}
+        splitLayout={scope === "entity"}
       />
     );
+    return scope === "entity" ? <div className="trust-quests">{board}</div> : board;
   }
 
   return (

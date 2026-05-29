@@ -2999,6 +2999,193 @@
      own their own scroll padding. Lets the divider line under the
      toolbar extend full-width like Ideas. */
 }
+
+.quest-board-main {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Trust Quests — same flattened primitive shell as Roles, Agents, Members.
+   The top rail belongs to the shell; the board below owns the elevated
+   working surface. Agent-scoped quest boards keep the generic board shell. */
+.trust-quests {
+  --toolbar-control-h: 32px;
+
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas:
+    "header"
+    "main";
+  height: 100%;
+  overflow: hidden;
+  row-gap: var(--shell-footer-h, 10px);
+  padding: 0;
+}
+
+.trust-quests > .quest-board {
+  display: contents;
+}
+
+.trust-quests .trust-quests-page-header {
+  grid-area: header;
+  align-items: center;
+  min-height: var(--shell-top-rail-h, 40px);
+  padding: 0;
+  gap: var(--space-3);
+  background: transparent;
+}
+
+.trust-quests-toolbar {
+  flex: 1;
+  min-width: 0;
+}
+
+.trust-quests-toolbar > .ideas-list-search-field {
+  min-width: 180px;
+}
+
+.trust-quests-toolbar .ideas-toolbar-btn {
+  width: var(--toolbar-control-h);
+  height: var(--toolbar-control-h);
+  min-width: var(--toolbar-control-h);
+  min-height: var(--toolbar-control-h);
+  inline-size: var(--toolbar-control-h);
+  block-size: var(--toolbar-control-h);
+  flex: 0 0 var(--toolbar-control-h);
+  aspect-ratio: 1 / 1;
+  border-radius: var(--radius-full);
+}
+
+.trust-quests-page-header .trust-top-rail-cta {
+  height: var(--toolbar-control-h);
+  min-height: var(--toolbar-control-h);
+  border-radius: var(--radius-full);
+  padding: 0 14px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0;
+  box-shadow: none;
+}
+
+.trust-quests-page-header .trust-top-rail-cta:hover {
+  box-shadow: none;
+}
+
+.trust-quests-page-header .trust-top-rail-cta svg {
+  width: 13px;
+  height: 13px;
+}
+
+.trust-quests .quest-board-main {
+  grid-area: main;
+  gap: 0;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-card) 84%, var(--color-card-elevated) 16%);
+  box-shadow: var(--shadow-lg);
+}
+
+.trust-quests .quest-scope {
+  margin: 0;
+  border-radius: 0;
+  background: transparent;
+  border-bottom: 1px solid var(--border);
+}
+
+.trust-quests .quest-scope-header {
+  min-height: 40px;
+  padding: 8px 14px;
+}
+
+.trust-quests .quest-scope-header-label {
+  font-size: 13px;
+  letter-spacing: 0;
+}
+
+.trust-quests .quest-scope-header-note {
+  font-size: 11px;
+}
+
+.trust-quests .quest-scope-summary {
+  margin: 0 8px 7px;
+}
+
+.trust-quests .quest-scope-slot {
+  margin: 0 8px 8px;
+}
+
+.trust-quests .quest-board-grid {
+  padding: 12px 12px 14px;
+  gap: 10px;
+}
+
+.trust-quests .quest-board-block {
+  gap: 8px;
+}
+
+.trust-quests .quest-col {
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--bg-row) 82%, var(--color-card) 18%);
+}
+
+.trust-quests .quest-col-header,
+.trust-quests .quest-col-header--toggle {
+  min-height: 40px;
+  padding: 9px 10px 9px 12px;
+}
+
+.trust-quests .quest-col-body {
+  padding: 4px 6px 18px;
+  gap: 4px;
+}
+
+.trust-quests .quest-card {
+  padding: 8px 9px;
+  box-shadow: none;
+}
+
+.trust-quests .quest-card:hover {
+  box-shadow: var(--shadow-sm);
+}
+
+.trust-quests .quest-secondary-lanes {
+  padding: 0 12px 12px;
+}
+
+@media (max-width: 720px) {
+  .trust-quests .quest-board-main {
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .trust-quests .quest-board-grid {
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+
+  .trust-quests .quest-scope {
+    flex: 0 0 auto;
+  }
+
+  .trust-quests .quest-col {
+    height: clamp(176px, 42vh, 320px);
+    min-height: 176px;
+  }
+
+  .trust-quests .quest-secondary-lanes {
+    grid-template-columns: minmax(0, 1fr);
+    flex: 0 0 auto;
+    min-height: 0;
+    overflow: visible;
+  }
+}
 .quest-status-summary {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));

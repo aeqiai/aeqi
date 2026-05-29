@@ -1257,6 +1257,7 @@
 .content-paper:has(.trust-roles),
 .content-paper:has(.trust-agents),
 .content-paper:has(.trust-members),
+.content-paper:has(.trust-quests),
 .content-paper:has(.trust-sessions) {
   background: transparent;
   border-radius: 0;
