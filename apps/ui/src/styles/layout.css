@@ -1254,7 +1254,8 @@
    compose their own main/inspector surfaces, so the global paper sheet
    steps out of the way for those pages. */
 .content-paper:has(.trust-roles),
-.content-paper:has(.trust-agents) {
+.content-paper:has(.trust-agents),
+.content-paper:has(.trust-members) {
   background: transparent;
   border-radius: 0;
   box-shadow: none;
