@@ -1436,12 +1436,6 @@
   flex: 0 0 auto;
 }
 
-.trust-role-detail-surface-action-spacer {
-  flex: 0 0 auto;
-  width: 26px;
-  height: 26px;
-}
-
 .trust-role-detail-document {
   display: flex;
   min-width: 0;
@@ -1481,7 +1475,9 @@
   --ideas-canvas-editor-gutter: 36px;
   --ideas-canvas-editor-gutter-end: 6px;
   flex: 0 0 auto;
+  width: min(100%, 820px);
   min-height: 0;
+  margin: 0 auto;
   padding: 0 24px 16px;
 }
 
@@ -1559,11 +1555,6 @@
   font-size: var(--font-size-sm);
   font-weight: 650;
   color: var(--color-text-primary);
-}
-.role-inspector-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
 }
 .role-inspector-icon-action {
   display: inline-flex;

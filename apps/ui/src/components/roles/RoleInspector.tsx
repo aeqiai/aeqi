@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useMemo, useState } from "react";
-import { ArrowRight, Check, Landmark, Link2, PanelRightClose } from "lucide-react";
+import { ArrowRight, Landmark } from "lucide-react";
 import type { Idea, OccupantKind, Role, RoleEdge, Quest, RoleType } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
 import { api } from "@/lib/api";
@@ -26,7 +26,6 @@ interface RoleInspectorProps {
   basePath: string;
   idea?: Idea | null;
   ideaTagSuggestions?: string[];
-  onCollapse?: () => void;
   onCopyValue?: (value: string) => void | Promise<void>;
   onIdeaUpdated?: (idea: Idea) => void;
   onRoleUpdated?: (role: Role) => void;
@@ -44,7 +43,6 @@ export default function RoleInspector({
   basePath,
   idea,
   ideaTagSuggestions = [],
-  onCollapse,
   onCopyValue,
   onIdeaUpdated,
   onRoleUpdated,
@@ -150,10 +148,6 @@ export default function RoleInspector({
       setCopiedField(fieldId);
       setTimeout(() => setCopiedField((cur) => (cur === fieldId ? null : cur)), 1500);
     });
-  };
-
-  const copyRoleLink = () => {
-    copy(`${window.location.origin}${basePath}/roles/${encodeURIComponent(role.id)}`, "roleLink");
   };
 
   const closeEditor = () => {
@@ -268,34 +262,6 @@ export default function RoleInspector({
     <aside className={`role-inspector role-inspector--${variant}`} aria-label="Selected role">
       <header className="role-inspector-topbar">
         <span className="role-inspector-object">Details</span>
-        <div className="role-inspector-actions" aria-label="Role actions">
-          <button
-            type="button"
-            className="role-inspector-icon-action"
-            onClick={copyRoleLink}
-            title={copiedField === "roleLink" ? "Copied role link" : "Copy role link"}
-            aria-label={copiedField === "roleLink" ? "Copied role link" : "Copy role link"}
-            data-pill-allowed=""
-          >
-            {copiedField === "roleLink" ? (
-              <Check size={13} strokeWidth={1.8} />
-            ) : (
-              <Link2 size={13} strokeWidth={1.7} />
-            )}
-          </button>
-          {onCollapse && (
-            <button
-              type="button"
-              className="role-inspector-icon-action"
-              onClick={onCollapse}
-              title="Collapse role panel"
-              aria-label="Collapse role panel"
-              data-pill-allowed=""
-            >
-              <PanelRightClose size={13} strokeWidth={1.7} />
-            </button>
-          )}
-        </div>
       </header>
 
       <div className="role-inspector-body">

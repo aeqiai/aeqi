@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, PanelRightOpen, Share2 } from "lucide-react";
+import { ArrowLeft, PanelRightClose, PanelRightOpen, Share2 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import * as ideasApi from "@/api/ideas";
 import { api } from "@/lib/api";
@@ -301,22 +301,27 @@ export default function TrustRoleDetailPage({
                         contentHeaderSlot={
                           <div className="trust-role-detail-surface-header">
                             <div className="trust-role-detail-surface-title">Role idea</div>
-                            {detailsCollapsed ? (
-                              <Tooltip content="Show details" portal>
-                                <button
-                                  type="button"
-                                  className="role-inspector-icon-action trust-role-detail-surface-action"
-                                  aria-label="Show role details"
-                                  title="Show details"
-                                  onClick={() => setDetailsCollapsed(false)}
-                                  data-pill-allowed=""
-                                >
+                            <Tooltip
+                              content={detailsCollapsed ? "Show details" : "Hide details"}
+                              portal
+                            >
+                              <button
+                                type="button"
+                                className="role-inspector-icon-action trust-role-detail-surface-action"
+                                aria-label={
+                                  detailsCollapsed ? "Show role details" : "Hide role details"
+                                }
+                                title={detailsCollapsed ? "Show details" : "Hide details"}
+                                onClick={() => setDetailsCollapsed((collapsed) => !collapsed)}
+                                data-pill-allowed=""
+                              >
+                                {detailsCollapsed ? (
                                   <PanelRightOpen size={13} strokeWidth={1.7} />
-                                </button>
-                              </Tooltip>
-                            ) : (
-                              <span className="trust-role-detail-surface-action-spacer" />
-                            )}
+                                ) : (
+                                  <PanelRightClose size={13} strokeWidth={1.7} />
+                                )}
+                              </button>
+                            </Tooltip>
                           </div>
                         }
                         conversationActivity="combined"
@@ -334,7 +339,6 @@ export default function TrustRoleDetailPage({
                         idea={roleIdea}
                         ideaTagSuggestions={ideaTagSuggestions}
                         variant="page"
-                        onCollapse={() => setDetailsCollapsed(true)}
                         onCopyValue={copy}
                         onIdeaUpdated={setRoleIdea}
                         onRoleUpdated={handleRoleUpdated}
