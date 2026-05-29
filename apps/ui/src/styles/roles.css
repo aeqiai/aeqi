@@ -648,16 +648,16 @@
   display: grid;
   height: 100%;
   overflow: hidden;
-  row-gap: 0;
+  row-gap: var(--space-3);
 }
 .trust-roles {
   grid-template-columns: minmax(0, 1fr) 340px;
-  column-gap: var(--space-4);
+  column-gap: var(--space-3);
   grid-template-rows: auto minmax(0, 1fr);
   grid-template-areas:
     "header header"
     "main side";
-  padding: 0;
+  padding: 0 var(--space-5) var(--space-5);
 }
 .trust-agents {
   grid-template-columns: minmax(0, 1fr);
@@ -666,15 +666,15 @@
   grid-template-areas:
     "header"
     "main";
-  padding: 0;
+  padding: 0 var(--space-5) var(--space-5);
 }
 .trust-roles-page-header {
   grid-area: header;
   align-items: center;
-  padding: var(--space-5) var(--space-6) var(--space-2);
-}
-.trust-roles-page-header {
-  gap: var(--space-4);
+  min-height: var(--toolbar-control-h);
+  padding: 0;
+  background: transparent;
+  gap: var(--space-3);
 }
 .trust-roles-toolbar,
 .trust-agents-toolbar {
@@ -709,14 +709,22 @@
   overflow: hidden;
 }
 .trust-roles-main {
-  padding-left: var(--space-6);
-  padding-top: var(--space-1);
-  padding-bottom: var(--space-5);
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-card) 84%, var(--color-card-elevated) 16%);
+  box-shadow:
+    0 0 0 1px rgba(10, 10, 11, 0.055),
+    0 1px 2px rgba(10, 10, 11, 0.03),
+    0 14px 34px -24px rgba(10, 10, 11, 0.22);
 }
 .trust-agents-main {
-  padding-left: var(--space-6);
-  padding-top: var(--space-1);
-  padding-bottom: var(--space-5);
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-card) 84%, var(--color-card-elevated) 16%);
+  box-shadow:
+    0 0 0 1px rgba(10, 10, 11, 0.055),
+    0 1px 2px rgba(10, 10, 11, 0.03),
+    0 14px 34px -24px rgba(10, 10, 11, 0.22);
 }
 .trust-roles-side {
   grid-area: side;
@@ -730,10 +738,9 @@
   padding-bottom: 0;
 }
 .trust-roles-side {
-  padding-right: var(--space-6);
+  padding-right: 0;
 }
 .trust-agents-main {
-  padding-right: var(--space-6);
   overflow-y: auto;
 }
 
@@ -1175,6 +1182,9 @@
   padding: var(--space-5);
   background: var(--color-card-elevated);
   border-radius: var(--radius-lg);
+  box-shadow:
+    0 0 0 1px rgba(10, 10, 11, 0.045),
+    0 12px 30px -24px rgba(10, 10, 11, 0.2);
   overflow-y: auto;
   flex: 1;
   min-height: 0;
@@ -1988,10 +1998,11 @@
 @media (max-width: 720px) {
   .trust-roles,
   .trust-agents {
-    padding: var(--space-4);
+    padding: 0 var(--space-3) var(--space-3);
+    row-gap: var(--space-3);
   }
   .trust-roles-page-header {
-    padding-inline: var(--space-4);
+    min-height: auto;
   }
   .trust-roles-toolbar,
   .trust-agents-toolbar {

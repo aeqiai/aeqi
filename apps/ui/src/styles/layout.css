@@ -1254,6 +1254,17 @@
     0 14px 34px -24px rgba(10, 10, 11, 0.22);
 }
 
+/* Primitive shell split: the top rail is app chrome on the warm frame;
+   the working canvas below owns elevation. Roles and Agents already
+   compose their own main/inspector surfaces, so the global paper sheet
+   steps out of the way for those pages. */
+.content-paper:has(.trust-roles),
+.content-paper:has(.trust-agents) {
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+
 /* Body row — rail + scroll, full width inside the paper sheet. The
    paper surface is owned by .content-paper; this row stays transparent. */
 .content-body-row {
