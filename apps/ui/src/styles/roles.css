@@ -1436,6 +1436,12 @@
   flex: 0 0 auto;
 }
 
+.trust-role-detail-surface-action-spacer {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+}
+
 .trust-role-detail-document {
   display: flex;
   min-width: 0;
@@ -1476,7 +1482,7 @@
   --ideas-canvas-editor-gutter-end: 6px;
   flex: 0 0 auto;
   min-height: 0;
-  padding: 20px 24px 16px;
+  padding: 0 24px 16px;
 }
 
 .trust-role-detail-document .ideas-canvas-content > .ideas-canvas-body,
@@ -1494,6 +1500,9 @@
 }
 
 .trust-role-detail-document .idea-convo-card {
+  width: min(100%, 760px);
+  max-width: 760px;
+  margin: 0 auto;
   padding: 16px 0 16px;
   border: 0;
   border-top: 1px solid var(--border-subtle, var(--border-faint));
@@ -1502,28 +1511,14 @@
   box-shadow: none;
 }
 
-.trust-role-detail-document .idea-convo-tabs {
-  gap: 6px;
-  padding: 0;
-  border-radius: 999px;
-  background: transparent;
+.trust-role-detail-document .idea-convo-card--activity-combined {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.trust-role-detail-document .idea-convo-tab {
-  min-height: 26px;
-  padding: 0 10px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--color-text-secondary);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.trust-role-detail-document .idea-convo-tab[aria-selected="true"] {
-  border-color: var(--border);
-  background: var(--color-card-elevated);
-  color: var(--color-text-primary);
-  box-shadow: var(--shadow-sm);
+.trust-role-detail-document .idea-convo-card--activity-combined > .idea-convo-panel {
+  width: 100%;
 }
 
 .trust-role-detail-inspector {

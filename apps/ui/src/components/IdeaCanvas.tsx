@@ -117,7 +117,7 @@ export interface IdeaCanvasProps {
   activityRefreshKey?: unknown;
   /** Conversation activity display. Defaults to old behavior: visible
    *  unless the metadata strip is hidden. */
-  conversationActivity?: "auto" | "hidden" | "stacked" | "tabs";
+  conversationActivity?: "auto" | "hidden" | "stacked" | "tabs" | "combined";
 }
 
 const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCanvas(
@@ -777,7 +777,11 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
             showActivity={
               conversationActivity === "auto" ? !hideMetaStrip : conversationActivity !== "hidden"
             }
-            variant={conversationActivity === "tabs" ? "tabs" : "stacked"}
+            variant={
+              conversationActivity === "tabs" || conversationActivity === "combined"
+                ? conversationActivity
+                : "stacked"
+            }
             activityRefreshKey={conversationActivityRefreshKey}
           />
         )}

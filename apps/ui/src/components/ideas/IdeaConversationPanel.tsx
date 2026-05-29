@@ -28,7 +28,7 @@ import IdeaCommentComposer from "./IdeaCommentComposer";
 interface IdeaConversationPanelProps {
   ideaId: string;
   showActivity?: boolean;
-  variant?: "stacked" | "tabs";
+  variant?: "stacked" | "tabs" | "combined";
   activityRefreshKey?: unknown;
 }
 
@@ -193,6 +193,7 @@ export default function IdeaConversationPanel({
 
   const commentCount = useMemo(() => comments.filter((r) => !r.pending).length, [comments]);
   const tabbed = showActivity && variant === "tabs";
+  const combined = showActivity && variant === "combined";
 
   const commentsPanel = (
     <div className="idea-convo-panel">
@@ -219,7 +220,7 @@ export default function IdeaConversationPanel({
       <IdeaActivityFeed
         ideaId={ideaId}
         refreshKey={activityRefreshKey}
-        limit={tabbed ? 8 : 4}
+        limit={tabbed || combined ? 8 : 4}
         onCount={setActivityCount}
       />
     </div>
@@ -233,7 +234,27 @@ export default function IdeaConversationPanel({
         </div>
       )}
 
-      {tabbed ? (
+      {combined ? (
+        <section
+          className="idea-convo-card idea-convo-card--activity-combined"
+          aria-label="Activity"
+        >
+          <div className="idea-convo-head">
+            <div className="idea-convo-title">
+              <span>Activity</span>
+              <span className="idea-convo-section-count">{activityCount}</span>
+            </div>
+            <SubscribeBar
+              subscribed={subscribed}
+              onSubscribe={handleSubscribe}
+              disabled={!user?.id}
+              busy={subscribeBusy}
+            />
+          </div>
+          {activityPanel}
+          {commentsPanel}
+        </section>
+      ) : tabbed ? (
         <section className="idea-convo-card idea-convo-card--comments" aria-label="Conversation">
           <div className="idea-convo-head">
             <div className="idea-convo-tabs" role="tablist" aria-label="Conversation view">
