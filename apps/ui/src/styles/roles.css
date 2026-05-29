@@ -674,7 +674,7 @@
   display: grid;
   height: 100%;
   overflow: hidden;
-  row-gap: 6px;
+  row-gap: var(--shell-footer-h, 10px);
 }
 .trust-roles {
   grid-template-columns: minmax(0, 1fr);
@@ -683,7 +683,7 @@
   grid-template-areas:
     "header"
     "main";
-  padding: 0 var(--space-4) var(--space-4);
+  padding: 0;
 }
 .trust-agents {
   grid-template-columns: minmax(0, 1fr);
@@ -692,7 +692,7 @@
   grid-template-areas:
     "header"
     "main";
-  padding: 0 var(--space-4) var(--space-4);
+  padding: 0;
 }
 .trust-roles > .trust-roles-page-header,
 .trust-agents > .trust-roles-page-header {

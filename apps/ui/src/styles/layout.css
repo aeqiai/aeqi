@@ -1198,10 +1198,11 @@
      tint, not as white slabs. The content-card paints its own
      background on top; only the empty insets show this color. */
   background: var(--bg-sidebar);
-  /* Tight top inset for the global chrome; bottom/right keep the frame
-     rhythm so the workspace still reads as a floating operating surface. */
+  /* Tight top inset for the global chrome; left/right/bottom share one
+     frame inset so trust workspaces do not drift toward the sidebar. */
   padding-top: var(--shell-top-inset, 6px);
   padding-bottom: var(--shell-footer-h);
+  padding-left: var(--shell-footer-h);
   padding-right: var(--shell-footer-h);
 }
 
