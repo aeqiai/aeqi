@@ -7,7 +7,14 @@ import { useDaemonStore } from "@/store/daemon";
 import { useAuthStore } from "@/store/auth";
 import { entityPathFromId, entityBasePath } from "@/lib/entityPath";
 import "@/styles/roles.css";
-import { Button, EmptyState, Loading, PrimitivePageHeader, PrimitiveSearchField } from "./ui";
+import {
+  Button,
+  EmptyState,
+  IconButton,
+  Loading,
+  PrimitivePageHeader,
+  PrimitiveSearchField,
+} from "./ui";
 import RolesChart from "./roles/RolesChart";
 import RolesCards from "./roles/RolesCards";
 import RolesList from "./roles/RolesList";
@@ -29,12 +36,10 @@ const OCCUPANT_RANK: Record<string, number> = { agent: 0, human: 1, vacant: 2 };
 /**
  * Roles — the trust's authority graph.
  *
- * v2 composition (2026-05-20, "canonical" pass):
+ * Canvas composition:
  *   1. Page chrome — title + search + sort/filter/view + CTAs in one row
- *   2. Snapshot strip — total / founders / operational / vacant
- *   3. Content row — graph on the left, RoleInspector on the right
- *      (always-rendered; default selection = viewer's own role, fallback
- *      to a founder if the viewer holds no role)
+ *   2. One elevated workspace card — graph/list content directly on the canvas
+ *   3. Integrated RoleInspector — collapsible internal detail column
  *
  * Selection state lives in the URL (`?role=<id>`) so a tab-switch
  * round-trip preserves the focused role.
@@ -170,44 +175,7 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
     [patchParams],
   );
 
-  // Snapshot counts. Per-tier breakdown by occupant kind so each
-  // snapshot card carries WHO holds the role in that tier, not just
-  // how many seats exist. Internal `founder` boolean stays unused
-  // here — board members are Directors.
-  // Snapshot — three-tier role model (Owners · Directors · Operators).
-  // Order on the row: [Roles + Vacant together] · Owners · Directors ·
-  // Operators. The first card carries the TOTAL count of role seats
-  // plus the vacant count as its breakdown — vacant collapses into
-  // the roles card instead of standing alone. Owners count today is 0
-  // (no `"owner"` role_type rows in the schema yet — see the role-
-  // tier pivot decision memo); the slot is here so the new concept
-  // is visible the moment it's added.
-  const snapshot = useMemo(() => {
-    let total = 0;
-    let vacant = 0;
-    const owners = { total: 0, agents: 0, humans: 0, vacant: 0 };
-    const directors = { total: 0, agents: 0, humans: 0, vacant: 0 };
-    const operators = { total: 0, agents: 0, humans: 0, vacant: 0 };
-    for (const r of roles) {
-      total += 1;
-      const tier =
-        r.role_type === "owner"
-          ? owners
-          : r.role_type === "director"
-            ? directors
-            : r.role_type === "operational"
-              ? operators
-              : null;
-      if (tier) {
-        tier.total += 1;
-        if (r.occupant_kind === "agent") tier.agents += 1;
-        else if (r.occupant_kind === "human") tier.humans += 1;
-        else if (r.occupant_kind === "vacant") tier.vacant += 1;
-      }
-      if (r.occupant_kind === "vacant") vacant += 1;
-    }
-    return { total, vacant, owners, directors, operators };
-  }, [roles]);
+  const roleCount = roles.length;
 
   const occupantCounts = useMemo(() => {
     const counts: Record<OccupantFilter, number> = {
@@ -316,7 +284,7 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
           <span className="trust-primitive-page-title">
             <span className="trust-primitive-page-title-text">Roles</span>
             <span className="trust-primitive-page-count" aria-hidden="true">
-              {snapshot.total}
+              {roleCount}
             </span>
           </span>
         }
@@ -367,79 +335,23 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
           </div>
         ) : (
           <>
-            <div className="trust-roles-workspace-head">
-              <RoleSnapshotBand
-                total={snapshot.total}
-                items={[
-                  {
-                    singular: "Role",
-                    plural: "Roles",
-                    value: snapshot.total,
-                    sublabel: "Across this TRUST",
-                    breakdown:
-                      snapshot.vacant === 0
-                        ? "All seats filled"
-                        : `${snapshot.vacant} ${
-                            snapshot.vacant === 1 ? "vacant seat" : "vacant seats"
-                          }`,
-                    tone: snapshot.vacant > 0 ? "warmth" : undefined,
-                  },
-                  {
-                    singular: "Owner",
-                    plural: "Owners",
-                    value: snapshot.owners.total,
-                    sublabel: "Ownership authority only",
-                    breakdown: breakdownText(
-                      snapshot.owners.agents,
-                      snapshot.owners.humans,
-                      snapshot.owners.vacant,
-                    ),
-                  },
-                  {
-                    singular: "Director",
-                    plural: "Directors",
-                    value: snapshot.directors.total,
-                    sublabel: "Ownership + operations",
-                    breakdown: breakdownText(
-                      snapshot.directors.agents,
-                      snapshot.directors.humans,
-                      snapshot.directors.vacant,
-                    ),
-                  },
-                  {
-                    singular: "Operator",
-                    plural: "Operators",
-                    value: snapshot.operators.total,
-                    sublabel: "Operational authority only",
-                    breakdown: breakdownText(
-                      snapshot.operators.agents,
-                      snapshot.operators.humans,
-                      snapshot.operators.vacant,
-                    ),
-                  },
-                ]}
-              />
+            <div className="trust-roles-workspace">
               {selectedRole && (
-                <Button
+                <IconButton
                   type="button"
-                  variant="secondary"
+                  variant="bordered"
                   size="sm"
                   className="trust-roles-detail-toggle"
+                  aria-label={detailsOpen ? "Collapse role detail" : "Expand role detail"}
                   onClick={() => setDetailsOpen((open) => !open)}
-                  leadingIcon={
-                    detailsOpen ? (
-                      <PanelRightClose size={13} strokeWidth={1.8} />
-                    ) : (
-                      <PanelRightOpen size={13} strokeWidth={1.8} />
-                    )
-                  }
                 >
-                  {detailsOpen ? "Hide detail" : "Show detail"}
-                </Button>
+                  {detailsOpen ? (
+                    <PanelRightClose aria-hidden size={14} strokeWidth={1.7} />
+                  ) : (
+                    <PanelRightOpen aria-hidden size={14} strokeWidth={1.7} />
+                  )}
+                </IconButton>
               )}
-            </div>
-
-            <div className="trust-roles-workspace">
               <section className="trust-roles-content" aria-label="Role workspace">
                 <div className="trust-roles-canvas">
                   {loading && <RolesLoading />}
@@ -501,80 +413,6 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
       </div>
     </div>
   );
-}
-
-interface SnapshotItem {
-  /** Singular form — rendered when `value === 1`. */
-  singular: string;
-  /** Plural form — rendered for any value other than 1 (including 0). */
-  plural: string;
-  value: number;
-  /** Teaching line below the label — explains what the stat means
-   * for new TRUST owners (e.g. "Stewardship authority"). */
-  sublabel?: string;
-  /** Optional breakdown — composition of the count by occupant kind
-   * (e.g. "1 agent · 0 humans"). Renders as a footer line on the
-   * card; null/undefined collapses cleanly. */
-  breakdown?: string | null;
-  tone?: "warmth";
-}
-
-function RoleSnapshotBand({ total, items }: { total: number; items: SnapshotItem[] }) {
-  return (
-    <section className="trust-roles-snapshot" aria-label="Role snapshot">
-      <header className="trust-roles-snapshot-header">
-        <span className="trust-roles-snapshot-header-label">Authority ramp</span>
-        <span className="trust-roles-snapshot-header-count">
-          {total} {total === 1 ? "seat" : "seats"}
-        </span>
-      </header>
-      <div className="trust-roles-snapshot-grid">
-        {items.map((item) => (
-          <SnapshotCell key={item.plural} {...item} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function SnapshotCell({ singular, plural, value, sublabel, breakdown, tone }: SnapshotItem) {
-  const label = value === 1 ? singular : plural;
-  return (
-    <article
-      className={
-        tone === "warmth"
-          ? "trust-roles-snapshot-cell trust-roles-snapshot-cell--warmth"
-          : "trust-roles-snapshot-cell"
-      }
-    >
-      <header className="trust-roles-snapshot-head">
-        <span className="trust-roles-snapshot-label">{label}</span>
-        <span
-          className={
-            tone === "warmth"
-              ? "trust-roles-snapshot-value trust-roles-snapshot-value--warmth"
-              : "trust-roles-snapshot-value"
-          }
-        >
-          {value}
-        </span>
-      </header>
-      {sublabel && <p className="trust-roles-snapshot-sublabel">{sublabel}</p>}
-      {breakdown && <p className="trust-roles-snapshot-breakdown">{breakdown}</p>}
-    </article>
-  );
-}
-
-/** Compose a per-tier composition line: "1 agent · 0 humans · 0 vacant".
- * Skips zero-value parts so a fully-staffed tier reads as just its
- * occupant breakdown without trailing "0 vacant" noise. */
-function breakdownText(agents: number, humans: number, vacant: number): string | null {
-  const parts: string[] = [];
-  if (agents > 0) parts.push(`${agents} ${agents === 1 ? "agent" : "agents"}`);
-  if (humans > 0) parts.push(`${humans} ${humans === 1 ? "human" : "humans"}`);
-  if (vacant > 0) parts.push(`${vacant} ${vacant === 1 ? "vacant" : "vacant"}`);
-  if (parts.length === 0) return null;
-  return parts.join(" · ");
 }
 
 function RolesLoading() {

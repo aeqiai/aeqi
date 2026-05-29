@@ -1,6 +1,6 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { LocateFixed, Minus, Plus } from "lucide-react";
 import type { Role, RoleEdge } from "@/lib/types";
 import { IconButton } from "@/components/ui";
 import RoleNode from "./RoleNode";
@@ -612,48 +612,14 @@ function OrgZoomViewport({ children }: { children: React.ReactNode }) {
       </div>
 
       <div className="roles-chart-controls" role="toolbar" aria-label="Zoom controls">
-        <IconButton aria-label="Zoom in" variant="bordered" size="xs" onClick={zoomIn}>
-          <svg
-            width="10"
-            height="10"
-            viewBox="0 0 10 10"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            aria-hidden
-          >
-            <path d="M5 1v8M1 5h8" />
-          </svg>
+        <IconButton aria-label="Zoom in" variant="bordered" size="sm" onClick={zoomIn}>
+          <Plus aria-hidden size={14} strokeWidth={1.7} />
         </IconButton>
-        <IconButton aria-label="Zoom out" variant="bordered" size="xs" onClick={zoomOut}>
-          <svg
-            width="10"
-            height="10"
-            viewBox="0 0 10 10"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            aria-hidden
-          >
-            <path d="M1 5h8" />
-          </svg>
+        <IconButton aria-label="Zoom out" variant="bordered" size="sm" onClick={zoomOut}>
+          <Minus aria-hidden size={14} strokeWidth={1.7} />
         </IconButton>
-        <IconButton aria-label="Reset zoom to fit" variant="bordered" size="xs" onClick={resetFit}>
-          <svg
-            width="10"
-            height="10"
-            viewBox="0 0 10 10"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            aria-hidden
-          >
-            <rect x="1.5" y="1.5" width="7" height="7" rx="1" />
-            <path d="M3.5 3.5l3 3M6.5 3.5l-3 3" />
-          </svg>
+        <IconButton aria-label="Reset zoom to fit" variant="bordered" size="sm" onClick={resetFit}>
+          <LocateFixed aria-hidden size={14} strokeWidth={1.7} />
         </IconButton>
       </div>
     </div>

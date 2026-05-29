@@ -108,8 +108,11 @@ describe("TrustRolesTab", () => {
     );
 
     expect(api.getRoles).toHaveBeenCalledWith("root-1");
-    expect(heading.compareDocumentPosition(screen.getByText("Authority ramp"))).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
+    const workspace = screen.getByLabelText("Role workspace");
+    expect(heading.compareDocumentPosition(workspace)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(screen.queryByText("Authority ramp")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Collapse role detail" })).toHaveClass(
+      "trust-roles-detail-toggle",
     );
   });
 });

@@ -325,14 +325,14 @@
   font-style: italic;
 }
 
-/* Zoom controls — bottom-right corner overlay. */
+/* Zoom controls — top-right canvas overlay. */
 .roles-chart-controls {
   position: absolute;
-  bottom: 12px;
+  top: 12px;
   right: 12px;
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: 6px;
   z-index: 10;
 }
 .roles-chart-zone {
@@ -744,24 +744,23 @@
     0 1px 2px rgba(10, 10, 11, 0.03),
     0 14px 34px -24px rgba(10, 10, 11, 0.22);
 }
-.trust-roles-workspace-head {
-  display: flex;
-  align-items: stretch;
-  min-width: 0;
-  flex-shrink: 0;
-  border-bottom: 1px solid var(--border);
-}
-.trust-roles-detail-toggle {
-  align-self: center;
-  flex-shrink: 0;
-  margin: 0 14px;
-  border-radius: var(--radius-full);
-}
 .trust-roles-workspace {
+  position: relative;
   display: flex;
   flex: 1;
   min-width: 0;
   min-height: 0;
+}
+.trust-roles-detail-toggle {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 30;
+  color: var(--color-text-secondary);
+  box-shadow: 0 1px 2px rgba(10, 10, 11, 0.04);
+}
+.trust-roles-detail-toggle:hover {
+  color: var(--color-text-primary);
 }
 .trust-roles-content {
   display: flex;
@@ -780,6 +779,9 @@
   border-left: 1px solid var(--border);
   background: transparent;
   overflow: hidden;
+}
+.trust-roles-main--detail-collapsed .roles-chart-controls {
+  right: 52px;
 }
 .trust-roles-editor-shell {
   display: flex;
@@ -2088,15 +2090,11 @@
   .trust-roles-main {
     overflow-y: auto;
   }
-  .trust-roles-workspace-head {
-    flex-direction: column;
-  }
-  .trust-roles-detail-toggle {
-    align-self: flex-start;
-    margin: 0 14px 12px;
-  }
   .trust-roles-workspace {
     overflow: visible;
+  }
+  .trust-roles .roles-chart-controls {
+    right: 52px;
   }
   .trust-roles-content {
     flex: 0 0 360px;
