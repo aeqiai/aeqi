@@ -1468,6 +1468,15 @@
   padding: 0 24px 8px;
 }
 
+.trust-role-detail-document .idea-convo-card {
+  padding: 14px 0 16px;
+  border: 0;
+  border-top: 1px solid var(--border-subtle, var(--border-faint));
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 .trust-role-detail-inspector {
   box-sizing: border-box;
   display: flex;
