@@ -73,6 +73,10 @@
   justify-self: end;
 }
 
+.header:not([data-has-chrome="true"]) .actions {
+  grid-column: 3;
+}
+
 .header[data-has-chrome="true"] .actions {
   align-self: center;
 }

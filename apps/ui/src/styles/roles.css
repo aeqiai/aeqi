@@ -1385,13 +1385,6 @@
   min-width: 0;
 }
 
-.trust-role-detail-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
 .trust-role-detail-back {
   flex: 0 0 auto;
   background: var(--color-card-elevated);
@@ -1425,15 +1418,19 @@
 }
 
 .trust-role-detail-document > .ideas-canvas {
-  min-height: 100%;
+  flex: 1;
+  min-height: 0;
 }
 
 .trust-role-detail-document .ideas-canvas-frame {
+  gap: 12px;
   margin: 0;
+  padding-bottom: 16px;
 }
 
 .trust-role-detail-document .ideas-canvas-paper {
-  min-height: 100%;
+  flex: 0 0 auto;
+  min-height: auto;
   border: 0;
   border-radius: 0;
   background: var(--color-card);
@@ -1443,11 +1440,23 @@
 .trust-role-detail-document .ideas-canvas-content {
   --ideas-canvas-editor-gutter: 36px;
   --ideas-canvas-editor-gutter-end: 6px;
-  padding: 24px 24px 32px;
+  flex: 0 0 auto;
+  min-height: 0;
+  padding: 20px 24px 16px;
+}
+
+.trust-role-detail-document .ideas-canvas-content > .ideas-canvas-body,
+.trust-role-detail-document .ideas-canvas-content > .ideas-canvas-body-rendered {
+  flex: 0 0 auto;
+  min-height: 150px;
 }
 
 .trust-role-detail-document .ideas-canvas-title {
   font-size: clamp(26px, 2vw, 31px);
+}
+
+.trust-role-detail-document .idea-convo-root {
+  padding: 0 24px 8px;
 }
 
 .trust-role-detail-inspector {

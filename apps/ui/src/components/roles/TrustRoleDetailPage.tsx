@@ -195,19 +195,16 @@ export default function TrustRoleDetailPage({
       <PrimitivePageHeader
         className="trust-roles-page-header trust-role-detail-page-header"
         title={
-          <span className="trust-role-detail-title">
-            <span className="trust-primitive-page-title-text">Role</span>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="trust-role-detail-back"
-              leadingIcon={<ArrowLeft size={14} strokeWidth={1.8} />}
-              onClick={() => navigate(rolesPath)}
-            >
-              Roles
-            </Button>
-          </span>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="trust-role-detail-back"
+            leadingIcon={<ArrowLeft size={14} strokeWidth={1.8} />}
+            onClick={() => navigate(rolesPath)}
+          >
+            Roles
+          </Button>
         }
         aria-label="Role detail controls"
         actions={
