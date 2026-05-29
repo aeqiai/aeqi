@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { PanelRightClose, PanelRightOpen, Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Role, RoleEdge } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
@@ -53,6 +53,7 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
   const [edges, setEdges] = useState<RoleEdge[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(true);
 
   const agents = useDaemonStore((s) => s.agents);
   const entities = useDaemonStore((s) => s.entities);
@@ -349,114 +350,155 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
         </div>
       </PrimitivePageHeader>
 
-      <div className="trust-roles-main">
-        <RoleSnapshotBand
-          total={snapshot.total}
-          items={[
-            {
-              singular: "Role",
-              plural: "Roles",
-              value: snapshot.total,
-              sublabel: "Across this TRUST",
-              breakdown:
-                snapshot.vacant === 0
-                  ? "All seats filled"
-                  : `${snapshot.vacant} ${snapshot.vacant === 1 ? "vacant seat" : "vacant seats"}`,
-              tone: snapshot.vacant > 0 ? "warmth" : undefined,
-            },
-            {
-              singular: "Owner",
-              plural: "Owners",
-              value: snapshot.owners.total,
-              sublabel: "Ownership authority only",
-              breakdown: breakdownText(
-                snapshot.owners.agents,
-                snapshot.owners.humans,
-                snapshot.owners.vacant,
-              ),
-            },
-            {
-              singular: "Director",
-              plural: "Directors",
-              value: snapshot.directors.total,
-              sublabel: "Ownership + operations",
-              breakdown: breakdownText(
-                snapshot.directors.agents,
-                snapshot.directors.humans,
-                snapshot.directors.vacant,
-              ),
-            },
-            {
-              singular: "Operator",
-              plural: "Operators",
-              value: snapshot.operators.total,
-              sublabel: "Operational authority only",
-              breakdown: breakdownText(
-                snapshot.operators.agents,
-                snapshot.operators.humans,
-                snapshot.operators.vacant,
-              ),
-            },
-          ]}
-        />
-
-        <div className="trust-roles-canvas">
-          {loading && <RolesLoading />}
-          {error && <RolesError message={error} />}
-          {showEmpty && <RolesEmptyState />}
-          {showNoMatch && (
-            <RolesNoMatch onReset={() => setFilter({ search: "", occupant: "all" })} />
-          )}
-          {!loading && !error && filtered.length > 0 && view === "chart" && (
-            <RolesChart
-              roles={filtered}
-              edges={filteredEdges}
-              agentNames={agentNames}
-              agentAvatars={agentAvatars}
-              onSelectRole={handleSelectRole}
-              selectedRoleId={selectedRole?.id ?? null}
-              newRolePath={entityPathFromId(entities, trustId, "roles", "new")}
+      <div
+        className={
+          selectedRole && detailsOpen
+            ? "trust-roles-main"
+            : "trust-roles-main trust-roles-main--detail-collapsed"
+        }
+      >
+        {selectedRole && isEditingRole ? (
+          <div className="trust-roles-editor-shell">
+            <RoleEditorPane
+              role={selectedRole}
+              onBack={stopEditingRole}
+              onSaved={handleRoleSaved}
             />
-          )}
-          {!loading && !error && filtered.length > 0 && view === "cards" && (
-            <div className="trust-roles-scroll">
-              <RolesCards
-                roles={filtered}
-                agentNames={agentNames}
-                agentAvatars={agentAvatars}
-                onSelectRole={handleSelectRole}
-                selectedRoleId={selectedRole?.id ?? null}
+          </div>
+        ) : (
+          <>
+            <div className="trust-roles-workspace-head">
+              <RoleSnapshotBand
+                total={snapshot.total}
+                items={[
+                  {
+                    singular: "Role",
+                    plural: "Roles",
+                    value: snapshot.total,
+                    sublabel: "Across this TRUST",
+                    breakdown:
+                      snapshot.vacant === 0
+                        ? "All seats filled"
+                        : `${snapshot.vacant} ${
+                            snapshot.vacant === 1 ? "vacant seat" : "vacant seats"
+                          }`,
+                    tone: snapshot.vacant > 0 ? "warmth" : undefined,
+                  },
+                  {
+                    singular: "Owner",
+                    plural: "Owners",
+                    value: snapshot.owners.total,
+                    sublabel: "Ownership authority only",
+                    breakdown: breakdownText(
+                      snapshot.owners.agents,
+                      snapshot.owners.humans,
+                      snapshot.owners.vacant,
+                    ),
+                  },
+                  {
+                    singular: "Director",
+                    plural: "Directors",
+                    value: snapshot.directors.total,
+                    sublabel: "Ownership + operations",
+                    breakdown: breakdownText(
+                      snapshot.directors.agents,
+                      snapshot.directors.humans,
+                      snapshot.directors.vacant,
+                    ),
+                  },
+                  {
+                    singular: "Operator",
+                    plural: "Operators",
+                    value: snapshot.operators.total,
+                    sublabel: "Operational authority only",
+                    breakdown: breakdownText(
+                      snapshot.operators.agents,
+                      snapshot.operators.humans,
+                      snapshot.operators.vacant,
+                    ),
+                  },
+                ]}
               />
+              {selectedRole && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="trust-roles-detail-toggle"
+                  onClick={() => setDetailsOpen((open) => !open)}
+                  leadingIcon={
+                    detailsOpen ? (
+                      <PanelRightClose size={13} strokeWidth={1.8} />
+                    ) : (
+                      <PanelRightOpen size={13} strokeWidth={1.8} />
+                    )
+                  }
+                >
+                  {detailsOpen ? "Hide detail" : "Show detail"}
+                </Button>
+              )}
             </div>
-          )}
-          {!loading && !error && filtered.length > 0 && view === "list" && (
-            <div className="trust-roles-scroll">
-              <RolesList
-                roles={filtered}
-                edges={filteredEdges}
-                agentNames={agentNames}
-                agentAvatars={agentAvatars}
-                onSelectRole={handleSelectRole}
-              />
+
+            <div className="trust-roles-workspace">
+              <section className="trust-roles-content" aria-label="Role workspace">
+                <div className="trust-roles-canvas">
+                  {loading && <RolesLoading />}
+                  {error && <RolesError message={error} />}
+                  {showEmpty && <RolesEmptyState />}
+                  {showNoMatch && (
+                    <RolesNoMatch onReset={() => setFilter({ search: "", occupant: "all" })} />
+                  )}
+                  {!loading && !error && filtered.length > 0 && view === "chart" && (
+                    <RolesChart
+                      roles={filtered}
+                      edges={filteredEdges}
+                      agentNames={agentNames}
+                      agentAvatars={agentAvatars}
+                      onSelectRole={handleSelectRole}
+                      selectedRoleId={selectedRole?.id ?? null}
+                      newRolePath={entityPathFromId(entities, trustId, "roles", "new")}
+                    />
+                  )}
+                  {!loading && !error && filtered.length > 0 && view === "cards" && (
+                    <div className="trust-roles-scroll">
+                      <RolesCards
+                        roles={filtered}
+                        agentNames={agentNames}
+                        agentAvatars={agentAvatars}
+                        onSelectRole={handleSelectRole}
+                        selectedRoleId={selectedRole?.id ?? null}
+                      />
+                    </div>
+                  )}
+                  {!loading && !error && filtered.length > 0 && view === "list" && (
+                    <div className="trust-roles-scroll">
+                      <RolesList
+                        roles={filtered}
+                        edges={filteredEdges}
+                        agentNames={agentNames}
+                        agentAvatars={agentAvatars}
+                        onSelectRole={handleSelectRole}
+                      />
+                    </div>
+                  )}
+                </div>
+              </section>
+              {selectedRole && detailsOpen && (
+                <aside className="trust-roles-detail" aria-label="Selected role detail">
+                  <RoleInspector
+                    role={selectedRole}
+                    edges={edges}
+                    rolesById={rolesById}
+                    trustId={trustId}
+                    basePath={basePath}
+                    onEdit={() => startEditingRole(selectedRole.id)}
+                  />
+                </aside>
+              )}
             </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
-      <aside className="trust-roles-side">
-        {selectedRole && isEditingRole && (
-          <RoleEditorPane role={selectedRole} onBack={stopEditingRole} onSaved={handleRoleSaved} />
-        )}
-        {selectedRole && !isEditingRole && (
-          <RoleInspector
-            role={selectedRole}
-            edges={edges}
-            rolesById={rolesById}
-            trustId={trustId}
-            basePath={basePath}
-            onEdit={() => startEditingRole(selectedRole.id)}
-          />
-        )}
-      </aside>
     </div>
   );
 }
