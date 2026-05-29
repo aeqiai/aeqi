@@ -322,6 +322,7 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
         aria-label="Role controls"
         actions={
           <Button
+            className="trust-top-rail-cta"
             variant="primary"
             size="md"
             onClick={() => navigate(entityPathFromId(entities, trustId, "roles", "new"))}

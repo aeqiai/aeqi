@@ -251,6 +251,7 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
         actions={
           <Tooltip content="New agent (N)">
             <Button
+              className="trust-top-rail-cta"
               variant="primary"
               size="md"
               onClick={openPicker}
