@@ -175,7 +175,7 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
   // a non-resting filter is in play. The liveness chip carries the same
   // dot vocabulary as the row paint (`.agent-liveness-dot--<state>`) so
   // the active filter reads in the same language as the rows it's
-  // narrowing — violet for online, warmth for idle, ink-muted for
+  // narrowing — emerald for online, warmth for idle, ink-muted for
   // offline — instead of as a generic grey pill.
   const activeChips: {
     key: string;

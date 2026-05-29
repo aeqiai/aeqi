@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
@@ -85,9 +85,11 @@ describe("TrustAgentsTab", () => {
     const register = screen.getByRole("region", { name: "Agents register" });
     const suggestions = screen.getByRole("region", { name: "Suggested agents" });
     const table = screen.getByRole("table", { name: "Agents" });
+    const online = within(table).getByText("Online");
 
     expect(register.closest(".trust-agents-register")).not.toBeNull();
     expect(register).toContainElement(table);
+    expect(online.closest(".agent-liveness")).toHaveClass("agent-liveness--online");
     expect(suggestions.closest(".trust-agents-suggest")).not.toBeNull();
     expect(screen.queryByLabelText("Selected agent")).toBeNull();
     expect(screen.queryByRole("region", { name: "Agent snapshot" })).not.toBeInTheDocument();

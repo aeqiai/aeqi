@@ -485,9 +485,8 @@
 }
 
 /* Agent liveness dot — mirrors `.quest-status-dot` (7px, token colors).
-   Three-tone palette tokenised through the canonical `--state-*` family
-   so every primitive page reads from the same vocabulary:
-     online  = `--state-progress` (executing / actively running)
+   Three-tone palette tokenised through the canonical semantic families:
+     online  = success emerald    (reachable / active)
      idle    = `--state-review`   (armed but quiet)
      offline = ink-muted          (stopped / disabled)
    The label next to the dot rides in sentence case in
@@ -516,7 +515,7 @@
   background: var(--color-text-muted);
 }
 .agent-liveness-dot--online {
-  background: var(--state-progress);
+  background: var(--color-success);
 }
 .agent-liveness-dot--idle {
   background: var(--state-review);
@@ -527,7 +526,7 @@
 }
 
 .agent-liveness--online {
-  background: var(--state-progress-bg);
+  background: var(--color-success-bg);
 }
 
 .agent-liveness--idle {
@@ -536,17 +535,17 @@
 
 /* Active liveness-filter chip — the chip strip below the toolbar
    inherits the canonical `.ideas-list-chip` shape, but liveness chips
-   carry a leading status dot AND a tinted substrate keyed to the same
-   `--state-*` family that paints the row dots. This collapses the chip
-   strip and the row dots into one vocabulary: removing the "Online"
-   chip and unfiltering the rows speak the same colour. Tighter
-   left-padding so the dot rides flush instead of looking inset. */
+   carry a leading status dot and a tinted substrate keyed to the same
+   semantic family that paints the row dots. This collapses the chip strip
+   and the row dots into one vocabulary: removing the "Online" chip and
+   unfiltering the rows speak the same colour. Tighter left-padding so the
+   dot rides flush instead of looking inset. */
 .agents-list-chip--liveness {
   padding-left: 8px;
   gap: 6px;
 }
 .agents-list-chip--liveness:has(.agent-liveness-dot--online) {
-  background: var(--state-progress-bg);
+  background: var(--color-success-bg);
 }
 .agents-list-chip--liveness:has(.agent-liveness-dot--idle) {
   background: var(--state-review-bg);

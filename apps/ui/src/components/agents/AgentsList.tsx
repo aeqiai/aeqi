@@ -7,7 +7,7 @@ import { relativeTime } from "../ideas/types";
 import { formatSpendUsd } from "@/lib/spend";
 
 // Liveness ladder — three-tone palette per the design language:
-//   online  = currently running / executing (violet)
+//   online  = reachable / active (emerald)
 //   idle    = armed but waiting (warmth)
 //   offline = stopped / disabled (ink-muted)
 // `active` is the only wire value that maps to online; `stopped` to

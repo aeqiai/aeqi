@@ -75,16 +75,16 @@ describe("TrustMembersTab", () => {
     );
   }
 
-  it("renders member state and last active recency for human role occupants", async () => {
+  it("renders member status and last active recency for human role occupants", async () => {
     renderTab();
 
     const table = await screen.findByRole("table", { name: "Trust members" });
 
-    expect(within(table).getByRole("columnheader", { name: "State" })).toBeInTheDocument();
+    expect(within(table).getByRole("columnheader", { name: "Status" })).toBeInTheDocument();
     expect(within(table).getByRole("columnheader", { name: "Last active" })).toBeInTheDocument();
     await waitFor(() => {
       expect(within(table).getByText("Ada Founder")).toBeInTheDocument();
-      expect(within(table).getAllByText("Member").length).toBeGreaterThan(1);
+      expect(within(table).getByText("Active")).toBeInTheDocument();
       expect(within(table).getByText("now")).toBeInTheDocument();
     });
   });

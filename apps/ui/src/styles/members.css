@@ -117,6 +117,23 @@
   background: var(--bg-row);
 }
 
+.trust-members-status {
+  height: 24px;
+  min-height: 24px;
+  padding: 0 9px;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.trust-members-status > span:first-child {
+  width: 7px;
+  height: 7px;
+}
+
 .trust-members-role-count-cell {
   display: inline-flex;
   align-items: center;

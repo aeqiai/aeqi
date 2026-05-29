@@ -21,7 +21,7 @@ import {
 } from "./ui";
 import "@/styles/members.css";
 
-type MemberStatus = "member" | "invited" | "accepted" | "no_role";
+type MemberStatus = "active" | "invited" | "accepted" | "no_role";
 
 interface MemberRow {
   id: string;
@@ -36,14 +36,14 @@ interface MemberRow {
 }
 
 const STATUS_LABEL: Record<MemberStatus, string> = {
-  member: "Member",
+  active: "Active",
   invited: "Invited",
   accepted: "Accepted",
   no_role: "No role",
 };
 
 const STATUS_VARIANT: Record<MemberStatus, "success" | "warning" | "neutral" | "muted"> = {
-  member: "success",
+  active: "success",
   invited: "warning",
   accepted: "neutral",
   no_role: "muted",
@@ -176,12 +176,17 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
       },
       {
         key: "status",
-        header: "State",
+        header: "Status",
         width: "112px",
         sortable: true,
         sortAccessor: (row) => STATUS_LABEL[row.status],
         cell: (row) => (
-          <Badge variant={STATUS_VARIANT[row.status]} size="sm" dot>
+          <Badge
+            variant={STATUS_VARIANT[row.status]}
+            size="sm"
+            dot
+            className="trust-members-status"
+          >
             {STATUS_LABEL[row.status]}
           </Badge>
         ),
@@ -317,7 +322,12 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
                   <article className="trust-members-card" key={row.id}>
                     <div className="trust-members-card-main">
                       <MemberIdentity row={row} />
-                      <Badge variant={STATUS_VARIANT[row.status]} size="sm" dot>
+                      <Badge
+                        variant={STATUS_VARIANT[row.status]}
+                        size="sm"
+                        dot
+                        className="trust-members-status"
+                      >
                         {STATUS_LABEL[row.status]}
                       </Badge>
                     </div>
@@ -446,7 +456,7 @@ function buildMemberRows({
       id: `human:${role.occupant_id}`,
       name: role.occupant_name || "Human member",
       detail: role.occupant_id,
-      status: "member",
+      status: "active",
       roleIds: [role.id],
       roles: [role.title],
       createdAt: role.created_at,
@@ -505,7 +515,7 @@ function buildMemberRows({
 
   return rows.sort((a, b) => {
     const statusRank: Record<MemberStatus, number> = {
-      member: 0,
+      active: 0,
       no_role: 1,
       invited: 2,
       accepted: 3,
