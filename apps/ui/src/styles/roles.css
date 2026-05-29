@@ -2085,6 +2085,30 @@
   .trust-agents-toolbar > .ideas-list-search-field {
     flex-basis: 100%;
   }
+  .trust-roles-main {
+    overflow-y: auto;
+  }
+  .trust-roles-workspace-head {
+    flex-direction: column;
+  }
+  .trust-roles-detail-toggle {
+    align-self: flex-start;
+    margin: 0 14px 12px;
+  }
+  .trust-roles-workspace {
+    overflow: visible;
+  }
+  .trust-roles-content {
+    flex: 0 0 360px;
+    min-height: 360px;
+  }
+  .trust-roles-detail {
+    max-height: none;
+    overflow: visible;
+  }
+  .trust-roles-detail .role-inspector {
+    overflow: visible;
+  }
   .trust-roles-snapshot {
     display: flex;
   }
