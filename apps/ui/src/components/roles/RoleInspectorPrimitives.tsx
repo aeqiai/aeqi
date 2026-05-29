@@ -1,5 +1,5 @@
 import { type FormEvent, type ReactNode } from "react";
-import { Check, Copy } from "lucide-react";
+import { Check, ChevronRight, Copy } from "lucide-react";
 import { Button, Modal } from "@/components/ui";
 import type { Role, RoleType } from "@/lib/types";
 
@@ -14,7 +14,15 @@ export function PropertyGroup({
 }) {
   return (
     <details className="role-inspector-group" open={defaultOpen}>
-      <summary className="role-inspector-group-title">{title}</summary>
+      <summary className="role-inspector-group-title">
+        <span>{title}</span>
+        <ChevronRight
+          className="role-inspector-group-chevron"
+          size={14}
+          strokeWidth={1.8}
+          aria-hidden="true"
+        />
+      </summary>
       <div className="role-inspector-group-fields">{children}</div>
     </details>
   );

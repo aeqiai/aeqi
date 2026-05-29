@@ -662,12 +662,12 @@
    dividers only, no separate inspector card floating beside it. */
 .trust-roles,
 .trust-agents {
-  --toolbar-control-h: 34px;
+  --toolbar-control-h: 32px;
 
   display: grid;
   height: 100%;
   overflow: hidden;
-  row-gap: var(--space-2);
+  row-gap: 6px;
 }
 .trust-roles {
   grid-template-columns: minmax(0, 1fr);
@@ -676,7 +676,7 @@
   grid-template-areas:
     "header"
     "main";
-  padding: 0 var(--space-5) var(--space-5);
+  padding: 0 var(--space-4) var(--space-4);
 }
 .trust-agents {
   grid-template-columns: minmax(0, 1fr);
@@ -685,7 +685,7 @@
   grid-template-areas:
     "header"
     "main";
-  padding: 0 var(--space-5) var(--space-5);
+  padding: 0 var(--space-4) var(--space-4);
 }
 .trust-roles > .trust-roles-page-header,
 .trust-agents > .trust-roles-page-header {
@@ -1272,8 +1272,8 @@
 .trust-roles-detail .role-inspector {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  padding: 20px;
+  gap: 10px;
+  padding: 12px 14px 14px;
   background: transparent;
   border-radius: 0;
   box-shadow: none;
@@ -1286,7 +1286,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 32px;
+  min-height: 30px;
   gap: var(--space-3);
 }
 .role-inspector-object {
@@ -1347,47 +1347,58 @@
 .role-inspector-body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
 }
 .role-inspector-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 .role-inspector-group-title {
   display: flex;
   align-items: center;
-  gap: 6px;
-  min-height: 24px;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 32px;
   margin: 0;
-  padding: 0 2px;
+  padding: 0 8px 0 10px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-card-muted) 72%, transparent);
   font-family: var(--font-sans);
   font-size: 12px;
-  font-weight: 620;
-  color: var(--color-text-primary);
+  font-weight: 600;
+  color: var(--color-text-secondary);
   cursor: pointer;
   list-style: none;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
 }
 .role-inspector-group-title::-webkit-details-marker {
   display: none;
 }
-.role-inspector-group-title::before {
-  content: "";
-  width: 0;
-  height: 0;
-  border-top: 4px solid transparent;
-  border-bottom: 4px solid transparent;
-  border-left: 5px solid var(--color-text-muted);
-  transform: rotate(0deg);
+.role-inspector-group-title:hover,
+.role-inspector-group-title:focus-visible {
+  outline: none;
+  background: color-mix(in srgb, var(--color-card-muted) 86%, var(--color-card-elevated) 14%);
+  color: var(--color-text-primary);
+}
+.role-inspector-group-chevron {
+  flex: 0 0 auto;
+  color: var(--color-text-muted);
   transition: transform 0.12s ease;
 }
-.role-inspector-group[open] > .role-inspector-group-title::before {
+.role-inspector-group[open] > .role-inspector-group-title {
+  background: color-mix(in srgb, var(--color-card-elevated) 68%, var(--color-card-muted) 32%);
+  color: var(--color-text-primary);
+}
+.role-inspector-group[open] > .role-inspector-group-title .role-inspector-group-chevron {
   transform: rotate(90deg);
 }
 .role-inspector-group-fields {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 .role-inspector-row {
   box-sizing: border-box;
@@ -1396,9 +1407,9 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-height: 32px;
+  min-height: 30px;
   min-width: 0;
-  padding: 0 2px;
+  padding: 0;
   border: 0;
   border-radius: var(--radius-sm);
   font-family: var(--font-sans);
