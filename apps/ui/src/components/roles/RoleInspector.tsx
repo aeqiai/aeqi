@@ -28,6 +28,7 @@ interface RoleInspectorProps {
   idea?: Idea | null;
   ideaTagSuggestions?: string[];
   onCollapse?: () => void;
+  onCopyValue?: (value: string) => void | Promise<void>;
   onIdeaUpdated?: (idea: Idea) => void;
   onRoleUpdated?: (role: Role) => void;
   onEdgesUpdated?: (edges: RoleEdge[]) => void;
@@ -45,6 +46,7 @@ export default function RoleInspector({
   idea,
   ideaTagSuggestions = [],
   onCollapse,
+  onCopyValue,
   onIdeaUpdated,
   onRoleUpdated,
   onEdgesUpdated,
@@ -56,19 +58,19 @@ export default function RoleInspector({
 
   const agentNamesById = useMemo(() => {
     const m = new Map<string, string>();
-    for (const a of agents) m.set(a.id, a.name);
+    for (const a of agents.filter(Boolean)) m.set(a.id, a.name);
     return m;
   }, [agents]);
 
   const entityNameById = useMemo(() => {
     const m = new Map<string, string>();
-    for (const e of entities) m.set(e.id, e.name);
+    for (const e of entities.filter(Boolean)) m.set(e.id, e.name);
     return m;
   }, [entities]);
 
   const parentRoles = useMemo(() => {
     const parents: Role[] = [];
-    for (const e of edges) {
+    for (const e of edges.filter(Boolean)) {
       if (e.child_role_id === role.id) {
         const parent = rolesById.get(e.parent_role_id);
         if (parent) parents.push(parent);
@@ -86,6 +88,7 @@ export default function RoleInspector({
     if (role.occupant_kind !== "agent" || !role.occupant_id) return 0;
     return quests.filter(
       (q) =>
+        q &&
         q.agent_id === role.occupant_id &&
         (q.status === "in_progress" ||
           q.status === "in_review" ||
@@ -143,9 +146,11 @@ export default function RoleInspector({
   }, [role, parentRoles]);
 
   const copy = (value: string, fieldId: string) => {
-    navigator.clipboard.writeText(value);
-    setCopiedField(fieldId);
-    setTimeout(() => setCopiedField((cur) => (cur === fieldId ? null : cur)), 1500);
+    const write = onCopyValue ? onCopyValue(value) : navigator.clipboard.writeText(value);
+    void Promise.resolve(write).then(() => {
+      setCopiedField(fieldId);
+      setTimeout(() => setCopiedField((cur) => (cur === fieldId ? null : cur)), 1500);
+    });
   };
 
   const copyRoleLink = () => {

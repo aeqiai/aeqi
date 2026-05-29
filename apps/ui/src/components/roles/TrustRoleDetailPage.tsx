@@ -1,14 +1,39 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Share2 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import * as ideasApi from "@/api/ideas";
 import { api } from "@/lib/api";
 import { entityBasePath } from "@/lib/entityPath";
 import type { Idea, Role, RoleEdge } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
-import { Button, EmptyState, Loading, PrimitivePageHeader } from "../ui";
+import { useClipboardToast } from "@/hooks/useClipboardToast";
+import {
+  Button,
+  ClipboardToast,
+  EmptyState,
+  IconButton,
+  Loading,
+  PrimitivePageHeader,
+  Tooltip,
+} from "../ui";
 import IdeaCanvas, { type IdeaCanvasHandle } from "../IdeaCanvas";
 import RoleInspector from "./RoleInspector";
+
+function isRole(role: Role | null | undefined): role is Role {
+  return Boolean(role?.id);
+}
+
+function normalizeRole(role: Role): Role {
+  return { ...role, title: role.title ?? "(untitled)", grants: role.grants ?? [] };
+}
+
+function isRoleEdge(edge: RoleEdge | null | undefined): edge is RoleEdge {
+  return Boolean(edge?.parent_role_id && edge.child_role_id);
+}
+
+function isIdea(idea: Idea | null | undefined): idea is Idea {
+  return Boolean(idea?.id);
+}
 
 export default function TrustRoleDetailPage({
   trustId,
@@ -20,7 +45,7 @@ export default function TrustRoleDetailPage({
   const navigate = useNavigate();
   const location = useLocation();
   const entities = useDaemonStore((s) => s.entities);
-  const entity = entities.find((e) => e.id === trustId);
+  const entity = entities.find((e) => e?.id === trustId);
   const basePath = entity ? entityBasePath(entity) : "/launch";
   const fallbackRolesPath = `${basePath}/roles`;
   const rolesReturnTo =
@@ -43,6 +68,7 @@ export default function TrustRoleDetailPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const canvasRef = useRef<IdeaCanvasHandle | null>(null);
+  const { copy, toastLabel } = useClipboardToast();
 
   useEffect(() => {
     let cancelled = false;
@@ -52,8 +78,8 @@ export default function TrustRoleDetailPage({
       .getRoles(trustId)
       .then((resp) => {
         if (cancelled) return;
-        setRoles(resp.roles ?? []);
-        setEdges(resp.edges ?? []);
+        setRoles((resp.roles ?? []).filter(isRole).map(normalizeRole));
+        setEdges((resp.edges ?? []).filter(isRoleEdge));
       })
       .catch((err: Error) => {
         if (cancelled) return;
@@ -75,8 +101,12 @@ export default function TrustRoleDetailPage({
 
   const role = rolesById.get(roleId) ?? null;
 
-  const handleRoleUpdated = useCallback((updated: Role) => {
-    setRoles((prev) => prev.map((role) => (role.id === updated.id ? updated : role)));
+  const handleRoleUpdated = useCallback((updated: Role | null | undefined) => {
+    if (!isRole(updated)) return;
+    const nextRole = normalizeRole(updated);
+    setRoles((prev) =>
+      prev.filter(isRole).map((role) => (role.id === nextRole.id ? nextRole : role)),
+    );
   }, []);
 
   useEffect(() => {
@@ -107,7 +137,7 @@ export default function TrustRoleDetailPage({
         }
 
         const resp = await api.getIdeasByIds([ideaId]);
-        const idea = (resp.ideas?.find((item) => item.id === ideaId) as Idea | undefined) ?? null;
+        const idea = (resp.ideas ?? []).filter(isIdea).find((item) => item.id === ideaId) ?? null;
         if (!cancelled) setRoleIdea(idea);
       } catch (err) {
         if (!cancelled) {
@@ -132,7 +162,7 @@ export default function TrustRoleDetailPage({
     try {
       const ideaId = await canvasRef.current.commit();
       const resp = await api.getIdeasByIds([ideaId]);
-      const nextIdea = (resp.ideas?.find((item) => item.id === ideaId) as Idea | undefined) ?? null;
+      const nextIdea = (resp.ideas ?? []).filter(isIdea).find((item) => item.id === ideaId) ?? null;
       if (nextIdea) {
         setRoleIdea(nextIdea);
         if (nextIdea.name && nextIdea.name !== role.title) {
@@ -155,6 +185,11 @@ export default function TrustRoleDetailPage({
 
   const ideaTagSuggestions = useMemo(() => roleIdea?.tags ?? [], [roleIdea?.tags]);
 
+  const copyRoleRoute = useCallback(() => {
+    if (!role) return;
+    void copy(`${window.location.origin}${basePath}/roles/${encodeURIComponent(role.id)}`);
+  }, [basePath, copy, role]);
+
   return (
     <div className="trust-roles trust-role-detail-page">
       <PrimitivePageHeader
@@ -176,28 +211,43 @@ export default function TrustRoleDetailPage({
         }
         aria-label="Role detail controls"
         actions={
-          bodyDirty ? (
-            <>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={handleRevertIdea}
-                disabled={savingBody}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                onClick={handleSaveIdea}
-                loading={savingBody}
-              >
-                Save
-              </Button>
-            </>
-          ) : null
+          <div className="trust-roles-header-actions">
+            {role && (
+              <Tooltip content="Copy role route" portal>
+                <IconButton
+                  variant="bordered"
+                  size="md"
+                  className="trust-roles-header-icon"
+                  aria-label="Copy role route"
+                  onClick={copyRoleRoute}
+                >
+                  <Share2 size={14} strokeWidth={1.8} />
+                </IconButton>
+              </Tooltip>
+            )}
+            {bodyDirty && (
+              <>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleRevertIdea}
+                  disabled={savingBody}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  onClick={handleSaveIdea}
+                  loading={savingBody}
+                >
+                  Save
+                </Button>
+              </>
+            )}
+          </div>
         }
       />
 
@@ -258,9 +308,10 @@ export default function TrustRoleDetailPage({
                       idea={roleIdea}
                       ideaTagSuggestions={ideaTagSuggestions}
                       variant="page"
+                      onCopyValue={copy}
                       onIdeaUpdated={setRoleIdea}
                       onRoleUpdated={handleRoleUpdated}
-                      onEdgesUpdated={setEdges}
+                      onEdgesUpdated={(nextEdges) => setEdges(nextEdges.filter(isRoleEdge))}
                     />
                   </aside>
                 </>
@@ -269,6 +320,7 @@ export default function TrustRoleDetailPage({
           </section>
         </div>
       </div>
+      <ClipboardToast label={toastLabel} />
     </div>
   );
 }

@@ -8,6 +8,10 @@ import RefsRow, { type RefRecord } from "./RefsRow";
 const NO_EDGES: IdeaEdges = { ok: true, links: [], backlinks: [] };
 const NO_IDEAS: Idea[] = [];
 
+function isIdeaLink(link: IdeaLink | null | undefined): link is IdeaLink {
+  return Boolean(link?.target_id && link.relation);
+}
+
 /**
  * Edit-mode wrapper around <RefsRow>. Loads outgoing edges via the API,
  * adds explicit references as `adjacent`, removes only `adjacent` (the
@@ -41,7 +45,7 @@ export default function IdeaLinksPanel({ ideaId, agentId }: { ideaId: string; ag
   // so the chip remains removable. Body-derived rels stay non-removable.
   const refs = useMemo<RefRecord[]>(() => {
     const byTarget = new Map<string, IdeaLink>();
-    for (const l of edges.links) {
+    for (const l of (edges.links ?? []).filter(isIdeaLink)) {
       const existing = byTarget.get(l.target_id);
       if (!existing) {
         byTarget.set(l.target_id, l);

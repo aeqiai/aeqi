@@ -52,7 +52,7 @@ export function entityPathFromId(
   id: string,
   ...segments: string[]
 ): string {
-  const entity = entities.find((e) => e.id === id);
+  const entity = entities.find((e) => e?.id === id);
   if (entity) return entityPath(entity, ...segments);
   if (id) return entityPath({ id, trust_address: undefined }, ...segments);
   return "/launch";

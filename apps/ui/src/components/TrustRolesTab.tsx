@@ -1,12 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { Plus, Share2 } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Role, RoleEdge } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
 import { entityPathFromId } from "@/lib/entityPath";
+import { useClipboardToast } from "@/hooks/useClipboardToast";
 import "@/styles/roles.css";
-import { Button, EmptyState, Loading, PrimitivePageHeader, PrimitiveSearchField } from "./ui";
+import {
+  Button,
+  ClipboardToast,
+  EmptyState,
+  IconButton,
+  Loading,
+  PrimitivePageHeader,
+  PrimitiveSearchField,
+  Tooltip,
+} from "./ui";
 import RolesChart from "./roles/RolesChart";
 import RolesCards from "./roles/RolesCards";
 import RolesList from "./roles/RolesList";
@@ -23,6 +33,18 @@ import {
 } from "./roles/types";
 
 const OCCUPANT_RANK: Record<string, number> = { agent: 0, human: 1, vacant: 2 };
+
+function isRole(role: Role | null | undefined): role is Role {
+  return Boolean(role?.id);
+}
+
+function normalizeRole(role: Role): Role {
+  return { ...role, title: role.title ?? "(untitled)", grants: role.grants ?? [] };
+}
+
+function isRoleEdge(edge: RoleEdge | null | undefined): edge is RoleEdge {
+  return Boolean(edge?.parent_role_id && edge.child_role_id);
+}
 
 /**
  * Roles — the trust's authority graph.
@@ -48,18 +70,19 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
   const [edges, setEdges] = useState<RoleEdge[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { copy, toastLabel } = useClipboardToast();
 
   const agents = useDaemonStore((s) => s.agents);
   const entities = useDaemonStore((s) => s.entities);
 
   const agentNames = useMemo(() => {
     const m = new Map<string, string>();
-    for (const a of agents) m.set(a.id, a.name);
+    for (const a of agents.filter(Boolean)) m.set(a.id, a.name);
     return m;
   }, [agents]);
   const agentAvatars = useMemo(() => {
     const m = new Map<string, string>();
-    for (const a of agents) {
+    for (const a of agents.filter(Boolean)) {
       if (a.avatar) m.set(a.id, a.avatar);
     }
     return m;
@@ -72,8 +95,8 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
       .getRoles(trustId)
       .then((resp) => {
         if (cancelled) return;
-        setRoles(resp.roles ?? []);
-        setEdges(resp.edges ?? []);
+        setRoles((resp.roles ?? []).filter(isRole).map(normalizeRole));
+        setEdges((resp.edges ?? []).filter(isRoleEdge));
       })
       .catch((e: Error) => {
         if (cancelled) return;
@@ -157,6 +180,10 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
     [patchParams],
   );
 
+  const copyCurrentRoute = useCallback(() => {
+    void copy(`${window.location.origin}${location.pathname}${location.search}`);
+  }, [copy, location.pathname, location.search]);
+
   const roleCount = roles.length;
 
   const occupantCounts = useMemo(() => {
@@ -227,8 +254,8 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
   const handleRoleCreated = useCallback(
     async (role: Role) => {
       const refreshed = await api.getRoles(trustId);
-      setRoles(refreshed.roles ?? []);
-      setEdges(refreshed.edges ?? []);
+      setRoles((refreshed.roles ?? []).filter(isRole).map(normalizeRole));
+      setEdges((refreshed.edges ?? []).filter(isRoleEdge));
       const params = new URLSearchParams(searchParams);
       params.delete("new");
       navigate(entityPathFromId(entities, trustId, "roles", role.id), {
@@ -257,15 +284,28 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
         }
         aria-label="Role controls"
         actions={
-          <Button
-            className="trust-top-rail-cta"
-            variant="primary"
-            size="md"
-            onClick={openCreateRole}
-            leadingIcon={<Plus size={14} strokeWidth={1.8} />}
-          >
-            Role
-          </Button>
+          <div className="trust-roles-header-actions">
+            <Tooltip content="Copy route" portal>
+              <IconButton
+                variant="bordered"
+                size="md"
+                className="trust-roles-header-icon"
+                aria-label="Copy roles route"
+                onClick={copyCurrentRoute}
+              >
+                <Share2 size={14} strokeWidth={1.8} />
+              </IconButton>
+            </Tooltip>
+            <Button
+              className="trust-top-rail-cta"
+              variant="primary"
+              size="md"
+              onClick={openCreateRole}
+              leadingIcon={<Plus size={14} strokeWidth={1.8} />}
+            >
+              Role
+            </Button>
+          </div>
         }
       >
         <div className="ideas-toolbar trust-roles-toolbar">
@@ -340,6 +380,7 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
         agents={agents}
         onCreated={handleRoleCreated}
       />
+      <ClipboardToast label={toastLabel} />
     </div>
   );
 }

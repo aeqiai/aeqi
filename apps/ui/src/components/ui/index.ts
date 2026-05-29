@@ -48,6 +48,9 @@ export type { EmptyStateProps } from "./EmptyState";
 export { Banner } from "./Banner";
 export type { BannerProps, BannerKind } from "./Banner";
 
+export { ClipboardToast } from "./ClipboardToast";
+export type { ClipboardToastProps } from "./ClipboardToast";
+
 export { StatusRow } from "./StatusRow";
 export type { StatusRowProps, StatusDotKind } from "./StatusRow";
 
