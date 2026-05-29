@@ -73,7 +73,10 @@ export default function TagsEditor({
       {tags.map((t) => {
         const removable = typedSet.has(t.toLowerCase());
         return (
-          <span key={t} className={`ideas-tag-chip${removable ? " removable" : ""}`}>
+          <span
+            key={t}
+            className={`ideas-tag-chip ideas-content-pill${removable ? " removable" : ""}`}
+          >
             #{t}
             {removable && <ChipClose label={`Remove ${t}`} onClick={() => onRemove(t)} />}
           </span>
@@ -151,7 +154,7 @@ export default function TagsEditor({
       ) : (
         <button
           type="button"
-          className="ideas-tag-add"
+          className="ideas-tag-add ideas-content-pill"
           onClick={() => setAdding(true)}
           aria-label="Add tag"
         >

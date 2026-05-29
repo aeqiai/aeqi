@@ -15,6 +15,7 @@ export interface StoreIdeaRequest {
   // Tables-in-Ideas Phase 2.
   parent_idea_id?: string | null;
   properties?: Record<string, unknown> | null;
+  kind?: string;
 }
 
 export interface UploadedIdeaFile {

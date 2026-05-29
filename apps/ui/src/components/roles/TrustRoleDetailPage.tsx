@@ -130,6 +130,7 @@ export default function TrustRoleDetailPage({
               tags: ["role"],
               agent_id: trustId,
               scope: "global",
+              kind: "custom:role",
             },
             trustId,
           );

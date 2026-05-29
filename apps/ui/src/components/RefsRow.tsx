@@ -83,7 +83,9 @@ export default function RefsRow({
         return (
           <span
             key={r.target_id}
-            className={`ideas-ref-chip ideas-ref-chip--${r.relation}${removable ? " removable" : ""}`}
+            className={`ideas-ref-chip ideas-content-pill ideas-ref-chip--${r.relation}${
+              removable ? " removable" : ""
+            }`}
           >
             <span className="ideas-ref-chip-relation" aria-label={relationLabel(r.relation)} />
             <button
@@ -170,7 +172,7 @@ export default function RefsRow({
       ) : (
         <button
           type="button"
-          className="ideas-ref-add"
+          className="ideas-ref-add ideas-content-pill"
           onClick={() => setPicking(true)}
           aria-label="Add reference"
         >

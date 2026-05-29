@@ -1509,7 +1509,7 @@
   width: 100%;
   min-height: 0;
   margin: 0;
-  padding: 0 0 16px;
+  padding: var(--roles-section-inset) 0 16px;
 }
 
 .trust-role-detail-document .ideas-canvas-title,
@@ -1592,7 +1592,7 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  padding-left: 12px;
+  padding: var(--roles-section-inset);
   border-left: 1px solid var(--border-subtle, var(--border-faint));
   border-top: 0;
 }

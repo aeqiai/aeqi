@@ -271,11 +271,9 @@ export default function RoleInspector({
               <ReadOnlyRow label="Scope">
                 <span className="role-inspector-meta">{formatIdeaScope(idea)}</span>
               </ReadOnlyRow>
-              {idea.kind && (
-                <ReadOnlyRow label="Kind">
-                  <span className="role-inspector-meta">{formatIdeaKind(idea.kind)}</span>
-                </ReadOnlyRow>
-              )}
+              <ReadOnlyRow label="Type">
+                <span className="role-inspector-meta">Role</span>
+              </ReadOnlyRow>
               <CopyableRow
                 label="Idea ID"
                 title={compactAddress(idea.id)}
@@ -442,12 +440,4 @@ function formatIdeaScope(idea: Idea): string {
   if (idea.scope === "children") return "Children";
   if (idea.scope === "branch") return "Branch";
   return "Self";
-}
-
-function formatIdeaKind(kind: string): string {
-  if (kind === "note") return "Note";
-  if (kind === "file") return "File";
-  if (kind === "goal") return "Goal";
-  if (kind.startsWith("custom:")) return kind.slice(7) || "Custom";
-  return kind;
 }

@@ -8821,6 +8821,46 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   background: var(--state-hover);
 }
 
+/* Slim metadata pills for dense content surfaces. Page toolbar controls stay
+   on the 32px row rhythm; tags, refs, and inline metadata use this quieter
+   24px chip so detail panes do not feel inflated. */
+.ideas-content-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--bg-row);
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  box-sizing: border-box;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+.ideas-content-pill.removable {
+  padding-right: 5px;
+}
+button.ideas-content-pill {
+  cursor: pointer;
+}
+.ideas-content-pill:hover,
+button.ideas-content-pill:hover {
+  background: var(--color-card-muted);
+  color: var(--color-text-primary);
+}
+.ideas-ref-chip.ideas-content-pill {
+  gap: 5px;
+}
+.ideas-ref-chip.ideas-content-pill .ideas-ref-chip-label {
+  letter-spacing: 0;
+}
+
 /* ------------------------------------------------------------------
    Markdown render inside idea detail pane
    ------------------------------------------------------------------ */
