@@ -30,9 +30,10 @@ interface RoleInspectorProps {
   onCollapse?: () => void;
   onRoleUpdated?: (role: Role) => void;
   onEdgesUpdated?: (edges: RoleEdge[]) => void;
+  variant?: "panel" | "page";
 }
 
-type Editor = "name" | "type" | "assignment" | "mandate" | "parents" | "children" | "grants";
+type Editor = "name" | "type" | "assignment" | "mandate" | "parents" | "grants";
 
 export default function RoleInspector({
   role,
@@ -43,6 +44,7 @@ export default function RoleInspector({
   onCollapse,
   onRoleUpdated,
   onEdgesUpdated,
+  variant = "panel",
 }: RoleInspectorProps) {
   const agents = useDaemonStore((s) => s.agents);
   const quests = useDaemonStore((s) => s.quests) as unknown as Quest[];
@@ -69,17 +71,6 @@ export default function RoleInspector({
       }
     }
     return parents;
-  }, [edges, rolesById, role.id]);
-
-  const childRoles = useMemo(() => {
-    const children: Role[] = [];
-    for (const e of edges) {
-      if (e.parent_role_id === role.id) {
-        const child = rolesById.get(e.child_role_id);
-        if (child) children.push(child);
-      }
-    }
-    return children;
   }, [edges, rolesById, role.id]);
 
   const candidateRoles = useMemo(
@@ -137,7 +128,6 @@ export default function RoleInspector({
   const [ideaQuery, setIdeaQuery] = useState("");
   const [ideaOptions, setIdeaOptions] = useState<Idea[]>([]);
   const [parentDraft, setParentDraft] = useState<string[]>(parentRoles.map((r) => r.id));
-  const [childDraft, setChildDraft] = useState<string[]>(childRoles.map((r) => r.id));
   const [grantsDraft, setGrantsDraft] = useState<string[]>(role.grants ?? []);
   const [charter, setCharter] = useState<Idea | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -151,11 +141,10 @@ export default function RoleInspector({
     setAssignmentDraft({ kind: role.occupant_kind, id: role.occupant_id ?? "" });
     setMandateDraft(role.description_idea_id ?? "");
     setParentDraft(parentRoles.map((r) => r.id));
-    setChildDraft(childRoles.map((r) => r.id));
     setGrantsDraft(role.grants ?? []);
     setError(null);
     setSubmitting(false);
-  }, [role, parentRoles, childRoles]);
+  }, [role, parentRoles]);
 
   useEffect(() => {
     if (!charterIdeaId) {
@@ -201,10 +190,7 @@ export default function RoleInspector({
   };
 
   const copyRoleLink = () => {
-    copy(
-      `${window.location.origin}${basePath}/roles?role=${encodeURIComponent(role.id)}`,
-      "roleLink",
-    );
+    copy(`${window.location.origin}${basePath}/roles/${encodeURIComponent(role.id)}`, "roleLink");
   };
 
   const closeEditor = () => {
@@ -294,11 +280,6 @@ export default function RoleInspector({
     await saveEdges({ parent_role_ids: parentDraft }, "Could not update reporting line.");
   };
 
-  const saveChildren = async (event: FormEvent) => {
-    event.preventDefault();
-    await saveEdges({ child_role_ids: childDraft }, "Could not update delegate roles.");
-  };
-
   const saveEdges = async (
     patch: { parent_role_ids?: string[]; child_role_ids?: string[] },
     fallback: string,
@@ -327,7 +308,7 @@ export default function RoleInspector({
   };
 
   return (
-    <aside className="role-inspector" aria-label="Selected role">
+    <aside className={`role-inspector role-inspector--${variant}`} aria-label="Selected role">
       <header className="role-inspector-topbar">
         <span className="role-inspector-object">Role</span>
         <div className="role-inspector-actions" aria-label="Role actions">
@@ -384,20 +365,6 @@ export default function RoleInspector({
                 {p.title}
               </span>
             ))}
-          </PropertyRow>
-          <PropertyRow
-            label="Delegates to"
-            title={childRoles.length === 0 ? "No delegates" : ""}
-            onClick={() => openEditor("children")}
-          >
-            {childRoles.slice(0, 3).map((c) => (
-              <span key={c.id} className="role-inspector-chip">
-                {c.title}
-              </span>
-            ))}
-            {childRoles.length > 3 && (
-              <span className="role-inspector-meta">+{childRoles.length - 3}</span>
-            )}
           </PropertyRow>
           {!role.occupant_id ? null : (
             <CopyableRow
@@ -515,18 +482,6 @@ export default function RoleInspector({
         onSelected={setParentDraft}
         onClose={closeEditor}
         onSubmit={saveParents}
-        submitting={submitting}
-        error={error}
-      />
-
-      <RoleEdgesModal
-        open={editor === "children"}
-        title="Delegates to"
-        roles={candidateRoles}
-        selected={childDraft}
-        onSelected={setChildDraft}
-        onClose={closeEditor}
-        onSubmit={saveChildren}
         submitting={submitting}
         error={error}
       />

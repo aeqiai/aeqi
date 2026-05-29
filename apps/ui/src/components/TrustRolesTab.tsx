@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { PanelRightOpen, Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Role, RoleEdge } from "@/lib/types";
@@ -45,6 +45,7 @@ const OCCUPANT_RANK: Record<string, number> = { agent: 0, human: 1, vacant: 2 };
  * round-trip preserves the focused role.
  */
 export default function TrustRolesTab({ trustId }: { trustId: string }) {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const view = parseView(searchParams.get("view"));
   const sort = parseSort(searchParams.get("sort"));
@@ -248,21 +249,26 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
   }, [roles, user?.id]);
 
   const selectedRole = useMemo(() => {
+    if (view === "list") return null;
     if (selectedRoleId) {
       const found = rolesById.get(selectedRoleId);
       if (found) return found;
     }
     return defaultSelectedRole;
-  }, [selectedRoleId, rolesById, defaultSelectedRole]);
+  }, [view, selectedRoleId, rolesById, defaultSelectedRole]);
   const handleRoleUpdated = useCallback((updated: Role) => {
     setRoles((prev) => prev.map((role) => (role.id === updated.id ? updated : role)));
   }, []);
 
   const handleSelectRole = useCallback(
     (role: Role) => {
+      if (view === "list") {
+        navigate(entityPathFromId(entities, trustId, "roles", role.id));
+        return;
+      }
       setSelectedRole(role.id);
     },
-    [setSelectedRole],
+    [entities, navigate, setSelectedRole, trustId, view],
   );
 
   const handleRoleCreated = useCallback(
@@ -281,6 +287,8 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
 
   const showEmpty = !loading && !error && roles.length === 0;
   const showNoMatch = !loading && !error && roles.length > 0 && filtered.length === 0;
+  const showDetailPanel = view !== "list" && selectedRole && detailsOpen;
+  const showDetailToggle = view !== "list" && selectedRole && !detailsOpen;
 
   return (
     <div className="trust-roles">
@@ -326,13 +334,13 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
 
       <div
         className={
-          selectedRole && detailsOpen
+          showDetailPanel
             ? "trust-roles-main"
             : "trust-roles-main trust-roles-main--detail-collapsed"
         }
       >
         <div className="trust-roles-workspace">
-          {selectedRole && !detailsOpen && (
+          {showDetailToggle && (
             <IconButton
               type="button"
               variant="bordered"
@@ -387,7 +395,7 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
               )}
             </div>
           </section>
-          {selectedRole && detailsOpen && (
+          {showDetailPanel && (
             <aside className="trust-roles-detail" aria-label="Selected role detail">
               <RoleInspector
                 role={selectedRole}

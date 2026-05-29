@@ -306,13 +306,9 @@ export default function AppLayout() {
     const qs = params.toString();
     return `${base}/roles${qs ? `?${qs}` : ""}`;
   })();
-  const roleDeepLinkTarget = (() => {
+  const roleEditTarget = (() => {
     if (!roleId) return null;
-    const params = new URLSearchParams(search);
-    params.set("role", roleId);
-    params.delete("mode");
-    const qs = params.toString();
-    return `${base}/roles${qs ? `?${qs}` : ""}`;
+    return `${base}/roles/${encodeURIComponent(roleId)}${search}`;
   })();
   // No-tab default at entity scope = "overview" internally. The product
   // label is Views, but the legacy tab id remains the compatibility path
@@ -405,13 +401,14 @@ export default function AppLayout() {
     return <Navigate to={`${base}${search}`} replace />;
   }
 
-  // Roles has one canonical object surface: `/roles?role=<id>`. Historical
-  // full-page detail/edit links now collapse into the inline property sheet.
+  // Roles has a canonical table/list surface at `/roles` and a canonical
+  // object surface at `/roles/:roleId`. Creation stays query-mode because it
+  // is a workspace modal; stale edit links collapse to the object surface.
   if (isRolesNew) {
     return <Navigate to={roleCreateTarget} replace />;
   }
-  if ((isRolesDetail || isRolesEdit) && roleDeepLinkTarget) {
-    return <Navigate to={roleDeepLinkTarget} replace />;
+  if (isRolesEdit && roleEditTarget) {
+    return <Navigate to={roleEditTarget} replace />;
   }
 
   const mainContent = (() => {
@@ -442,6 +439,16 @@ export default function AppLayout() {
       const second = segments[1];
       const isDetail = !!second && !BLUEPRINT_KINDS.has(second);
       return isDetail ? <BlueprintDetailPage /> : <BlueprintsPage />;
+    }
+    if (isRolesDetail && roleId) {
+      return (
+        <TrustTabPage
+          agentId={activeAgentId}
+          trustId={effectiveRouteEntityId}
+          tab="roles"
+          itemId={roleId}
+        />
+      );
     }
     if (isEntityRoute && !drilledAgent && tab && !COMPANY_PAGE_TABS.has(tab)) {
       return <NotFoundPage />;

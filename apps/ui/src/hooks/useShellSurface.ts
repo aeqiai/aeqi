@@ -42,11 +42,11 @@ export interface ShellSurface {
   /** `/admin` — operator dashboard. Backend gates on is_admin; the page
    *  itself returns null + bounces non-admins. */
   isAdmin: boolean;
-  /** Legacy in-shell Roles sub-routes. Roles now has one canonical workspace:
-   *  `/roles`, with selection and creation modeled as query state. Old
-   *  `/roles/new`, `/roles/:id`, and `/roles/:id/edit` URLs redirect there;
-   *  invite remains a dedicated flow while invitations are not yet modeled as
-   *  a Roles workspace modal. */
+  /** In-shell Roles sub-routes. Roles has a canonical workspace at `/roles`
+   *  plus object detail at `/roles/:id`. Creation stays query-state on the
+   *  workspace; stale `/roles/:id/edit` links collapse to detail. Invite
+   *  remains a dedicated flow while invitations are not yet modeled as a
+   *  Roles workspace modal. */
   isRolesNew: boolean;
   isRolesDetail: boolean;
   isRolesEdit: boolean;

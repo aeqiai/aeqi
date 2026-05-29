@@ -27,6 +27,7 @@ const AgentGatewaysTab = lazy(() => import("@/components/AgentChannelsTab"));
 const TrustToolsTab = lazy(() => import("@/components/TrustToolsTab"));
 const TrustMembersTab = lazy(() => import("@/components/TrustMembersTab"));
 const TrustRolesTab = lazy(() => import("@/components/TrustRolesTab"));
+const TrustRoleDetailPage = lazy(() => import("@/components/roles/TrustRoleDetailPage"));
 const AgentEventsTab = lazy(() => import("@/components/AgentEventsTab"));
 const AgentQuestsTab = lazy(() => import("@/components/AgentQuestsTab"));
 const AgentIdeasTab = lazy(() => import("@/components/AgentIdeasTab"));
@@ -49,6 +50,7 @@ interface TrustTabPageProps {
  * Routes:
  *   /trust/:trustAddress               → TrustOverviewTab (Views landing — Health folded in)
  *   /trust/:trustAddress/roles         → TrustRolesTab (org chart)
+ *   /trust/:trustAddress/roles/:roleId → TrustRoleDetailPage
  *   /trust/:trustAddress/members       → TrustMembersTab (humans + pending invites)
  *   /trust/:trustAddress/agents        → TrustAgentsTab (LIST)
  *   /trust/:trustAddress/sessions      → TrustSessionsTab (all trust sessions)
@@ -282,6 +284,13 @@ export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTab
   // the connective-tissue primitive (authority graph) sits between the board
   // tier (Ownership) and the operating tier (Execution).
   if (tab === "roles") {
+    if (itemId) {
+      return (
+        <Suspense>
+          <TrustRoleDetailPage trustId={trustId} roleId={itemId} />
+        </Suspense>
+      );
+    }
     return (
       <Suspense>
         <TrustRolesTab trustId={trustId} />

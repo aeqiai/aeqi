@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import TrustRolesTab from "@/components/TrustRolesTab";
@@ -41,10 +41,11 @@ const roles: Role[] = [
     created_at: "2026-05-29T00:00:00Z",
   },
 ];
+const edges = [{ parent_role_id: "role-owner", child_role_id: "role-operator" }];
 
 describe("TrustRolesTab", () => {
   beforeEach(() => {
-    vi.spyOn(api, "getRoles").mockResolvedValue({ ok: true, roles, edges: [] });
+    vi.spyOn(api, "getRoles").mockResolvedValue({ ok: true, roles, edges });
     useDaemonStore.setState({
       entities: [
         {
@@ -80,6 +81,7 @@ describe("TrustRolesTab", () => {
       <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
           <Route path="/trust/:trustAddress/roles" element={<TrustRolesTab trustId="root-1" />} />
+          <Route path="/trust/:trustAddress/roles/:roleId" element={<div>Role detail route</div>} />
         </Routes>
       </MemoryRouter>,
     );
@@ -116,7 +118,7 @@ describe("TrustRolesTab", () => {
     );
   });
 
-  it("renders list view as the canonical workspace table", async () => {
+  it("renders list view as the canonical workspace table and navigates rows to detail", async () => {
     renderTab("/trust/root-1/roles?view=list");
 
     const workspace = screen.getByLabelText("Role workspace");
@@ -125,9 +127,26 @@ describe("TrustRolesTab", () => {
 
     expect(tableShell).not.toBeNull();
     expect(table.className).toContain("compact");
-    expect(within(table).getByRole("columnheader", { name: "Title" })).toBeInTheDocument();
+    expect(within(table).getByRole("columnheader", { name: "Name" })).toBeInTheDocument();
+    expect(within(table).getByRole("columnheader", { name: "Type" })).toBeInTheDocument();
     expect(within(table).getByRole("columnheader", { name: "Occupant" })).toBeInTheDocument();
-    expect(within(table).getByText("Owner")).toHaveClass("roles-list-title");
+    expect(within(table).getByRole("columnheader", { name: "Reports to" })).toBeInTheDocument();
+    expect(
+      within(table)
+        .getAllByText("Owner")
+        .some((node) => node.classList.contains("roles-list-title")),
+    ).toBe(true);
+    expect(
+      within(table)
+        .getAllByText("Operator")
+        .some((node) => node.classList.contains("roles-list-type")),
+    ).toBe(true);
     expect(within(table).getByText("Chief of Staff")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Collapse role panel" })).not.toBeInTheDocument();
+
+    const operatorRow = table.querySelector('[data-row-key="role-operator"]');
+    expect(operatorRow).not.toBeNull();
+    fireEvent.click(operatorRow!);
+    expect(await screen.findByText("Role detail route")).toBeInTheDocument();
   });
 });

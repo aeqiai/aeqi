@@ -472,6 +472,31 @@
   color: var(--color-text-primary);
 }
 
+.roles-list-type {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: var(--bg-row);
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.roles-list-type--director,
+.roles-list-type--owner {
+  background: color-mix(in srgb, var(--color-warmth-bg) 72%, var(--color-card-elevated) 28%);
+  color: var(--color-warmth);
+}
+
+.roles-list-type--advisor {
+  background: var(--state-review-bg);
+  color: var(--state-review);
+}
+
 .roles-list-muted {
   color: var(--color-text-muted);
 }
@@ -539,6 +564,58 @@
   font-size: 11px;
   letter-spacing: 0.02em;
   text-transform: uppercase;
+}
+
+.roles-list-parents {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.roles-list-parent-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  max-width: 180px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: var(--bg-row);
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.roles-list-parent-title,
+.roles-list-parent-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.roles-list-parent-meta {
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.roles-list-parent-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  min-width: 24px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--color-card-muted);
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
 }
 
 .agents-list {
@@ -1279,6 +1356,12 @@
 /* Inspector panel — sticky alongside the canvas. Quiet card with a
    header (avatar + title), optional vacant-invite CTA, and a stack
    of labelled fields. */
+.role-inspector {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
 .trust-roles-detail .role-inspector {
   display: flex;
   flex-direction: column;
@@ -1291,6 +1374,45 @@
   flex: 1;
   min-height: 0;
   min-width: 0;
+}
+
+.trust-role-detail-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.trust-role-detail-back {
+  flex: 0 0 auto;
+}
+
+.trust-role-detail-workspace {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.trust-role-detail-canvas {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px 14px 18px;
+}
+
+.role-inspector--page {
+  width: min(720px, 100%);
+  margin: 0 auto;
+  gap: 10px;
+}
+
+.role-inspector--page .role-inspector-topbar {
+  padding: 0 2px;
+}
+
+.role-inspector--page .role-inspector-body {
+  gap: 8px;
 }
 .role-inspector-topbar {
   display: flex;

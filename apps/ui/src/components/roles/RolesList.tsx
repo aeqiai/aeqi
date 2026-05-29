@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { Role, RoleEdge, RoleType } from "@/lib/types";
 import { Table, type TableColumn } from "../ui";
 import BlockAvatar from "../BlockAvatar";
+import { labelRoleType } from "./RoleInspectorPrimitives";
 
 export interface RolesListProps {
   roles: Role[];
@@ -80,8 +81,8 @@ export default function RolesList({
     () => [
       {
         key: "title",
-        header: "Title",
-        width: "28%",
+        header: "Name",
+        width: "24%",
         sortable: true,
         sortAccessor: (role) => (role.title || "").toLowerCase(),
         cell: (role) =>
@@ -92,9 +93,21 @@ export default function RolesList({
           ),
       },
       {
+        key: "type",
+        header: "Type",
+        width: "14%",
+        sortable: true,
+        sortAccessor: (role) => labelRoleType(role.role_type),
+        cell: (role) => (
+          <span className={`roles-list-type roles-list-type--${role.role_type}`}>
+            {labelRoleType(role.role_type)}
+          </span>
+        ),
+      },
+      {
         key: "occupant",
         header: "Occupant",
-        width: "30%",
+        width: "26%",
         sortable: true,
         sortAccessor: (role) => occupantSortKey(role, agentNames),
         cell: (role) => (
@@ -108,7 +121,7 @@ export default function RolesList({
       {
         key: "parents",
         header: "Reports to",
-        width: "26%",
+        width: "22%",
         sortable: true,
         sortAccessor: (role) => (firstParentTitle.get(role.id) ?? "").toLowerCase(),
         cell: (role) => (
@@ -124,7 +137,7 @@ export default function RolesList({
       {
         key: "created",
         header: "Created",
-        width: "16%",
+        width: "14%",
         align: "end",
         sortable: true,
         sortAccessor: (role) => role.created_at,
@@ -174,17 +187,21 @@ function ParentsCell({
   }, [roleId, allRoles, edges]);
 
   if (parents.length === 0) return <span className="roles-list-muted">—</span>;
-  const parts: string[] = [];
-  for (const p of parents) {
-    const title = (p.title || "(untitled)").trim();
-    if (ambiguousTitles.has(title)) {
-      const occ = parentOccupantLabel(p, agentNames);
-      parts.push(occ ? `${title} · ${occ}` : title);
-    } else {
-      parts.push(title);
-    }
-  }
-  return <>{parts.join(", ")}</>;
+  return (
+    <span className="roles-list-parents">
+      {parents.slice(0, 2).map((p) => {
+        const title = (p.title || "(untitled)").trim();
+        const occupant = ambiguousTitles.has(title) ? parentOccupantLabel(p, agentNames) : "";
+        return (
+          <span key={p.id} className="roles-list-parent-chip">
+            <span className="roles-list-parent-title">{title}</span>
+            {occupant && <span className="roles-list-parent-meta">{occupant}</span>}
+          </span>
+        );
+      })}
+      {parents.length > 2 && <span className="roles-list-parent-more">+{parents.length - 2}</span>}
+    </span>
+  );
 }
 
 function parentOccupantLabel(role: Role, agentNames: Map<string, string>): string {
