@@ -298,6 +298,7 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
                 className="sidebar-nav-item sidebar-brand-collapsed"
                 onClick={handleSidebarToggle}
                 aria-label={isMobileShell ? mobileToggleLabel : "Expand sidebar"}
+                data-pill-allowed=""
               >
                 <span className="sidebar-brand-collapsed-rest" aria-hidden="true">
                   <span

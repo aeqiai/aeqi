@@ -204,6 +204,7 @@ export default function ParticipantStrip({
           className="sidebar-row-action-btn asv-participant-add-btn"
           aria-label="Add participant"
           title="Add participant"
+          data-pill-allowed=""
           onClick={() => setShowModal(true)}
         >
           <svg

@@ -27,7 +27,12 @@ export default function HelpMenu() {
 
   const trigger = (
     <Tooltip content={`Help — shortcuts, docs (${isMac ? "⌘" : "Ctrl"}/?)`}>
-      <button type="button" className="sidebar-row-action-btn" aria-label="Help">
+      <button
+        type="button"
+        className="sidebar-row-action-btn"
+        aria-label="Help"
+        data-pill-allowed=""
+      >
         <HelpIcon />
       </button>
     </Tooltip>

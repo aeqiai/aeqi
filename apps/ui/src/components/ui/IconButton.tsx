@@ -15,7 +15,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
   const cls = [styles.button, styles[variant], styles[size], className].filter(Boolean).join(" ");
 
   return (
-    <button ref={ref} type={type} className={cls} {...rest}>
+    <button ref={ref} type={type} className={cls} {...rest} data-pill-allowed="">
       {children}
     </button>
   );
