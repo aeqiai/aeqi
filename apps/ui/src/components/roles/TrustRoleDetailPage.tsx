@@ -18,6 +18,7 @@ import {
 } from "../ui";
 import IdeaCanvas, { type IdeaCanvasHandle } from "../IdeaCanvas";
 import RoleInspector from "./RoleInspector";
+import "@/styles/roles.css";
 
 function isRole(role: Role | null | undefined): role is Role {
   return Boolean(role?.id);
