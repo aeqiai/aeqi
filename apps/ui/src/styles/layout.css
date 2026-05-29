@@ -3708,13 +3708,37 @@
 }
 
 .agent-settings-tool-state {
-  min-width: 48px;
-  text-align: right;
-  font-size: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  min-width: 44px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border-subtle, var(--border-faint));
+  border-radius: var(--radius-full);
+  background: var(--color-card-elevated);
   font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--success);
+  font-size: 11px;
+  line-height: 1;
+  color: var(--color-text-secondary);
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.agent-settings-tool-state[data-state="on"] {
+  border-color: color-mix(in srgb, var(--state-verified) 22%, transparent);
+  background: var(--state-verified-bg);
+  color: var(--state-verified);
+}
+
+.agent-settings-tool-state[data-state="off"] {
+  background: var(--bg-row);
+  color: var(--color-text-muted);
+}
+
+.agent-settings-tool-state[data-state="saving"] {
+  color: var(--state-review);
 }
 
 .agent-settings-tool-row.is-off .agent-settings-tool-state {

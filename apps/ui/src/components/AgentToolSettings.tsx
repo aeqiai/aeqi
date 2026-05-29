@@ -99,7 +99,10 @@ export default function AgentToolSettings({
                 <span className="agent-settings-tool-name">{tool.label}</span>
                 <span className="agent-settings-tool-desc">{tool.description}</span>
               </span>
-              <span className="agent-settings-tool-state">
+              <span
+                className="agent-settings-tool-state"
+                data-state={saving ? "saving" : allowed ? "on" : "off"}
+              >
                 {saving ? "Saving" : allowed ? "On" : "Off"}
               </span>
             </button>

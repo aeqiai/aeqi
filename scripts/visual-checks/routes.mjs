@@ -17,6 +17,17 @@ export const checks = {
     url: ({ trust }) => `/trust/${trust}/roles?view=list`,
     expectText: ["Roles"],
   },
+  "trust-tools": {
+    auth: true,
+    url: ({ trust }) => `/trust/${trust}/tools`,
+    expectText: ["Tools", "Default agent"],
+    expectSelector: [
+      ".trust-tools-main",
+      ".agent-settings-tool-row",
+      ".agent-settings-tool-state",
+    ],
+    layout: ["trust-tools"],
+  },
   "role-detail": {
     auth: true,
     url: ({ trust, roleId }) => `/trust/${trust}/roles/${roleId}`,

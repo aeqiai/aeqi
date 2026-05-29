@@ -1,5 +1,6 @@
 const ASSERTIONS = {
   "role-detail": assertRoleDetail,
+  "trust-tools": assertTrustTools,
 };
 
 export async function runLayoutAssertions(page, names) {
@@ -65,6 +66,41 @@ async function assertRoleDetail(page) {
       }
     } else {
       failures.push("Missing activity count badge");
+    }
+
+    return failures;
+  });
+}
+
+async function assertTrustTools(page) {
+  return page.evaluate(() => {
+    const failures = [];
+    const main = document.querySelector(".trust-tools-main");
+    const rows = [...document.querySelectorAll(".agent-settings-tool-row")];
+    const states = [...document.querySelectorAll(".agent-settings-tool-state")];
+    const headerCount = document.querySelector(".trust-tools-header-count");
+
+    if (!main) failures.push("Missing trust tools main surface");
+    if (rows.length === 0) failures.push("No tools rows rendered");
+    if (states.length === 0) failures.push("No tool state pills rendered");
+    if (headerCount) failures.push("Tools header has duplicated enabled count action");
+
+    const pageOverflow =
+      document.documentElement.scrollWidth - document.documentElement.clientWidth;
+    if (pageOverflow > 1) failures.push(`Page has ${pageOverflow}px horizontal overflow`);
+
+    for (const state of states.slice(0, 6)) {
+      const rect = state.getBoundingClientRect();
+      const style = window.getComputedStyle(state);
+      const radius = Number.parseFloat(style.borderRadius);
+      if (rect.height < 20 || rect.height > 26) {
+        failures.push(`Tool state pill height is outside compact range: ${Math.round(rect.height)}px`);
+        break;
+      }
+      if (radius < rect.height / 2 - 1) {
+        failures.push("Tool state is not pill-shaped");
+        break;
+      }
     }
 
     return failures;

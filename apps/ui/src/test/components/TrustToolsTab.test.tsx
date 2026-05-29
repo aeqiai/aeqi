@@ -32,18 +32,22 @@ describe("TrustToolsTab", () => {
     const main = screen.getByRole("main", { name: "Trust tools" });
     const card = screen.getByLabelText("Tool register");
     const heading = within(header).getByRole("heading", { name: "Tools" });
-    const count = header.querySelector(".trust-tools-header-count");
 
     expect(header).toHaveClass("trust-tools-page-header");
     expect(header).toHaveAttribute("data-title-variant", "plain");
     expect(card).toHaveClass("trust-tools-card");
-    expect(count).toHaveClass("trust-tools-header-count");
-    expect(count).toHaveTextContent(`${ALL_TOOLS.length - 1}`);
+    expect(header.querySelector(".trust-tools-header-count")).not.toBeInTheDocument();
+    expect(within(header).getByText(`${ALL_TOOLS.length - 1}`)).toHaveClass(
+      "trust-primitive-page-count",
+    );
     expect(screen.getByText("Chief of Staff")).toHaveClass("trust-tools-register-title");
     expect(screen.getByRole("searchbox", { name: /search tools/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Filter: All" })).toBeInTheDocument();
     expect(heading.compareDocumentPosition(main)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(screen.getByRole("button", { name: /Shell/i })).toHaveClass("is-off");
+    const readFileRow = screen.getByRole("button", { name: /Read file/i });
+    const readFileState = within(readFileRow).getByText("On");
+    expect(readFileState).toHaveClass("agent-settings-tool-state");
   });
 
   it("keeps a register empty state when the trust has no default agent yet", () => {

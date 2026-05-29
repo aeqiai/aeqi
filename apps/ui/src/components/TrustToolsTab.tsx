@@ -78,12 +78,6 @@ export default function TrustToolsTab({ agentId }: { agentId: string }) {
           </span>
         }
         aria-label="Tool controls"
-        actions={
-          <span className="trust-tools-header-count" aria-label={`${activeCount} tools enabled`}>
-            <span className="trust-tools-header-count-value">{activeCount}</span>
-            <span className="trust-tools-header-count-label">Enabled</span>
-          </span>
-        }
       >
         <div className="ideas-toolbar trust-tools-toolbar">
           <PrimitiveSearchField
