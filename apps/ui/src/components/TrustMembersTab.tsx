@@ -210,6 +210,17 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
     [entities, navigate, trustId],
   );
 
+  const summary = useMemo(() => {
+    const active = rows.filter((row) => row.status === "active").length;
+    const pending = rows.filter((row) => row.status === "invited").length;
+    const openSeats = roles.filter((role) => role.occupant_kind === "vacant").length;
+    return [
+      { label: "Active humans", value: active },
+      { label: "Pending invites", value: pending },
+      { label: "Open seats", value: openSeats },
+    ];
+  }, [roles, rows]);
+
   const showEmpty = !loading && !error && rows.length === 0;
   const showNoMatch = !loading && !error && rows.length > 0 && filteredRows.length === 0;
 
@@ -347,6 +358,32 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
             </>
           )}
         </section>
+
+        {!loading && !error && rows.length > 0 && (
+          <section className="trust-members-summary" aria-label="Membership summary">
+            <header className="trust-members-summary-head">
+              <div>
+                <h2 className="trust-members-summary-title">Membership</h2>
+                <p className="trust-members-summary-subtitle">Humans connected to this TRUST.</p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate(entityPathFromId(entities, trustId, "roles"))}
+              >
+                Roles
+              </Button>
+            </header>
+            <div className="trust-members-summary-grid">
+              {summary.map((item) => (
+                <div className="trust-members-summary-card" key={item.label}>
+                  <span className="trust-members-summary-value">{item.value}</span>
+                  <span className="trust-members-summary-label">{item.label}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </main>
     </div>
   );
