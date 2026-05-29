@@ -7,7 +7,6 @@ import * as ideasApi from "@/api/ideas";
 import { formatMediumDate } from "@/lib/i18n";
 import IdeaLinksPanel from "../IdeaLinksPanel";
 import TagsEditor from "../TagsEditor";
-import IdeaActivityFeed from "../ideas/IdeaActivityFeed";
 import {
   CopyableRow,
   PropertyGroup,
@@ -332,6 +331,12 @@ export default function RoleInspector({
                   {ideaTagError && <span className="role-inspector-error">{ideaTagError}</span>}
                 </div>
               </div>
+              <div className="role-inspector-field-block role-inspector-field-block--stacked">
+                <span className="role-inspector-row-label">References</span>
+                <div className="role-inspector-field-body">
+                  <IdeaLinksPanel ideaId={idea.id} agentId={idea.agent_id ?? trustId} />
+                </div>
+              </div>
             </>
           ) : (
             <ReadOnlyRow label="Status">
@@ -383,6 +388,17 @@ export default function RoleInspector({
             copied={copiedField === "roleId"}
             onCopy={() => copy(role.id, "roleId")}
           />
+          {role.occupant_kind === "agent" && activeQuests > 0 && (
+            <ReadOnlyRow label="Active quests">
+              <a href={`${basePath}/quests`} className="role-inspector-link">
+                {activeQuests}
+                <ArrowRight size={12} strokeWidth={1.8} />
+              </a>
+            </ReadOnlyRow>
+          )}
+          <ReadOnlyRow label="Created">
+            <span className="role-inspector-meta">{formatMediumDate(role.created_at)}</span>
+          </ReadOnlyRow>
         </PropertyGroup>
 
         <PropertyGroup title="Authority" defaultOpen={role.grants.length > 0}>
@@ -401,36 +417,6 @@ export default function RoleInspector({
               {role.grants.length > 4 && (
                 <span className="role-inspector-meta">+{role.grants.length - 4}</span>
               )}
-            </div>
-          )}
-        </PropertyGroup>
-
-        <PropertyGroup title="Activity">
-          {idea && (
-            <div className="role-inspector-field-block role-inspector-field-block--stacked">
-              <span className="role-inspector-row-label">References</span>
-              <div className="role-inspector-field-body">
-                <IdeaLinksPanel ideaId={idea.id} agentId={idea.agent_id ?? trustId} />
-              </div>
-            </div>
-          )}
-          {role.occupant_kind === "agent" && activeQuests > 0 && (
-            <ReadOnlyRow label="Active quests">
-              <a href={`${basePath}/quests`} className="role-inspector-link">
-                {activeQuests}
-                <ArrowRight size={12} strokeWidth={1.8} />
-              </a>
-            </ReadOnlyRow>
-          )}
-          <ReadOnlyRow label="Created">
-            <span className="role-inspector-meta">{formatMediumDate(role.created_at)}</span>
-          </ReadOnlyRow>
-          {idea && (
-            <div className="role-inspector-field-block role-inspector-field-block--stacked">
-              <span className="role-inspector-row-label">History</span>
-              <div className="role-inspector-field-body">
-                <IdeaActivityFeed ideaId={idea.id} limit={5} />
-              </div>
             </div>
           )}
         </PropertyGroup>

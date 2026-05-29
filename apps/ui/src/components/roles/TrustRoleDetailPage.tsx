@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Share2 } from "lucide-react";
+import { ArrowLeft, PanelRightOpen, Share2 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import * as ideasApi from "@/api/ideas";
 import { api } from "@/lib/api";
@@ -68,6 +68,7 @@ export default function TrustRoleDetailPage({
   const [savingBody, setSavingBody] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [detailsCollapsed, setDetailsCollapsed] = useState(false);
   const canvasRef = useRef<IdeaCanvasHandle | null>(null);
   const { copy, toastLabel } = useClipboardToast();
 
@@ -192,7 +193,11 @@ export default function TrustRoleDetailPage({
   }, [basePath, copy, role]);
 
   return (
-    <div className="trust-roles trust-role-detail-page">
+    <div
+      className={`trust-roles trust-role-detail-page${
+        detailsCollapsed ? " trust-role-detail-page--details-collapsed" : ""
+      }`}
+    >
       <PrimitivePageHeader
         className="trust-roles-page-header trust-role-detail-page-header"
         title={
@@ -220,6 +225,19 @@ export default function TrustRoleDetailPage({
                   onClick={copyRoleRoute}
                 >
                   <Share2 size={14} strokeWidth={1.8} />
+                </IconButton>
+              </Tooltip>
+            )}
+            {role && detailsCollapsed && (
+              <Tooltip content="Show details" portal>
+                <IconButton
+                  variant="bordered"
+                  size="md"
+                  className="trust-roles-header-icon"
+                  aria-label="Show role details"
+                  onClick={() => setDetailsCollapsed(false)}
+                >
+                  <PanelRightOpen size={14} strokeWidth={1.8} />
                 </IconButton>
               </Tooltip>
             )}
@@ -293,25 +311,29 @@ export default function TrustRoleDetailPage({
                         onDirtyChange={setBodyDirty}
                         embedded
                         hideMetaStrip
+                        conversationActivity="tabs"
                       />
                     )}
                   </main>
-                  <aside className="trust-role-detail-inspector" aria-label="Role details">
-                    <RoleInspector
-                      role={role}
-                      edges={edges}
-                      rolesById={rolesById}
-                      trustId={trustId}
-                      basePath={basePath}
-                      idea={roleIdea}
-                      ideaTagSuggestions={ideaTagSuggestions}
-                      variant="page"
-                      onCopyValue={copy}
-                      onIdeaUpdated={setRoleIdea}
-                      onRoleUpdated={handleRoleUpdated}
-                      onEdgesUpdated={(nextEdges) => setEdges(nextEdges.filter(isRoleEdge))}
-                    />
-                  </aside>
+                  {!detailsCollapsed && (
+                    <aside className="trust-role-detail-inspector" aria-label="Role details">
+                      <RoleInspector
+                        role={role}
+                        edges={edges}
+                        rolesById={rolesById}
+                        trustId={trustId}
+                        basePath={basePath}
+                        idea={roleIdea}
+                        ideaTagSuggestions={ideaTagSuggestions}
+                        variant="page"
+                        onCollapse={() => setDetailsCollapsed(true)}
+                        onCopyValue={copy}
+                        onIdeaUpdated={setRoleIdea}
+                        onRoleUpdated={handleRoleUpdated}
+                        onEdgesUpdated={(nextEdges) => setEdges(nextEdges.filter(isRoleEdge))}
+                      />
+                    </aside>
+                  )}
                 </>
               )}
             </div>

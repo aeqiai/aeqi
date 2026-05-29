@@ -9342,6 +9342,53 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   gap: 10px;
 }
 
+.idea-convo-panel--activity {
+  gap: 6px;
+}
+
+.idea-convo-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--bg-row);
+}
+
+.idea-convo-tab {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.idea-convo-tab[aria-selected="true"] {
+  background: var(--color-card);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.idea-convo-tab:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
 .idea-convo-activity-peek {
   display: flex;
   flex-direction: column;

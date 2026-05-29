@@ -111,6 +111,9 @@ export interface IdeaCanvasProps {
   /** Bump this from an embedding surface when related non-idea activity
    *  lands in the idea's backing session. */
   activityRefreshKey?: unknown;
+  /** Conversation activity display. Defaults to old behavior: visible
+   *  unless the metadata strip is hidden. */
+  conversationActivity?: "auto" | "hidden" | "stacked" | "tabs";
 }
 
 const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCanvas(
@@ -129,6 +132,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
     onCanCommitChange,
     onDirtyChange,
     activityRefreshKey,
+    conversationActivity = "auto",
   },
   ref,
 ) {
@@ -764,7 +768,10 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
         {isEdit && idea && (
           <IdeaConversationPanel
             ideaId={idea.id}
-            showActivity={!hideMetaStrip}
+            showActivity={
+              conversationActivity === "auto" ? !hideMetaStrip : conversationActivity !== "hidden"
+            }
+            variant={conversationActivity === "tabs" ? "tabs" : "stacked"}
             activityRefreshKey={conversationActivityRefreshKey}
           />
         )}

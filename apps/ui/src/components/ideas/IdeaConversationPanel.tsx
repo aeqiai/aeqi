@@ -28,6 +28,7 @@ import IdeaCommentComposer from "./IdeaCommentComposer";
 interface IdeaConversationPanelProps {
   ideaId: string;
   showActivity?: boolean;
+  variant?: "stacked" | "tabs";
   activityRefreshKey?: unknown;
 }
 
@@ -97,6 +98,7 @@ function CheckIcon() {
 export default function IdeaConversationPanel({
   ideaId,
   showActivity = true,
+  variant = "stacked",
   activityRefreshKey,
 }: IdeaConversationPanelProps) {
   const user = useAuthStore((s) => s.user);
@@ -112,6 +114,7 @@ export default function IdeaConversationPanel({
   const [commentError, setCommentError] = useState<string | null>(null);
   const [subscribeBusy, setSubscribeBusy] = useState(false);
   const [activityCount, setActivityCount] = useState(0);
+  const [activeTab, setActiveTab] = useState<"comments" | "activity">("comments");
 
   // Toast for comment / subscribe errors (cleared after 4 s)
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -189,6 +192,38 @@ export default function IdeaConversationPanel({
   }, [ideaId, subscribed, subscribeBusy, user, showToast]);
 
   const commentCount = useMemo(() => comments.filter((r) => !r.pending).length, [comments]);
+  const tabbed = showActivity && variant === "tabs";
+
+  const commentsPanel = (
+    <div className="idea-convo-panel">
+      {loadingComments ? (
+        <div className="idea-convo-loading">
+          <Loading size="sm" />
+        </div>
+      ) : commentError ? (
+        <div className="idea-convo-error">{commentError}</div>
+      ) : (
+        <IdeaCommentsList rows={comments} trustId={trustId} />
+      )}
+      <IdeaCommentComposer
+        ideaId={ideaId}
+        onOptimistic={handleOptimistic}
+        onConfirm={handleConfirm}
+        onError={handleError}
+      />
+    </div>
+  );
+
+  const activityPanel = showActivity ? (
+    <div className="idea-convo-panel idea-convo-panel--activity">
+      <IdeaActivityFeed
+        ideaId={ideaId}
+        refreshKey={activityRefreshKey}
+        limit={tabbed ? 8 : 4}
+        onCount={setActivityCount}
+      />
+    </div>
+  ) : null;
 
   return (
     <div className="idea-convo-root">
@@ -198,40 +233,60 @@ export default function IdeaConversationPanel({
         </div>
       )}
 
-      <section className="idea-convo-card idea-convo-card--comments" aria-label="Comments">
-        <div className="idea-convo-head">
-          <div className="idea-convo-title">
-            <span>Comments</span>
-            <span className="idea-convo-section-count">{commentCount}</span>
-          </div>
-          <SubscribeBar
-            subscribed={subscribed}
-            onSubscribe={handleSubscribe}
-            disabled={!user?.id}
-            busy={subscribeBusy}
-          />
-        </div>
-
-        <div className="idea-convo-panel">
-          {loadingComments ? (
-            <div className="idea-convo-loading">
-              <Loading size="sm" />
+      {tabbed ? (
+        <section className="idea-convo-card idea-convo-card--comments" aria-label="Conversation">
+          <div className="idea-convo-head">
+            <div className="idea-convo-tabs" role="tablist" aria-label="Conversation view">
+              <button
+                type="button"
+                className="idea-convo-tab"
+                role="tab"
+                aria-selected={activeTab === "comments"}
+                onClick={() => setActiveTab("comments")}
+              >
+                <span>Comments</span>
+                <span className="idea-convo-section-count">{commentCount}</span>
+              </button>
+              <button
+                type="button"
+                className="idea-convo-tab"
+                role="tab"
+                aria-selected={activeTab === "activity"}
+                onClick={() => setActiveTab("activity")}
+              >
+                <span>Activity</span>
+                <span className="idea-convo-section-count">{activityCount}</span>
+              </button>
             </div>
-          ) : commentError ? (
-            <div className="idea-convo-error">{commentError}</div>
-          ) : (
-            <IdeaCommentsList rows={comments} trustId={trustId} />
-          )}
-          <IdeaCommentComposer
-            ideaId={ideaId}
-            onOptimistic={handleOptimistic}
-            onConfirm={handleConfirm}
-            onError={handleError}
-          />
-        </div>
-      </section>
+            <SubscribeBar
+              subscribed={subscribed}
+              onSubscribe={handleSubscribe}
+              disabled={!user?.id}
+              busy={subscribeBusy}
+            />
+          </div>
+          <div hidden={activeTab !== "comments"}>{commentsPanel}</div>
+          <div hidden={activeTab !== "activity"}>{activityPanel}</div>
+        </section>
+      ) : (
+        <section className="idea-convo-card idea-convo-card--comments" aria-label="Comments">
+          <div className="idea-convo-head">
+            <div className="idea-convo-title">
+              <span>Comments</span>
+              <span className="idea-convo-section-count">{commentCount}</span>
+            </div>
+            <SubscribeBar
+              subscribed={subscribed}
+              onSubscribe={handleSubscribe}
+              disabled={!user?.id}
+              busy={subscribeBusy}
+            />
+          </div>
+          {commentsPanel}
+        </section>
+      )}
 
-      {showActivity && (
+      {showActivity && !tabbed && (
         <section
           className="idea-convo-card idea-convo-card--activity idea-convo-activity-peek"
           aria-label="Recent activity"
@@ -240,12 +295,7 @@ export default function IdeaConversationPanel({
             <span>Activity</span>
             <span className="idea-convo-section-count">{activityCount}</span>
           </div>
-          <IdeaActivityFeed
-            ideaId={ideaId}
-            refreshKey={activityRefreshKey}
-            limit={4}
-            onCount={setActivityCount}
-          />
+          {activityPanel}
         </section>
       )}
     </div>

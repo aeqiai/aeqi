@@ -15,7 +15,7 @@ export function PropertyGroup({
   return (
     <details className="role-inspector-group" open={defaultOpen}>
       <summary className="role-inspector-group-title">
-        <span>{title}</span>
+        <span className="role-inspector-group-title-label">{title}</span>
         <ChevronRight
           className="role-inspector-group-chevron"
           size={14}

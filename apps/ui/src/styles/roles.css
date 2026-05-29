@@ -1407,6 +1407,10 @@
   padding: 12px;
 }
 
+.trust-role-detail-page--details-collapsed .trust-role-detail-canvas {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .trust-role-detail-document {
   display: flex;
   min-width: 0;
@@ -1414,6 +1418,10 @@
   overflow: hidden;
   background: var(--color-card);
   border-radius: var(--radius-md) 0 0 var(--radius-md);
+}
+
+.trust-role-detail-page--details-collapsed .trust-role-detail-document {
+  border-radius: var(--radius-md);
 }
 
 .trust-role-detail-document > .ideas-canvas {
@@ -1543,7 +1551,7 @@
   gap: 10px;
   min-height: 32px;
   margin: 0;
-  padding: 0 8px 0 0;
+  padding: 0 10px;
   border-radius: var(--radius-sm);
   background: var(--bg-row);
   font-family: var(--font-sans);
@@ -1555,6 +1563,12 @@
   transition:
     background 0.12s ease,
     color 0.12s ease;
+}
+.role-inspector-group-title-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .role-inspector-group-title::-webkit-details-marker {
   display: none;
@@ -1585,9 +1599,9 @@
 .role-inspector-row {
   box-sizing: border-box;
   width: 100%;
-  display: flex;
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   min-height: 30px;
   min-width: 0;
@@ -1636,7 +1650,7 @@
 }
 .role-inspector-row-label {
   display: block;
-  flex: 0 0 82px;
+  min-width: 0;
   font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 500;
@@ -1650,6 +1664,7 @@
   justify-content: space-between;
   gap: 10px;
   flex: 1;
+  width: 100%;
   min-width: 0;
   min-height: 32px;
   padding: 0 10px;
@@ -1718,6 +1733,7 @@
   flex-wrap: wrap;
   min-width: 0;
   max-width: 100%;
+  width: 100%;
   font-family: var(--font-sans);
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
@@ -1748,12 +1764,14 @@
   padding-left: 94px;
 }
 .role-inspector-field-block {
-  display: flex;
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
   align-items: flex-start;
   gap: 12px;
   min-width: 0;
 }
 .role-inspector-field-block--stacked {
+  display: flex;
   flex-direction: column;
   gap: 6px;
 }
