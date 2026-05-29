@@ -205,75 +205,96 @@ export default function TrustAppsTab({
             )} gateway endpoints · ${formatInteger(
               trustAgents.length,
             )} agents${billingReady ? " · billing ready" : ""}`;
+  const headerActions =
+    surface === "mail" ? (
+      <Button
+        variant="primary"
+        size="md"
+        onClick={() => setMailCreatorOpen((value) => !value)}
+        leadingIcon={<Plus size={14} strokeWidth={1.6} />}
+      >
+        New Mail
+      </Button>
+    ) : surface === "websites" ? (
+      <Button
+        variant="primary"
+        size="md"
+        onClick={() => setWebsiteCreatorOpen((value) => !value)}
+        leadingIcon={<Plus size={14} strokeWidth={1.6} />}
+      >
+        New Website
+      </Button>
+    ) : surface === "integrations" ? (
+      <Button
+        variant="secondary"
+        size="md"
+        onClick={() => navigate(gatewaysPath)}
+        leadingIcon={<Smartphone size={14} strokeWidth={1.6} />}
+      >
+        Gateways
+      </Button>
+    ) : undefined;
+
+  if (surface === "mail" || surface === "websites") {
+    return (
+      <div className="trust-apps-page trust-primitive-shell">
+        <PrimitivePageHeader
+          className="trust-apps-page-header trust-primitive-shell-header"
+          title={headerTitle}
+          aria-label={`${pageTitle} controls`}
+          actions={headerActions}
+          padding="none"
+        />
+
+        <main className="trust-apps-main trust-primitive-shell-surface trust-apps-shell-surface">
+          <div className="trust-primitive-context-strip" role="status">
+            <span className="trust-primitive-context-text">{toolbarSummary}</span>
+          </div>
+
+          {surface === "mail" && entity && (
+            <MailPrimitivePage
+              accessBasePath={basePath}
+              creatorOpen={mailCreatorOpen}
+              domain={emailDomain}
+              identities={emailIdentities}
+              loading={emailStatus.isLoading}
+              status={emailStatus.data}
+              trustAgents={trustAgents}
+              trustId={trustId}
+            />
+          )}
+
+          {surface === "websites" && entity && (
+            <WebsitesPrimitivePage
+              analytics={websiteAnalytics.data}
+              basePath={basePath}
+              creatorOpen={websiteCreatorOpen}
+              domains={trustDomains}
+              href={publicWebsiteUrl(entity)}
+              live={entity.public === true}
+              loading={websiteAnalytics.isLoading || hostingDomains.isLoading}
+              onDomainAdded={() => void hostingDomains.refetch()}
+              primaryDomain={primaryWebsiteDomain}
+              trustId={trustId}
+            />
+          )}
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="trust-overview trust-apps-page">
       <PrimitivePageHeader
         className="trust-apps-page-header trust-apps-page-header--summary"
         title={headerTitle}
         aria-label={`${pageTitle} controls`}
-        actions={
-          surface === "mail" ? (
-            <Button
-              variant="primary"
-              size="md"
-              onClick={() => setMailCreatorOpen((value) => !value)}
-              leadingIcon={<Plus size={14} strokeWidth={1.6} />}
-            >
-              New Mail
-            </Button>
-          ) : surface === "websites" ? (
-            <Button
-              variant="primary"
-              size="md"
-              onClick={() => setWebsiteCreatorOpen((value) => !value)}
-              leadingIcon={<Plus size={14} strokeWidth={1.6} />}
-            >
-              New Website
-            </Button>
-          ) : surface === "integrations" ? (
-            <Button
-              variant="secondary"
-              size="md"
-              onClick={() => navigate(gatewaysPath)}
-              leadingIcon={<Smartphone size={14} strokeWidth={1.6} />}
-            >
-              Gateways
-            </Button>
-          ) : undefined
-        }
+        actions={headerActions}
       />
 
       <div className="trust-primitive-context-strip" role="status">
         <span className="trust-primitive-context-text">{toolbarSummary}</span>
       </div>
-
-      {surface === "mail" && entity && (
-        <MailPrimitivePage
-          accessBasePath={basePath}
-          creatorOpen={mailCreatorOpen}
-          domain={emailDomain}
-          identities={emailIdentities}
-          loading={emailStatus.isLoading}
-          status={emailStatus.data}
-          trustAgents={trustAgents}
-          trustId={trustId}
-        />
-      )}
-
-      {surface === "websites" && entity && (
-        <WebsitesPrimitivePage
-          analytics={websiteAnalytics.data}
-          basePath={basePath}
-          creatorOpen={websiteCreatorOpen}
-          domains={trustDomains}
-          href={publicWebsiteUrl(entity)}
-          live={entity.public === true}
-          loading={websiteAnalytics.isLoading || hostingDomains.isLoading}
-          onDomainAdded={() => void hostingDomains.refetch()}
-          primaryDomain={primaryWebsiteDomain}
-          trustId={trustId}
-        />
-      )}
 
       {surface === "integrations" && (
         <>

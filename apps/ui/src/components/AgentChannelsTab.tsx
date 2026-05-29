@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import { Plus, Waypoints } from "lucide-react";
 import { useNav } from "@/hooks/useNav";
@@ -77,6 +78,37 @@ function GatewayHeaderTitle({ count }: { count: number }) {
         {count}
       </span>
     </span>
+  );
+}
+
+function GatewayShell({
+  actions,
+  children,
+  count,
+  summary,
+}: {
+  actions: ReactNode;
+  children: ReactNode;
+  count: number;
+  summary: ReactNode;
+}) {
+  return (
+    <div className="gateway-page trust-primitive-shell">
+      <PrimitivePageHeader
+        className="gateway-page-header trust-primitive-shell-header"
+        title={<GatewayHeaderTitle count={count} />}
+        aria-label="Gateway controls"
+        actions={actions}
+        padding="none"
+      />
+
+      <main className="gateway-main trust-primitive-shell-surface gateway-shell-surface">
+        <div className="trust-primitive-context-strip" role="status">
+          <span className="trust-primitive-context-text">{summary}</span>
+        </div>
+        {children}
+      </main>
+    </div>
   );
 }
 
@@ -220,31 +252,22 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
 
   if (showAddForm) {
     return (
-      <div className="trust-overview trust-apps-page gateway-page">
-        <PrimitivePageHeader
-          className="trust-apps-page-header trust-apps-page-header--summary"
-          title={<GatewayHeaderTitle count={channels.length} />}
-          aria-label="Gateway controls"
-          actions={
-            <Button
-              variant="secondary"
-              size="md"
-              onClick={() => {
-                setShowAddForm(false);
-                setError(null);
-              }}
-            >
-              Cancel
-            </Button>
-          }
-        />
-
-        <div className="trust-primitive-context-strip" role="status">
-          <span className="trust-primitive-context-text">
-            Add an external ingress and egress endpoint for this trust.
-          </span>
-        </div>
-
+      <GatewayShell
+        count={channels.length}
+        summary="Add an external ingress and egress endpoint for this trust."
+        actions={
+          <Button
+            variant="secondary"
+            size="md"
+            onClick={() => {
+              setShowAddForm(false);
+              setError(null);
+            }}
+          >
+            Cancel
+          </Button>
+        }
+      >
         <section className="trust-cockpit-card trust-cockpit-card--wide gateway-surface-card">
           <header className="trust-cockpit-card-header gateway-card-header">
             <div>
@@ -301,33 +324,26 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
             </Button>
           </div>
         </section>
-      </div>
+      </GatewayShell>
     );
   }
 
   if (!selected) {
     return (
-      <div className="trust-overview trust-apps-page gateway-page">
-        <PrimitivePageHeader
-          className="trust-apps-page-header trust-apps-page-header--summary"
-          title={<GatewayHeaderTitle count={channels.length} />}
-          aria-label="Gateway controls"
-          actions={
-            <Button
-              variant="primary"
-              size="md"
-              onClick={fireNew}
-              leadingIcon={<Plus size={14} strokeWidth={1.6} />}
-            >
-              New Gateway
-            </Button>
-          }
-        />
-
-        <div className="trust-primitive-context-strip" role="status">
-          <span className="trust-primitive-context-text">{toolbarSummary}</span>
-        </div>
-
+      <GatewayShell
+        count={channels.length}
+        summary={toolbarSummary}
+        actions={
+          <Button
+            variant="primary"
+            size="md"
+            onClick={fireNew}
+            leadingIcon={<Plus size={14} strokeWidth={1.6} />}
+          >
+            New Gateway
+          </Button>
+        }
+      >
         <section className="trust-cockpit-card trust-cockpit-card--wide gateway-surface-card">
           <header className="trust-cockpit-card-header gateway-card-header">
             <div>
@@ -387,7 +403,7 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
             </div>
           )}
         </section>
-      </div>
+      </GatewayShell>
     );
   }
 
@@ -400,53 +416,46 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
   )} · ${countLabel(allowed.length, "allowed route")}`;
 
   return (
-    <div className="trust-overview trust-apps-page gateway-page">
-      <PrimitivePageHeader
-        className="trust-apps-page-header trust-apps-page-header--summary"
-        title={<GatewayHeaderTitle count={channels.length} />}
-        aria-label="Gateway controls"
-        actions={
-          <div className="gateway-header-actions">
-            <Button
-              variant="secondary"
-              size="md"
-              onClick={() => goEntity(trustId, "gateways", undefined, { replace: true })}
-            >
-              All Gateways
-            </Button>
-            <Button
-              variant="danger"
-              size="md"
-              aria-label={`Disconnect ${selected.kind} gateway`}
-              disabled={deleting}
-              loading={deleting}
-              onClick={async () => {
-                if (deleting) return;
-                setDeleting(true);
-                setError(null);
-                try {
-                  await channelsApi.deleteAgentChannel(selected.id);
-                  removeChannel(selected.id);
-                  goEntity(trustId, "gateways", undefined, { replace: true });
-                } catch (e) {
-                  setError(e instanceof Error ? e.message : "Failed to disconnect");
-                  setDeleting(false);
-                }
-                // On success the component unmounts via navigation, so no need
-                // to reset deleting — setting it would warn about unmounted
-                // state updates.
-              }}
-            >
-              Disconnect
-            </Button>
-          </div>
-        }
-      />
-
-      <div className="trust-primitive-context-strip" role="status">
-        <span className="trust-primitive-context-text">{selectedSummary}</span>
-      </div>
-
+    <GatewayShell
+      count={channels.length}
+      summary={selectedSummary}
+      actions={
+        <div className="gateway-header-actions">
+          <Button
+            variant="secondary"
+            size="md"
+            onClick={() => goEntity(trustId, "gateways", undefined, { replace: true })}
+          >
+            All Gateways
+          </Button>
+          <Button
+            variant="danger"
+            size="md"
+            aria-label={`Disconnect ${selected.kind} gateway`}
+            disabled={deleting}
+            loading={deleting}
+            onClick={async () => {
+              if (deleting) return;
+              setDeleting(true);
+              setError(null);
+              try {
+                await channelsApi.deleteAgentChannel(selected.id);
+                removeChannel(selected.id);
+                goEntity(trustId, "gateways", undefined, { replace: true });
+              } catch (e) {
+                setError(e instanceof Error ? e.message : "Failed to disconnect");
+                setDeleting(false);
+              }
+              // On success the component unmounts via navigation, so no need
+              // to reset deleting — setting it would warn about unmounted
+              // state updates.
+            }}
+          >
+            Disconnect
+          </Button>
+        </div>
+      }
+    >
       {error && (
         <div className="channel-form-error gateway-form-error gateway-alert" role="alert">
           <span>{error}</span>
@@ -579,6 +588,6 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
           </div>
         )}
       </section>
-    </div>
+    </GatewayShell>
   );
 }
