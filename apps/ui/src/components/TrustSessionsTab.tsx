@@ -299,7 +299,7 @@ export default function TrustSessionsTab({
     : "agent conversations will appear here";
 
   return (
-    <div className="inbox-page trust-sessions-page">
+    <div className="inbox-page trust-sessions trust-sessions-page">
       <PrimitivePageHeader
         className="trust-sessions-page-header"
         title={
@@ -313,6 +313,7 @@ export default function TrustSessionsTab({
         aria-label="Session controls"
         actions={
           <Button
+            className="trust-top-rail-cta"
             variant="primary"
             size="md"
             onClick={() => void handleNewSession()}
@@ -350,86 +351,88 @@ export default function TrustSessionsTab({
         />
       </PrimitivePageHeader>
 
-      {selectedId && (
-        <div className="trust-session-detail-strip">
-          <div className="session-detail-header trust-session-detail-header">
-            <div className="session-detail-header-from">
-              <span className="session-detail-header-title">{selectedTitle}</span>
-              <div className="session-detail-header-meta">
-                <span className="session-detail-header-subtitle">{selectedSubtitle}</span>
-                {selectedActivityLabel && (
-                  <span className="session-detail-header-meta-sep" aria-hidden>
-                    ·
-                  </span>
-                )}
-                {selectedActivityLabel && (
-                  <span
-                    className={`session-detail-header-activity${
-                      selectedStreaming ? " is-streaming" : ""
-                    }`}
-                    role="status"
-                    aria-live="polite"
-                  >
-                    {selectedActivityLabel}
-                  </span>
-                )}
+      <main className="trust-sessions-main">
+        {selectedId && (
+          <div className="trust-session-detail-strip">
+            <div className="session-detail-header trust-session-detail-header">
+              <div className="session-detail-header-from">
+                <span className="session-detail-header-title">{selectedTitle}</span>
+                <div className="session-detail-header-meta">
+                  <span className="session-detail-header-subtitle">{selectedSubtitle}</span>
+                  {selectedActivityLabel && (
+                    <span className="session-detail-header-meta-sep" aria-hidden>
+                      ·
+                    </span>
+                  )}
+                  {selectedActivityLabel && (
+                    <span
+                      className={`session-detail-header-activity${
+                        selectedStreaming ? " is-streaming" : ""
+                      }`}
+                      role="status"
+                      aria-live="polite"
+                    >
+                      {selectedActivityLabel}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="session-detail-header-extras">
+                <ParticipantStrip sessionId={selectedId} trustId={trustId} />
               </div>
             </div>
-            <div className="session-detail-header-extras">
-              <ParticipantStrip sessionId={selectedId} trustId={trustId} />
+          </div>
+        )}
+
+        <div
+          className={["inbox-shell", empty ? "is-empty" : "", selectedId ? "has-selection" : ""]
+            .filter(Boolean)
+            .join(" ")}
+        >
+          <div className="inbox-pane-list">
+            <div className="inbox-pane-list-scroll">
+              {loading ? (
+                <div className="inbox-list-loading">
+                  <Loading label="Loading sessions" />
+                </div>
+              ) : (
+                <SessionRail
+                  rows={rows}
+                  selectedId={selectedId ?? null}
+                  onSelect={handleSelect}
+                  density="comfortable"
+                  surface="card"
+                  tone="recessed"
+                  streamingIds={streamingSessions}
+                  emptyTitle={emptyTitle}
+                  emptyHint={emptyHint}
+                  emptyStateClassName="sessions-rail-empty--compact"
+                />
+              )}
             </div>
           </div>
-        </div>
-      )}
 
-      <div
-        className={["inbox-shell", empty ? "is-empty" : "", selectedId ? "has-selection" : ""]
-          .filter(Boolean)
-          .join(" ")}
-      >
-        <div className="inbox-pane-list">
-          <div className="inbox-pane-list-scroll">
-            {loading ? (
-              <div className="inbox-list-loading">
-                <Loading label="Loading sessions" />
-              </div>
-            ) : (
-              <SessionRail
-                rows={rows}
-                selectedId={selectedId ?? null}
-                onSelect={handleSelect}
-                density="comfortable"
-                surface="card"
-                tone="recessed"
-                streamingIds={streamingSessions}
-                emptyTitle={emptyTitle}
-                emptyHint={emptyHint}
-                emptyStateClassName="sessions-rail-empty--compact"
-              />
-            )}
+          <div className="inbox-pane-detail">
+            <SessionDetail
+              sessionId={selectedId ?? null}
+              trustId={trustId}
+              agentId={selected?.agent_id}
+              title={selectedTitle}
+              subtitle={selectedSubtitle}
+              messages={messages}
+              isStreaming={selectedStreaming}
+              onSend={handleSend}
+              composerDisabled={sending || !selectedId}
+              composerPlaceholder={`Message ${selectedAgentName || "session"}...`}
+              errorMessage={sendError}
+              hideHeader
+              surface="recessed"
+              emptyTitle={messagesLoading ? "loading messages" : "no messages yet"}
+              emptyHint={messagesLoading ? "fetching the transcript" : "select another session"}
+            />
           </div>
         </div>
-
-        <div className="inbox-pane-detail">
-          <SessionDetail
-            sessionId={selectedId ?? null}
-            trustId={trustId}
-            agentId={selected?.agent_id}
-            title={selectedTitle}
-            subtitle={selectedSubtitle}
-            messages={messages}
-            isStreaming={selectedStreaming}
-            onSend={handleSend}
-            composerDisabled={sending || !selectedId}
-            composerPlaceholder={`Message ${selectedAgentName || "session"}...`}
-            errorMessage={sendError}
-            hideHeader
-            surface="recessed"
-            emptyTitle={messagesLoading ? "loading messages" : "no messages yet"}
-            emptyHint={messagesLoading ? "fetching the transcript" : "select another session"}
-          />
-        </div>
-      </div>
+      </main>
     </div>
   );
 }
