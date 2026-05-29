@@ -33,7 +33,8 @@ Options:
 
 Auth:
   Protected route checks require AEQI_TOKEN, AEQI_EMAIL + AEQI_PASSWORD,
-  AEQI_WEB_SECRET + AEQI_USER_ID + AEQI_EMAIL, --storage-state, or --auth-env.
+  AEQI_WEB_SECRET + AEQI_USER_ID, --storage-state, --auth-env, or the local
+  operator MCP profile plus /etc/aeqi/secrets.env.
   The script passes those through to visual-route, which fails if a protected
   route redirects to login.`);
 }
@@ -75,10 +76,10 @@ function slug(value) {
 function hasAuthEnv() {
   if (process.env.AEQI_TOKEN) return true;
   if (process.env.AEQI_EMAIL && process.env.AEQI_PASSWORD) return true;
-  return Boolean(
-    process.env.AEQI_WEB_SECRET &&
-    process.env.AEQI_USER_ID &&
-    process.env.AEQI_EMAIL,
+  if (process.env.AEQI_WEB_SECRET && process.env.AEQI_USER_ID) return true;
+  return (
+    fs.existsSync("/etc/aeqi/secrets.env") &&
+    fs.existsSync("/home/claudedev/.aeqi/bin/aeqi-mcp-http")
   );
 }
 
@@ -189,7 +190,7 @@ function main() {
     !hasAuthEnv()
   ) {
     throw new Error(
-      "Authenticated launch smoke requires AEQI_TOKEN, AEQI_EMAIL + AEQI_PASSWORD, AEQI_WEB_SECRET + AEQI_USER_ID + AEQI_EMAIL, --storage-state, or --auth-env. Use --public-only for the unauthenticated check.",
+      "Authenticated launch smoke requires AEQI_TOKEN, AEQI_EMAIL + AEQI_PASSWORD, AEQI_WEB_SECRET + AEQI_USER_ID, --storage-state, --auth-env, or the local operator MCP profile plus /etc/aeqi/secrets.env. Use --public-only for the unauthenticated check.",
     );
   }
   if (!opts.publicOnly && !opts.trustId) {

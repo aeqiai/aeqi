@@ -10,11 +10,26 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { chromium } from "playwright";
 
 const DEFAULT_BASE_URL = "https://app.aeqi.ai";
 const DEFAULT_VIEWPORT = "1440x900";
 const DEFAULT_WAIT_MS = 2500;
+const DEFAULT_AUTH_ENV = "~/.aeqi/secrets/mcp-host-runtime.env";
+const DEFAULT_MCP_HTTP = "~/.aeqi/bin/aeqi-mcp-http";
+const DEFAULT_PRIVILEGED_AUTH_ENV = "/etc/aeqi/secrets.env";
+const DEFAULT_AUTH_ENV_KEYS = new Set([
+  "AEQI_CONFIG",
+  "AEQI_EMAIL",
+  "AEQI_ENTITY",
+  "AEQI_PASSWORD",
+  "AEQI_ROOT",
+  "AEQI_TOKEN",
+  "AEQI_USER_ID",
+  "AEQI_VISUAL_USER_ID",
+  "AEQI_WEB_SECRET",
+]);
 
 function usage() {
   console.log(`Usage:
@@ -48,7 +63,8 @@ Auth modes:
   1. AEQI_TOKEN or --token seeds an existing JWT.
   2. Secret-mode runtimes log in with AEQI_AUTH_SECRET, AEQI_WEB_SECRET, or [web].auth_secret.
   3. Accounts-mode runtimes can log in with AEQI_EMAIL + AEQI_PASSWORD.
-  4. AEQI_WEB_SECRET + AEQI_USER_ID/--user-id + AEQI_EMAIL/--email mints one.
+  4. AEQI_WEB_SECRET or [web].auth_secret + AEQI_USER_ID/--user-id mints one.
+     If no user id is provided, the local aeqi MCP profile is used when available.
   5. --storage-state reuses a Playwright-authenticated browser state file.
   6. --no-auth captures public/login routes without auth.
 
@@ -128,19 +144,27 @@ function parseEnvLine(line) {
   return { key, value };
 }
 
-function loadAuthEnv(filePath) {
+function loadAuthEnv(filePath, allowedKeys = null) {
   const resolved = expandHome(filePath);
   const loaded = [];
+  if (!fs.existsSync(resolved)) return { path: resolved, loaded };
   const content = fs.readFileSync(resolved, "utf8");
   for (const line of content.split(/\r?\n/)) {
     const parsed = parseEnvLine(line);
     if (!parsed) continue;
+    if (allowedKeys && !allowedKeys.has(parsed.key)) continue;
     if (process.env[parsed.key] == null) {
       process.env[parsed.key] = parsed.value;
       loaded.push(parsed.key);
     }
   }
   return { path: resolved, loaded };
+}
+
+function loadDefaultAuthEnv() {
+  const resolved = expandHome(DEFAULT_AUTH_ENV);
+  if (!fs.existsSync(resolved)) return null;
+  return loadAuthEnv(resolved, DEFAULT_AUTH_ENV_KEYS);
 }
 
 function b64url(input) {
@@ -154,15 +178,14 @@ function b64url(input) {
 function mintToken({ secret, userId, email, ttlSeconds }) {
   const header = b64url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
   const now = Math.floor(Date.now() / 1000);
-  const payload = b64url(
-    JSON.stringify({
-      sub: userId,
-      user_id: userId,
-      email,
-      iat: now,
-      exp: now + ttlSeconds,
-    }),
-  );
+  const claims = {
+    sub: userId,
+    user_id: userId,
+    iat: now,
+    exp: now + ttlSeconds,
+  };
+  if (email) claims.email = email;
+  const payload = b64url(JSON.stringify(claims));
   const data = `${header}.${payload}`;
   const signature = crypto
     .createHmac("sha256", secret)
@@ -172,6 +195,26 @@ function mintToken({ secret, userId, email, ttlSeconds }) {
     .replace(/\//g, "_")
     .replace(/=+$/, "");
   return `${data}.${signature}`;
+}
+
+function decodeJwtSegment(segment) {
+  try {
+    const padded = segment.padEnd(
+      segment.length + ((4 - (segment.length % 4)) % 4),
+      "=",
+    );
+    return JSON.parse(Buffer.from(padded, "base64url").toString("utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function looksLikeJwt(token) {
+  const parts = token.split(".");
+  if (parts.length !== 3) return false;
+  const header = decodeJwtSegment(parts[0]);
+  const payload = decodeJwtSegment(parts[1]);
+  return Boolean(header?.alg && payload?.sub && payload?.exp);
 }
 
 function resolveUrl(route, baseUrl) {
@@ -230,6 +273,28 @@ async function fetchJson(url, options = {}) {
     throw new Error(`${response.status} ${message}`);
   }
   return body;
+}
+
+async function tokenAuthenticates(origin, token, warnings) {
+  if (!looksLikeJwt(token)) {
+    warnings.push(
+      "Explicit token is not a parseable JWT; falling back to account auth if available.",
+    );
+    return false;
+  }
+  try {
+    await fetchJson(`${origin}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return true;
+  } catch (error) {
+    warnings.push(
+      `Explicit token did not authenticate against /api/auth/me: ${
+        error instanceof Error ? error.message : String(error)
+      }. Falling back to account auth if available.`,
+    );
+    return false;
+  }
 }
 
 async function probeAuthMode(origin, warnings) {
@@ -295,6 +360,33 @@ function resolveSecretModeSecret() {
   return null;
 }
 
+function resolveSigningSecret() {
+  const regularSecret = resolveSecretModeSecret();
+  if (regularSecret) return regularSecret;
+
+  if (process.env.AEQI_DISABLE_PRIVILEGED_AUTH_ENV === "1") return null;
+  if (!fs.existsSync(DEFAULT_PRIVILEGED_AUTH_ENV)) return null;
+  const result = spawnSync(
+    "sudo",
+    [
+      "-n",
+      "bash",
+      "-lc",
+      `set -a; source ${DEFAULT_PRIVILEGED_AUTH_ENV} >/dev/null 2>&1; printf %s "\${AEQI_WEB_SECRET:-}"`,
+    ],
+    {
+      encoding: "utf8",
+      timeout: 4000,
+    },
+  );
+  const value = result.status === 0 ? result.stdout.trim() : "";
+  if (!value) return null;
+  return {
+    value,
+    source: `privileged-env:${DEFAULT_PRIVILEGED_AUTH_ENV}:AEQI_WEB_SECRET`,
+  };
+}
+
 async function loginSecretMode(origin) {
   const secret = resolveSecretModeSecret();
   if (!secret) return null;
@@ -321,6 +413,85 @@ async function loginAccountsMode(origin) {
   };
 }
 
+function resolveMcpProfile(warnings) {
+  const helper = expandHome(process.env.AEQI_MCP_HTTP || DEFAULT_MCP_HTTP);
+  if (!fs.existsSync(helper)) return null;
+  const result = spawnSync(
+    helper,
+    ["me", JSON.stringify({ action: "profile" })],
+    {
+      encoding: "utf8",
+      timeout: 6000,
+      env: process.env,
+    },
+  );
+  if (result.status !== 0) {
+    const stderr = (result.stderr || "").trim();
+    if (stderr)
+      warnings.push(`MCP profile lookup failed: ${stderr.slice(0, 240)}`);
+    return null;
+  }
+  try {
+    const body = JSON.parse(result.stdout);
+    return {
+      userId: body?.user_id || body?.actor?.user_id || null,
+      trustId: body?.trust_id || body?.root || body?.actor?.trust_id || null,
+    };
+  } catch (error) {
+    warnings.push(
+      `MCP profile lookup returned invalid JSON: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+    return null;
+  }
+}
+
+function resolveMintIdentity(args, warnings) {
+  const explicitUserId =
+    args["user-id"] ??
+    process.env.AEQI_USER_ID ??
+    process.env.AEQI_VISUAL_USER_ID;
+  if (explicitUserId) {
+    return {
+      userId: explicitUserId,
+      email: args.email ?? process.env.AEQI_EMAIL ?? null,
+      trustId: process.env.AEQI_ENTITY ?? null,
+      source: "env-or-args",
+    };
+  }
+  const profile = resolveMcpProfile(warnings);
+  if (!profile?.userId) return null;
+  return {
+    userId: profile.userId,
+    email: args.email ?? process.env.AEQI_EMAIL ?? null,
+    trustId: profile.trustId,
+    source: "mcp-profile",
+  };
+}
+
+function mintAccountToken({ args, ttlSeconds, warnings }) {
+  const secret = resolveSigningSecret();
+  if (!secret?.value) return null;
+  const identity = resolveMintIdentity(args, warnings);
+  if (!identity?.userId) {
+    warnings.push(
+      "A signing secret is available, but no user id was found. Pass --user-id/AEQI_USER_ID or make the local aeqi MCP profile available.",
+    );
+    return null;
+  }
+  return {
+    token: mintToken({
+      secret: secret.value,
+      userId: identity.userId,
+      email: identity.email,
+      ttlSeconds,
+    }),
+    source: `minted:${secret.source}:${identity.source}`,
+    trustId: identity.trustId,
+  };
+}
+
 async function resolveAuthSeed({ args, url, ttlSeconds, warnings }) {
   if (args["no-auth"]) {
     return { token: null, appMode: null, authMode: null, source: "none" };
@@ -337,7 +508,7 @@ async function resolveAuthSeed({ args, url, ttlSeconds, warnings }) {
   const origin = new URL(url).origin;
   const mode = await probeAuthMode(origin, warnings);
   const explicitToken = args.token ?? process.env.AEQI_TOKEN ?? null;
-  if (explicitToken) {
+  if (explicitToken && mode.authMode !== "accounts") {
     return {
       token: explicitToken,
       appMode: mode.appMode,
@@ -374,6 +545,17 @@ async function resolveAuthSeed({ args, url, ttlSeconds, warnings }) {
   }
 
   if (mode.authMode === "accounts") {
+    if (
+      explicitToken &&
+      (await tokenAuthenticates(origin, explicitToken, warnings))
+    ) {
+      return {
+        token: explicitToken,
+        appMode: mode.appMode,
+        authMode: mode.authMode,
+        source: "token",
+      };
+    }
     try {
       const login = await loginAccountsMode(origin);
       if (login) {
@@ -389,26 +571,47 @@ async function resolveAuthSeed({ args, url, ttlSeconds, warnings }) {
         `Account auth failed: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+
+    const minted = mintAccountToken({ args, ttlSeconds, warnings });
+    if (minted) {
+      return {
+        token: minted.token,
+        appMode: mode.appMode,
+        authMode: mode.authMode,
+        source: minted.source,
+        entity: minted.trustId,
+      };
+    }
+
+    if (explicitToken) {
+      return {
+        token: explicitToken,
+        appMode: mode.appMode,
+        authMode: mode.authMode,
+        source: "token:unverified",
+      };
+    }
   }
 
-  if (process.env.AEQI_WEB_SECRET) {
+  const signingSecret = resolveSigningSecret();
+  if (signingSecret?.value) {
     const userId = args["user-id"] ?? process.env.AEQI_USER_ID;
     const email = args.email ?? process.env.AEQI_EMAIL;
-    if (userId && email) {
+    if (userId) {
       return {
         token: mintToken({
-          secret: process.env.AEQI_WEB_SECRET,
+          secret: signingSecret.value,
           userId,
           email,
           ttlSeconds,
         }),
         appMode: mode.appMode,
         authMode: mode.authMode,
-        source: "minted:AEQI_WEB_SECRET",
+        source: `minted:${signingSecret.source}`,
       };
     }
     warnings.push(
-      "AEQI_WEB_SECRET is set, but AEQI_USER_ID/--user-id and AEQI_EMAIL/--email are required to mint a token.",
+      "A signing secret is available, but AEQI_USER_ID/--user-id is required to mint a token.",
     );
   }
 
@@ -467,6 +670,8 @@ async function main() {
         }`,
       );
     }
+  } else if (!args["no-auth"]) {
+    authEnvLoaded = loadDefaultAuthEnv();
   }
 
   if (args["require-auth"] && args["no-auth"]) {
@@ -476,7 +681,7 @@ async function main() {
   const token = authSeed.token;
   if (args["require-auth"] && authSeed.source === "unavailable") {
     throw new Error(
-      `Auth required but no usable auth material is available for mode ${authSeed.authMode}. Pass --token/AEQI_TOKEN, --storage-state, AEQI_EMAIL+AEQI_PASSWORD, or AEQI_WEB_SECRET+user/email.`,
+      `Auth required but no usable auth material is available for mode ${authSeed.authMode}. Pass --token/AEQI_TOKEN, --storage-state, AEQI_EMAIL+AEQI_PASSWORD, or AEQI_WEB_SECRET+user-id.`,
     );
   }
 
@@ -508,7 +713,8 @@ async function main() {
         seededToken: token,
         appMode: authSeed.appMode,
         authMode: authSeed.authMode,
-        entity: args.entity ?? process.env.AEQI_ENTITY ?? null,
+        entity:
+          args.entity ?? process.env.AEQI_ENTITY ?? authSeed.entity ?? null,
       },
     );
   }
