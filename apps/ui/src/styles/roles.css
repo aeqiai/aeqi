@@ -1009,7 +1009,7 @@
   overflow: hidden;
 }
 .trust-roles-main--detail-collapsed .roles-chart-controls {
-  right: 52px;
+  right: 12px;
 }
 .trust-agents-main {
   overflow-y: auto;
@@ -1399,7 +1399,7 @@
 .trust-role-detail-canvas {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
-  gap: 12px;
+  gap: 0;
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -1413,7 +1413,6 @@
   min-height: 0;
   overflow: hidden;
   background: var(--color-card);
-  border-right: 1px solid var(--border-subtle, var(--border-faint));
   border-radius: var(--radius-md) 0 0 var(--radius-md);
 }
 
@@ -1424,7 +1423,9 @@
 
 .trust-role-detail-document .ideas-canvas-frame {
   gap: 12px;
+  justify-content: space-between;
   margin: 0;
+  min-height: 100%;
   padding-bottom: 16px;
 }
 
@@ -1460,10 +1461,13 @@
 }
 
 .trust-role-detail-inspector {
+  box-sizing: border-box;
   display: flex;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  padding-left: 12px;
+  border-left: 1px solid var(--border-subtle, var(--border-faint));
 }
 
 .role-inspector--page {
@@ -1982,6 +1986,9 @@
   }
   .trust-role-detail-inspector {
     overflow: visible;
+    padding-top: 12px;
+    padding-left: 0;
+    border-left: 0;
   }
 }
 
@@ -2010,7 +2017,7 @@
     overflow: visible;
   }
   .trust-roles .roles-chart-controls {
-    right: 52px;
+    right: 12px;
   }
   .trust-roles-content {
     flex: 0 0 360px;
