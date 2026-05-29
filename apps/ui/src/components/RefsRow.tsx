@@ -56,15 +56,17 @@ export default function RefsRow({
     if (!picking) setPickerActive(0);
   }, [picking]);
 
-  const linkedIds = useMemo(() => new Set(refs.map((r) => r.target_id)), [refs]);
+  const safeCandidates = useMemo(() => candidates.filter(Boolean), [candidates]);
+  const safeRefs = useMemo(() => refs.filter(Boolean), [refs]);
+  const linkedIds = useMemo(() => new Set(safeRefs.map((r) => r.target_id)), [safeRefs]);
 
   const pickerResults = useMemo(() => {
     const q = pickerQuery.trim().toLowerCase();
-    return candidates
+    return safeCandidates
       .filter((i) => i.id !== excludeId && !linkedIds.has(i.id))
       .filter((i) => (q ? i.name.toLowerCase().includes(q) : true))
       .slice(0, 10);
-  }, [candidates, excludeId, linkedIds, pickerQuery]);
+  }, [excludeId, linkedIds, pickerQuery, safeCandidates]);
 
   const handleAdd = (target: Idea) => {
     onAdd(target);
@@ -75,7 +77,7 @@ export default function RefsRow({
 
   return (
     <div className="ideas-refs">
-      {refs.map((r) => {
+      {safeRefs.map((r) => {
         const removable = r.relation === "adjacent";
         const label = r.name ?? r.target_id.slice(0, 8);
         return (

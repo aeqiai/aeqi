@@ -158,11 +158,13 @@ export function RoleEdgesModal({
   submitting: boolean;
   error: string | null;
 }) {
+  const roleOptions = roles.filter(Boolean);
+
   return (
     <Modal open={open} onClose={onClose} title={title} className="role-inspector-modal">
       <form className="role-inspector-modal-form" onSubmit={onSubmit}>
         <div className="role-inspector-grant-grid">
-          {roles.map((role) => {
+          {roleOptions.map((role) => {
             const checked = selected.includes(role.id);
             return (
               <label

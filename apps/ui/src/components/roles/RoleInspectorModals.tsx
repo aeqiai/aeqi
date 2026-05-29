@@ -78,6 +78,9 @@ export function RoleAssignmentModal({
   setAssignmentDraft: Dispatch<SetStateAction<{ kind: OccupantKind; id: string }>>;
   onSubmit: (event: FormEvent) => void;
 }) {
+  const agentOptions = agents.filter(Boolean);
+  const entityOptions = entities.filter(Boolean);
+
   return (
     <Modal open={open} onClose={onClose} title="Assigned to" className="role-inspector-modal">
       <form className="role-inspector-modal-form" onSubmit={onSubmit}>
@@ -89,7 +92,7 @@ export function RoleAssignmentModal({
             checked={assignmentDraft.kind === "vacant"}
             onChange={() => setAssignmentDraft({ kind: "vacant", id: "" })}
           />
-          {agents.map((agent) => (
+          {agentOptions.map((agent) => (
             <AssignmentOption
               name="role-inspector-assignment"
               key={agent.id}
@@ -99,7 +102,7 @@ export function RoleAssignmentModal({
               onChange={() => setAssignmentDraft({ kind: "agent", id: agent.id })}
             />
           ))}
-          {entities
+          {entityOptions
             .filter((entity) => entity.id !== trustId)
             .map((entity) => (
               <AssignmentOption
