@@ -205,14 +205,11 @@ describe("TrustRolesTab", () => {
     );
 
     const header = await screen.findByLabelText("Role detail controls");
-    expect(
-      within(header)
-        .getByText("Role")
-        .compareDocumentPosition(within(header).getByRole("button", { name: "Roles" })),
-    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(within(header).getByRole("button", { name: "Roles" })).toHaveClass(
       "trust-role-detail-back",
     );
+    expect(within(header).queryByText("Role")).not.toBeInTheDocument();
+    expect(within(header).getByRole("button", { name: "Copy role route" })).toBeInTheDocument();
 
     fireEvent.click(within(header).getByRole("button", { name: "Roles" }));
     expect(

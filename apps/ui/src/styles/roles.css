@@ -1517,6 +1517,13 @@
   width: 100%;
 }
 
+@media (min-width: 1101px) {
+  .trust-role-detail-page--details-collapsed .trust-role-detail-document .ideas-canvas-content,
+  .trust-role-detail-page--details-collapsed .trust-role-detail-document .idea-convo-card {
+    transform: translateX(-160px);
+  }
+}
+
 .trust-role-detail-inspector {
   box-sizing: border-box;
   display: flex;
