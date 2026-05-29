@@ -691,7 +691,7 @@
 .trust-agents > .trust-roles-page-header {
   grid-area: header;
   align-items: center;
-  min-height: 40px;
+  min-height: var(--shell-top-rail-h, 40px);
   padding: 0;
   background: transparent;
   gap: var(--space-3);

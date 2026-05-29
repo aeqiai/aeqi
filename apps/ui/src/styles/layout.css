@@ -33,6 +33,8 @@
    sits under the left sidebar — the sidebar column runs uninterrupted
    from top to bottom. */
 .shell {
+  --shell-top-rail-h: 40px;
+
   display: flex;
   height: 100vh;
   overflow: hidden;
@@ -317,9 +319,10 @@
   gap: 4px;
   /* Horizontal padding matches .sidebar-user-zone so the right-edge
      collapse button sits in the same column as the help (?) button
-     in the row below. The top inset compensates for the wordmark's
-     optical bounds and centers it with the title/search/action rail. */
-  padding: 4px 8px 0;
+     in the row below. Height is shared with primitive page headers so
+     the sidebar logo/header and page top row sit on one exact rail. */
+  min-height: var(--shell-top-rail-h);
+  padding: 0 8px;
   box-sizing: border-box;
   flex-shrink: 0;
 }
@@ -1031,7 +1034,7 @@
   padding: 8px;
 }
 .left-sidebar-body > .sidebar-surface-nav:first-child {
-  padding-top: 12px;
+  padding-top: 8px;
 }
 
 /* Sidebar bottom — sticks below the tree's scroll viewport. */
