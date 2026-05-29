@@ -75,9 +75,9 @@ describe("TrustRolesTab", () => {
     vi.restoreAllMocks();
   });
 
-  function renderTab() {
+  function renderTab(initialEntry = "/trust/root-1/roles") {
     render(
-      <MemoryRouter initialEntries={["/trust/root-1/roles"]}>
+      <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
           <Route path="/trust/:trustAddress/roles" element={<TrustRolesTab trustId="root-1" />} />
         </Routes>
@@ -114,5 +114,20 @@ describe("TrustRolesTab", () => {
     expect(screen.getByRole("button", { name: "Collapse role panel" })).toHaveClass(
       "role-inspector-icon-action",
     );
+  });
+
+  it("renders list view as the canonical workspace table", async () => {
+    renderTab("/trust/root-1/roles?view=list");
+
+    const workspace = screen.getByLabelText("Role workspace");
+    const table = await within(workspace).findByRole("table", { name: "Roles" });
+    const tableShell = table.closest(".trust-roles-table");
+
+    expect(tableShell).not.toBeNull();
+    expect(table.className).toContain("compact");
+    expect(within(table).getByRole("columnheader", { name: "Title" })).toBeInTheDocument();
+    expect(within(table).getByRole("columnheader", { name: "Occupant" })).toBeInTheDocument();
+    expect(within(table).getByText("Owner")).toHaveClass("roles-list-title");
+    expect(within(table).getByText("Chief of Staff")).toBeInTheDocument();
   });
 });

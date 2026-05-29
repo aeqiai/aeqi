@@ -85,7 +85,11 @@ export default function RolesList({
         sortable: true,
         sortAccessor: (role) => (role.title || "").toLowerCase(),
         cell: (role) =>
-          role.title || <em style={{ color: "var(--color-text-muted)" }}>(untitled)</em>,
+          role.title ? (
+            <span className="roles-list-title">{role.title}</span>
+          ) : (
+            <em className="roles-list-muted">(untitled)</em>
+          ),
       },
       {
         key: "occupant",
@@ -124,19 +128,21 @@ export default function RolesList({
         align: "end",
         sortable: true,
         sortAccessor: (role) => role.created_at,
-        cell: (role) => role.created_at.slice(0, 10),
+        cell: (role) => <span className="roles-list-date">{role.created_at.slice(0, 10)}</span>,
       },
     ],
     [agentNames, agentAvatars, allRolesRef, edges, ambiguousTitles, firstParentTitle],
   );
 
   return (
-    <div className="roles-list">
+    <div className="trust-roles-table">
       <Table<Role>
         columns={columns}
         data={ordered}
         rowKey={(role) => role.id}
         onRowClick={onSelectRole}
+        density="compact"
+        scrollWidth="sm"
         ariaLabel="Roles"
       />
     </div>
@@ -167,7 +173,7 @@ function ParentsCell({
       .map((e) => byId.get(e.parent_role_id)!);
   }, [roleId, allRoles, edges]);
 
-  if (parents.length === 0) return <span style={{ color: "var(--color-text-muted)" }}>—</span>;
+  if (parents.length === 0) return <span className="roles-list-muted">—</span>;
   const parts: string[] = [];
   for (const p of parents) {
     const title = (p.title || "(untitled)").trim();
@@ -209,33 +215,10 @@ function AgentAvatarChip({
   label: string;
 }) {
   if (avatarUrl) {
-    return (
-      <img
-        src={avatarUrl}
-        alt=""
-        style={{
-          width: AVATAR_SIZE,
-          height: AVATAR_SIZE,
-          borderRadius: 4,
-          objectFit: "cover",
-          flexShrink: 0,
-          verticalAlign: "middle",
-          display: "inline-block",
-          marginRight: 4,
-        }}
-      />
-    );
+    return <img src={avatarUrl} alt="" className="roles-list-avatar roles-list-avatar--agent" />;
   }
   return (
-    <span
-      aria-hidden
-      style={{
-        display: "inline-flex",
-        flexShrink: 0,
-        verticalAlign: "middle",
-        marginRight: 4,
-      }}
-    >
+    <span aria-hidden className="roles-list-avatar-shell">
       <BlockAvatar name={label} size={AVATAR_SIZE} />
     </span>
   );
@@ -249,22 +232,7 @@ function HumanAvatarChip({
   label: string;
 }) {
   if (avatarUrl) {
-    return (
-      <img
-        src={avatarUrl}
-        alt=""
-        style={{
-          width: AVATAR_SIZE,
-          height: AVATAR_SIZE,
-          borderRadius: "999px",
-          objectFit: "cover",
-          flexShrink: 0,
-          verticalAlign: "middle",
-          display: "inline-block",
-          marginRight: 4,
-        }}
-      />
-    );
+    return <img src={avatarUrl} alt="" className="roles-list-avatar roles-list-avatar--human" />;
   }
   const initials = label
     ? label
@@ -277,24 +245,7 @@ function HumanAvatarChip({
         .toUpperCase()
     : "·";
   return (
-    <span
-      aria-hidden
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        width: AVATAR_SIZE,
-        height: AVATAR_SIZE,
-        borderRadius: "999px",
-        background: "var(--color-bg-subtle)",
-        color: "var(--color-text-muted)",
-        fontSize: 9,
-        fontWeight: 600,
-        flexShrink: 0,
-        verticalAlign: "middle",
-        marginRight: 4,
-      }}
-    >
+    <span aria-hidden className="roles-list-avatar roles-list-avatar--initials">
       {initials}
     </span>
   );
@@ -310,14 +261,14 @@ function OccupantInline({
   agentAvatar?: string;
 }) {
   if (role.occupant_kind === "vacant") {
-    return <span style={{ color: "var(--color-text-muted)" }}>vacant</span>;
+    return <span className="roles-list-muted">vacant</span>;
   }
   if (role.occupant_kind === "agent") {
     const name = agentName ?? role.occupant_id?.slice(0, 8) ?? "";
     return (
-      <span style={{ display: "inline-flex", alignItems: "center" }}>
+      <span className="roles-list-occupant">
         <AgentAvatarChip avatarUrl={agentAvatar} label={name} />
-        <KindLabel>agent</KindLabel> <strong style={{ fontWeight: 500 }}>{name}</strong>
+        <KindLabel>agent</KindLabel> <strong>{name}</strong>
       </span>
     );
   }
@@ -328,25 +279,13 @@ function OccupantInline({
       ? `${role.occupant_id.slice(0, 4)}…${role.occupant_id.slice(-4)}`
       : "";
   return (
-    <span style={{ display: "inline-flex", alignItems: "center" }}>
+    <span className="roles-list-occupant">
       <HumanAvatarChip avatarUrl={role.occupant_avatar_url} label={displayName} />
-      <KindLabel>human</KindLabel> <strong style={{ fontWeight: 500 }}>{displayName}</strong>
+      <KindLabel>human</KindLabel> <strong>{displayName}</strong>
     </span>
   );
 }
 
 function KindLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <span
-      style={{
-        color: "var(--color-text-muted)",
-        fontSize: 11,
-        letterSpacing: "0.02em",
-        textTransform: "uppercase",
-        marginRight: 4,
-      }}
-    >
-      {children}
-    </span>
-  );
+  return <span className="roles-list-kind">{children}</span>;
 }
