@@ -17,6 +17,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Check } from "lucide-react";
 import { Button, Loading, Tooltip } from "@/components/ui";
 import { getIdeaComments, subscribeToIdea, type CommentRow } from "@/api/sessions";
 import { useAuthStore } from "@/store/auth";
@@ -49,9 +50,10 @@ function SubscribeBar({ subscribed, onSubscribe, disabled, busy }: SubscribeBarP
           <Button
             variant="secondary"
             size="sm"
+            className="idea-convo-subscribe-btn"
             disabled
             aria-pressed="true"
-            leadingIcon={<CheckIcon />}
+            leadingIcon={<Check size={13} strokeWidth={1.7} />}
           >
             Subscribed
           </Button>
@@ -64,6 +66,7 @@ function SubscribeBar({ subscribed, onSubscribe, disabled, busy }: SubscribeBarP
       <Button
         variant="secondary"
         size="sm"
+        className="idea-convo-subscribe-btn"
         onClick={onSubscribe}
         disabled={disabled || busy}
         loading={busy}
@@ -72,24 +75,6 @@ function SubscribeBar({ subscribed, onSubscribe, disabled, busy }: SubscribeBarP
         Subscribe
       </Button>
     </div>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg
-      width="13"
-      height="13"
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M3 8.5l3 3 7-7" />
-    </svg>
   );
 }
 

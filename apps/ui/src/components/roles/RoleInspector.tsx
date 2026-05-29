@@ -297,7 +297,7 @@ export default function RoleInspector({
                   {ideaTagError && <span className="role-inspector-error">{ideaTagError}</span>}
                 </div>
               </div>
-              <div className="role-inspector-field-block role-inspector-field-block--stacked">
+              <div className="role-inspector-field-block">
                 <span className="role-inspector-row-label">References</span>
                 <div className="role-inspector-field-body">
                   <IdeaLinksPanel ideaId={idea.id} agentId={idea.agent_id ?? trustId} />

@@ -1,16 +1,22 @@
 import { defineConfig, type PluginOption } from "vite";
 import react from "@vitejs/plugin-react";
 import { visualizer } from "rollup-plugin-visualizer";
+import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import pkg from "./package.json" with { type: "json" };
 
+const repoRoot = fileURLToPath(new URL("../..", import.meta.url));
 const webSharedSrc = fileURLToPath(new URL("../../packages/web-shared/src", import.meta.url));
 const appNodeModules = fileURLToPath(new URL("./node_modules", import.meta.url));
+const appNodeModulesReal = fs.existsSync(appNodeModules)
+  ? fs.realpathSync(appNodeModules)
+  : appNodeModules;
 const emojiMartStub = fileURLToPath(new URL("./src/lib/stubs/emoji-mart.ts", import.meta.url));
 const rainbowKitDistSegment = "/node_modules/@rainbow-me/rainbowkit/dist/";
 const rainbowKitNonEnglishLocale =
   /^\.\/(?:ar_AR|de_DE|es_419|fr_FR|hi_IN|id_ID|ja_JP|ko_KR|ms_MY|pt_BR|ru_RU|th_TH|tr_TR|uk_UA|vi_VN|zh_CN|zh_HK|zh_TW)-[A-Z0-9]+\.js$/;
 const emptyRainbowKitLocaleId = "\0aeqi-rainbowkit-empty-locale";
+const apiProxyTarget = process.env.AEQI_UI_API_PROXY_TARGET || "http://localhost:8400";
 
 function rainbowKitEnglishLocaleOnly(): PluginOption {
   return {
@@ -161,9 +167,12 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    fs: {
+      allow: [repoRoot, appNodeModulesReal],
+    },
     proxy: {
       "/api": {
-        target: "http://localhost:8400",
+        target: apiProxyTarget,
         changeOrigin: true,
       },
     },

@@ -347,7 +347,7 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
                 />
               )}
               {!loading && !error && filtered.length > 0 && view === "cards" && (
-                <div className="trust-roles-scroll">
+                <div className="trust-roles-scroll trust-roles-scroll--cards">
                   <RolesCards
                     roles={filtered}
                     agentNames={agentNames}
@@ -358,7 +358,7 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
                 </div>
               )}
               {!loading && !error && filtered.length > 0 && view === "list" && (
-                <div className="trust-roles-scroll">
+                <div className="trust-roles-scroll trust-roles-scroll--list">
                   <RolesList
                     roles={filtered}
                     edges={filteredEdges}

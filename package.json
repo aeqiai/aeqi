@@ -8,6 +8,7 @@
     "surface:catalog:check": "node scripts/repo-surface-catalog.mjs --check",
     "ui:install": "npm --prefix apps/ui ci",
     "ui:dev": "npm --prefix apps/ui run dev",
+    "ui:dev:prod-api": "npm --prefix apps/ui run dev:prod-api",
     "ui:build": "npm --prefix apps/ui run build",
     "ui:preview": "npm --prefix apps/ui run preview",
     "dev:triage": "scripts/dev-triage.sh",

@@ -17,6 +17,18 @@ npm run dev        # :5173, proxies /api to :8400
 ```
 
 The `aeqi` daemon must be running on port 8400 for API calls to work.
+For visual QA against the hosted app data without browser CORS failures, keep
+the client on same-origin `/api` and let Vite proxy to production:
+
+```bash
+npm run dev:prod-api
+```
+
+You can target another backend with `AEQI_UI_API_PROXY_TARGET`, for example:
+
+```bash
+AEQI_UI_API_PROXY_TARGET=https://staging.example.com npm run dev
+```
 
 To use the dev build instead of the embedded UI, set an optional override in `aeqi.toml`:
 

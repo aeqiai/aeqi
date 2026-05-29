@@ -90,7 +90,9 @@ export function CopyableRow({
   return (
     <button
       type="button"
-      className="role-inspector-row role-inspector-row--copyable"
+      className={`role-inspector-row role-inspector-row--copyable${
+        copied ? " role-inspector-row--copied" : ""
+      }`}
       onClick={onCopy}
       title={copied ? "Copied" : "Copy"}
       data-pill-allowed=""
