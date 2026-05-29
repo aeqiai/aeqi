@@ -98,7 +98,8 @@
   flex-shrink: 0;
 }
 
-.trust-sessions-page-header {
+.trust-sessions-page-header,
+.trust-sessions > .trust-sessions-page-header {
   align-items: center;
   min-height: var(--shell-top-rail-h, 40px);
   background: transparent;

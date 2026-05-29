@@ -1260,6 +1260,14 @@
   min-width: 0;
 }
 
+.trust-tools-page > .trust-tools-page-header {
+  align-items: center;
+  min-height: var(--shell-top-rail-h, 40px);
+  padding: 0;
+  background: transparent;
+  gap: var(--space-3);
+}
+
 .trust-tools-toolbar > .ideas-list-search-field {
   min-width: 180px;
 }
