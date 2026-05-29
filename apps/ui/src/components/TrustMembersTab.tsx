@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { UserPlus, UsersRound } from "lucide-react";
+import { ArrowUpRight, UserPlus, UsersRound } from "lucide-react";
 import { api } from "@/lib/api";
 import { entityPathFromId } from "@/lib/entityPath";
 import { formatMediumDate } from "@/lib/i18n";
@@ -11,6 +11,7 @@ import {
   Badge,
   Button,
   EmptyState,
+  IconButton,
   Loading,
   PrimitivePageHeader,
   PrimitiveSearchField,
@@ -146,6 +147,20 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
     }
     navigate(entityPathFromId(entities, trustId, "roles", "new"));
   }, [entities, inviteTargetRole, navigate, trustId]);
+  const openMemberRoles = useCallback(
+    (row: MemberRow) => {
+      if (row.roleIds.length === 0) return;
+      if (row.roleIds.length === 1) {
+        navigate(entityPathFromId(entities, trustId, "roles", row.roleIds[0]));
+        return;
+      }
+      const params = new URLSearchParams();
+      params.set("occupant", "human");
+      params.set("q", row.detail);
+      navigate(`${entityPathFromId(entities, trustId, "roles")}?${params.toString()}`);
+    },
+    [entities, navigate, trustId],
+  );
 
   const columns = useMemo<Array<TableColumn<MemberRow>>>(
     () => [
@@ -174,12 +189,7 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
         header: "Roles",
         sortable: true,
         sortAccessor: (row) => roleList(row.roles),
-        cell: (row) => (
-          <RoleReferences
-            row={row}
-            onOpenRole={(roleId) => navigate(entityPathFromId(entities, trustId, "roles", roleId))}
-          />
-        ),
+        cell: (row) => <RoleSummary row={row} />,
       },
       {
         key: "created",
@@ -193,8 +203,38 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
           </span>
         ),
       },
+      {
+        key: "open",
+        header: "",
+        width: "56px",
+        align: "end",
+        cell: (row) =>
+          row.roleIds.length > 0 ? (
+            <IconButton
+              aria-label={
+                row.roleIds.length === 1
+                  ? `Open ${row.roles[0] ?? "role"}`
+                  : `Open roles for ${row.name}`
+              }
+              className="trust-members-nav-action"
+              size="sm"
+              variant="ghost"
+              title={
+                row.roleIds.length === 1
+                  ? `Open ${row.roles[0] ?? "role"}`
+                  : `Open roles for ${row.name}`
+              }
+              onClick={(event) => {
+                event.stopPropagation();
+                openMemberRoles(row);
+              }}
+            >
+              <ArrowUpRight size={14} strokeWidth={1.8} />
+            </IconButton>
+          ) : null,
+      },
     ],
-    [entities, navigate, trustId],
+    [openMemberRoles],
   );
 
   const showEmpty = !loading && !error && rows.length === 0;
@@ -303,12 +343,7 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
                       <div>
                         <dt>Roles</dt>
                         <dd>
-                          <RoleReferences
-                            row={row}
-                            onOpenRole={(roleId) =>
-                              navigate(entityPathFromId(entities, trustId, "roles", roleId))
-                            }
-                          />
+                          <RoleSummary row={row} />
                         </dd>
                       </div>
                       <div>
@@ -320,6 +355,21 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
                         </dd>
                       </div>
                     </dl>
+                    {row.roleIds.length > 0 && (
+                      <IconButton
+                        aria-label={
+                          row.roleIds.length === 1
+                            ? `Open ${row.roles[0] ?? "role"}`
+                            : `Open roles for ${row.name}`
+                        }
+                        className="trust-members-nav-action"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => openMemberRoles(row)}
+                      >
+                        <ArrowUpRight size={14} strokeWidth={1.8} />
+                      </IconButton>
+                    )}
                   </article>
                 ))}
               </div>
@@ -349,40 +399,14 @@ function MemberIdentity({ row }: { row: MemberRow }) {
   );
 }
 
-function RoleReferences({
-  row,
-  onOpenRole,
-}: {
-  row: MemberRow;
-  onOpenRole: (roleId: string) => void;
-}) {
+function RoleSummary({ row }: { row: MemberRow }) {
   if (row.roles.length === 0) return <span className="trust-members-muted">None</span>;
+  const [primary, ...rest] = row.roles;
 
   return (
-    <span className="trust-members-role-refs">
-      {row.roles.map((roleTitle, index) => {
-        const roleId = row.roleIds[index];
-        if (!roleId) {
-          return (
-            <span className="trust-members-role-text" key={`${roleTitle}-${index}`}>
-              {roleTitle}
-            </span>
-          );
-        }
-        return (
-          <button
-            className="trust-members-role-link"
-            key={roleId}
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              onOpenRole(roleId);
-            }}
-          >
-            {roleTitle}
-          </button>
-        );
-      })}
+    <span className="trust-members-role-summary" title={roleList(row.roles)}>
+      <span className="trust-members-role-primary">{primary}</span>
+      {rest.length > 0 && <span className="trust-members-role-more">+{rest.length}</span>}
     </span>
   );
 }

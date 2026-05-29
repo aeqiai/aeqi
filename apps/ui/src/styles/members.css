@@ -117,7 +117,7 @@
   background: var(--bg-row);
 }
 
-.trust-members-role-refs {
+.trust-members-role-summary {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -130,36 +130,31 @@
   white-space: nowrap;
 }
 
-.trust-members-role-link {
-  appearance: none;
-  max-width: 100%;
+.trust-members-role-primary {
   overflow: hidden;
-  border: 0;
-  background: transparent;
+  text-overflow: ellipsis;
+}
+
+.trust-members-role-more {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  height: 18px;
+  min-width: 22px;
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+  background: var(--bg-subtle);
   color: var(--color-text-secondary);
-  cursor: pointer;
-  font: inherit;
-  line-height: inherit;
-  padding: 0;
-  text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  transition: color 0.12s ease;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
-.trust-members-role-link:hover,
-.trust-members-role-link:focus-visible {
-  color: var(--color-text-primary);
-}
-
-.trust-members-role-link:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-}
-
-.trust-members-role-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
+.trust-members-nav-action {
+  color: var(--color-text-muted);
 }
 
 .trust-members-card-list {
