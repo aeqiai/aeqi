@@ -44,6 +44,7 @@ export default function RolesViewPopover({ view, onChange }: RolesViewPopoverPro
           className={`ideas-toolbar-btn${open ? " open" : ""}`}
           aria-haspopup="dialog"
           aria-expanded={open}
+          aria-label={`View: ${ROLES_VIEW_LABEL[view]}`}
           title={`View: ${ROLES_VIEW_LABEL[view]}`}
         >
           {VIEW_GLYPH[view]}

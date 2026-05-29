@@ -311,7 +311,14 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
     <div className={isEditingRole ? "trust-roles trust-roles--editing" : "trust-roles"}>
       <PrimitivePageHeader
         className="trust-roles-page-header"
-        title="Roles"
+        title={
+          <span className="trust-primitive-page-title">
+            <span className="trust-primitive-page-title-text">Roles</span>
+            <span className="trust-primitive-page-count" aria-hidden="true">
+              {snapshot.total}
+            </span>
+          </span>
+        }
         aria-label="Role controls"
         actions={
           <Button

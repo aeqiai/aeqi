@@ -683,6 +683,17 @@
 .trust-roles-toolbar {
   flex: 1;
 }
+.trust-roles-toolbar .ideas-toolbar-btn {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  inline-size: 40px;
+  block-size: 40px;
+  flex: 0 0 40px;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--radius-full);
+}
 .trust-roles-toolbar > .ideas-list-search-field {
   min-width: 180px;
 }
