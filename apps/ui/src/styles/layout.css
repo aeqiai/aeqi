@@ -311,10 +311,9 @@
 /* Brand left edge (16px) aligns with nav-item icon-slot left edge
    (nav padding 8px + item padding 8px), so wordmark sits directly
    above the icon column. */
-/* 40px band matches .content-topbar on the right. Vertical centering is
-   trivial here because .left-sidebar itself has the 8px top pad that
-   mirrors .content-column, so the band's y=0 already aligns with the
-   content card's topbar y=0. */
+/* 44px band optically matches the primitive shell top rail on the right:
+   the wordmark, page title, search, and action controls share one chrome
+   centerline while the working canvas starts beneath that rail. */
 .sidebar-header {
   display: flex;
   align-items: center;
@@ -322,13 +321,9 @@
   gap: 4px;
   /* Horizontal padding matches .sidebar-user-zone so the right-edge
      collapse button sits in the same column as the help (?) button
-     in the row below. No top padding here — .left-sidebar owns the
-     vertical inset (mirroring .content-column) so the profile row
-     sits at the same y-coordinate as .content-card's top edge.
-     Bottom 8px mirrors .sidebar-user-zone's own bottom inset so the
-     gap between profile and the Launch group below matches the gap
-     between every other group on the rail. */
-  padding: 0 8px 8px;
+     in the row below. The top inset compensates for the wordmark's
+     optical bounds and centers it with the title/search/action rail. */
+  padding: 12px 8px 0;
   box-sizing: border-box;
   flex-shrink: 0;
 }
