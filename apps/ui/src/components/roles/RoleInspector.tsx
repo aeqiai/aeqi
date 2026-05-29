@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Bot, Copy, Check, FileText, Landmark, Pencil, Mail } from "lucide-react";
+import { ArrowRight, Bot, Copy, Check, Landmark } from "lucide-react";
 import RoundAvatar from "@/components/RoundAvatar";
 import type { Role, RoleEdge, Quest } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
@@ -173,18 +173,6 @@ export default function RoleInspector({
     };
   }, [charterIdeaId]);
 
-  // First-paragraph excerpt — the first ~180 chars, stopped at a
-  // sentence boundary when possible. Keeps the preview card compact
-  // and readable; full body lives on the idea detail page.
-  const charterExcerpt = useMemo(() => {
-    if (!charter?.content) return "";
-    const text = charter.content.trim().replace(/\s+/g, " ");
-    if (text.length <= 180) return text;
-    const cut = text.slice(0, 180);
-    const lastDot = cut.lastIndexOf(". ");
-    return lastDot > 80 ? `${cut.slice(0, lastDot + 1)}` : `${cut}…`;
-  }, [charter]);
-
   const isVacant = role.occupant_kind === "vacant";
   const isHuman = role.occupant_kind === "human";
   const isTrust = role.occupant_kind === "trust";
@@ -201,10 +189,10 @@ export default function RoleInspector({
   // "Operator" rather than the adjective form.
   const roleTypeLabel =
     role.role_type === "director"
-      ? "DIRECTOR"
+      ? "Director"
       : role.role_type === "advisor"
-        ? "ADVISOR"
-        : "OPERATOR";
+        ? "Advisor"
+        : "Operator";
   return (
     <aside className="role-inspector" aria-label="Selected role">
       {/* Header */}
@@ -247,198 +235,152 @@ export default function RoleInspector({
       </header>
 
       <div className="role-inspector-body">
-        <Section title="Editable">
-          <EditableRow
-            label="Role profile"
-            title={role.title}
-            detail={`${roleTypeLabel.toLowerCase()} role`}
-            icon={<Pencil size={14} strokeWidth={1.7} />}
-            to={onEdit ? undefined : `${basePath}/roles/${encodeURIComponent(role.id)}/edit`}
-            onClick={onEdit}
-          />
+        <EditableRow
+          label="Role"
+          title={role.title}
+          actionLabel="Edit"
+          to={onEdit ? undefined : `${basePath}/roles/${encodeURIComponent(role.id)}/edit`}
+          onClick={onEdit}
+        />
 
-          <EditableRow
-            label="Assignment"
-            title={
-              isVacant
-                ? "Seat open"
-                : occupantDisplayName
-                  ? occupantDisplayName
-                  : `Held by ${heldByLabel}`
-            }
-            detail={isVacant ? "Invite someone into this role" : "Change the assigned holder"}
-            icon={<Mail size={14} strokeWidth={1.7} />}
-            to={`${basePath}/roles/${encodeURIComponent(role.id)}/invite`}
-          />
+        <EditableRow
+          label="Assigned to"
+          title={
+            isVacant
+              ? "Seat open"
+              : occupantDisplayName
+                ? occupantDisplayName
+                : `Held by ${heldByLabel}`
+          }
+          actionLabel={isVacant ? "Invite" : "Change"}
+          to={`${basePath}/roles/${encodeURIComponent(role.id)}/invite`}
+        />
 
-          <EditableRow
-            label="Mandate"
-            title={charter?.name ?? (charterIdeaId ? "Loading charter" : "No mandate defined")}
-            detail={charterExcerpt || "Describe what this role can decide, execute, or delegate."}
-            icon={<FileText size={14} strokeWidth={1.6} />}
-            to={
-              charterIdeaId
-                ? `${basePath}/ideas/${encodeURIComponent(charterIdeaId)}`
-                : `${basePath}/roles/${encodeURIComponent(role.id)}/edit`
-            }
-          >
-            {charter?.tags && charter.tags.length > 0 && (
-              <div className="role-inspector-row-tags">
-                {charter.tags.slice(0, 4).map((tag) => (
-                  <span key={tag} className="role-inspector-row-tag">
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            )}
-          </EditableRow>
-        </Section>
+        <EditableRow
+          label="Mandate"
+          title={charter?.name ?? (charterIdeaId ? "Loading charter" : "No mandate defined")}
+          actionLabel={charterIdeaId ? "Open" : "Edit"}
+          to={
+            charterIdeaId
+              ? `${basePath}/ideas/${encodeURIComponent(charterIdeaId)}`
+              : `${basePath}/roles/${encodeURIComponent(role.id)}/edit`
+          }
+        />
 
-        <Section title="Reference">
-          {!isVacant && role.occupant_id && (
-            <ReadOnlyRow label="Holder ID">
-              {isTrust ? (
-                <Link
-                  to={`/trust/${encodeURIComponent(role.occupant_id)}`}
-                  className="role-inspector-holder-link"
-                  title={`Open ${occupantDisplayName ?? "TRUST"} profile`}
-                >
-                  {occupantDisplayName && (
-                    <>
-                      <Landmark size={13} strokeWidth={1.6} aria-hidden />
-                      <span>{occupantDisplayName}</span>
-                    </>
-                  )}
-                  <code>{compactAddress(role.occupant_id)}</code>
-                </Link>
-              ) : (
+        {!isVacant && role.occupant_id && (
+          <ReadOnlyRow label="Holder ID">
+            {isTrust ? (
+              <Link
+                to={`/trust/${encodeURIComponent(role.occupant_id)}`}
+                className="role-inspector-holder-link"
+                title={`Open ${occupantDisplayName ?? "TRUST"} profile`}
+              >
+                {occupantDisplayName && (
+                  <>
+                    <Landmark size={13} strokeWidth={1.6} aria-hidden />
+                    <span>{occupantDisplayName}</span>
+                  </>
+                )}
                 <code>{compactAddress(role.occupant_id)}</code>
-              )}
-              <CopyButton
-                copied={copiedField === "holder"}
-                onClick={() => copy(role.occupant_id!, "holder")}
-              />
-            </ReadOnlyRow>
-          )}
-
-          <ReadOnlyRow label="Role ID">
-            <code>{compactAddress(role.id)}</code>
-            <CopyButton copied={copiedField === "roleId"} onClick={() => copy(role.id, "roleId")} />
+              </Link>
+            ) : (
+              <code>{compactAddress(role.occupant_id)}</code>
+            )}
+            <CopyButton
+              copied={copiedField === "holder"}
+              onClick={() => copy(role.occupant_id!, "holder")}
+            />
           </ReadOnlyRow>
-        </Section>
-
-        <Section title="Authority">
-          <ReadOnlyRow label="Grants">
-            <span className="role-inspector-stat">{role.grants.length}</span>
-            {role.grants.length > 0 && (
-              <span className="role-inspector-meta">
-                {role.grants.slice(0, 2).join(" · ")}
-                {role.grants.length > 2 ? ` · +${role.grants.length - 2}` : ""}
-              </span>
-            )}
-          </ReadOnlyRow>
-        </Section>
-
-        {(parentRoles.length > 0 || childRoles.length > 0 || role.role_type === "director") && (
-          <Section title="Role graph">
-            {parentRoles.length > 0 && (
-              <ReadOnlyRow label="Reports to">
-                {parentRoles.slice(0, 3).map((p) => (
-                  <Link
-                    key={p.id}
-                    to={`${basePath}/roles?role=${encodeURIComponent(p.id)}`}
-                    className="role-inspector-chip"
-                  >
-                    {p.title}
-                  </Link>
-                ))}
-                {parentRoles.length > 3 && (
-                  <span className="role-inspector-meta">+{parentRoles.length - 3} more</span>
-                )}
-              </ReadOnlyRow>
-            )}
-
-            {parentRoles.length === 0 && role.role_type === "director" && (
-              <ReadOnlyRow label="Reports to">
-                <span className="role-inspector-meta">Root role</span>
-              </ReadOnlyRow>
-            )}
-
-            {childRoles.length > 0 && (
-              <ReadOnlyRow label="Delegates to">
-                {childRoles.slice(0, 3).map((c) => (
-                  <Link
-                    key={c.id}
-                    to={`${basePath}/roles?role=${encodeURIComponent(c.id)}`}
-                    className="role-inspector-chip"
-                  >
-                    {c.title}
-                  </Link>
-                ))}
-                {childRoles.length > 3 && (
-                  <span className="role-inspector-meta">+{childRoles.length - 3} more</span>
-                )}
-              </ReadOnlyRow>
-            )}
-          </Section>
         )}
 
-        <Section title="Activity">
-          {role.occupant_kind === "agent" && activeQuests > 0 && (
-            <ReadOnlyRow label="Active quests">
-              <Link to={`${basePath}/quests`} className="role-inspector-link">
-                {activeQuests}
-                <ArrowRight size={12} strokeWidth={1.8} />
-              </Link>
-            </ReadOnlyRow>
-          )}
+        <ReadOnlyRow label="Role ID">
+          <code>{compactAddress(role.id)}</code>
+          <CopyButton copied={copiedField === "roleId"} onClick={() => copy(role.id, "roleId")} />
+        </ReadOnlyRow>
 
-          <ReadOnlyRow label="Created">
-            <span className="role-inspector-meta">{formatMediumDate(role.created_at)}</span>
+        <ReadOnlyRow label="Grants">
+          <span className="role-inspector-stat">{role.grants.length}</span>
+          {role.grants.length > 0 && (
+            <span className="role-inspector-meta">
+              {role.grants.slice(0, 2).join(" · ")}
+              {role.grants.length > 2 ? ` · +${role.grants.length - 2}` : ""}
+            </span>
+          )}
+        </ReadOnlyRow>
+
+        {parentRoles.length > 0 && (
+          <ReadOnlyRow label="Reports to">
+            {parentRoles.slice(0, 3).map((p) => (
+              <Link
+                key={p.id}
+                to={`${basePath}/roles?role=${encodeURIComponent(p.id)}`}
+                className="role-inspector-chip"
+              >
+                {p.title}
+              </Link>
+            ))}
+            {parentRoles.length > 3 && (
+              <span className="role-inspector-meta">+{parentRoles.length - 3} more</span>
+            )}
           </ReadOnlyRow>
-        </Section>
+        )}
+
+        {parentRoles.length === 0 && role.role_type === "director" && (
+          <ReadOnlyRow label="Reports to">
+            <span className="role-inspector-meta">Root role</span>
+          </ReadOnlyRow>
+        )}
+
+        {childRoles.length > 0 && (
+          <ReadOnlyRow label="Delegates to">
+            {childRoles.slice(0, 3).map((c) => (
+              <Link
+                key={c.id}
+                to={`${basePath}/roles?role=${encodeURIComponent(c.id)}`}
+                className="role-inspector-chip"
+              >
+                {c.title}
+              </Link>
+            ))}
+            {childRoles.length > 3 && (
+              <span className="role-inspector-meta">+{childRoles.length - 3} more</span>
+            )}
+          </ReadOnlyRow>
+        )}
+
+        {role.occupant_kind === "agent" && activeQuests > 0 && (
+          <ReadOnlyRow label="Active quests">
+            <Link to={`${basePath}/quests`} className="role-inspector-link">
+              {activeQuests}
+              <ArrowRight size={12} strokeWidth={1.8} />
+            </Link>
+          </ReadOnlyRow>
+        )}
+
+        <ReadOnlyRow label="Created">
+          <span className="role-inspector-meta">{formatMediumDate(role.created_at)}</span>
+        </ReadOnlyRow>
       </div>
     </aside>
-  );
-}
-
-interface SectionProps {
-  title: string;
-  children?: React.ReactNode;
-}
-
-function Section({ title, children }: SectionProps) {
-  return (
-    <div className="role-inspector-section">
-      <p className="role-inspector-section-title">{title}</p>
-      {children}
-    </div>
   );
 }
 
 interface EditableRowProps {
   label: string;
   title: string;
-  detail?: string;
-  icon: React.ReactNode;
+  actionLabel: string;
   to?: string;
   onClick?: () => void;
-  children?: React.ReactNode;
 }
 
-function EditableRow({ label, title, detail, icon, to, onClick, children }: EditableRowProps) {
+function EditableRow({ label, title, actionLabel, to, onClick }: EditableRowProps) {
   const content = (
     <>
-      <span className="role-inspector-row-icon" aria-hidden>
-        {icon}
-      </span>
-      <span className="role-inspector-row-copy">
-        <span className="role-inspector-row-label">{label}</span>
+      <span className="role-inspector-row-label">{label}</span>
+      <span className="role-inspector-row-control">
         <span className="role-inspector-row-title">{title}</span>
-        {detail && <span className="role-inspector-row-detail">{detail}</span>}
-        {children}
+        <span className="role-inspector-row-action">{actionLabel}</span>
       </span>
-      <ArrowRight size={13} strokeWidth={1.8} className="role-inspector-row-arrow" aria-hidden />
     </>
   );
 
@@ -455,7 +397,6 @@ function EditableRow({ label, title, detail, icon, to, onClick, children }: Edit
       type="button"
       className="role-inspector-row role-inspector-row--editable"
       onClick={onClick}
-      data-pill-allowed=""
     >
       {content}
     </button>

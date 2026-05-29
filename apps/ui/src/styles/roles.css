@@ -1383,10 +1383,10 @@
 .role-inspector-eyebrow {
   margin: 0;
   font-family: var(--font-sans);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--color-text-muted);
 }
 .role-inspector-title {
@@ -1408,127 +1408,98 @@
 .role-inspector-body {
   display: flex;
   flex-direction: column;
-  gap: 0;
-  border-top: 1px solid var(--border);
-}
-.role-inspector-section {
-  display: flex;
-  flex-direction: column;
   gap: 8px;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--border);
-}
-.role-inspector-section-title {
-  margin: 0;
-  padding: 0 2px;
-  font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
 }
 .role-inspector-row {
   box-sizing: border-box;
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 32px;
   min-width: 0;
-  padding: 10px 12px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
+  padding: 0 2px;
+  border: 0;
+  border-radius: var(--radius-sm);
   font-family: var(--font-sans);
 }
 .role-inspector-row--editable {
   appearance: none;
   text-align: left;
   text-decoration: none;
-  background: var(--color-card-elevated);
-  border-color: var(--border);
+  background: transparent;
   color: var(--color-text-primary);
-  box-shadow: 0 1px 2px rgba(10, 10, 11, 0.035);
   cursor: pointer;
   transition:
-    border-color 0.12s ease,
     background 0.12s ease,
-    box-shadow 0.12s ease,
-    transform 0.12s ease;
+    color 0.12s ease;
 }
 .role-inspector-row--editable:hover,
 .role-inspector-row--editable:focus-visible {
   outline: none;
+  background: transparent;
+}
+.role-inspector-row--editable:hover .role-inspector-row-control,
+.role-inspector-row--editable:focus-visible .role-inspector-row-control {
   border-color: var(--input-border-hover);
   background: var(--color-card);
-  box-shadow: var(--shadow-sm);
-}
-.role-inspector-row--editable:active {
-  transform: translateY(0.5px);
 }
 .role-inspector-row--readonly {
-  align-items: flex-start;
-  justify-content: space-between;
-  background: var(--bg-row);
-  color: var(--color-text-primary);
-}
-.role-inspector-row-icon {
-  width: 26px;
-  height: 26px;
-  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  border-radius: 999px;
-  background: var(--color-card-muted);
-  color: var(--color-text-secondary);
-}
-.role-inspector-row-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex: 1;
-  min-width: 0;
+  background: transparent;
+  color: var(--color-text-primary);
 }
 .role-inspector-row-label {
   display: block;
+  flex: 0 0 82px;
   font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-text-secondary);
+}
+.role-inspector-row-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--color-card-elevated);
+  transition:
+    border-color 0.12s ease,
+    background 0.12s ease;
 }
 .role-inspector-row-title {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
   font-family: var(--font-sans);
   font-size: var(--font-size-sm);
   font-weight: 600;
   line-height: 1.25;
   color: var(--color-text-primary);
 }
-.role-inspector-row-detail {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+.role-inspector-row-action {
+  flex: 0 0 auto;
   font-family: var(--font-sans);
   font-size: var(--font-size-xs);
-  line-height: 1.35;
-  color: var(--color-text-secondary);
-}
-.role-inspector-row-arrow {
-  flex: 0 0 auto;
+  font-weight: 500;
   color: var(--color-text-muted);
   transition:
     color 0.12s ease,
     transform 0.12s ease;
 }
-.role-inspector-row--editable:hover .role-inspector-row-arrow,
-.role-inspector-row--editable:focus-visible .role-inspector-row-arrow {
+.role-inspector-row--editable:hover .role-inspector-row-action,
+.role-inspector-row--editable:focus-visible .role-inspector-row-action {
   color: var(--color-text-primary);
-  transform: translateX(2px);
 }
 .role-inspector-row-value {
   display: flex;
@@ -1546,29 +1517,20 @@
 .role-inspector-holder-link code {
   font-family: var(--font-sans);
   font-size: var(--font-size-xs);
-  background: var(--color-card-elevated);
+  background: var(--bg-row);
   padding: 2px 8px;
   border-radius: 999px;
   font-variant-numeric: tabular-nums;
 }
-.role-inspector-row-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 4px;
-}
-.role-inspector-row-tag {
+.role-inspector-row-value > .role-inspector-meta,
+.role-inspector-row-value > .role-inspector-stat,
+.role-inspector-holder-link > span {
   display: inline-flex;
   align-items: center;
-  height: 18px;
-  padding: 0 8px;
-  background: var(--bg-row);
-  color: var(--color-text-muted);
+  min-height: 22px;
+  padding: 2px 8px;
   border-radius: 999px;
-  font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
+  background: var(--bg-row);
 }
 .role-inspector-copy {
   display: inline-flex;
@@ -1594,9 +1556,9 @@
   box-shadow: 0 0 0 2px var(--color-accent);
 }
 .role-inspector-stat {
-  font-family: var(--font-display);
-  font-size: var(--font-size-md);
-  font-weight: 500;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
   color: var(--color-text-primary);
   font-variant-numeric: tabular-nums;
 }
