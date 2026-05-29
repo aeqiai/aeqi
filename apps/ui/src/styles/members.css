@@ -16,7 +16,7 @@
   padding: 0 var(--space-4) var(--space-4);
 }
 
-.trust-members-page-header {
+.trust-members > .trust-members-page-header {
   grid-area: header;
   align-items: center;
   min-height: var(--shell-top-rail-h, 40px);
@@ -207,7 +207,7 @@
     row-gap: var(--space-3);
   }
 
-  .trust-members-page-header {
+  .trust-members > .trust-members-page-header {
     min-height: auto;
   }
 
