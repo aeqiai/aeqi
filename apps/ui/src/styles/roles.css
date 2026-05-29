@@ -684,13 +684,13 @@
   flex: 1;
 }
 .trust-roles-toolbar .ideas-toolbar-btn {
-  width: 40px;
-  height: 40px;
-  min-width: 40px;
-  min-height: 40px;
-  inline-size: 40px;
-  block-size: 40px;
-  flex: 0 0 40px;
+  width: var(--toolbar-control-h);
+  height: var(--toolbar-control-h);
+  min-width: var(--toolbar-control-h);
+  min-height: var(--toolbar-control-h);
+  inline-size: var(--toolbar-control-h);
+  block-size: var(--toolbar-control-h);
+  flex: 0 0 var(--toolbar-control-h);
   aspect-ratio: 1 / 1;
   border-radius: var(--radius-full);
 }

@@ -108,8 +108,8 @@
 }
 
 .trust-sessions-page-header .ideas-list-search {
-  padding: 10px 32px 10px 34px;
-  font-size: var(--font-size-sm);
+  padding: 0 30px 0 32px;
+  font-size: 12.5px;
   border-radius: var(--radius-full);
   background: var(--color-card-elevated);
 }
@@ -121,13 +121,13 @@
 }
 
 .trust-sessions-page-header .ideas-toolbar-btn {
-  width: 40px;
-  height: 40px;
-  min-width: 40px;
-  min-height: 40px;
-  inline-size: 40px;
-  block-size: 40px;
-  flex-basis: 40px;
+  width: var(--toolbar-control-h);
+  height: var(--toolbar-control-h);
+  min-width: var(--toolbar-control-h);
+  min-height: var(--toolbar-control-h);
+  inline-size: var(--toolbar-control-h);
+  block-size: var(--toolbar-control-h);
+  flex-basis: var(--toolbar-control-h);
   aspect-ratio: 1 / 1;
   border-radius: var(--radius-full);
   background: var(--color-card-elevated);
@@ -148,8 +148,8 @@
 
 .inbox-page-header .ideas-list-search,
 .inbox-page > .inbox-head .ideas-list-search {
-  padding: 10px 32px 10px 34px;
-  font-size: var(--font-size-sm);
+  padding: 0 30px 0 32px;
+  font-size: 12.5px;
   border-radius: var(--radius-full);
   background: var(--color-card-elevated);
 }
@@ -163,13 +163,13 @@
 
 .inbox-page-header .ideas-toolbar-btn,
 .inbox-page > .inbox-head .ideas-toolbar-btn {
-  width: 40px;
-  height: 40px;
-  min-width: 40px;
-  min-height: 40px;
-  inline-size: 40px;
-  block-size: 40px;
-  flex-basis: 40px;
+  width: var(--toolbar-control-h);
+  height: var(--toolbar-control-h);
+  min-width: var(--toolbar-control-h);
+  min-height: var(--toolbar-control-h);
+  inline-size: var(--toolbar-control-h);
+  block-size: var(--toolbar-control-h);
+  flex-basis: var(--toolbar-control-h);
   aspect-ratio: 1 / 1;
   border-radius: var(--radius-full);
   background: var(--color-card-elevated);

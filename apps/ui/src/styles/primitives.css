@@ -140,13 +140,15 @@
      secondary meta line, without crowding the main content column. */
   --sidebar-panel-width: 300px;
 
-  /* Shell footer / top inset height. Both edges of the content card
-     wear a strip of this height — bottom is the legal/privacy strip,
-     top is an empty inset so the card floats with symmetric breathing
-     room. Compact (~18px) so the legal text fits on one line without
-     wasting vertical space. The sidebar's bottom padding mirrors it
-     too (so the profile row's bottom edge aligns with the card's). */
-  --shell-footer-h: 9px;
+  /* Shell frame inset. The sidebar and content sheet both start on this
+     10px rail so the first row reads as one shared operating grid. */
+  --shell-footer-h: 10px;
+
+  /* Primitive toolbar rhythm: search + circular sort/filter/view controls.
+     36px keeps the first row dense and professional while staying touchable
+     enough for the operator surfaces. */
+  --toolbar-control-h: 36px;
+  --toolbar-search-max: 520px;
 
   /* ── Input field language ──
      One set of tokens drives every text input, textarea, and composer

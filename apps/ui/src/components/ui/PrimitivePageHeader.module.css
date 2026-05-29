@@ -1,11 +1,12 @@
 .header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 760px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 680px) minmax(0, 1fr);
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-3);
   min-width: 0;
   flex-shrink: 0;
   background: var(--color-card);
+  min-height: 56px;
 }
 
 .header[data-has-chrome="true"] {
@@ -13,7 +14,7 @@
 }
 
 .header[data-padding="standard"] {
-  padding: var(--space-3) var(--space-6);
+  padding: 10px var(--space-5);
 }
 
 .title {
