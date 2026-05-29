@@ -455,10 +455,10 @@ function OrgZoomViewport({ children }: { children: React.ReactNode }) {
     const iw = inner.offsetWidth;
     const ih = inner.offsetHeight;
     if (iw === 0 || ih === 0) return;
-    const scale = Math.min(1, (vw - 24) / iw);
-    // Center horizontally; small top offset for visual breathing room.
+    const vh = viewport.clientHeight;
+    const scale = Math.min(1, (vw - 48) / iw, (vh - 48) / ih);
     const tx = (vw - iw * scale) / 2;
-    const ty = 16;
+    const ty = Math.max(24, (vh - ih * scale) / 2);
     setTransform({ scale, tx, ty });
     hasFit.current = true;
   }, []);
@@ -514,10 +514,10 @@ function OrgZoomViewport({ children }: { children: React.ReactNode }) {
 
   // Drag: pointer events for cross-device pan.
   const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    // Only primary button, not clicks on role nodes themselves.
+    // Only primary-button canvas drags. Controls and role nodes keep their own clicks.
     if (e.button !== 0) return;
     const target = e.target as HTMLElement;
-    if (target.closest(".role-node")) return;
+    if (target.closest(".roles-chart-controls, .role-node, button, a")) return;
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
     setTransform((prev) => {
@@ -611,14 +611,37 @@ function OrgZoomViewport({ children }: { children: React.ReactNode }) {
         {children}
       </div>
 
-      <div className="roles-chart-controls" role="toolbar" aria-label="Zoom controls">
-        <IconButton aria-label="Zoom in" variant="bordered" size="sm" onClick={zoomIn}>
+      <div
+        className="roles-chart-controls"
+        role="toolbar"
+        aria-label="Zoom controls"
+        onPointerDown={(event) => event.stopPropagation()}
+      >
+        <IconButton
+          aria-label="Zoom in"
+          variant="bordered"
+          size="sm"
+          className="roles-chart-control-button"
+          onClick={zoomIn}
+        >
           <Plus aria-hidden size={14} strokeWidth={1.7} />
         </IconButton>
-        <IconButton aria-label="Zoom out" variant="bordered" size="sm" onClick={zoomOut}>
+        <IconButton
+          aria-label="Zoom out"
+          variant="bordered"
+          size="sm"
+          className="roles-chart-control-button"
+          onClick={zoomOut}
+        >
           <Minus aria-hidden size={14} strokeWidth={1.7} />
         </IconButton>
-        <IconButton aria-label="Reset zoom to fit" variant="bordered" size="sm" onClick={resetFit}>
+        <IconButton
+          aria-label="Reset zoom to fit"
+          variant="bordered"
+          size="sm"
+          className="roles-chart-control-button"
+          onClick={resetFit}
+        >
           <LocateFixed aria-hidden size={14} strokeWidth={1.7} />
         </IconButton>
       </div>

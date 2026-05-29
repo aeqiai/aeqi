@@ -762,22 +762,22 @@
   padding-bottom: 4px;
 }
 
-/* Right-side affordance (search at top, help at bottom) — same shape
- * and language as .sidebar-collapse-btn (24px ghost circle with a
- * transparent border that lights up on hover). 24px keeps the button
- * center at ~20px from the rail's right inner edge, which matches the
- * chevron centers on the group-title rows. */
+/* Right-side affordance (search at top, help at bottom) — same circular
+ * icon-button language as the sidebar collapse control and canvas tools. */
 .sidebar-row-action-btn {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
+  aspect-ratio: 1;
   padding: 0;
   background: transparent;
-  border: 0;
-  border-radius: 5px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
   color: var(--color-text-secondary);
   font-family: inherit;
   cursor: pointer;
@@ -802,7 +802,8 @@
 .sidebar-row-action-btn:focus-visible {
   opacity: 1;
   color: var(--color-text-title);
-  background: var(--color-slab);
+  border-color: var(--input-border-hover);
+  background: var(--color-card-elevated);
   outline: none;
 }
 .sidebar-row-action-btn > svg {
@@ -836,10 +837,22 @@
   position: relative;
   justify-content: center;
   background: transparent;
-  border: 0;
-  width: 100%;
+  border: 1px solid transparent;
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  min-height: 30px;
+  aspect-ratio: 1;
+  border-radius: var(--radius-full);
   cursor: pointer;
   font-family: inherit;
+}
+.sidebar-brand-collapsed:hover,
+.sidebar-brand-collapsed:focus-visible {
+  color: var(--color-text-primary);
+  border-color: var(--input-border-hover);
+  background: var(--color-card-elevated);
+  outline: none;
 }
 .sidebar-brand-collapsed-rest,
 .sidebar-brand-collapsed-hover {
@@ -1145,12 +1158,15 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
+  aspect-ratio: 1;
   padding: 0;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   /* v5.1: matches the rest of the icon-button language (sidebar-icon-btn,
      ideas-toolbar-btn) — readable at rest on the new lighter shell. */
   color: var(--color-text-secondary);
@@ -1175,8 +1191,8 @@
 .sidebar-collapse-btn:hover,
 .sidebar-collapse-btn:focus-visible {
   color: var(--color-text-primary);
-  border-color: var(--border-hover);
-  background: var(--state-hover);
+  border-color: var(--input-border-hover);
+  background: var(--color-card-elevated);
   outline: none;
 }
 .left-sidebar.collapsed .sidebar-help-btn {
