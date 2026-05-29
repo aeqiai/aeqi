@@ -32,9 +32,16 @@ describe("TrustToolsTab", () => {
     const main = screen.getByRole("main", { name: "Trust tools" });
     const card = screen.getByLabelText("Tool register");
     const heading = within(header).getByRole("heading", { name: "Tools" });
+    const root = header.closest(".trust-tools-page");
 
+    expect(root).toHaveClass("trust-primitive-shell");
+    expect(root).not.toHaveClass("trust-overview");
+    expect(root).not.toHaveClass("trust-apps-page");
     expect(header).toHaveClass("trust-tools-page-header");
+    expect(header).toHaveClass("trust-primitive-shell-header");
+    expect(header).not.toHaveClass("trust-apps-page-header--summary");
     expect(header).toHaveAttribute("data-title-variant", "plain");
+    expect(main).toHaveClass("trust-primitive-shell-surface");
     expect(card).toHaveClass("trust-tools-card");
     expect(header.querySelector(".trust-tools-header-count")).not.toBeInTheDocument();
     expect(within(header).getByText(`${ALL_TOOLS.length - 1}`)).toHaveClass(

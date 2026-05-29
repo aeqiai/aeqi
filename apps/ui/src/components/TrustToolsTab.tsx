@@ -57,7 +57,7 @@ export default function TrustToolsTab({ agentId }: { agentId: string }) {
   }, []);
 
   return (
-    <div className="trust-overview trust-apps-page trust-tools-page">
+    <div className="trust-tools-page trust-primitive-shell">
       {toast && (
         <div
           className={`agent-settings-toast${toast.isError ? " agent-settings-toast--error" : ""}`}
@@ -68,7 +68,7 @@ export default function TrustToolsTab({ agentId }: { agentId: string }) {
       )}
 
       <PrimitivePageHeader
-        className="trust-tools-page-header trust-apps-page-header--summary"
+        className="trust-tools-page-header trust-primitive-shell-header"
         title={
           <span className="trust-primitive-page-title">
             <span className="trust-primitive-page-title-text">Tools</span>
@@ -98,7 +98,10 @@ export default function TrustToolsTab({ agentId }: { agentId: string }) {
         </div>
       </PrimitivePageHeader>
 
-      <main className="trust-tools-main trust-tools-page-body" aria-label="Trust tools">
+      <main
+        className="trust-tools-main trust-tools-page-body trust-primitive-shell-surface"
+        aria-label="Trust tools"
+      >
         <section className="trust-tools-register trust-tools-card" aria-label="Tool register">
           <div className="trust-tools-register-head">
             <div>

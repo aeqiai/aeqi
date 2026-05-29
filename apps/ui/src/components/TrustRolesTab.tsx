@@ -271,9 +271,9 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
   const showNoMatch = !loading && !error && roles.length > 0 && filtered.length === 0;
 
   return (
-    <div className="trust-roles">
+    <div className="trust-roles trust-primitive-shell">
       <PrimitivePageHeader
-        className="trust-roles-page-header"
+        className="trust-roles-page-header trust-primitive-shell-header"
         title={
           <span className="trust-primitive-page-title">
             <span className="trust-primitive-page-title-text">Roles</span>
@@ -325,7 +325,7 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
         </div>
       </PrimitivePageHeader>
 
-      <div className="trust-roles-main trust-roles-main--detail-collapsed">
+      <div className="trust-roles-main trust-roles-main--detail-collapsed trust-primitive-shell-surface">
         <div className="trust-roles-workspace">
           <section className="trust-roles-content" aria-label="Role workspace">
             <div className="trust-roles-canvas">

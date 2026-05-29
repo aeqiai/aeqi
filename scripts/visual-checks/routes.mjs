@@ -11,6 +11,7 @@ export const checks = {
     auth: true,
     url: ({ trust }) => `/trust/${trust}/roles`,
     expectText: ["Roles"],
+    layout: ["primitive-shell"],
   },
   "trust-roles-list": {
     auth: true,
@@ -26,7 +27,7 @@ export const checks = {
       ".agent-settings-tool-row",
       ".agent-settings-tool-state",
     ],
-    layout: ["trust-tools"],
+    layout: ["primitive-shell", "trust-tools"],
   },
   "role-detail": {
     auth: true,

@@ -211,9 +211,9 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
   }, []);
 
   return (
-    <div className="trust-agents">
+    <div className="trust-agents trust-primitive-shell">
       <PrimitivePageHeader
-        className="trust-roles-page-header"
+        className="trust-roles-page-header trust-primitive-shell-header"
         title={
           <span className="trust-primitive-page-title">
             <span className="trust-primitive-page-title-text">Agents</span>
@@ -280,7 +280,7 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
         </div>
       </PrimitivePageHeader>
 
-      <div className="trust-agents-main">
+      <div className="trust-agents-main trust-primitive-shell-surface">
         {activeChips.length > 0 && (
           <div className="ideas-tags-strip">
             <div className="ideas-list-chips" role="list" aria-label="Active filters">

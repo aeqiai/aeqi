@@ -1,4 +1,5 @@
 const ASSERTIONS = {
+  "primitive-shell": assertPrimitiveShell,
   "role-detail": assertRoleDetail,
   "trust-tools": assertTrustTools,
 };
@@ -76,9 +77,74 @@ async function assertRoleDetail(page) {
   });
 }
 
+async function assertPrimitiveShell(page) {
+  return page.evaluate(() => {
+    const failures = [];
+    const root = document.querySelector(".trust-primitive-shell");
+    const header = root?.querySelector(".trust-primitive-shell-header");
+    const surface = root?.querySelector(".trust-primitive-shell-surface");
+    const paper = root?.closest(".content-paper");
+
+    if (!root) failures.push("Missing primitive shell root");
+    if (!header) failures.push("Missing primitive shell header");
+    if (!surface) failures.push("Missing primitive shell surface");
+
+    if (root) {
+      const rootStyle = window.getComputedStyle(root);
+      if (rootStyle.display !== "grid") {
+        failures.push(`Primitive shell root is not grid: ${rootStyle.display}`);
+      }
+      if (rootStyle.paddingTop !== "0px" && window.innerWidth > 720) {
+        failures.push(
+          `Primitive shell has unexpected desktop top padding: ${rootStyle.paddingTop}`,
+        );
+      }
+    }
+
+    if (paper) {
+      const paperStyle = window.getComputedStyle(paper);
+      if (paperStyle.boxShadow !== "none") {
+        failures.push(
+          "Primitive shell is still wrapped by global content-paper elevation",
+        );
+      }
+      if (Number.parseFloat(paperStyle.borderTopLeftRadius) > 0) {
+        failures.push("Primitive shell global paper still has rounded corners");
+      }
+    } else {
+      failures.push(
+        "Primitive shell is not mounted inside the app content paper",
+      );
+    }
+
+    if (header && surface) {
+      const headerRect = header.getBoundingClientRect();
+      const surfaceRect = surface.getBoundingClientRect();
+      if (Math.abs(headerRect.left - surfaceRect.left) > 1) {
+        failures.push(
+          "Primitive shell header and surface left edges do not align",
+        );
+      }
+      if (Math.abs(headerRect.right - surfaceRect.right) > 1) {
+        failures.push(
+          "Primitive shell header and surface right edges do not align",
+        );
+      }
+      if (surfaceRect.top <= headerRect.bottom + 4) {
+        failures.push(
+          "Primitive shell surface is not separated below the shell top rail",
+        );
+      }
+    }
+
+    return failures;
+  });
+}
+
 async function assertTrustTools(page) {
   return page.evaluate(() => {
     const failures = [];
+    const root = document.querySelector(".trust-tools-page");
     const main = document.querySelector(".trust-tools-main");
     const header = document.querySelector(".trust-tools-page-header");
     const paper = main?.closest(".content-paper");
@@ -86,12 +152,38 @@ async function assertTrustTools(page) {
     const states = [...document.querySelectorAll(".agent-settings-tool-state")];
     const headerCount = document.querySelector(".trust-tools-header-count");
 
+    if (!root) failures.push("Missing trust tools page root");
     if (!main) failures.push("Missing trust tools main surface");
     if (!header) failures.push("Missing trust tools shell top rail");
     if (rows.length === 0) failures.push("No tools rows rendered");
     if (states.length === 0) failures.push("No tool state pills rendered");
     if (headerCount)
       failures.push("Tools header has duplicated enabled count action");
+
+    if (!root?.classList.contains("trust-primitive-shell")) {
+      failures.push("Tools page is not using the canonical primitive shell");
+    }
+    if (!header?.classList.contains("trust-primitive-shell-header")) {
+      failures.push(
+        "Tools header is not using the canonical primitive shell header",
+      );
+    }
+    if (!main?.classList.contains("trust-primitive-shell-surface")) {
+      failures.push(
+        "Tools main is not using the canonical primitive shell surface",
+      );
+    }
+
+    if (root?.classList.contains("trust-overview")) {
+      failures.push(
+        "Tools page still inherits the legacy trust-overview shell",
+      );
+    }
+    if (root?.classList.contains("trust-apps-page")) {
+      failures.push(
+        "Tools page still inherits the legacy trust-apps-page shell",
+      );
+    }
 
     if (paper) {
       const paperStyle = window.getComputedStyle(paper);
