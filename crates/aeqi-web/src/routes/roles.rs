@@ -5,8 +5,10 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post},
 };
+use serde_json::Value;
 
 use super::helpers::ipc_proxy;
+use crate::auth::UserScope;
 use crate::extractors::Scope;
 use crate::server::AppState;
 
@@ -33,23 +35,37 @@ async fn list_roles(
     Query(q): Query<ListQuery>,
 ) -> Response {
     let trust_id = q.trust_id.unwrap_or_default();
-    ipc_proxy(
-        state,
+    let mut resp = match ipc_value(
+        &state,
         scope.as_ref(),
         "list_roles",
         serde_json::json!({"trust_id": trust_id}),
     )
     .await
+    {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+    enrich_roles_response(&state, &mut resp);
+    Json(resp).into_response()
 }
 
 async fn get_role(State(state): State<AppState>, scope: Scope, Path(id): Path<String>) -> Response {
-    ipc_proxy(
-        state,
+    let mut resp = match ipc_value(
+        &state,
         scope.as_ref(),
         "get_role",
         serde_json::json!({"role_id": id}),
     )
     .await
+    {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+    if let Some(role) = resp.get_mut("role") {
+        enrich_role(&state, role);
+    }
+    Json(resp).into_response()
 }
 
 async fn create_role(
@@ -167,4 +183,88 @@ async fn user_grants(
         serde_json::json!({"trust_id": trust_id, "user_id": user_id}),
     )
     .await
+}
+
+fn scoped_params(scope: Option<&UserScope>, mut params: Value) -> Value {
+    if let Some(scope) = scope {
+        if params.is_null() || params.as_object().is_some_and(|m| m.is_empty()) {
+            params = serde_json::json!({});
+        }
+        params["allowed_roots"] = serde_json::json!(scope.roots);
+        if let Some(uid) = scope.user_id.as_deref() {
+            params["caller_user_id"] = Value::String(uid.to_string());
+        }
+    }
+    params
+}
+
+async fn ipc_value(
+    state: &AppState,
+    scope: Option<&UserScope>,
+    cmd: &str,
+    params: Value,
+) -> Result<Value, Response> {
+    let params = scoped_params(scope, params);
+    match state.ipc.cmd_with(cmd, params).await {
+        Ok(resp) => {
+            if resp.get("ok") == Some(&Value::Bool(false))
+                && let Some(code) = resp.get("code").and_then(|v| v.as_str())
+            {
+                let status = match code {
+                    "conflict" => Some(StatusCode::CONFLICT),
+                    "not_found" => Some(StatusCode::NOT_FOUND),
+                    _ => None,
+                };
+                if let Some(status) = status {
+                    return Err((status, Json(resp)).into_response());
+                }
+            }
+            Ok(resp)
+        }
+        Err(e) => Err((
+            StatusCode::BAD_GATEWAY,
+            Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+        )
+            .into_response()),
+    }
+}
+
+fn enrich_roles_response(state: &AppState, resp: &mut Value) {
+    let Some(roles) = resp.get_mut("roles").and_then(Value::as_array_mut) else {
+        return;
+    };
+    for role in roles {
+        enrich_role(state, role);
+    }
+}
+
+fn enrich_role(state: &AppState, role: &mut Value) {
+    if role.get("occupant_kind").and_then(Value::as_str) != Some("human") {
+        return;
+    }
+    let Some(user_id) = role
+        .get("occupant_id")
+        .and_then(Value::as_str)
+        .map(str::to_owned)
+    else {
+        return;
+    };
+    let Some(accounts) = state.accounts.as_ref() else {
+        return;
+    };
+
+    if let Ok(Some(user)) = accounts.get_user_by_id(&user_id) {
+        if !user.name.is_empty() {
+            role["occupant_name"] = Value::String(user.name.clone());
+        } else {
+            role["occupant_name"] = Value::String(user.email.clone());
+        }
+        if let Some(avatar_url) = user.avatar_url.clone() {
+            role["occupant_avatar_url"] = Value::String(avatar_url);
+        }
+    }
+
+    if let Ok(Some(last_active)) = accounts.get_user_last_active(&user_id) {
+        role["occupant_last_active"] = Value::String(last_active);
+    }
 }

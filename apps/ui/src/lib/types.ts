@@ -536,6 +536,10 @@ export interface Role {
   /** Avatar URL for a human occupant, injected by the platform proxy.
    *  Null when the occupant is an agent, vacant, or the user has no photo. */
   occupant_avatar_url?: string | null;
+  /** Latest human account activity known to the platform proxy.
+   *  Null when the occupant is an agent, vacant, or the user record is
+   *  not available in the accounts database. */
+  occupant_last_active?: string | null;
   /** Idea ID of this role's charter — the canonical "what this role
    *  can decide, execute, or delegate" document. Surfaces in the
    *  RoleInspector Mandate section as a clickable chip linking to the

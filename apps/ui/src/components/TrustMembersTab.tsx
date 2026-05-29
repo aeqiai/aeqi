@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import { entityPathFromId } from "@/lib/entityPath";
 import { formatMediumDate } from "@/lib/i18n";
 import type { Role, RoleInvitation } from "@/lib/types";
+import { relativeTime } from "@/components/ideas/types";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
 import {
@@ -20,7 +21,7 @@ import {
 } from "./ui";
 import "@/styles/members.css";
 
-type MemberStatus = "active" | "invited" | "accepted" | "no_role";
+type MemberStatus = "member" | "invited" | "accepted" | "no_role";
 
 interface MemberRow {
   id: string;
@@ -30,19 +31,20 @@ interface MemberRow {
   roleIds: string[];
   roles: string[];
   createdAt: string | null;
+  lastActive: string | null;
   avatarUrl?: string | null;
 }
 
 const STATUS_LABEL: Record<MemberStatus, string> = {
-  active: "Active",
+  member: "Member",
   invited: "Invited",
   accepted: "Accepted",
   no_role: "No role",
 };
 
-const STATUS_VARIANT: Record<MemberStatus, "success" | "info" | "neutral" | "muted"> = {
-  active: "success",
-  invited: "info",
+const STATUS_VARIANT: Record<MemberStatus, "success" | "warning" | "neutral" | "muted"> = {
+  member: "success",
+  invited: "warning",
   accepted: "neutral",
   no_role: "muted",
 };
@@ -174,8 +176,8 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
       },
       {
         key: "status",
-        header: "Status",
-        width: "130px",
+        header: "State",
+        width: "112px",
         sortable: true,
         sortAccessor: (row) => STATUS_LABEL[row.status],
         cell: (row) => (
@@ -187,11 +189,19 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
       {
         key: "roles",
         header: "Roles",
-        width: "112px",
+        width: "96px",
         align: "end",
         sortable: true,
         sortAccessor: (row) => row.roleIds.length,
         cell: (row) => <RoleCountCell row={row} onOpen={openMemberRoles} />,
+      },
+      {
+        key: "lastActive",
+        header: "Last active",
+        width: "124px",
+        sortable: true,
+        sortAccessor: (row) => (row.lastActive ? Date.parse(row.lastActive) : 0),
+        cell: (row) => <LastActiveCell value={row.lastActive} />,
       },
       {
         key: "created",
@@ -319,6 +329,12 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
                         </dd>
                       </div>
                       <div>
+                        <dt>Last active</dt>
+                        <dd>
+                          <LastActiveCell value={row.lastActive} />
+                        </dd>
+                      </div>
+                      <div>
                         <dt>Since</dt>
                         <dd>
                           {row.createdAt
@@ -384,6 +400,15 @@ function RoleCountCell({ row, onOpen }: { row: MemberRow; onOpen: (row: MemberRo
   );
 }
 
+function LastActiveCell({ value }: { value: string | null }) {
+  const label = relativeTime(value ?? undefined);
+  return (
+    <span className={label ? "trust-members-date" : "trust-members-date trust-members-muted"}>
+      {label || "-"}
+    </span>
+  );
+}
+
 function buildMemberRows({
   roles,
   invitations,
@@ -414,16 +439,18 @@ function buildMemberRows({
       existing.roles.push(role.title);
       if (role.created_at < (existing.createdAt ?? role.created_at))
         existing.createdAt = role.created_at;
+      existing.lastActive = latestTimestamp(existing.lastActive, role.occupant_last_active ?? null);
       continue;
     }
     byHumanId.set(role.occupant_id, {
       id: `human:${role.occupant_id}`,
       name: role.occupant_name || "Human member",
       detail: role.occupant_id,
-      status: "active",
+      status: "member",
       roleIds: [role.id],
       roles: [role.title],
       createdAt: role.created_at,
+      lastActive: role.occupant_last_active ?? null,
       avatarUrl: role.occupant_avatar_url,
     });
   }
@@ -439,6 +466,7 @@ function buildMemberRows({
       roleIds: [],
       roles: [],
       createdAt: null,
+      lastActive: null,
       avatarUrl: user.avatar_url,
     });
   }
@@ -458,6 +486,7 @@ function buildMemberRows({
         roleIds: [invitation.role_id],
         roles: [roleTitle],
         createdAt: invitation.redeemed_at,
+        lastActive: null,
       });
       continue;
     }
@@ -470,18 +499,29 @@ function buildMemberRows({
       roleIds: [invitation.role_id],
       roles: [roleTitle],
       createdAt: invitation.created_at,
+      lastActive: null,
     });
   }
 
   return rows.sort((a, b) => {
     const statusRank: Record<MemberStatus, number> = {
-      active: 0,
+      member: 0,
       no_role: 1,
       invited: 2,
       accepted: 3,
     };
     return statusRank[a.status] - statusRank[b.status] || a.name.localeCompare(b.name);
   });
+}
+
+function latestTimestamp(a: string | null, b: string | null): string | null {
+  if (!a) return b;
+  if (!b) return a;
+  const ta = Date.parse(a);
+  const tb = Date.parse(b);
+  if (!Number.isFinite(ta)) return b;
+  if (!Number.isFinite(tb)) return a;
+  return tb > ta ? b : a;
 }
 
 function hasTrustAccess(user: { roots?: string[]; entities?: string[] }, trustId: string): boolean {

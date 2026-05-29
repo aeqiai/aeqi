@@ -1,7 +1,7 @@
 //! User account storage backed by SQLite.
 
 use mini_moka::sync::Cache;
-use rusqlite::{Connection, params};
+use rusqlite::{Connection, OptionalExtension, params};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -31,6 +31,8 @@ pub struct User {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub free_company_used_at: Option<String>,
     pub created_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_login: Option<String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -280,6 +282,7 @@ impl AccountStore {
                 params![id, name, avatar_url],
             )?;
             drop(conn);
+            self.user_cache.invalidate(&id);
             return self
                 .get_user_by_id(&id)?
                 .ok_or_else(|| anyhow::anyhow!("user not found after update"));
@@ -300,6 +303,7 @@ impl AccountStore {
                 params![id, google_id, avatar_url],
             )?;
             drop(conn);
+            self.user_cache.invalidate(&id);
             return self
                 .get_user_by_id(&id)?
                 .ok_or_else(|| anyhow::anyhow!("user not found after link"));
@@ -421,7 +425,7 @@ impl AccountStore {
         // Cache miss — query the database.
         let conn = self.conn.lock().unwrap();
         let user = conn.query_row(
-            "SELECT id, email, name, avatar_url, google_id, email_verified, subscription_status, subscription_plan, trial_ends_at, free_company_used_at, created_at FROM users WHERE id = ?1",
+            "SELECT id, email, name, avatar_url, google_id, email_verified, subscription_status, subscription_plan, trial_ends_at, free_company_used_at, created_at, last_login FROM users WHERE id = ?1",
             params![id],
             |row| {
                 Ok(User {
@@ -437,6 +441,7 @@ impl AccountStore {
                     trial_ends_at: row.get(8)?,
                     free_company_used_at: row.get(9)?,
                     created_at: row.get(10)?,
+                    last_login: row.get(11)?,
                 })
             },
         ).ok();
@@ -477,6 +482,32 @@ impl AccountStore {
             Some(id) => self.get_user_by_id(&id),
             None => Ok(None),
         }
+    }
+
+    /// Last user activity known to the account layer.
+    ///
+    /// Prefer auth-session `last_seen_at` because it is updated on every
+    /// authenticated request. Fall back to `last_login`, then account creation
+    /// so member rows can still sort deterministically for dormant accounts.
+    pub fn get_user_last_active(&self, user_id: &str) -> anyhow::Result<Option<String>> {
+        let conn = self.conn.lock().unwrap();
+        conn.query_row(
+            "SELECT strftime(
+                '%Y-%m-%dT%H:%M:%SZ',
+                COALESCE(
+                    (SELECT MAX(last_seen_at) FROM auth_sessions WHERE user_id = ?1),
+                    last_login,
+                    created_at
+                )
+             )
+             FROM users
+             WHERE id = ?1",
+            params![user_id],
+            |row| row.get::<_, Option<String>>(0),
+        )
+        .optional()
+        .map(Option::flatten)
+        .map_err(Into::into)
     }
 
     // ── Auth sessions and activity ─────────────────────
