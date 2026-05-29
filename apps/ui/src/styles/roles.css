@@ -700,10 +700,12 @@
 .trust-agents-toolbar {
   min-width: 0;
 }
-.trust-roles-toolbar {
+.trust-roles-toolbar,
+.trust-agents-toolbar {
   flex: 1;
 }
-.trust-roles-toolbar .ideas-toolbar-btn {
+.trust-roles-toolbar .ideas-toolbar-btn,
+.trust-agents-toolbar .ideas-toolbar-btn {
   width: var(--toolbar-control-h);
   height: var(--toolbar-control-h);
   min-width: var(--toolbar-control-h);
@@ -715,6 +717,9 @@
   border-radius: var(--radius-full);
 }
 .trust-roles-toolbar > .ideas-list-search-field {
+  min-width: 180px;
+}
+.trust-agents-toolbar > .ideas-list-search-field {
   min-width: 180px;
 }
 .trust-roles-page-header .trust-top-rail-cta {
@@ -753,6 +758,7 @@
     0 14px 34px -24px rgba(10, 10, 11, 0.22);
 }
 .trust-agents-main {
+  gap: 0;
   padding: var(--space-3);
   border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--color-card) 84%, var(--color-card-elevated) 16%);
@@ -814,7 +820,7 @@
   overflow-y: auto;
 }
 
-/* Agents register — full-width slab with an inset table/card surface.
+/* Agents register — flat table section on the elevated workspace.
    The list remains the default view because agents are operational
    records first: scan identity, model, status, recency, and spend. */
 .trust-agents-register {
@@ -823,8 +829,9 @@
   flex-shrink: 0;
   min-width: 0;
   min-height: 0;
-  border-radius: var(--radius-sm);
-  background: var(--color-card-muted);
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
   overflow: hidden;
 }
 .trust-agents-register-head {
@@ -861,23 +868,23 @@
   white-space: nowrap;
 }
 .trust-agents-register-body {
-  margin: 0 8px 8px;
+  margin: 0;
   min-height: 0;
   min-width: 0;
-  border-radius: var(--radius-sm);
-  background: var(--color-card-elevated);
-  box-shadow: inset 0 0 0 1px var(--border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
   overflow-x: auto;
   overflow-y: visible;
 }
 .trust-agents-register-body .ideas-list-body {
   min-height: 260px;
-  background: var(--color-card-elevated);
+  background: transparent;
 }
 
-/* Suggested agents — three template cards below the agents table.
+/* Suggested agents — three template rows below the agents table.
    Reads as "this TRUST can grow along these axes" not as a promotional
-   row. Same elevated-card vocabulary as the snapshot cards above. */
+   row. The workspace owns the elevation; these cells stay flat. */
 .trust-agents-suggest {
   display: flex;
   flex-direction: column;
@@ -885,8 +892,9 @@
   gap: 0;
   margin-top: auto;
   padding: 0;
-  border-radius: var(--radius-sm);
-  background: var(--color-card-muted);
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
   overflow: hidden;
 }
 .trust-agents-suggest-head {
@@ -968,8 +976,9 @@
 .trust-agents-suggest-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px;
-  margin: 0 8px 8px;
+  gap: 0;
+  margin: 0;
+  border-top: 1px solid var(--border);
 }
 .trust-agents-suggest-card {
   appearance: none;
@@ -982,28 +991,30 @@
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-4);
-  background: var(--color-card-elevated);
-  border-radius: var(--radius-sm);
+  background: transparent;
+  border-right: 1px solid var(--border);
+  border-radius: 0;
   min-width: 0;
   transition:
     background 0.12s ease,
     box-shadow 0.12s ease;
 }
-/* Lift on hover via real tier shift + shadow rather than a hairline border —
-   mirrors the QuestActiveCard register so the suggest tiles read as
-   grabbable in the same vocabulary. No border ornament. */
+/* Hover uses a quiet tier shift; the workspace owns the elevation. */
 .trust-agents-suggest-card:hover {
-  background: var(--color-card);
-  box-shadow: var(--shadow-md);
+  background: var(--color-card-elevated);
+  box-shadow: none;
 }
 .trust-agents-suggest-card:hover .trust-agents-suggest-card-cta {
   color: var(--color-text-primary);
 }
 .trust-agents-suggest-card:focus-visible {
   outline: none;
-  box-shadow: var(--focus-ring);
+  box-shadow: inset 0 0 0 2px var(--color-accent);
   position: relative;
   z-index: 1;
+}
+.trust-agents-suggest-card:last-child {
+  border-right: 0;
 }
 .trust-agents-suggest-card-title {
   margin: 0;
@@ -1039,19 +1050,28 @@
   .trust-agents-suggest-grid {
     grid-template-columns: 1fr;
   }
+
+  .trust-agents-suggest-card {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .trust-agents-suggest-card:last-child {
+    border-bottom: 0;
+  }
 }
-/* Agents snapshot — one slab, matching Roles. The metrics are cells
-   inside a single row surface rather than separate floating cards. */
+/* Agents snapshot — compact KPI row matching Roles. The metrics are cells
+   inside the workspace rather than separate floating cards. */
 .trust-agents-snapshot {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  border-radius: var(--radius-sm);
-  background: var(--bg-row);
+  border-radius: 0;
+  background: transparent;
   overflow: hidden;
 }
 .trust-agents-snapshot-grid {
-  min-height: 96px;
+  min-height: 68px;
 }
 
 /* Roles snapshot — one slab in the same family as the Quests scope
@@ -1191,19 +1211,19 @@
 .trust-agents-snapshot .trust-roles-snapshot-head {
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--space-2);
+  gap: 4px;
 }
 .trust-agents-snapshot .trust-roles-snapshot-label {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
-  line-height: 1;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-text-primary);
+  line-height: 1.1;
   white-space: nowrap;
 }
 .trust-agents-snapshot .trust-roles-snapshot-value {
-  font-size: 30px;
+  font-size: 22px;
   letter-spacing: -0.02em;
   line-height: 1;
 }
@@ -1215,7 +1235,7 @@
    KPI values reading as one rhythm across the strip. */
 .trust-agents-snapshot .trust-roles-snapshot-value--mono {
   font-family: var(--font-mono);
-  font-size: 26px;
+  font-size: 20px;
   font-weight: 500;
   letter-spacing: -0.01em;
 }
@@ -1223,19 +1243,19 @@
   display: flex;
 }
 .trust-agents-snapshot-grid {
-  gap: 4px;
-  margin: 0 8px 8px;
-  min-height: 86px;
-  border-radius: var(--radius-sm);
+  gap: 0;
+  margin: 0;
+  min-height: 68px;
+  border-radius: 0;
 }
 .trust-agents-snapshot .trust-roles-snapshot-cell {
-  gap: var(--space-2);
-  padding: 14px var(--space-4);
-  background: var(--color-card-elevated);
-  border-right: 0;
+  gap: 4px;
+  padding: 12px 16px;
+  background: transparent;
+  border-right: 1px solid var(--border);
 }
 .trust-agents-snapshot .trust-roles-snapshot-sublabel {
-  display: block;
+  display: none;
 }
 .trust-agents-snapshot .trust-roles-snapshot-breakdown {
   margin-top: auto;
@@ -1729,9 +1749,8 @@
     grid-template-columns: 1fr;
     grid-template-areas:
       "header"
-      "toolbar"
       "main";
-    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
   }
   .trust-roles-workspace {
     flex-direction: column;

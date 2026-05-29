@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ExternalLink, UsersRound } from "lucide-react";
+import { ExternalLink, UserPlus, UsersRound } from "lucide-react";
 import { api } from "@/lib/api";
 import { entityPathFromId } from "@/lib/entityPath";
 import { formatMediumDate } from "@/lib/i18n";
@@ -228,10 +228,18 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
     <div className="trust-members">
       <PrimitivePageHeader
         className="trust-members-page-header"
-        title="Members"
+        title={
+          <span className="trust-primitive-page-title">
+            <span className="trust-primitive-page-title-text">Members</span>
+            <span className="trust-primitive-page-count" aria-hidden="true">
+              {rows.length}
+            </span>
+          </span>
+        }
         aria-label="Member controls"
         actions={
           <Button
+            className="trust-top-rail-cta"
             variant="primary"
             size="md"
             onClick={handleInviteHuman}
@@ -241,7 +249,7 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
                 ? `Invite a human to ${inviteTargetRole.title}`
                 : "Create a role before inviting a human"
             }
-            leadingIcon={<UsersRound size={14} strokeWidth={1.8} />}
+            leadingIcon={<UserPlus size={14} strokeWidth={1.8} />}
           >
             Invite human
           </Button>
@@ -381,12 +389,6 @@ function MemberSnapshotBand({
 }) {
   return (
     <section className="trust-members-snapshot trust-roles-snapshot" aria-label="Member snapshot">
-      <header className="trust-roles-snapshot-header">
-        <span className="trust-roles-snapshot-header-label">Member directory</span>
-        <span className="trust-roles-snapshot-header-count">
-          {snapshot.total} {snapshot.total === 1 ? "human" : "humans"}
-        </span>
-      </header>
       <div className="trust-roles-snapshot-grid">
         <SnapshotCell label="Members" value={snapshot.total} sublabel="Visible humans" />
         <SnapshotCell label="Active" value={snapshot.active} sublabel="Holding roles" />

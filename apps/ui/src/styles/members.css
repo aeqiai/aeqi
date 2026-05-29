@@ -3,6 +3,8 @@
    then switches to a compact register for the actual directory. */
 
 .trust-members {
+  --toolbar-control-h: 32px;
+
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
@@ -11,12 +13,17 @@
     "main";
   height: 100%;
   overflow: hidden;
+  row-gap: 6px;
+  padding: 0 var(--space-4) var(--space-4);
 }
 
 .trust-members-page-header {
   grid-area: header;
   align-items: center;
-  padding: var(--space-5) var(--space-6) var(--space-2);
+  min-height: var(--shell-top-rail-h, 40px);
+  padding: 0;
+  gap: var(--space-3);
+  background: transparent;
 }
 
 .trust-members-toolbar {
@@ -25,17 +32,43 @@
 }
 
 .trust-members-toolbar > .ideas-list-search-field {
-  min-width: 220px;
+  min-width: 180px;
+}
+
+.trust-members-page-header .trust-top-rail-cta {
+  height: var(--toolbar-control-h);
+  min-height: var(--toolbar-control-h);
+  border-radius: var(--radius-full);
+  padding: 0 14px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0;
+  box-shadow: none;
+}
+
+.trust-members-page-header .trust-top-rail-cta:hover {
+  box-shadow: none;
+}
+
+.trust-members-page-header .trust-top-rail-cta svg {
+  width: 13px;
+  height: 13px;
 }
 
 .trust-members-main {
   grid-area: main;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: 0;
   min-width: 0;
   min-height: 0;
-  padding: var(--space-1) var(--space-6) var(--space-5);
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-card) 84%, var(--color-card-elevated) 16%);
+  box-shadow:
+    0 0 0 1px rgba(10, 10, 11, 0.055),
+    0 1px 2px rgba(10, 10, 11, 0.03),
+    0 14px 34px -24px rgba(10, 10, 11, 0.22);
   overflow: hidden;
 }
 
@@ -46,8 +79,9 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  border-radius: var(--radius-lg);
-  background: var(--color-card-muted);
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
 }
 
 .trust-members-table {
@@ -58,6 +92,10 @@
 
 .trust-members-table > div {
   height: 100%;
+}
+
+.trust-members-table table thead th {
+  background: transparent;
 }
 
 .trust-members-card-list {
@@ -137,76 +175,49 @@
   flex-direction: column;
   flex-shrink: 0;
   overflow: hidden;
-  border-radius: var(--radius-sm);
-  background: var(--bg-row);
-}
-
-.trust-members-snapshot .trust-roles-snapshot-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  min-height: 44px;
-  padding: var(--space-3) var(--space-4);
-}
-
-.trust-members-snapshot .trust-roles-snapshot-header-label {
-  flex: 1;
-  min-width: 0;
-  color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
-  font-weight: 620;
-  line-height: 1.2;
-}
-
-.trust-members-snapshot .trust-roles-snapshot-header-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 20px;
-  padding: 0 var(--space-2);
-  border-radius: 999px;
-  background: var(--bg-subtle);
-  color: var(--color-text-secondary);
-  font-family: var(--font-mono);
-  font-size: var(--font-size-2xs);
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-  white-space: nowrap;
+  border-radius: 0;
+  background: transparent;
 }
 
 .trust-members-snapshot .trust-roles-snapshot-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-1);
-  margin: 0 var(--space-2) var(--space-2);
-  min-height: 86px;
+  gap: 0;
+  margin: 0;
+  min-height: 68px;
   overflow: hidden;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
 }
 
 .trust-members-snapshot .trust-roles-snapshot-cell {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: 4px;
   min-width: 0;
-  padding: var(--space-4);
-  background: var(--color-card-elevated);
+  padding: 12px 16px;
+  border-right: 1px solid var(--border);
+  background: transparent;
+}
+
+.trust-members-snapshot .trust-roles-snapshot-cell:last-child {
+  border-right: 0;
 }
 
 .trust-members-snapshot .trust-roles-snapshot-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  gap: var(--space-2);
+  gap: 10px;
 }
 
 .trust-members-snapshot .trust-roles-snapshot-label {
   min-width: 0;
   overflow: hidden;
   color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
+  font-size: 12px;
   font-weight: 600;
   line-height: 1.1;
+  letter-spacing: 0;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -214,34 +225,24 @@
 .trust-members-snapshot .trust-roles-snapshot-value {
   color: var(--color-text-primary);
   font-family: var(--font-display);
-  font-size: 28px;
+  font-size: 22px;
   font-variant-numeric: tabular-nums;
   font-weight: 500;
+  letter-spacing: -0.02em;
   line-height: 1;
 }
 
 .trust-members-snapshot .trust-roles-snapshot-sublabel {
-  margin: 0;
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
-  line-height: 1.3;
+  display: none;
 }
 
 @media (max-width: 900px) {
-  .trust-members-page-header {
-    padding-inline: var(--space-4);
-  }
-
   .trust-members-toolbar {
     flex-wrap: wrap;
   }
 
   .trust-members-toolbar > .ideas-list-search-field {
     flex-basis: 100%;
-  }
-
-  .trust-members-main {
-    padding-inline: var(--space-4);
   }
 
   .trust-members-snapshot .trust-roles-snapshot-grid {
@@ -252,10 +253,12 @@
 @media (max-width: 560px) {
   .trust-members {
     overflow-y: auto;
+    padding: 0 var(--space-3) var(--space-3);
+    row-gap: var(--space-3);
   }
 
   .trust-members-page-header {
-    padding: var(--space-4) var(--space-4) var(--space-2);
+    min-height: auto;
   }
 
   .trust-members-toolbar > .ideas-list-search-field {
@@ -264,14 +267,8 @@
 
   .trust-members-main {
     min-height: auto;
-    padding: var(--space-1) var(--space-4) var(--space-4);
+    padding: var(--space-3);
     overflow: visible;
-  }
-
-  .trust-members-snapshot .trust-roles-snapshot-header {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: var(--space-2);
   }
 
   .trust-members-snapshot .trust-roles-snapshot-grid {
@@ -282,11 +279,18 @@
   .trust-members-snapshot .trust-roles-snapshot-cell {
     gap: var(--space-1);
     padding: var(--space-3);
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .trust-members-snapshot .trust-roles-snapshot-cell:last-child {
+    border-bottom: 0;
   }
 
   .trust-members-register {
     flex: 0 0 auto;
     overflow: visible;
+    padding-top: var(--space-3);
     background: transparent;
   }
 

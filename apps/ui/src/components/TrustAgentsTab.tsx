@@ -246,7 +246,14 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
     <div className="trust-agents">
       <PrimitivePageHeader
         className="trust-roles-page-header"
-        title="Agents"
+        title={
+          <span className="trust-primitive-page-title">
+            <span className="trust-primitive-page-title-text">Agents</span>
+            <span className="trust-primitive-page-count" aria-hidden="true">
+              {entityAgents.length}
+            </span>
+          </span>
+        }
         aria-label="Agent controls"
         actions={
           <Tooltip content="New agent (N)">
@@ -257,7 +264,7 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
               onClick={openPicker}
               leadingIcon={<Icon icon={Plus} size="sm" />}
             >
-              New
+              Agent
             </Button>
           </Tooltip>
         }
@@ -337,12 +344,6 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
         )}
 
         <section className="trust-agents-snapshot" aria-label="Agent snapshot">
-          <header className="trust-roles-snapshot-header trust-agents-snapshot-header">
-            <span className="trust-roles-snapshot-header-label">Agent roster</span>
-            <span className="trust-roles-snapshot-header-count">
-              {snapshot.total} {snapshot.total === 1 ? "agent" : "agents"}
-            </span>
-          </header>
           <div className="trust-roles-snapshot-grid trust-agents-snapshot-grid">
             <AgentSnapshotCard
               label={snapshot.total === 1 ? "Agent" : "Agents"}
