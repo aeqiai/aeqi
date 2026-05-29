@@ -1399,6 +1399,7 @@
 .trust-role-detail-canvas {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 0;
   flex: 1;
   min-width: 0;
@@ -1411,17 +1412,43 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
+.trust-role-detail-surface-header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  min-height: 34px;
+  padding: 0 0 10px 24px;
+  border-bottom: 1px solid var(--border-subtle, var(--border-faint));
+}
+
+.trust-role-detail-surface-title {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trust-role-detail-surface-action {
+  flex: 0 0 auto;
+}
+
 .trust-role-detail-document {
   display: flex;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
   background: var(--color-card);
-  border-radius: var(--radius-md) 0 0 var(--radius-md);
+  border-radius: 0 0 0 var(--radius-md);
 }
 
 .trust-role-detail-page--details-collapsed .trust-role-detail-document {
-  border-radius: var(--radius-md);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
 }
 
 .trust-role-detail-document > .ideas-canvas {
@@ -1485,6 +1512,7 @@
   overflow: hidden;
   padding-left: 12px;
   border-left: 1px solid var(--border-subtle, var(--border-faint));
+  border-top: 0;
 }
 
 .role-inspector--page {
@@ -2009,7 +2037,7 @@
     min-height: 520px;
     border-right: 0;
     border-bottom: 1px solid var(--border-subtle, var(--border-faint));
-    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    border-radius: 0;
   }
   .trust-role-detail-inspector {
     overflow: visible;

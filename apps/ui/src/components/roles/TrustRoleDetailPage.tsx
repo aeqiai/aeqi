@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, PanelRightOpen, Share2 } from "lucide-react";
+import { ArrowLeft, PanelRightClose, PanelRightOpen, Share2 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import * as ideasApi from "@/api/ideas";
 import { api } from "@/lib/api";
@@ -228,19 +228,6 @@ export default function TrustRoleDetailPage({
                 </IconButton>
               </Tooltip>
             )}
-            {role && detailsCollapsed && (
-              <Tooltip content="Show details" portal>
-                <IconButton
-                  variant="bordered"
-                  size="md"
-                  className="trust-roles-header-icon"
-                  aria-label="Show role details"
-                  onClick={() => setDetailsCollapsed(false)}
-                >
-                  <PanelRightOpen size={14} strokeWidth={1.8} />
-                </IconButton>
-              </Tooltip>
-            )}
             {bodyDirty && (
               <>
                 <Button
@@ -292,6 +279,24 @@ export default function TrustRoleDetailPage({
               )}
               {!loading && !error && role && (
                 <>
+                  <div className="trust-role-detail-surface-header">
+                    <div className="trust-role-detail-surface-title">Role idea</div>
+                    <Tooltip content={detailsCollapsed ? "Show details" : "Hide details"} portal>
+                      <IconButton
+                        variant="bordered"
+                        size="md"
+                        className="trust-role-detail-surface-action"
+                        aria-label={detailsCollapsed ? "Show role details" : "Hide role details"}
+                        onClick={() => setDetailsCollapsed((collapsed) => !collapsed)}
+                      >
+                        {detailsCollapsed ? (
+                          <PanelRightOpen size={14} strokeWidth={1.8} />
+                        ) : (
+                          <PanelRightClose size={14} strokeWidth={1.8} />
+                        )}
+                      </IconButton>
+                    </Tooltip>
+                  </div>
                   <main className="trust-role-detail-document" aria-label="Role idea">
                     {ideaLoading && (
                       <div className="trust-roles-state">
@@ -326,7 +331,6 @@ export default function TrustRoleDetailPage({
                         idea={roleIdea}
                         ideaTagSuggestions={ideaTagSuggestions}
                         variant="page"
-                        onCollapse={() => setDetailsCollapsed(true)}
                         onCopyValue={copy}
                         onIdeaUpdated={setRoleIdea}
                         onRoleUpdated={handleRoleUpdated}
