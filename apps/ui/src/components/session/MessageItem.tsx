@@ -550,15 +550,21 @@ const MessageItem = memo(function MessageItem({
             />
             <SegmentRenderer segments={splitAssistant.final} />
           </div>
+        ) : isAssistantRole ? (
+          <div className="asv-msg-card">
+            {msg.segments && msg.segments.length > 0 ? (
+              <SegmentRenderer segments={msg.segments} />
+            ) : (
+              <div className="asv-msg-content">
+                <SessionMarkdown body={msg.content} />
+              </div>
+            )}
+          </div>
         ) : msg.segments && msg.segments.length > 0 ? (
           <SegmentRenderer segments={msg.segments} />
         ) : (
           <div className="asv-msg-content">
-            {isAssistantRole ? (
-              <SessionMarkdown body={msg.content} />
-            ) : (
-              <MentionText body={msg.content} trustId={trustId ?? ""} />
-            )}
+            <MentionText body={msg.content} trustId={trustId ?? ""} />
           </div>
         )}
         {showChrome && (

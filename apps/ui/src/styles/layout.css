@@ -2169,9 +2169,9 @@
   .asv-msg-streaming
   .asv-msg-body {
   max-width: 760px;
-  padding: 10px 14px;
+  padding: 0;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   box-shadow: none;
 }
 

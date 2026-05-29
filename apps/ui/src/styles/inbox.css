@@ -417,10 +417,10 @@
 
 .session-detail--recessed .asv-msg-assistant:not(.asv-msg-ask) .asv-msg-body,
 .session-detail--recessed .asv-msg-streaming .asv-msg-body {
-  padding: var(--space-3) var(--space-4);
-  background: var(--color-card-elevated);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .session-detail-header-from {
