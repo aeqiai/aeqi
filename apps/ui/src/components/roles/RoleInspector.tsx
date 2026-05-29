@@ -5,7 +5,7 @@ import { useDaemonStore } from "@/store/daemon";
 import { api } from "@/lib/api";
 import { formatMediumDate } from "@/lib/i18n";
 import {
-  CopyButton,
+  CopyableRow,
   PropertyGroup,
   PropertyRow,
   ReadOnlyRow,
@@ -400,34 +400,30 @@ export default function RoleInspector({
             )}
           </PropertyRow>
           {!role.occupant_id ? null : (
-            <ReadOnlyRow label="Holder ID">
-              {role.occupant_kind === "trust" ? (
-                <a
-                  href={`/trust/${encodeURIComponent(role.occupant_id)}`}
-                  className="role-inspector-holder-link"
-                  title={`Open ${occupantDisplayName ?? "TRUST"} profile`}
-                >
-                  {occupantDisplayName && (
-                    <>
-                      <Landmark size={13} strokeWidth={1.6} aria-hidden />
-                      <span>{occupantDisplayName}</span>
-                    </>
-                  )}
-                  <code>{compactAddress(role.occupant_id)}</code>
-                </a>
+            <CopyableRow
+              label="Holder ID"
+              copied={copiedField === "holder"}
+              onCopy={() => copy(role.occupant_id!, "holder")}
+            >
+              {role.occupant_kind === "trust" && occupantDisplayName ? (
+                <>
+                  <Landmark size={13} strokeWidth={1.6} aria-hidden />
+                  {occupantDisplayName}
+                  <span className="role-inspector-row-muted">
+                    {compactAddress(role.occupant_id)}
+                  </span>
+                </>
               ) : (
-                <code>{compactAddress(role.occupant_id)}</code>
+                compactAddress(role.occupant_id)
               )}
-              <CopyButton
-                copied={copiedField === "holder"}
-                onClick={() => copy(role.occupant_id!, "holder")}
-              />
-            </ReadOnlyRow>
+            </CopyableRow>
           )}
-          <ReadOnlyRow label="Role ID">
-            <code>{compactAddress(role.id)}</code>
-            <CopyButton copied={copiedField === "roleId"} onClick={() => copy(role.id, "roleId")} />
-          </ReadOnlyRow>
+          <CopyableRow
+            label="Role ID"
+            title={compactAddress(role.id)}
+            copied={copiedField === "roleId"}
+            onCopy={() => copy(role.id, "roleId")}
+          />
         </PropertyGroup>
 
         <PropertyGroup title="Authority" defaultOpen={role.grants.length > 0}>

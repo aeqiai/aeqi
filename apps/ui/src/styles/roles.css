@@ -1323,27 +1323,6 @@
   background: var(--color-card);
   color: var(--color-text-primary);
 }
-/* Holder chip rendered as a Link when occupant is a TRUST — clicking
-   opens the TRUST's own profile page. Inline alignment keeps the
-   landmark glyph, entity name, and truncated address on one line. */
-.role-inspector-holder-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--color-text-primary);
-  text-decoration: none;
-  transition: color 0.12s ease;
-}
-.role-inspector-holder-link:hover,
-.role-inspector-holder-link:focus-visible {
-  color: var(--accent);
-}
-.role-inspector-holder-link code {
-  font-family: var(--font-sans);
-  font-size: var(--font-size-xs);
-  font-variant-numeric: tabular-nums;
-  color: var(--color-text-muted);
-}
 .role-inspector-body {
   display: flex;
   flex-direction: column;
@@ -1425,13 +1404,25 @@
     background 0.12s ease,
     color 0.12s ease;
 }
+.role-inspector-row--copyable {
+  appearance: none;
+  text-align: left;
+  text-decoration: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  cursor: copy;
+}
 .role-inspector-row--editable:hover,
-.role-inspector-row--editable:focus-visible {
+.role-inspector-row--editable:focus-visible,
+.role-inspector-row--copyable:hover,
+.role-inspector-row--copyable:focus-visible {
   outline: none;
   background: transparent;
 }
 .role-inspector-row--editable:hover .role-inspector-row-control,
-.role-inspector-row--editable:focus-visible .role-inspector-row-control {
+.role-inspector-row--editable:focus-visible .role-inspector-row-control,
+.role-inspector-row--copyable:hover .role-inspector-row-control,
+.role-inspector-row--copyable:focus-visible .role-inspector-row-control {
   border-color: var(--input-border-hover);
   background: var(--color-card);
 }
@@ -1467,8 +1458,15 @@
     border-color 0.12s ease,
     background 0.12s ease;
 }
+.role-inspector-row-control--recessed {
+  background: var(--bg-row);
+}
 .role-inspector-row-title {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1476,6 +1474,28 @@
   font-size: var(--font-size-sm);
   font-weight: 600;
   line-height: 1.25;
+  color: var(--color-text-primary);
+}
+.role-inspector-row-muted {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.role-inspector-row-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  color: var(--color-text-muted);
+}
+.role-inspector-row--copyable:hover .role-inspector-row-icon,
+.role-inspector-row--copyable:focus-visible .role-inspector-row-icon {
   color: var(--color-text-primary);
 }
 .role-inspector-row--editable .role-inspector-row-control::after {
@@ -1500,7 +1520,7 @@
   color: var(--color-text-primary);
 }
 .role-inspector-row-value code,
-.role-inspector-holder-link code {
+.role-inspector-row-control--recessed code {
   font-family: var(--font-sans);
   font-size: var(--font-size-xs);
   background: var(--bg-row);
@@ -1510,7 +1530,6 @@
 }
 .role-inspector-row-value > .role-inspector-meta,
 .role-inspector-row-value > .role-inspector-stat,
-.role-inspector-holder-link > span,
 .role-inspector-grant-preview > .role-inspector-meta {
   display: inline-flex;
   align-items: center;
@@ -1524,29 +1543,6 @@
   flex-wrap: wrap;
   gap: 6px;
   padding-left: 94px;
-}
-.role-inspector-copy {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  background: transparent;
-  border: 0;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition:
-    background 0.12s ease,
-    color 0.12s ease;
-}
-.role-inspector-copy:hover {
-  background: var(--color-card-muted);
-  color: var(--color-text-primary);
-}
-.role-inspector-copy:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--color-accent);
 }
 .role-inspector-stat {
   font-family: var(--font-sans);
@@ -1681,7 +1677,7 @@
    directional cue) rather than the underline that used to live here
    — underline was the only one of its kind in the inspector and read
    as a stray editorial flourish. Keyboard focus is now ring-visible
-   via box-shadow, mirroring .role-inspector-copy:focus-visible. */
+   via box-shadow, mirroring the inspector's compact icon affordances. */
 .role-inspector-link {
   display: inline-flex;
   align-items: center;

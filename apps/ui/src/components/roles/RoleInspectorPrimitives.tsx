@@ -74,6 +74,41 @@ export function ReadOnlyRow({ label, children }: { label: string; children: Reac
   );
 }
 
+export function CopyableRow({
+  label,
+  title,
+  children,
+  copied,
+  onCopy,
+}: {
+  label: string;
+  title?: string;
+  children?: ReactNode;
+  copied: boolean;
+  onCopy: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="role-inspector-row role-inspector-row--copyable"
+      onClick={onCopy}
+      title={copied ? "Copied" : "Copy"}
+      data-pill-allowed=""
+    >
+      <span className="role-inspector-row-label">{label}</span>
+      <span className="role-inspector-row-control role-inspector-row-control--recessed">
+        <span className="role-inspector-row-title">
+          {title}
+          {children}
+        </span>
+        <span className="role-inspector-row-icon" aria-hidden="true">
+          {copied ? <Check size={12} strokeWidth={1.8} /> : <Copy size={12} strokeWidth={1.6} />}
+        </span>
+      </span>
+    </button>
+  );
+}
+
 export function AssignmentOption({
   label,
   detail,
@@ -189,20 +224,6 @@ export function ModalActions({
         Save
       </Button>
     </footer>
-  );
-}
-
-export function CopyButton({ copied, onClick }: { copied: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      className="role-inspector-copy"
-      onClick={onClick}
-      title={copied ? "Copied" : "Copy ID"}
-      data-pill-allowed=""
-    >
-      {copied ? <Check size={12} strokeWidth={1.8} /> : <Copy size={12} strokeWidth={1.5} />}
-    </button>
   );
 }
 
