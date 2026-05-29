@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { PanelRightOpen, Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Role, RoleEdge } from "@/lib/types";
@@ -46,6 +46,7 @@ const OCCUPANT_RANK: Record<string, number> = { agent: 0, human: 1, vacant: 2 };
  */
 export default function TrustRolesTab({ trustId }: { trustId: string }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const view = parseView(searchParams.get("view"));
   const sort = parseSort(searchParams.get("sort"));
@@ -263,12 +264,14 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
   const handleSelectRole = useCallback(
     (role: Role) => {
       if (view === "list") {
-        navigate(entityPathFromId(entities, trustId, "roles", role.id));
+        navigate(entityPathFromId(entities, trustId, "roles", role.id), {
+          state: { rolesReturnTo: `${location.pathname}${location.search}` },
+        });
         return;
       }
       setSelectedRole(role.id);
     },
-    [entities, navigate, setSelectedRole, trustId, view],
+    [entities, location.pathname, location.search, navigate, setSelectedRole, trustId, view],
   );
 
   const handleRoleCreated = useCallback(

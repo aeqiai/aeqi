@@ -1,7 +1,8 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import TrustRolesTab from "@/components/TrustRolesTab";
+import TrustRoleDetailPage from "@/components/roles/TrustRoleDetailPage";
 import { api } from "@/lib/api";
 import type { Role } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
@@ -43,6 +44,25 @@ const roles: Role[] = [
 ];
 const edges = [{ parent_role_id: "role-owner", child_role_id: "role-operator" }];
 
+function RoleDetailRouteProbe() {
+  const location = useLocation();
+  const state =
+    location.state && typeof location.state === "object" && "rolesReturnTo" in location.state
+      ? (location.state as { rolesReturnTo?: unknown }).rolesReturnTo
+      : null;
+  return (
+    <div>
+      <span>Role detail route</span>
+      <span data-testid="roles-return-to">{typeof state === "string" ? state : ""}</span>
+    </div>
+  );
+}
+
+function RolesWorkspaceProbe() {
+  const location = useLocation();
+  return <div>Roles workspace {location.search}</div>;
+}
+
 describe("TrustRolesTab", () => {
   beforeEach(() => {
     vi.spyOn(api, "getRoles").mockResolvedValue({ ok: true, roles, edges });
@@ -81,7 +101,7 @@ describe("TrustRolesTab", () => {
       <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
           <Route path="/trust/:trustAddress/roles" element={<TrustRolesTab trustId="root-1" />} />
-          <Route path="/trust/:trustAddress/roles/:roleId" element={<div>Role detail route</div>} />
+          <Route path="/trust/:trustAddress/roles/:roleId" element={<RoleDetailRouteProbe />} />
         </Routes>
       </MemoryRouter>,
     );
@@ -148,5 +168,44 @@ describe("TrustRolesTab", () => {
     expect(operatorRow).not.toBeNull();
     fireEvent.click(operatorRow!);
     expect(await screen.findByText("Role detail route")).toBeInTheDocument();
+    expect(screen.getByTestId("roles-return-to")).toHaveTextContent(
+      "/trust/root-1/roles?view=list",
+    );
+  });
+
+  it("keeps role detail URLs clean while returning to the originating roles workspace", async () => {
+    render(
+      <MemoryRouter
+        initialEntries={[
+          {
+            pathname: "/trust/root-1/roles/role-operator",
+            state: { rolesReturnTo: "/trust/root-1/roles?view=list&occupant=agent" },
+          },
+        ]}
+      >
+        <Routes>
+          <Route path="/trust/:trustAddress/roles" element={<RolesWorkspaceProbe />} />
+          <Route
+            path="/trust/:trustAddress/roles/:roleId"
+            element={<TrustRoleDetailPage trustId="root-1" roleId="role-operator" />}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const header = await screen.findByLabelText("Role detail controls");
+    expect(
+      within(header)
+        .getByText("Role")
+        .compareDocumentPosition(within(header).getByRole("button", { name: "Roles" })),
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(within(header).getByRole("button", { name: "Roles" })).toHaveClass(
+      "trust-role-detail-back",
+    );
+
+    fireEvent.click(within(header).getByRole("button", { name: "Roles" }));
+    expect(
+      await screen.findByText("Roles workspace ?view=list&occupant=agent"),
+    ).toBeInTheDocument();
   });
 });

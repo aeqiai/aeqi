@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { entityBasePath } from "@/lib/entityPath";
 import type { Role, RoleEdge } from "@/lib/types";
@@ -16,10 +16,20 @@ export default function TrustRoleDetailPage({
   roleId: string;
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const entities = useDaemonStore((s) => s.entities);
   const entity = entities.find((e) => e.id === trustId);
   const basePath = entity ? entityBasePath(entity) : "/launch";
-  const rolesPath = `${basePath}/roles`;
+  const fallbackRolesPath = `${basePath}/roles`;
+  const rolesReturnTo =
+    location.state && typeof location.state === "object" && "rolesReturnTo" in location.state
+      ? (location.state as { rolesReturnTo?: unknown }).rolesReturnTo
+      : null;
+  const rolesPath =
+    typeof rolesReturnTo === "string" &&
+    (rolesReturnTo === fallbackRolesPath || rolesReturnTo.startsWith(`${fallbackRolesPath}?`))
+      ? rolesReturnTo
+      : fallbackRolesPath;
 
   const [roles, setRoles] = useState<Role[]>([]);
   const [edges, setEdges] = useState<RoleEdge[]>([]);
@@ -67,9 +77,10 @@ export default function TrustRoleDetailPage({
         className="trust-roles-page-header trust-role-detail-page-header"
         title={
           <span className="trust-role-detail-title">
+            <span className="trust-primitive-page-title-text">Role</span>
             <Button
               type="button"
-              variant="ghost"
+              variant="secondary"
               size="sm"
               className="trust-role-detail-back"
               leadingIcon={<ArrowLeft size={14} strokeWidth={1.8} />}
@@ -77,7 +88,6 @@ export default function TrustRoleDetailPage({
             >
               Roles
             </Button>
-            <span className="trust-primitive-page-title-text">Role</span>
           </span>
         }
         aria-label="Role detail controls"

@@ -1385,6 +1385,9 @@
 
 .trust-role-detail-back {
   flex: 0 0 auto;
+  background: var(--color-card-elevated);
+  border-color: var(--border);
+  box-shadow: var(--shadow-sm);
 }
 
 .trust-role-detail-workspace {
@@ -1472,9 +1475,9 @@
   gap: 10px;
   min-height: 32px;
   margin: 0;
-  padding: 0 8px 0 10px;
+  padding: 0;
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--color-card-muted) 72%, transparent);
+  background: transparent;
   font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 600;
@@ -1491,7 +1494,7 @@
 .role-inspector-group-title:hover,
 .role-inspector-group-title:focus-visible {
   outline: none;
-  background: color-mix(in srgb, var(--color-card-muted) 86%, var(--color-card-elevated) 14%);
+  background: transparent;
   color: var(--color-text-primary);
 }
 .role-inspector-group-chevron {
@@ -1500,7 +1503,7 @@
   transition: transform 0.12s ease;
 }
 .role-inspector-group[open] > .role-inspector-group-title {
-  background: color-mix(in srgb, var(--color-card-elevated) 68%, var(--color-card-muted) 32%);
+  background: transparent;
   color: var(--color-text-primary);
 }
 .role-inspector-group[open] > .role-inspector-group-title .role-inspector-group-chevron {
