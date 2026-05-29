@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { api } from "@/lib/api";
+import * as ideasApi from "@/api/ideas";
 import { CAPABILITY_CATALOG, DEFAULT_GRANTS } from "@/lib/grants";
 import type { Agent, OccupantKind, Role, RoleType } from "@/lib/types";
 import { Button, Input, Modal, Select } from "@/components/ui";
@@ -117,6 +118,16 @@ export default function NewRoleModal({
 
     setSubmitting(true);
     try {
+      const idea = await ideasApi.storeIdea(
+        {
+          name: trimmedTitle,
+          content: "",
+          tags: ["role"],
+          agent_id: trustId,
+          scope: "global",
+        },
+        trustId,
+      );
       const resp = await api.createRole({
         trust_id: trustId,
         title: trimmedTitle,
@@ -125,6 +136,7 @@ export default function NewRoleModal({
         ...(parentRoleId ? { parent_role_id: parentRoleId } : {}),
         role_type: roleType,
         grants,
+        description_idea_id: idea.id,
       });
       onCreated(resp.role);
       reset();

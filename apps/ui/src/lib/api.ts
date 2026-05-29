@@ -315,6 +315,7 @@ export const api = {
     parent_role_id?: string;
     role_type?: RoleType;
     grants?: string[];
+    description_idea_id?: string | null;
   }) => {
     const wire = {
       trust_id: data.trust_id,
@@ -324,6 +325,9 @@ export const api = {
       ...(data.parent_role_id ? { parent_role_id: data.parent_role_id } : {}),
       ...(data.role_type ? { role_type: data.role_type } : {}),
       ...(data.grants ? { grants: data.grants } : {}),
+      ...(data.description_idea_id !== undefined
+        ? { description_idea_id: data.description_idea_id }
+        : {}),
     };
     return request<{ ok: boolean; role: Role }>("/roles", {
       method: "POST",

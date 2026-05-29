@@ -3,7 +3,11 @@ import { ArrowRight, Check, Landmark, Link2, PanelRightClose } from "lucide-reac
 import type { Idea, OccupantKind, Role, RoleEdge, Quest, RoleType } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
 import { api } from "@/lib/api";
+import * as ideasApi from "@/api/ideas";
 import { formatMediumDate } from "@/lib/i18n";
+import IdeaLinksPanel from "../IdeaLinksPanel";
+import TagsEditor from "../TagsEditor";
+import IdeaActivityFeed from "../ideas/IdeaActivityFeed";
 import {
   CopyableRow,
   PropertyGroup,
@@ -13,13 +17,7 @@ import {
   compactAddress,
   labelRoleType,
 } from "./RoleInspectorPrimitives";
-import {
-  RoleAssignmentModal,
-  RoleGrantsModal,
-  RoleMandateModal,
-  RoleNameModal,
-  RoleTypeModal,
-} from "./RoleInspectorModals";
+import { RoleAssignmentModal, RoleGrantsModal, RoleTypeModal } from "./RoleInspectorModals";
 
 interface RoleInspectorProps {
   role: Role;
@@ -27,13 +25,16 @@ interface RoleInspectorProps {
   rolesById: ReadonlyMap<string, Role>;
   trustId: string;
   basePath: string;
+  idea?: Idea | null;
+  ideaTagSuggestions?: string[];
   onCollapse?: () => void;
+  onIdeaUpdated?: (idea: Idea) => void;
   onRoleUpdated?: (role: Role) => void;
   onEdgesUpdated?: (edges: RoleEdge[]) => void;
   variant?: "panel" | "page";
 }
 
-type Editor = "name" | "type" | "assignment" | "mandate" | "parents" | "grants";
+type Editor = "type" | "assignment" | "parents" | "grants";
 
 export default function RoleInspector({
   role,
@@ -41,7 +42,10 @@ export default function RoleInspector({
   rolesById,
   trustId,
   basePath,
+  idea,
+  ideaTagSuggestions = [],
   onCollapse,
+  onIdeaUpdated,
   onRoleUpdated,
   onEdgesUpdated,
   variant = "panel",
@@ -115,7 +119,6 @@ export default function RoleInspector({
 
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [editor, setEditor] = useState<Editor | null>(null);
-  const [titleDraft, setTitleDraft] = useState(role.title);
   const [typeDraft, setTypeDraft] = useState<RoleType>(role.role_type);
   const [assignmentDraft, setAssignmentDraft] = useState<{
     kind: OccupantKind;
@@ -124,64 +127,20 @@ export default function RoleInspector({
     kind: role.occupant_kind,
     id: role.occupant_id ?? "",
   });
-  const [mandateDraft, setMandateDraft] = useState(role.description_idea_id ?? "");
-  const [ideaQuery, setIdeaQuery] = useState("");
-  const [ideaOptions, setIdeaOptions] = useState<Idea[]>([]);
   const [parentDraft, setParentDraft] = useState<string[]>(parentRoles.map((r) => r.id));
   const [grantsDraft, setGrantsDraft] = useState<string[]>(role.grants ?? []);
-  const [charter, setCharter] = useState<Idea | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const charterIdeaId = role.description_idea_id ?? null;
+  const [ideaTagError, setIdeaTagError] = useState<string | null>(null);
 
   useEffect(() => {
-    setTitleDraft(role.title);
     setTypeDraft(role.role_type);
     setAssignmentDraft({ kind: role.occupant_kind, id: role.occupant_id ?? "" });
-    setMandateDraft(role.description_idea_id ?? "");
     setParentDraft(parentRoles.map((r) => r.id));
     setGrantsDraft(role.grants ?? []);
     setError(null);
     setSubmitting(false);
   }, [role, parentRoles]);
-
-  useEffect(() => {
-    if (!charterIdeaId) {
-      setCharter(null);
-      return;
-    }
-    let cancelled = false;
-    api
-      .getIdeasByIds([charterIdeaId])
-      .then((resp) => {
-        if (cancelled) return;
-        setCharter((resp.ideas?.find((i) => i.id === charterIdeaId) as Idea | undefined) ?? null);
-      })
-      .catch(() => {
-        if (!cancelled) setCharter(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [charterIdeaId]);
-
-  useEffect(() => {
-    if (editor !== "mandate") return;
-    let cancelled = false;
-    api
-      .getIdeas({ root: trustId, query: ideaQuery, limit: 12 })
-      .then((data) => {
-        if (cancelled) return;
-        setIdeaOptions(((data.ideas as Idea[] | undefined) ?? []) as Idea[]);
-      })
-      .catch(() => {
-        if (!cancelled) setIdeaOptions([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [editor, ideaQuery, trustId]);
 
   const copy = (value: string, fieldId: string) => {
     navigator.clipboard.writeText(value);
@@ -223,20 +182,6 @@ export default function RoleInspector({
     }
   };
 
-  const saveName = (event: FormEvent) => {
-    event.preventDefault();
-    const next = titleDraft.trim();
-    if (!next) {
-      setError("Name is required.");
-      return;
-    }
-    if (next === role.title) {
-      setEditor(null);
-      return;
-    }
-    void saveRolePatch({ title: next });
-  };
-
   const saveType = (event: FormEvent) => {
     event.preventDefault();
     if (typeDraft === role.role_type) {
@@ -268,11 +213,6 @@ export default function RoleInspector({
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const saveMandate = (event: FormEvent) => {
-    event.preventDefault();
-    void saveRolePatch({ description_idea_id: mandateDraft.trim() || null });
   };
 
   const saveParents = async (event: FormEvent) => {
@@ -307,10 +247,23 @@ export default function RoleInspector({
     setGrantsDraft((prev) => (checked ? [...prev, grantId] : prev.filter((g) => g !== grantId)));
   };
 
+  const updateIdeaTags = async (nextTags: string[]) => {
+    if (!idea) return;
+    const previous = idea.tags ?? [];
+    setIdeaTagError(null);
+    onIdeaUpdated?.({ ...idea, tags: nextTags });
+    try {
+      await ideasApi.updateIdea(idea.id, { tags: nextTags }, trustId);
+    } catch (err) {
+      onIdeaUpdated?.({ ...idea, tags: previous });
+      setIdeaTagError(err instanceof Error ? err.message : "Could not update tags.");
+    }
+  };
+
   return (
     <aside className={`role-inspector role-inspector--${variant}`} aria-label="Selected role">
       <header className="role-inspector-topbar">
-        <span className="role-inspector-object">Role</span>
+        <span className="role-inspector-object">Details</span>
         <div className="role-inspector-actions" aria-label="Role actions">
           <button
             type="button"
@@ -342,18 +295,52 @@ export default function RoleInspector({
       </header>
 
       <div className="role-inspector-body">
-        <PropertyGroup title="Properties" defaultOpen>
-          <PropertyRow label="Name" title={role.title} onClick={() => openEditor("name")} />
+        <PropertyGroup title="Idea" defaultOpen>
+          {idea ? (
+            <>
+              <ReadOnlyRow label="Scope">
+                <span className="role-inspector-meta">{formatIdeaScope(idea)}</span>
+              </ReadOnlyRow>
+              {idea.kind && (
+                <ReadOnlyRow label="Kind">
+                  <span className="role-inspector-meta">{formatIdeaKind(idea.kind)}</span>
+                </ReadOnlyRow>
+              )}
+              <CopyableRow
+                label="Idea ID"
+                title={compactAddress(idea.id)}
+                copied={copiedField === "ideaId"}
+                onCopy={() => copy(idea.id, "ideaId")}
+              />
+              <div className="role-inspector-field-block">
+                <span className="role-inspector-row-label">Tags</span>
+                <div className="role-inspector-field-body">
+                  <TagsEditor
+                    tags={idea.tags ?? []}
+                    typed={idea.tags ?? []}
+                    suggestions={ideaTagSuggestions}
+                    onAdd={(tag) => void updateIdeaTags([...(idea.tags ?? []), tag])}
+                    onRemove={(tag) =>
+                      void updateIdeaTags((idea.tags ?? []).filter((item) => item !== tag))
+                    }
+                  />
+                  {ideaTagError && <span className="role-inspector-error">{ideaTagError}</span>}
+                </div>
+              </div>
+            </>
+          ) : (
+            <ReadOnlyRow label="Status">
+              <span className="role-inspector-meta">No canonical idea linked</span>
+            </ReadOnlyRow>
+          )}
+        </PropertyGroup>
+
+        <PropertyGroup title="Role" defaultOpen>
           <PropertyRow label="Type" title={roleTypeLabel} onClick={() => openEditor("type")} />
           <PropertyRow
             label="Assigned to"
             title={holderLabel}
             onClick={() => openEditor("assignment")}
-          />
-          <PropertyRow
-            label="Mandate"
-            title={charter?.name ?? (charterIdeaId ? "Loading mandate" : "No mandate defined")}
-            onClick={() => openEditor("mandate")}
           />
           <PropertyRow
             label="Reports to"
@@ -414,6 +401,14 @@ export default function RoleInspector({
         </PropertyGroup>
 
         <PropertyGroup title="Activity">
+          {idea && (
+            <div className="role-inspector-field-block role-inspector-field-block--stacked">
+              <span className="role-inspector-row-label">References</span>
+              <div className="role-inspector-field-body">
+                <IdeaLinksPanel ideaId={idea.id} agentId={idea.agent_id ?? trustId} />
+              </div>
+            </div>
+          )}
           {role.occupant_kind === "agent" && activeQuests > 0 && (
             <ReadOnlyRow label="Active quests">
               <a href={`${basePath}/quests`} className="role-inspector-link">
@@ -425,18 +420,16 @@ export default function RoleInspector({
           <ReadOnlyRow label="Created">
             <span className="role-inspector-meta">{formatMediumDate(role.created_at)}</span>
           </ReadOnlyRow>
+          {idea && (
+            <div className="role-inspector-field-block role-inspector-field-block--stacked">
+              <span className="role-inspector-row-label">History</span>
+              <div className="role-inspector-field-body">
+                <IdeaActivityFeed ideaId={idea.id} limit={5} />
+              </div>
+            </div>
+          )}
         </PropertyGroup>
       </div>
-
-      <RoleNameModal
-        open={editor === "name"}
-        titleDraft={titleDraft}
-        setTitleDraft={setTitleDraft}
-        onSubmit={saveName}
-        error={error}
-        submitting={submitting}
-        onClose={closeEditor}
-      />
 
       <RoleTypeModal
         open={editor === "type"}
@@ -456,19 +449,6 @@ export default function RoleInspector({
         assignmentDraft={assignmentDraft}
         setAssignmentDraft={setAssignmentDraft}
         onSubmit={saveAssignment}
-        error={error}
-        submitting={submitting}
-        onClose={closeEditor}
-      />
-
-      <RoleMandateModal
-        open={editor === "mandate"}
-        ideaQuery={ideaQuery}
-        setIdeaQuery={setIdeaQuery}
-        mandateDraft={mandateDraft}
-        setMandateDraft={setMandateDraft}
-        ideaOptions={ideaOptions}
-        onSubmit={saveMandate}
         error={error}
         submitting={submitting}
         onClose={closeEditor}
@@ -497,4 +477,20 @@ export default function RoleInspector({
       />
     </aside>
   );
+}
+
+function formatIdeaScope(idea: Idea): string {
+  if (idea.scope === "global" || (!idea.scope && !idea.agent_id)) return "Global";
+  if (idea.scope === "siblings") return "Siblings";
+  if (idea.scope === "children") return "Children";
+  if (idea.scope === "branch") return "Branch";
+  return "Self";
+}
+
+function formatIdeaKind(kind: string): string {
+  if (kind === "note") return "Note";
+  if (kind === "file") return "File";
+  if (kind === "goal") return "Goal";
+  if (kind.startsWith("custom:")) return kind.slice(7) || "Custom";
+  return kind;
 }

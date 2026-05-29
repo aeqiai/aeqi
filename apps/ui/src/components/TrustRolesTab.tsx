@@ -1,27 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { PanelRightOpen, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Role, RoleEdge } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
-import { useAuthStore } from "@/store/auth";
-import { entityPathFromId, entityBasePath } from "@/lib/entityPath";
+import { entityPathFromId } from "@/lib/entityPath";
 import "@/styles/roles.css";
-import {
-  Button,
-  EmptyState,
-  IconButton,
-  Loading,
-  PrimitivePageHeader,
-  PrimitiveSearchField,
-} from "./ui";
+import { Button, EmptyState, Loading, PrimitivePageHeader, PrimitiveSearchField } from "./ui";
 import RolesChart from "./roles/RolesChart";
 import RolesCards from "./roles/RolesCards";
 import RolesList from "./roles/RolesList";
 import RolesSortPopover from "./roles/RolesSortPopover";
 import RolesFilterPopover from "./roles/RolesFilterPopover";
 import RolesViewPopover from "./roles/RolesViewPopover";
-import RoleInspector from "./roles/RoleInspector";
 import NewRoleModal from "./roles/NewRoleModal";
 import {
   type OccupantFilter,
@@ -39,10 +30,8 @@ const OCCUPANT_RANK: Record<string, number> = { agent: 0, human: 1, vacant: 2 };
  * Canvas composition:
  *   1. Page chrome — title + search + sort/filter/view + CTAs in one row
  *   2. One elevated workspace card — graph/list content directly on the canvas
- *   3. Integrated RoleInspector — collapsible internal detail column
- *
- * Selection state lives in the URL (`?role=<id>`) so a tab-switch
- * round-trip preserves the focused role.
+ *   3. Dedicated role detail routes — chart/cards/list all navigate to
+ *      `/roles/:id`, keeping the explore workspace free of active side panels.
  */
 export default function TrustRolesTab({ trustId }: { trustId: string }) {
   const navigate = useNavigate();
@@ -52,20 +41,16 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
   const sort = parseSort(searchParams.get("sort"));
   const occupantFilter = parseOccupantFilter(searchParams.get("occupant"));
   const search = searchParams.get("q") ?? "";
-  const selectedRoleId = searchParams.get("role");
+  const legacySelectedRoleId = searchParams.get("role");
   const createRoleOpen = searchParams.get("new") === "1";
 
   const [roles, setRoles] = useState<Role[]>([]);
   const [edges, setEdges] = useState<RoleEdge[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [detailsOpen, setDetailsOpen] = useState(true);
 
   const agents = useDaemonStore((s) => s.agents);
   const entities = useDaemonStore((s) => s.entities);
-  const user = useAuthStore((s) => s.user);
-  const entity = entities.find((e) => e.id === trustId);
-  const basePath = entity ? entityBasePath(entity) : "/launch";
 
   const agentNames = useMemo(() => {
     const m = new Map<string, string>();
@@ -79,12 +64,6 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
     }
     return m;
   }, [agents]);
-  const rolesById = useMemo(() => {
-    const m = new Map<string, Role>();
-    for (const r of roles) m.set(r.id, r);
-    return m;
-  }, [roles]);
-
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -107,6 +86,18 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
       cancelled = true;
     };
   }, [trustId]);
+
+  useEffect(() => {
+    if (!legacySelectedRoleId) return;
+    const params = new URLSearchParams(searchParams);
+    params.delete("role");
+    navigate(entityPathFromId(entities, trustId, "roles", legacySelectedRoleId), {
+      replace: true,
+      state: {
+        rolesReturnTo: `${location.pathname}${params.toString() ? `?${params.toString()}` : ""}`,
+      },
+    });
+  }, [entities, legacySelectedRoleId, location.pathname, navigate, searchParams, trustId]);
 
   const patchParams = useCallback(
     (mut: (p: URLSearchParams) => void) => {
@@ -162,15 +153,6 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
     () =>
       patchParams((p) => {
         p.delete("new");
-      }),
-    [patchParams],
-  );
-
-  const setSelectedRole = useCallback(
-    (id: string) =>
-      patchParams((p) => {
-        p.set("role", id);
-        p.delete("mode");
       }),
     [patchParams],
   );
@@ -233,45 +215,13 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
     [edges, filteredIds],
   );
 
-  // Default selection: the viewer's own role (occupant_kind=human +
-  // occupant_id matches user.id) — if none, a founder — if none,
-  // the first role. Encoded in the URL so refresh preserves the
-  // selection across loads.
-  const defaultSelectedRole = useMemo(() => {
-    if (roles.length === 0) return null;
-    const userId = user?.id;
-    if (userId) {
-      const own = roles.find((r) => r.occupant_kind === "human" && r.occupant_id === userId);
-      if (own) return own;
-    }
-    const founder = roles.find((r) => r.founder);
-    if (founder) return founder;
-    return roles[0];
-  }, [roles, user?.id]);
-
-  const selectedRole = useMemo(() => {
-    if (view === "list") return null;
-    if (selectedRoleId) {
-      const found = rolesById.get(selectedRoleId);
-      if (found) return found;
-    }
-    return defaultSelectedRole;
-  }, [view, selectedRoleId, rolesById, defaultSelectedRole]);
-  const handleRoleUpdated = useCallback((updated: Role) => {
-    setRoles((prev) => prev.map((role) => (role.id === updated.id ? updated : role)));
-  }, []);
-
   const handleSelectRole = useCallback(
     (role: Role) => {
-      if (view === "list") {
-        navigate(entityPathFromId(entities, trustId, "roles", role.id), {
-          state: { rolesReturnTo: `${location.pathname}${location.search}` },
-        });
-        return;
-      }
-      setSelectedRole(role.id);
+      navigate(entityPathFromId(entities, trustId, "roles", role.id), {
+        state: { rolesReturnTo: `${location.pathname}${location.search}` },
+      });
     },
-    [entities, location.pathname, location.search, navigate, setSelectedRole, trustId, view],
+    [entities, location.pathname, location.search, navigate, trustId],
   );
 
   const handleRoleCreated = useCallback(
@@ -279,19 +229,19 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
       const refreshed = await api.getRoles(trustId);
       setRoles(refreshed.roles ?? []);
       setEdges(refreshed.edges ?? []);
-      patchParams((p) => {
-        p.delete("new");
-        p.set("role", role.id);
+      const params = new URLSearchParams(searchParams);
+      params.delete("new");
+      navigate(entityPathFromId(entities, trustId, "roles", role.id), {
+        state: {
+          rolesReturnTo: `${location.pathname}${params.toString() ? `?${params.toString()}` : ""}`,
+        },
       });
-      setDetailsOpen(true);
     },
-    [patchParams, trustId],
+    [entities, location.pathname, navigate, searchParams, trustId],
   );
 
   const showEmpty = !loading && !error && roles.length === 0;
   const showNoMatch = !loading && !error && roles.length > 0 && filtered.length === 0;
-  const showDetailPanel = view !== "list" && selectedRole && detailsOpen;
-  const showDetailToggle = view !== "list" && selectedRole && !detailsOpen;
 
   return (
     <div className="trust-roles">
@@ -335,26 +285,8 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
         </div>
       </PrimitivePageHeader>
 
-      <div
-        className={
-          showDetailPanel
-            ? "trust-roles-main"
-            : "trust-roles-main trust-roles-main--detail-collapsed"
-        }
-      >
+      <div className="trust-roles-main trust-roles-main--detail-collapsed">
         <div className="trust-roles-workspace">
-          {showDetailToggle && (
-            <IconButton
-              type="button"
-              variant="bordered"
-              size="sm"
-              className="trust-roles-detail-toggle"
-              aria-label="Expand role detail"
-              onClick={() => setDetailsOpen((open) => !open)}
-            >
-              <PanelRightOpen aria-hidden size={14} strokeWidth={1.7} />
-            </IconButton>
-          )}
           <section className="trust-roles-content" aria-label="Role workspace">
             <div className="trust-roles-canvas">
               {loading && <RolesLoading />}
@@ -370,7 +302,7 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
                   agentNames={agentNames}
                   agentAvatars={agentAvatars}
                   onSelectRole={handleSelectRole}
-                  selectedRoleId={selectedRole?.id ?? null}
+                  selectedRoleId={null}
                   newRolePath={`${entityPathFromId(entities, trustId, "roles")}?new=1`}
                 />
               )}
@@ -381,7 +313,7 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
                     agentNames={agentNames}
                     agentAvatars={agentAvatars}
                     onSelectRole={handleSelectRole}
-                    selectedRoleId={selectedRole?.id ?? null}
+                    selectedRoleId={null}
                   />
                 </div>
               )}
@@ -398,20 +330,6 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
               )}
             </div>
           </section>
-          {showDetailPanel && (
-            <aside className="trust-roles-detail" aria-label="Selected role detail">
-              <RoleInspector
-                role={selectedRole}
-                edges={edges}
-                rolesById={rolesById}
-                trustId={trustId}
-                basePath={basePath}
-                onCollapse={() => setDetailsOpen(false)}
-                onRoleUpdated={handleRoleUpdated}
-                onEdgesUpdated={setEdges}
-              />
-            </aside>
-          )}
         </div>
       </div>
       <NewRoleModal

@@ -25,6 +25,7 @@ const roles: Role[] = [
     title: "Operator",
     occupant_kind: "agent",
     occupant_id: "agent-1",
+    description_idea_id: "idea-role-operator",
     role_type: "operational",
     founder: false,
     grants: [],
@@ -66,6 +67,18 @@ function RolesWorkspaceProbe() {
 describe("TrustRolesTab", () => {
   beforeEach(() => {
     vi.spyOn(api, "getRoles").mockResolvedValue({ ok: true, roles, edges });
+    vi.spyOn(api, "getIdeasByIds").mockResolvedValue({
+      ok: true,
+      ideas: [
+        {
+          id: "idea-role-operator",
+          name: "Operator",
+          content: "",
+          tags: ["role"],
+          scope: "global",
+        },
+      ],
+    });
     useDaemonStore.setState({
       entities: [
         {
@@ -133,9 +146,7 @@ describe("TrustRolesTab", () => {
     const workspace = screen.getByLabelText("Role workspace");
     expect(heading.compareDocumentPosition(workspace)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(screen.queryByText("Authority ramp")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Collapse role panel" })).toHaveClass(
-      "role-inspector-icon-action",
-    );
+    expect(screen.queryByRole("button", { name: "Collapse role panel" })).not.toBeInTheDocument();
   });
 
   it("renders list view as the canonical workspace table and navigates rows to detail", async () => {

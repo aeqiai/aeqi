@@ -1,51 +1,14 @@
 import { type Dispatch, type FormEvent, type SetStateAction } from "react";
-import { Input, Modal } from "@/components/ui";
+import { Modal } from "@/components/ui";
 import { CAPABILITY_CATALOG } from "@/lib/grants";
-import type { Agent, Idea, OccupantKind, RoleType, Trust } from "@/lib/types";
-import {
-  AssignmentOption,
-  ModalActions,
-  ModalError,
-  compactAddress,
-} from "./RoleInspectorPrimitives";
+import type { Agent, OccupantKind, RoleType, Trust } from "@/lib/types";
+import { AssignmentOption, ModalActions, ModalError } from "./RoleInspectorPrimitives";
 import { ROLE_TYPE_OPTIONS } from "./roleOptions";
 
 interface ModalBaseProps {
   error: string | null;
   submitting: boolean;
   onClose: () => void;
-}
-
-export function RoleNameModal({
-  open,
-  titleDraft,
-  setTitleDraft,
-  onSubmit,
-  error,
-  submitting,
-  onClose,
-}: ModalBaseProps & {
-  open: boolean;
-  titleDraft: string;
-  setTitleDraft: (next: string) => void;
-  onSubmit: (event: FormEvent) => void;
-}) {
-  return (
-    <Modal open={open} onClose={onClose} title="Name" className="role-inspector-modal">
-      <form className="role-inspector-modal-form" onSubmit={onSubmit}>
-        <label className="role-inspector-modal-field" htmlFor="role-inspector-name">
-          <span>Role name</span>
-          <Input
-            id="role-inspector-name"
-            value={titleDraft}
-            onChange={(event) => setTitleDraft(event.target.value)}
-          />
-        </label>
-        <ModalError error={error} />
-        <ModalActions submitting={submitting} onCancel={onClose} />
-      </form>
-    </Modal>
-  );
 }
 
 export function RoleTypeModal({
@@ -148,69 +111,6 @@ export function RoleAssignmentModal({
                 onChange={() => setAssignmentDraft({ kind: "trust", id: entity.id })}
               />
             ))}
-        </div>
-        <ModalError error={error} />
-        <ModalActions submitting={submitting} onCancel={onClose} />
-      </form>
-    </Modal>
-  );
-}
-
-export function RoleMandateModal({
-  open,
-  ideaQuery,
-  setIdeaQuery,
-  mandateDraft,
-  setMandateDraft,
-  ideaOptions,
-  onSubmit,
-  error,
-  submitting,
-  onClose,
-}: ModalBaseProps & {
-  open: boolean;
-  ideaQuery: string;
-  setIdeaQuery: (next: string) => void;
-  mandateDraft: string;
-  setMandateDraft: (next: string) => void;
-  ideaOptions: Idea[];
-  onSubmit: (event: FormEvent) => void;
-}) {
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="Mandate"
-      className="role-inspector-modal role-inspector-modal--wide"
-    >
-      <form className="role-inspector-modal-form" onSubmit={onSubmit}>
-        <label className="role-inspector-modal-field" htmlFor="role-inspector-idea-search">
-          <span>Find idea</span>
-          <Input
-            id="role-inspector-idea-search"
-            value={ideaQuery}
-            onChange={(event) => setIdeaQuery(event.target.value)}
-            placeholder="Search ideas"
-          />
-        </label>
-        <div className="role-inspector-option-grid">
-          <AssignmentOption
-            name="role-inspector-mandate"
-            label="No mandate"
-            detail="Clear linked idea"
-            checked={mandateDraft === ""}
-            onChange={() => setMandateDraft("")}
-          />
-          {ideaOptions.map((idea) => (
-            <AssignmentOption
-              name="role-inspector-mandate"
-              key={idea.id}
-              label={idea.name || "Untitled idea"}
-              detail={idea.tags?.slice(0, 2).join(" · ") || compactAddress(idea.id)}
-              checked={mandateDraft === idea.id}
-              onChange={() => setMandateDraft(idea.id)}
-            />
-          ))}
         </div>
         <ModalError error={error} />
         <ModalActions submitting={submitting} onCancel={onClose} />
