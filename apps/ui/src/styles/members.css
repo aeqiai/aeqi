@@ -104,7 +104,18 @@
 }
 
 .trust-members-table table tbody td {
-  padding-inline: 24px;
+  height: 58px;
+  padding: 11px 24px;
+}
+
+.trust-members-table table tbody tr {
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.trust-members-table table tbody tr:hover {
+  background: var(--bg-row);
 }
 
 .trust-members-card-list {
