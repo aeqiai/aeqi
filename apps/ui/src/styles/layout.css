@@ -268,8 +268,6 @@
   justify-content: center;
 }
 .left-sidebar.collapsed .sidebar-nav-item.active::before {
-  /* Active rail accent doesn't fit a 32px square — kill it in collapsed
-   * and let the state-selected bg do the "you are here" job alone. */
   display: none;
 }
 .left-sidebar.collapsed .sidebar-nav-item > svg,
@@ -620,7 +618,6 @@
   padding: 8px 8px 8px;
 }
 .sidebar-nav-item {
-  /* position:relative anchors the ::before accent indicator on .active. */
   position: relative;
   display: flex;
   align-items: center;
@@ -638,30 +635,22 @@
 }
 .sidebar-nav-item:hover {
   color: var(--color-text-title);
-  background: color-mix(in srgb, var(--color-slab) 52%, transparent);
+  background: color-mix(in srgb, var(--color-card-elevated) 58%, transparent);
 }
 .sidebar-nav-item:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
 }
 .sidebar-nav-item.active {
-  /* Title-weight ink + semibold pulls the active row out of the resting
-     register without requiring a heavy background tint. The accent left bar
-     (::before) does the unambiguous "you are here" job — same vocabulary as
-     the canonical 2px under-tab bar in Tabs.module.css. */
+  /* Active navigation is a selected paper surface: no vertical rail, no bespoke
+     accent stripe, just tokenized elevation, border, and stronger ink. */
   color: var(--color-text-title);
-  background: color-mix(in srgb, var(--color-slab) 78%, transparent);
+  background: var(--color-card-elevated);
+  box-shadow: inset 0 0 0 1px var(--border);
   font-weight: 620;
 }
 .sidebar-nav-item.active::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 6px;
-  bottom: 6px;
-  width: 2px;
-  border-radius: 0 1px 1px 0;
-  background: var(--color-accent);
+  display: none;
 }
 .sidebar-nav-item > svg {
   width: 16px;
@@ -678,7 +667,7 @@
 }
 .sidebar-nav-item:hover > svg,
 .sidebar-nav-item.active > svg {
-  color: var(--color-accent);
+  color: var(--color-text-title);
 }
 /* Primitive placeholder — rendered on /`` and /profile where there's no
    agent in scope yet. Keeps the sidebar silhouette stable so that clicking
