@@ -369,10 +369,10 @@ const SUGGESTED_AGENTS: SuggestedAgentSpec[] = [
 ];
 
 /**
- * Suggested agents — three template cards below the table. Tells the
+ * Suggested agents — three blueprint cards below the table. Tells the
  * reader "this TRUST can grow execution capacity along these axes" so
  * the page never reads as terminal at one agent. Each card opens the
- * blueprint picker; per-template prefill happens at the picker layer
+ * blueprint picker; per-blueprint prefill happens at the picker layer
  * (out of scope for this component).
  */
 function SuggestedAgents({ onPick }: { onPick: () => void }) {
@@ -391,7 +391,7 @@ function SuggestedAgents({ onPick }: { onPick: () => void }) {
           </p>
         </div>
         <button type="button" className="trust-agents-suggest-all" onClick={onPick}>
-          View all templates
+          View blueprints
         </button>
       </header>
       <div className="trust-agents-suggest-grid">

@@ -117,40 +117,35 @@
   background: var(--bg-row);
 }
 
-.trust-members-role-summary {
+.trust-members-role-count-cell {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: flex-end;
+  gap: var(--space-1);
   max-width: 100%;
   overflow: hidden;
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   line-height: 1.25;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.trust-members-role-primary {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.trust-members-role-more {
+.trust-members-role-count {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  height: 18px;
-  min-width: 22px;
-  padding: 0 6px;
-  border-radius: var(--radius-full);
-  background: var(--bg-subtle);
+  min-width: 18px;
   color: var(--color-text-secondary);
   font-family: var(--font-mono);
-  font-size: 10.5px;
-  font-weight: 500;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   line-height: 1;
+}
+
+.trust-members-role-count.muted {
+  color: var(--color-text-muted);
+  font-weight: 500;
 }
 
 .trust-members-nav-action {

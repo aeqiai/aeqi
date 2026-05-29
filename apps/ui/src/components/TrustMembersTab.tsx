@@ -187,9 +187,11 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
       {
         key: "roles",
         header: "Roles",
+        width: "112px",
+        align: "end",
         sortable: true,
-        sortAccessor: (row) => roleList(row.roles),
-        cell: (row) => <RoleSummary row={row} />,
+        sortAccessor: (row) => row.roleIds.length,
+        cell: (row) => <RoleCountCell row={row} onOpen={openMemberRoles} />,
       },
       {
         key: "created",
@@ -202,36 +204,6 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
             {row.createdAt ? formatMediumDate(row.createdAt, { fallback: "Unknown" }) : "Unknown"}
           </span>
         ),
-      },
-      {
-        key: "open",
-        header: "",
-        width: "56px",
-        align: "end",
-        cell: (row) =>
-          row.roleIds.length > 0 ? (
-            <IconButton
-              aria-label={
-                row.roleIds.length === 1
-                  ? `Open ${row.roles[0] ?? "role"}`
-                  : `Open roles for ${row.name}`
-              }
-              className="trust-members-nav-action"
-              size="sm"
-              variant="ghost"
-              title={
-                row.roleIds.length === 1
-                  ? `Open ${row.roles[0] ?? "role"}`
-                  : `Open roles for ${row.name}`
-              }
-              onClick={(event) => {
-                event.stopPropagation();
-                openMemberRoles(row);
-              }}
-            >
-              <ArrowUpRight size={14} strokeWidth={1.8} />
-            </IconButton>
-          ) : null,
       },
     ],
     [openMemberRoles],
@@ -343,7 +315,7 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
                       <div>
                         <dt>Roles</dt>
                         <dd>
-                          <RoleSummary row={row} />
+                          <RoleCountCell row={row} onOpen={openMemberRoles} />
                         </dd>
                       </div>
                       <div>
@@ -355,21 +327,6 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
                         </dd>
                       </div>
                     </dl>
-                    {row.roleIds.length > 0 && (
-                      <IconButton
-                        aria-label={
-                          row.roleIds.length === 1
-                            ? `Open ${row.roles[0] ?? "role"}`
-                            : `Open roles for ${row.name}`
-                        }
-                        className="trust-members-nav-action"
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => openMemberRoles(row)}
-                      >
-                        <ArrowUpRight size={14} strokeWidth={1.8} />
-                      </IconButton>
-                    )}
                   </article>
                 ))}
               </div>
@@ -399,14 +356,30 @@ function MemberIdentity({ row }: { row: MemberRow }) {
   );
 }
 
-function RoleSummary({ row }: { row: MemberRow }) {
-  if (row.roles.length === 0) return <span className="trust-members-muted">None</span>;
-  const [primary, ...rest] = row.roles;
+function RoleCountCell({ row, onOpen }: { row: MemberRow; onOpen: (row: MemberRow) => void }) {
+  const count = row.roleIds.length;
+  const label = count === 1 ? `Open ${row.roles[0] ?? "role"}` : `Open roles for ${row.name}`;
 
   return (
-    <span className="trust-members-role-summary" title={roleList(row.roles)}>
-      <span className="trust-members-role-primary">{primary}</span>
-      {rest.length > 0 && <span className="trust-members-role-more">+{rest.length}</span>}
+    <span className="trust-members-role-count-cell" title={roleList(row.roles)}>
+      <span className={count > 0 ? "trust-members-role-count" : "trust-members-role-count muted"}>
+        {count}
+      </span>
+      {count > 0 && (
+        <IconButton
+          aria-label={label}
+          className="trust-members-nav-action"
+          size="sm"
+          variant="ghost"
+          title={label}
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpen(row);
+          }}
+        >
+          <ArrowUpRight size={14} strokeWidth={1.8} />
+        </IconButton>
+      )}
     </span>
   );
 }

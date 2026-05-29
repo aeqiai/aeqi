@@ -856,7 +856,7 @@
   background: transparent;
 }
 
-/* Suggested agents — three template cards below the agents table.
+/* Suggested agents — three blueprint cards below the agents table.
    Reads as "this TRUST can grow along these axes" not as a promotional
    row. The workspace owns the outer elevation; the options are quiet
    white cards. */
@@ -887,7 +887,7 @@
   min-width: 0;
 }
 /* Title row mirrors the kanban column-header grammar: `label · count`,
-   so the section reads as a saved view of the agent-templates column,
+   so the section reads as a saved view of the agent-blueprints column,
    not a marketing block. Quantifier badge uses the same tabular-nums
    monospace pill as `.quest-col-count` so the visual register matches
    the boards above. */
