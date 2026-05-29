@@ -83,7 +83,7 @@
       ]
     },
     "docs": {
-      "count": 34,
+      "count": 35,
       "description": "Markdown documentation under docs/.",
       "files": [
         "docs/4-canonical-templates-rationale.md",
@@ -99,6 +99,7 @@
         "docs/design/as-011-worker-step-context.md",
         "docs/design/browser-capability-contract.md",
         "docs/design/ecc-comparison-lessons.md",
+        "docs/design/ui-workflow-visual-checks.md",
         "docs/design/unify-events-and-tool-calls.md",
         "docs/development-workflow.md",
         "docs/extension-plane.md",
@@ -123,18 +124,19 @@
       ]
     },
     "designDocs": {
-      "count": 5,
+      "count": 6,
       "description": "Design notes and ADR-style documents under docs/design/.",
       "files": [
         "docs/design/adr-0003-drop-legacy-event-columns.md",
         "docs/design/as-011-worker-step-context.md",
         "docs/design/browser-capability-contract.md",
         "docs/design/ecc-comparison-lessons.md",
+        "docs/design/ui-workflow-visual-checks.md",
         "docs/design/unify-events-and-tool-calls.md"
       ]
     },
     "scripts": {
-      "count": 35,
+      "count": 39,
       "description": "Tracked operator, verification, install, and deploy scripts.",
       "files": [
         "scripts/aeqi-pre-dispatch.sh",
@@ -168,8 +170,12 @@
         "scripts/smoke-quickstart-readme.sh",
         "scripts/ui-deploy.sh",
         "scripts/ui-verify-stamp.mjs",
+        "scripts/ui-worktree.sh",
         "scripts/update-dependencies.sh",
         "scripts/verify-integration.sh",
+        "scripts/visual-check.mjs",
+        "scripts/visual-checks/assertions.mjs",
+        "scripts/visual-checks/routes.mjs",
         "scripts/visual-route.mjs",
         "scripts/webhook-deploy-aeqi.sh"
       ]

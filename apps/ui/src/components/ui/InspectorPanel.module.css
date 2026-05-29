@@ -12,6 +12,13 @@
   overflow-x: hidden;
 }
 
+.panel[data-surface="embedded"] {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow-y: visible;
+}
+
 .header {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -87,12 +94,30 @@
   border-top: 0;
 }
 
-.section h3 {
+.section h3,
+.section summary {
   margin: 0;
   font-size: var(--font-size-xs);
   font-weight: 650;
   line-height: 1.3;
   color: var(--color-text-secondary);
+}
+
+.section summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--detail-control-h);
+  list-style: none;
+  cursor: pointer;
+}
+
+.section summary::-webkit-details-marker {
+  display: none;
+}
+
+.sectionCollapsible {
+  padding-top: var(--detail-panel-inset);
+  padding-bottom: var(--detail-panel-inset);
 }
 
 .sectionBody {
@@ -146,6 +171,127 @@
   min-width: 0;
 }
 
+.row {
+  appearance: none;
+  display: grid;
+  grid-template-columns: var(--detail-label-col) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--detail-col-gap);
+  width: 100%;
+  min-height: var(--detail-row-h);
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+button.row {
+  cursor: pointer;
+}
+
+.rowLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.rowValue {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--detail-row-h);
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  padding: 0 var(--input-px);
+  background: var(--detail-value-raised-bg);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.row[data-tone="recessed"] .rowValue {
+  background: var(--detail-value-recessed-bg);
+  color: var(--color-text-secondary);
+}
+
+.row[data-tone="plain"] .rowValue {
+  min-height: auto;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+}
+
+button.row:hover .rowValue,
+button.row:focus-visible .rowValue {
+  border-color: var(--input-border-hover);
+  background: var(--color-card);
+  color: var(--color-text-primary);
+}
+
+button.row:focus-visible {
+  outline: none;
+}
+
+.rowAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.pillGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.pill {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--detail-pill-h);
+  min-width: 0;
+  max-width: 100%;
+  padding: 0 var(--input-px-sm);
+  border: 1px solid var(--border-subtle, var(--border-faint));
+  border-radius: var(--radius-full);
+  background: var(--detail-value-recessed-bg);
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.pill[data-tone="raised"],
+.pill[data-tone="add"] {
+  background: var(--detail-value-raised-bg);
+}
+
+.pill[data-tone="add"] {
+  cursor: pointer;
+}
+
+button.pill:hover,
+button.pill:focus-visible {
+  outline: none;
+  border-color: var(--input-border-hover);
+  background: var(--color-card);
+  color: var(--color-text-primary);
+}
+
 @media (max-width: 520px) {
   .header {
     grid-template-columns: auto minmax(0, 1fr);
@@ -156,7 +302,8 @@
     justify-content: flex-start;
   }
 
-  .field {
+  .field,
+  .row {
     grid-template-columns: 1fr;
     gap: var(--space-1);
   }

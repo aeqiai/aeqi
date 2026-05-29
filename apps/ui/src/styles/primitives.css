@@ -184,6 +184,18 @@
   --input-border-focus: var(--border-hover);
   --input-ring-focus: var(--ring-muted);
 
+  /* Detail/inspector rhythm — used by role, idea, quest, and future
+     inspector panes so labels, rows, metadata pills, and add pills share
+     one compact visual contract instead of page-local one-offs. */
+  --detail-control-h: var(--input-h-sm);
+  --detail-row-h: var(--input-h);
+  --detail-pill-h: 24px;
+  --detail-label-col: 84px;
+  --detail-col-gap: var(--space-3);
+  --detail-panel-inset: var(--space-3);
+  --detail-value-raised-bg: var(--color-card-elevated);
+  --detail-value-recessed-bg: var(--bg-row);
+
   /* Brand font — Zen Dots, used ONLY on the æqi wordmark. */
   --font-brand: "Zen Dots", system-ui, sans-serif;
 

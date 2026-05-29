@@ -6,6 +6,9 @@ import {
   InspectorField,
   InspectorHeader,
   InspectorPanel,
+  InspectorPill,
+  InspectorPillGroup,
+  InspectorRow,
   InspectorSection,
 } from "./InspectorPanel";
 
@@ -60,6 +63,24 @@ export const TrustRoleSelection: Story = {
           <InspectorField label="Holder">53455</InspectorField>
           <InspectorField label="Trust">aeqi</InspectorField>
           <InspectorField label="Connection">Direct</InspectorField>
+        </InspectorSection>
+        <InspectorSection title="Detail rows" collapsible>
+          <InspectorRow label="Type">Director</InspectorRow>
+          <InspectorRow label="Scope" tone="recessed">
+            Global
+          </InspectorRow>
+          <InspectorRow label="Assigned to" onClick={() => undefined}>
+            AEQI UI Agents Worker
+          </InspectorRow>
+        </InspectorSection>
+        <InspectorSection title="Metadata">
+          <InspectorPillGroup>
+            <InspectorPill>#fact</InspectorPill>
+            <InspectorPill tone="raised">Role</InspectorPill>
+            <InspectorPill as="button" tone="add" onClick={() => undefined}>
+              + tag
+            </InspectorPill>
+          </InspectorPillGroup>
         </InspectorSection>
         <InspectorSection title="Authority">
           <InspectorChips>

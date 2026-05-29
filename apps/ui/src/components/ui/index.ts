@@ -71,6 +71,9 @@ export {
   InspectorField,
   InspectorHeader,
   InspectorPanel,
+  InspectorPill,
+  InspectorPillGroup,
+  InspectorRow,
   InspectorSection,
 } from "./InspectorPanel";
 export type {
@@ -78,6 +81,9 @@ export type {
   InspectorFieldProps,
   InspectorHeaderProps,
   InspectorPanelProps,
+  InspectorPillGroupProps,
+  InspectorPillProps,
+  InspectorRowProps,
   InspectorSectionProps,
 } from "./InspectorPanel";
 

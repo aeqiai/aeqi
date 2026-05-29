@@ -12,6 +12,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { chromium } from "playwright";
+import { runLayoutAssertions } from "./visual-checks/assertions.mjs";
 
 const DEFAULT_BASE_URL = "https://app.aeqi.ai";
 const DEFAULT_VIEWPORT = "1440x900";
@@ -44,6 +45,7 @@ Options:
   --wait-ms <ms>               Wait after load and each click. Default: ${DEFAULT_WAIT_MS}
   --expect-text <text>         Require body text to include text. Repeatable.
   --expect-selector <selector> Require selector to exist. Repeatable.
+  --assert-layout <name>       Run a named layout assertion. Repeatable.
   --click <selector>           Click selector before assertions/screenshot. Repeatable.
   --full-page                  Capture the full page. Default: viewport screenshot.
   --no-auth                    Do not seed auth localStorage.
@@ -75,6 +77,7 @@ function parseArgs(argv) {
   const args = {
     expectText: [],
     expectSelector: [],
+    assertLayout: [],
     click: [],
   };
 
@@ -105,6 +108,7 @@ function parseArgs(argv) {
       i += 1;
       if (key === "expect-text") args.expectText.push(value);
       else if (key === "expect-selector") args.expectSelector.push(value);
+      else if (key === "assert-layout") args.assertLayout.push(value);
       else if (key === "click") args.click.push(value);
       else args[key] = value;
       continue;
@@ -776,6 +780,11 @@ async function main() {
       if (count === 0)
         failures.push(`Expected selector not found: ${selector}`);
     }
+    const layoutFailures =
+      args.assertLayout.length > 0
+        ? await runLayoutAssertions(page, args.assertLayout)
+        : [];
+    failures.push(...layoutFailures);
 
     if (responseStatus !== null && responseStatus >= 400) {
       failures.push(`Navigation returned HTTP ${responseStatus}`);
@@ -822,6 +831,7 @@ async function main() {
       report: reportPath,
       expectedText: args.expectText,
       expectedSelectors: args.expectSelector,
+      layoutAssertions: args.assertLayout,
       clicked: args.click,
       warnings,
       failures,
