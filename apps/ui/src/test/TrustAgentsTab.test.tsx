@@ -69,27 +69,30 @@ describe("TrustAgentsTab", () => {
     const heading = screen.getByRole("heading", { name: /Agents/ });
     const header = screen.getByLabelText("Agent controls");
     const search = screen.getByPlaceholderText("Search agents");
-    const snapshot = screen.getByRole("region", { name: "Agent snapshot" });
+    const register = screen.getByRole("region", { name: "Agents register" });
 
     expect(header).toContainElement(heading);
     expect(header).toHaveAttribute("data-title-variant", "plain");
     expect(screen.queryByRole("link", { name: "Agents" })).not.toBeInTheDocument();
     expect(search.closest(".trust-agents-toolbar")).not.toBeNull();
     expect(heading.compareDocumentPosition(search)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(search.compareDocumentPosition(snapshot)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(search.compareDocumentPosition(register)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
-  it("renders the agents register and suggestions as full-width slabs without an inspector rail", () => {
+  it("renders the table and suggestion cards directly on the workspace", () => {
     renderTab();
 
-    const snapshot = screen.getByRole("region", { name: "Agent snapshot" });
     const register = screen.getByRole("region", { name: "Agents register" });
     const suggestions = screen.getByRole("region", { name: "Suggested agents" });
+    const table = screen.getByRole("table", { name: "Agents" });
 
     expect(register.closest(".trust-agents-register")).not.toBeNull();
+    expect(register).toContainElement(table);
     expect(suggestions.closest(".trust-agents-suggest")).not.toBeNull();
     expect(screen.queryByLabelText("Selected agent")).toBeNull();
-    expect(snapshot.compareDocumentPosition(register)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(screen.queryByRole("region", { name: "Agent snapshot" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Agents register")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /^Add .* Agent$/ })).toHaveLength(3);
     expect(register.compareDocumentPosition(suggestions)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 

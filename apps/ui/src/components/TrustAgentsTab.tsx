@@ -2,12 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { api } from "@/lib/api";
-import type { Agent, Quest, Role, RoleEdge } from "@/lib/types";
+import type { Agent, Role, RoleEdge } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
 import { entityPathFromId } from "@/lib/entityPath";
-import { formatCurrency } from "@/lib/i18n";
 import { useAgentsQuery } from "@/queries/agents";
-import "@/styles/roles.css"; // shared trust-snapshot card primitives
+import "@/styles/roles.css"; // shared trust workspace primitives
 import {
   Button,
   Icon,
@@ -95,37 +94,6 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
     : "all";
 
   const { data: entityAgents = [], isLoading: agentsLoading } = useAgentsQuery(trustId);
-
-  // Snapshot metrics — mirrors the Roles page snapshot grammar
-  // (total / "alive" tier / running work / cost). Spend is lifetime,
-  // not monthly, because the wire field is lifetime_cost_usd; the
-  // sublabel calls that out honestly rather than inventing a window.
-  const quests = useDaemonStore((s) => s.quests) as unknown as Quest[];
-  const snapshot = useMemo(() => {
-    let total = 0;
-    let active = 0;
-    let totalSpend = 0;
-    const agentIds = new Set<string>();
-    for (const a of entityAgents) {
-      total += 1;
-      if (a.status === "active") active += 1;
-      totalSpend += a.lifetime_cost_usd ?? 0;
-      agentIds.add(a.id);
-    }
-    let runningQuests = 0;
-    for (const q of quests) {
-      if (!q.agent_id || !agentIds.has(q.agent_id)) continue;
-      if (
-        q.status === "in_progress" ||
-        q.status === "in_review" ||
-        q.status === "todo" ||
-        q.status === "backlog"
-      ) {
-        runningQuests += 1;
-      }
-    }
-    return { total, active, totalSpend, runningQuests };
-  }, [entityAgents, quests]);
 
   // Roles + edges power the chart view; the list view is flat. Load once
   // for the entity so a tab toggle doesn't refetch.
@@ -343,43 +311,7 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
           </div>
         )}
 
-        <section className="trust-agents-snapshot" aria-label="Agent snapshot">
-          <div className="trust-roles-snapshot-grid trust-agents-snapshot-grid">
-            <AgentSnapshotCard
-              label={snapshot.total === 1 ? "Agent" : "Agents"}
-              value={snapshot.total}
-              sublabel="Total in this TRUST"
-            />
-            <AgentSnapshotCard
-              label="Active"
-              value={snapshot.active}
-              sublabel={
-                snapshot.active === 0
-                  ? "None online"
-                  : snapshot.active === snapshot.total
-                    ? "All online"
-                    : "Currently online"
-              }
-            />
-            <AgentSnapshotCard
-              label={snapshot.runningQuests === 1 ? "Running quest" : "Running quests"}
-              value={snapshot.runningQuests}
-              sublabel="In progress now"
-            />
-            <AgentSnapshotCard
-              label="Lifetime spend"
-              value={formatCurrency(snapshot.totalSpend, "USD")}
-              valueVariant="mono"
-              sublabel="Across every inference call"
-            />
-          </div>
-        </section>
-
         <section className="trust-agents-register" aria-label="Agents register">
-          <header className="trust-agents-register-head">
-            <span className="trust-agents-register-title">Agents register</span>
-            <span className="trust-agents-register-count">{filtered.length} visible</span>
-          </header>
           <div className="trust-agents-register-body">
             {agentsLoading && entityAgents.length === 0 ? (
               <div className="ideas-list-body">
@@ -481,48 +413,6 @@ function SuggestedAgents({ onPick }: { onPick: () => void }) {
         ))}
       </div>
     </section>
-  );
-}
-
-interface AgentSnapshotCardProps {
-  label: string;
-  value: number | string;
-  sublabel?: string;
-  /**
-   * Typography register for the headline value. `display` (default) uses
-   * the brand display face for count headlines — the canonical KPI
-   * treatment. `mono` switches to the monospace family + tabular-nums so
-   * currency reads as data and the `$0.00` digit widths align with the
-   * `.agents-list-spend` cell vocabulary inside the row table below.
-   */
-  valueVariant?: "display" | "mono";
-}
-
-/**
- * Snapshot card for the Agents page header strip. Same shape as the
- * Roles page (`trust-roles-snapshot-cell`) — label + count, with a
- * one-line teaching sublabel. The two pages share the
- * `.trust-roles-snapshot-*` CSS primitives until a generic refactor
- * pulls them under a neutral name.
- */
-function AgentSnapshotCard({
-  label,
-  value,
-  sublabel,
-  valueVariant = "display",
-}: AgentSnapshotCardProps) {
-  const valueClass =
-    valueVariant === "mono"
-      ? "trust-roles-snapshot-value trust-roles-snapshot-value--mono"
-      : "trust-roles-snapshot-value";
-  return (
-    <article className="trust-roles-snapshot-cell">
-      <header className="trust-roles-snapshot-head">
-        <span className="trust-roles-snapshot-label">{label}</span>
-        <span className={valueClass}>{value}</span>
-      </header>
-      {sublabel && <p className="trust-roles-snapshot-sublabel">{sublabel}</p>}
-    </article>
   );
 }
 

@@ -654,7 +654,7 @@
 }
 
 /* ── Canonical Roles page (2026-05-20) ─────────────────────────────────
- * Header + snapshot + content row with inspector. The header uses the
+ * Header + workspace content row with inspector. The header uses the
  * Ideas-style single-row chrome: title, search, controls, CTAs. */
 
 /* Shell — shared between Roles and Agents pages. Roles now treats the
@@ -826,50 +826,17 @@
 .trust-agents-register {
   display: flex;
   flex-direction: column;
-  flex-shrink: 0;
+  flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
-  border-top: 1px solid var(--border);
   border-radius: 0;
   background: transparent;
   overflow: hidden;
 }
-.trust-agents-register-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 44px;
-  padding: 10px 14px;
-}
-.trust-agents-register-title {
-  flex: 1;
-  min-width: 0;
-  font-family: var(--font-sans);
-  font-size: 13.5px;
-  font-weight: 620;
-  letter-spacing: -0.01em;
-  color: var(--color-text-primary);
-}
-.trust-agents-register-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 20px;
-  padding: 0 8px;
-  border-radius: 999px;
-  background: var(--bg-subtle);
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  color: var(--color-text-secondary);
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-  white-space: nowrap;
-}
 .trust-agents-register-body {
   margin: 0;
-  min-height: 0;
+  flex: 1 1 auto;
+  min-height: 320px;
   min-width: 0;
   border-radius: 0;
   background: transparent;
@@ -882,17 +849,17 @@
   background: transparent;
 }
 
-/* Suggested agents — three template rows below the agents table.
+/* Suggested agents — three template cards below the agents table.
    Reads as "this TRUST can grow along these axes" not as a promotional
-   row. The workspace owns the elevation; these cells stay flat. */
+   row. The workspace owns the outer elevation; the options are quiet
+   white cards. */
 .trust-agents-suggest {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  gap: 0;
-  margin-top: auto;
-  padding: 0;
-  border-top: 1px solid var(--border);
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  padding: var(--space-3);
   border-radius: 0;
   background: transparent;
   overflow: hidden;
@@ -902,8 +869,8 @@
   align-items: flex-end;
   justify-content: space-between;
   gap: var(--space-3);
-  min-height: 44px;
-  padding: 10px 14px;
+  min-height: 0;
+  padding: 0;
 }
 .trust-agents-suggest-titles {
   display: flex;
@@ -976,9 +943,8 @@
 .trust-agents-suggest-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0;
+  gap: var(--space-2);
   margin: 0;
-  border-top: 1px solid var(--border);
 }
 .trust-agents-suggest-card {
   appearance: none;
@@ -991,9 +957,9 @@
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-4);
-  background: transparent;
-  border-right: 1px solid var(--border);
-  border-radius: 0;
+  background: var(--color-card-elevated);
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 0 0 1px var(--border);
   min-width: 0;
   transition:
     background 0.12s ease,
@@ -1001,7 +967,7 @@
 }
 /* Hover uses a quiet tier shift; the workspace owns the elevation. */
 .trust-agents-suggest-card:hover {
-  background: var(--color-card-elevated);
+  background: var(--color-card);
   box-shadow: none;
 }
 .trust-agents-suggest-card:hover .trust-agents-suggest-card-cta {
@@ -1012,9 +978,6 @@
   box-shadow: inset 0 0 0 2px var(--color-accent);
   position: relative;
   z-index: 1;
-}
-.trust-agents-suggest-card:last-child {
-  border-right: 0;
 }
 .trust-agents-suggest-card-title {
   margin: 0;
@@ -1050,28 +1013,6 @@
   .trust-agents-suggest-grid {
     grid-template-columns: 1fr;
   }
-
-  .trust-agents-suggest-card {
-    border-right: 0;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .trust-agents-suggest-card:last-child {
-    border-bottom: 0;
-  }
-}
-/* Agents snapshot — compact KPI row matching Roles. The metrics are cells
-   inside the workspace rather than separate floating cards. */
-.trust-agents-snapshot {
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  border-radius: 0;
-  background: transparent;
-  overflow: hidden;
-}
-.trust-agents-snapshot-grid {
-  min-height: 68px;
 }
 
 /* Roles snapshot — one slab in the same family as the Quests scope
@@ -1199,67 +1140,6 @@
   font-weight: 500;
   line-height: 1.3;
   letter-spacing: 0.01em;
-}
-
-/* Agents snapshot — stacked KPI register.
-   The shared roles snapshot card runs label and value side-by-side via
-   `space-between`, which wraps "Lifetime spend" onto two lines next to
-   a wide currency value and breaks the rhythm across the 4-card strip.
-   Agents overrides the head to stack vertically: tiny eyebrow label on
-   top, large display value below. Matches the canonical cockpit-mini
-   KPI register used on the Overview page (`.trust-primitive-*`). */
-.trust-agents-snapshot .trust-roles-snapshot-head {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-}
-.trust-agents-snapshot .trust-roles-snapshot-label {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--color-text-primary);
-  line-height: 1.1;
-  white-space: nowrap;
-}
-.trust-agents-snapshot .trust-roles-snapshot-value {
-  font-size: 22px;
-  letter-spacing: -0.02em;
-  line-height: 1;
-}
-/* Mono variant inside the agents-snapshot context — currency headlines
-   ride in the mono stack with tightened size + tracking so `$0.00` lands
-   visually aligned with the display-face count cards next to it instead
-   of standing taller. Mono digits carry more pixel weight than the
-   display face at the same nominal pt, so the pull-back keeps the four
-   KPI values reading as one rhythm across the strip. */
-.trust-agents-snapshot .trust-roles-snapshot-value--mono {
-  font-family: var(--font-mono);
-  font-size: 20px;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-}
-.trust-agents-snapshot-header {
-  display: flex;
-}
-.trust-agents-snapshot-grid {
-  gap: 0;
-  margin: 0;
-  min-height: 68px;
-  border-radius: 0;
-}
-.trust-agents-snapshot .trust-roles-snapshot-cell {
-  gap: 4px;
-  padding: 12px 16px;
-  background: transparent;
-  border-right: 1px solid var(--border);
-}
-.trust-agents-snapshot .trust-roles-snapshot-sublabel {
-  display: none;
-}
-.trust-agents-snapshot .trust-roles-snapshot-breakdown {
-  margin-top: auto;
-  padding-top: var(--space-2);
 }
 
 /* Content row — graph canvas. The card itself is the workspace; the
@@ -1806,8 +1686,7 @@
   .trust-roles-snapshot {
     display: flex;
   }
-  .trust-roles-snapshot-grid,
-  .trust-agents-snapshot-grid {
+  .trust-roles-snapshot-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .agents-list [data-scroll-width="sm"] {

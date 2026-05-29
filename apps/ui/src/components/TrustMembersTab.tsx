@@ -127,17 +127,6 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
     });
   }, [rows, query]);
 
-  const snapshot = useMemo(() => {
-    let active = 0;
-    let invited = 0;
-    let noRole = 0;
-    for (const row of rows) {
-      if (row.status === "active") active += 1;
-      if (row.status === "invited") invited += 1;
-      if (row.status === "no_role" || row.status === "accepted") noRole += 1;
-    }
-    return { total: rows.length, active, invited, noRole };
-  }, [rows]);
   const inviteTargetRole = useMemo(
     () => roles.find((role) => role.occupant_kind === "vacant") ?? null,
     [roles],
@@ -266,7 +255,6 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
       </PrimitivePageHeader>
 
       <main className="trust-members-main">
-        <MemberSnapshotBand snapshot={snapshot} />
         <section className="trust-members-register" aria-label="Members">
           {loading && (
             <div className="trust-members-state">
@@ -379,43 +367,6 @@ function MemberIdentity({ row }: { row: MemberRow }) {
         <span className="trust-member-detail">{row.detail}</span>
       </span>
     </div>
-  );
-}
-
-function MemberSnapshotBand({
-  snapshot,
-}: {
-  snapshot: { total: number; active: number; invited: number; noRole: number };
-}) {
-  return (
-    <section className="trust-members-snapshot trust-roles-snapshot" aria-label="Member snapshot">
-      <div className="trust-roles-snapshot-grid">
-        <SnapshotCell label="Members" value={snapshot.total} sublabel="Visible humans" />
-        <SnapshotCell label="Active" value={snapshot.active} sublabel="Holding roles" />
-        <SnapshotCell label="Invited" value={snapshot.invited} sublabel="Pending acceptance" />
-        <SnapshotCell label="No role" value={snapshot.noRole} sublabel="Access without a seat" />
-      </div>
-    </section>
-  );
-}
-
-function SnapshotCell({
-  label,
-  value,
-  sublabel,
-}: {
-  label: string;
-  value: number;
-  sublabel: string;
-}) {
-  return (
-    <article className="trust-roles-snapshot-cell">
-      <header className="trust-roles-snapshot-head">
-        <span className="trust-roles-snapshot-label">{label}</span>
-        <span className="trust-roles-snapshot-value">{value}</span>
-      </header>
-      <p className="trust-roles-snapshot-sublabel">{sublabel}</p>
-    </article>
   );
 }
 

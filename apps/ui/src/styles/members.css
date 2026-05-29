@@ -1,6 +1,5 @@
 /* Members surface -- trust humans, not authority seats.
-   This page intentionally uses the role snapshot primitives for continuity,
-   then switches to a compact register for the actual directory. */
+   The table is the directory; the top rail already carries the page count. */
 
 .trust-members {
   --toolbar-control-h: 32px;
@@ -79,7 +78,6 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  border-top: 1px solid var(--border);
   border-radius: 0;
   background: transparent;
 }
@@ -170,72 +168,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.trust-members-snapshot {
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  overflow: hidden;
-  border-radius: 0;
-  background: transparent;
-}
-
-.trust-members-snapshot .trust-roles-snapshot-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0;
-  margin: 0;
-  min-height: 68px;
-  overflow: hidden;
-  border-radius: 0;
-}
-
-.trust-members-snapshot .trust-roles-snapshot-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-  padding: 12px 16px;
-  border-right: 1px solid var(--border);
-  background: transparent;
-}
-
-.trust-members-snapshot .trust-roles-snapshot-cell:last-child {
-  border-right: 0;
-}
-
-.trust-members-snapshot .trust-roles-snapshot-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.trust-members-snapshot .trust-roles-snapshot-label {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--color-text-primary);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.1;
-  letter-spacing: 0;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.trust-members-snapshot .trust-roles-snapshot-value {
-  color: var(--color-text-primary);
-  font-family: var(--font-display);
-  font-size: 22px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 500;
-  letter-spacing: -0.02em;
-  line-height: 1;
-}
-
-.trust-members-snapshot .trust-roles-snapshot-sublabel {
-  display: none;
-}
-
 @media (max-width: 900px) {
   .trust-members-toolbar {
     flex-wrap: wrap;
@@ -243,10 +175,6 @@
 
   .trust-members-toolbar > .ideas-list-search-field {
     flex-basis: 100%;
-  }
-
-  .trust-members-snapshot .trust-roles-snapshot-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -271,26 +199,9 @@
     overflow: visible;
   }
 
-  .trust-members-snapshot .trust-roles-snapshot-grid {
-    grid-template-columns: 1fr;
-    min-height: 0;
-  }
-
-  .trust-members-snapshot .trust-roles-snapshot-cell {
-    gap: var(--space-1);
-    padding: var(--space-3);
-    border-right: 0;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .trust-members-snapshot .trust-roles-snapshot-cell:last-child {
-    border-bottom: 0;
-  }
-
   .trust-members-register {
     flex: 0 0 auto;
     overflow: visible;
-    padding-top: var(--space-3);
     background: transparent;
   }
 
