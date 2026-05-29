@@ -32,8 +32,10 @@ async function assertRoleDetail(page) {
     if (!detailsHeaderEl) failures.push("Missing role inspector header");
 
     const pageOverflow =
-      document.documentElement.scrollWidth - document.documentElement.clientWidth;
-    if (pageOverflow > 1) failures.push(`Page has ${pageOverflow}px horizontal overflow`);
+      document.documentElement.scrollWidth -
+      document.documentElement.clientWidth;
+    if (pageOverflow > 1)
+      failures.push(`Page has ${pageOverflow}px horizontal overflow`);
 
     if (roleHeaderEl && detailsHeaderEl) {
       const roleHeader = roleHeaderEl.getBoundingClientRect();
@@ -50,7 +52,9 @@ async function assertRoleDetail(page) {
         failures.push("Role document overlaps the inspector column");
       }
       if (inspectorRect.width < 260) {
-        failures.push(`Inspector column is too narrow: ${Math.round(inspectorRect.width)}px`);
+        failures.push(
+          `Inspector column is too narrow: ${Math.round(inspectorRect.width)}px`,
+        );
       }
     }
 
@@ -76,25 +80,59 @@ async function assertTrustTools(page) {
   return page.evaluate(() => {
     const failures = [];
     const main = document.querySelector(".trust-tools-main");
+    const header = document.querySelector(".trust-tools-page-header");
+    const paper = main?.closest(".content-paper");
     const rows = [...document.querySelectorAll(".agent-settings-tool-row")];
     const states = [...document.querySelectorAll(".agent-settings-tool-state")];
     const headerCount = document.querySelector(".trust-tools-header-count");
 
     if (!main) failures.push("Missing trust tools main surface");
+    if (!header) failures.push("Missing trust tools shell top rail");
     if (rows.length === 0) failures.push("No tools rows rendered");
     if (states.length === 0) failures.push("No tool state pills rendered");
-    if (headerCount) failures.push("Tools header has duplicated enabled count action");
+    if (headerCount)
+      failures.push("Tools header has duplicated enabled count action");
+
+    if (paper) {
+      const paperStyle = window.getComputedStyle(paper);
+      if (paperStyle.boxShadow !== "none") {
+        failures.push(
+          "Tools page is still wrapped by the global content-paper elevation",
+        );
+      }
+      if (Number.parseFloat(paperStyle.borderTopLeftRadius) > 0) {
+        failures.push(
+          "Tools page global paper still has rounded content-card corners",
+        );
+      }
+    } else {
+      failures.push("Tools page is not mounted inside the app content paper");
+    }
 
     const pageOverflow =
-      document.documentElement.scrollWidth - document.documentElement.clientWidth;
-    if (pageOverflow > 1) failures.push(`Page has ${pageOverflow}px horizontal overflow`);
+      document.documentElement.scrollWidth -
+      document.documentElement.clientWidth;
+    if (pageOverflow > 1)
+      failures.push(`Page has ${pageOverflow}px horizontal overflow`);
+
+    if (header && main) {
+      const headerRect = header.getBoundingClientRect();
+      const mainRect = main.getBoundingClientRect();
+      if (mainRect.top <= headerRect.bottom + 4) {
+        failures.push(
+          "Tools working surface is not visually separated below the shell top rail",
+        );
+      }
+    }
 
     for (const state of states.slice(0, 6)) {
       const rect = state.getBoundingClientRect();
       const style = window.getComputedStyle(state);
       const radius = Number.parseFloat(style.borderRadius);
       if (rect.height < 20 || rect.height > 26) {
-        failures.push(`Tool state pill height is outside compact range: ${Math.round(rect.height)}px`);
+        failures.push(
+          `Tool state pill height is outside compact range: ${Math.round(rect.height)}px`,
+        );
         break;
       }
       if (radius < rect.height / 2 - 1) {
