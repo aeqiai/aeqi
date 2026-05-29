@@ -6,7 +6,6 @@ import type { Role, RoleEdge, Quest } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
 import { api } from "@/lib/api";
 import { formatMediumDate } from "@/lib/i18n";
-import { Button } from "@/components/ui";
 
 interface RoleInspectorProps {
   role: Role;
@@ -245,168 +244,91 @@ export default function RoleInspector({
             {isVacant && <p className="role-inspector-holder">Seat open</p>}
           </div>
         </div>
-        <div className="role-inspector-head-actions">
-          {onEdit ? (
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="role-inspector-action"
-              onClick={onEdit}
-              leadingIcon={<Pencil size={13} strokeWidth={1.7} />}
-            >
-              Edit
-            </Button>
-          ) : (
-            <Link
-              to={`${basePath}/roles/${encodeURIComponent(role.id)}/edit`}
-              className="role-inspector-action"
-            >
-              <Pencil size={13} strokeWidth={1.7} />
-              Edit
-            </Link>
-          )}
-          <Link
-            to={`${basePath}/roles/${encodeURIComponent(role.id)}/invite`}
-            className="role-inspector-action role-inspector-action--primary"
-          >
-            <Mail size={13} strokeWidth={1.7} />
-            {isVacant ? "Invite to role" : "Reassign role"}
-          </Link>
-        </div>
       </header>
 
-      {/* Vacant action — primary affordance for an empty seat */}
-      {isVacant && (
-        <Link
-          to={`${basePath}/roles/${encodeURIComponent(role.id)}/invite`}
-          className="role-inspector-invite"
-        >
-          <Mail size={14} strokeWidth={1.6} />
-          Invite someone to this role
-          <ArrowRight size={14} strokeWidth={1.8} />
-        </Link>
-      )}
-
-      {/* Body — grouped into Identity / Mandate / Authority / Activity
-         sections so a fresh visitor reads top-to-bottom in a clear
-         narrative arc (who is this, what can they do, what authority
-         do they have, what has happened). Section titles use sentence-
-         case bold-muted instead of uppercase eyebrow caps to stay on
-         the right side of the design-system editorial-flourish rule. */}
       <div className="role-inspector-body">
-        <Section title="Identity">
+        <Section title="Editable">
+          <EditableRow
+            label="Role profile"
+            title={role.title}
+            detail={`${roleTypeLabel.toLowerCase()} role`}
+            icon={<Pencil size={14} strokeWidth={1.7} />}
+            to={onEdit ? undefined : `${basePath}/roles/${encodeURIComponent(role.id)}/edit`}
+            onClick={onEdit}
+          />
+
+          <EditableRow
+            label="Assignment"
+            title={
+              isVacant
+                ? "Seat open"
+                : occupantDisplayName
+                  ? occupantDisplayName
+                  : `Held by ${heldByLabel}`
+            }
+            detail={isVacant ? "Invite someone into this role" : "Change the assigned holder"}
+            icon={<Mail size={14} strokeWidth={1.7} />}
+            to={`${basePath}/roles/${encodeURIComponent(role.id)}/invite`}
+          />
+
+          <EditableRow
+            label="Mandate"
+            title={charter?.name ?? (charterIdeaId ? "Loading charter" : "No mandate defined")}
+            detail={charterExcerpt || "Describe what this role can decide, execute, or delegate."}
+            icon={<FileText size={14} strokeWidth={1.6} />}
+            to={
+              charterIdeaId
+                ? `${basePath}/ideas/${encodeURIComponent(charterIdeaId)}`
+                : `${basePath}/roles/${encodeURIComponent(role.id)}/edit`
+            }
+          >
+            {charter?.tags && charter.tags.length > 0 && (
+              <div className="role-inspector-row-tags">
+                {charter.tags.slice(0, 4).map((tag) => (
+                  <span key={tag} className="role-inspector-row-tag">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+          </EditableRow>
+        </Section>
+
+        <Section title="Reference">
           {!isVacant && role.occupant_id && (
-            <Field label="Holder">
+            <ReadOnlyRow label="Holder ID">
               {isTrust ? (
                 <Link
                   to={`/trust/${encodeURIComponent(role.occupant_id)}`}
                   className="role-inspector-holder-link"
                   title={`Open ${occupantDisplayName ?? "TRUST"} profile`}
                 >
-                  {occupantDisplayName ? (
+                  {occupantDisplayName && (
                     <>
                       <Landmark size={13} strokeWidth={1.6} aria-hidden />
                       <span>{occupantDisplayName}</span>
-                      <code>{compactAddress(role.occupant_id)}</code>
                     </>
-                  ) : (
-                    <code>{compactAddress(role.occupant_id)}</code>
                   )}
+                  <code>{compactAddress(role.occupant_id)}</code>
                 </Link>
               ) : (
                 <code>{compactAddress(role.occupant_id)}</code>
               )}
-              <button
-                type="button"
-                className="role-inspector-copy"
+              <CopyButton
+                copied={copiedField === "holder"}
                 onClick={() => copy(role.occupant_id!, "holder")}
-                title={copiedField === "holder" ? "Copied" : "Copy ID"}
-              >
-                {copiedField === "holder" ? (
-                  <Check size={12} strokeWidth={1.8} />
-                ) : (
-                  <Copy size={12} strokeWidth={1.5} />
-                )}
-              </button>
-            </Field>
+              />
+            </ReadOnlyRow>
           )}
 
-          <Field label="Role ID">
+          <ReadOnlyRow label="Role ID">
             <code>{compactAddress(role.id)}</code>
-            <button
-              type="button"
-              className="role-inspector-copy"
-              onClick={() => copy(role.id, "roleId")}
-              title={copiedField === "roleId" ? "Copied" : "Copy ID"}
-            >
-              {copiedField === "roleId" ? (
-                <Check size={12} strokeWidth={1.8} />
-              ) : (
-                <Copy size={12} strokeWidth={1.5} />
-              )}
-            </button>
-          </Field>
-        </Section>
-
-        <Section title="Mandate">
-          {/* The mandate IS the charter idea linked from the role row.
-              Renders as a preview CARD (icon + name + first-paragraph
-              excerpt + tag chips) that links to the canonical idea
-              detail page on click — edits happen THERE, not inline.
-              Keeps the role inspector compositional rather than a
-              mini-editor. */}
-          {charterIdeaId ? (
-            <Link
-              to={`${basePath}/ideas/${encodeURIComponent(charterIdeaId)}`}
-              className="role-inspector-charter-card"
-              title="Open charter idea"
-            >
-              <div className="role-inspector-charter-card-head">
-                <FileText size={14} strokeWidth={1.6} aria-hidden />
-                <span className="role-inspector-charter-card-name">
-                  {charter?.name ?? "Loading…"}
-                </span>
-                <ArrowRight
-                  size={13}
-                  strokeWidth={1.8}
-                  className="role-inspector-charter-card-arrow"
-                  aria-hidden
-                />
-              </div>
-              {charterExcerpt && (
-                <p className="role-inspector-charter-card-excerpt">{charterExcerpt}</p>
-              )}
-              {charter?.tags && charter.tags.length > 0 && (
-                <div className="role-inspector-charter-card-tags">
-                  {charter.tags.slice(0, 4).map((tag) => (
-                    <span key={tag} className="role-inspector-charter-card-tag">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </Link>
-          ) : (
-            <Field>
-              <span className="role-inspector-mandate">
-                <em className="role-inspector-mandate-empty">
-                  No mandate defined yet. Describe what this role can decide, execute, or delegate.
-                </em>
-              </span>
-              <Link
-                to={`${basePath}/roles/${encodeURIComponent(role.id)}/edit`}
-                className="role-inspector-copy"
-                title="Edit role"
-              >
-                <Pencil size={12} strokeWidth={1.6} />
-              </Link>
-            </Field>
-          )}
+            <CopyButton copied={copiedField === "roleId"} onClick={() => copy(role.id, "roleId")} />
+          </ReadOnlyRow>
         </Section>
 
         <Section title="Authority">
-          <Field label="Grants">
+          <ReadOnlyRow label="Grants">
             <span className="role-inspector-stat">{role.grants.length}</span>
             {role.grants.length > 0 && (
               <span className="role-inspector-meta">
@@ -414,13 +336,13 @@ export default function RoleInspector({
                 {role.grants.length > 2 ? ` · +${role.grants.length - 2}` : ""}
               </span>
             )}
-          </Field>
+          </ReadOnlyRow>
         </Section>
 
         {(parentRoles.length > 0 || childRoles.length > 0 || role.role_type === "director") && (
           <Section title="Role graph">
             {parentRoles.length > 0 && (
-              <Field label="Reports to">
+              <ReadOnlyRow label="Reports to">
                 {parentRoles.slice(0, 3).map((p) => (
                   <Link
                     key={p.id}
@@ -433,17 +355,17 @@ export default function RoleInspector({
                 {parentRoles.length > 3 && (
                   <span className="role-inspector-meta">+{parentRoles.length - 3} more</span>
                 )}
-              </Field>
+              </ReadOnlyRow>
             )}
 
             {parentRoles.length === 0 && role.role_type === "director" && (
-              <Field label="Reports to">
+              <ReadOnlyRow label="Reports to">
                 <span className="role-inspector-meta">Root role</span>
-              </Field>
+              </ReadOnlyRow>
             )}
 
             {childRoles.length > 0 && (
-              <Field label="Delegates to">
+              <ReadOnlyRow label="Delegates to">
                 {childRoles.slice(0, 3).map((c) => (
                   <Link
                     key={c.id}
@@ -456,24 +378,24 @@ export default function RoleInspector({
                 {childRoles.length > 3 && (
                   <span className="role-inspector-meta">+{childRoles.length - 3} more</span>
                 )}
-              </Field>
+              </ReadOnlyRow>
             )}
           </Section>
         )}
 
         <Section title="Activity">
           {role.occupant_kind === "agent" && activeQuests > 0 && (
-            <Field label="Active quests">
+            <ReadOnlyRow label="Active quests">
               <Link to={`${basePath}/quests`} className="role-inspector-link">
                 {activeQuests}
                 <ArrowRight size={12} strokeWidth={1.8} />
               </Link>
-            </Field>
+            </ReadOnlyRow>
           )}
 
-          <Field label="Created">
+          <ReadOnlyRow label="Created">
             <span className="role-inspector-meta">{formatMediumDate(role.created_at)}</span>
-          </Field>
+          </ReadOnlyRow>
         </Section>
       </div>
     </aside>
@@ -482,7 +404,7 @@ export default function RoleInspector({
 
 interface SectionProps {
   title: string;
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 function Section({ title, children }: SectionProps) {
@@ -494,22 +416,77 @@ function Section({ title, children }: SectionProps) {
   );
 }
 
-interface FieldProps {
-  /** Optional label. When omitted, the field renders bare — useful when
-   * the section title already names the field (Mandate section's
-   * single Mandate field, etc.) so we don't stack the same word twice. */
-  label?: string;
-  /** Optional extra class applied to the field root. */
-  className?: string;
+interface EditableRowProps {
+  label: string;
+  title: string;
+  detail?: string;
+  icon: React.ReactNode;
+  to?: string;
+  onClick?: () => void;
+  children?: React.ReactNode;
+}
+
+function EditableRow({ label, title, detail, icon, to, onClick, children }: EditableRowProps) {
+  const content = (
+    <>
+      <span className="role-inspector-row-icon" aria-hidden>
+        {icon}
+      </span>
+      <span className="role-inspector-row-copy">
+        <span className="role-inspector-row-label">{label}</span>
+        <span className="role-inspector-row-title">{title}</span>
+        {detail && <span className="role-inspector-row-detail">{detail}</span>}
+        {children}
+      </span>
+      <ArrowRight size={13} strokeWidth={1.8} className="role-inspector-row-arrow" aria-hidden />
+    </>
+  );
+
+  if (to) {
+    return (
+      <Link to={to} className="role-inspector-row role-inspector-row--editable">
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className="role-inspector-row role-inspector-row--editable"
+      onClick={onClick}
+      data-pill-allowed=""
+    >
+      {content}
+    </button>
+  );
+}
+
+interface ReadOnlyRowProps {
+  label: string;
   children: React.ReactNode;
 }
 
-function Field({ label, className, children }: FieldProps) {
+function ReadOnlyRow({ label, children }: ReadOnlyRowProps) {
   return (
-    <div className={className ? `role-inspector-field ${className}` : "role-inspector-field"}>
-      {label && <span className="role-inspector-field-label">{label}</span>}
-      <div className="role-inspector-field-value">{children}</div>
+    <div className="role-inspector-row role-inspector-row--readonly">
+      <span className="role-inspector-row-label">{label}</span>
+      <div className="role-inspector-row-value">{children}</div>
     </div>
+  );
+}
+
+function CopyButton({ copied, onClick }: { copied: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      className="role-inspector-copy"
+      onClick={onClick}
+      title={copied ? "Copied" : "Copy ID"}
+      data-pill-allowed=""
+    >
+      {copied ? <Check size={12} strokeWidth={1.8} /> : <Copy size={12} strokeWidth={1.5} />}
+    </button>
   );
 }
 

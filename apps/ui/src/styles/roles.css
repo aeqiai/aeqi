@@ -1302,57 +1302,6 @@
   gap: var(--space-3);
   min-width: 0;
 }
-.role-inspector-head-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-  align-self: flex-start;
-}
-.role-inspector-action {
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 30px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: var(--radius-full);
-  background: var(--color-card-muted);
-  color: var(--color-text-secondary);
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 500;
-  text-decoration: none;
-  cursor: pointer;
-  transition:
-    background 0.12s ease,
-    color 0.12s ease,
-    transform 0.12s ease;
-}
-.role-inspector-action:hover,
-.role-inspector-action:focus-visible {
-  color: var(--color-text-primary);
-  background: var(--color-card-subtle);
-}
-.role-inspector-action:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--color-accent);
-}
-.role-inspector-action:active {
-  transform: translateY(0.5px);
-}
-.role-inspector-action--primary {
-  background: var(--accent);
-  color: var(--btn-primary-text);
-}
-.role-inspector-action--primary:hover,
-.role-inspector-action--primary:focus-visible {
-  background: var(--accent);
-  color: var(--btn-primary-text);
-  filter: brightness(1.04);
-}
 /* Avatar slot — sized container only. The inner primitive owns its
    own shape (RoundAvatar = circle for humans, BlockAvatar /
    rounded-square <img> for agents). Don't force a wrapper shape here
@@ -1456,60 +1405,22 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
 }
-.role-inspector-invite {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  background: var(--color-warmth-bg);
-  color: var(--color-warmth);
-  border-radius: var(--radius-full);
-  font-family: var(--font-sans);
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  text-decoration: none;
-  transition:
-    transform 0.12s ease,
-    filter 0.12s ease,
-    box-shadow 0.12s ease;
-}
-.role-inspector-invite:hover {
-  filter: brightness(1.04);
-  transform: translateY(-1px);
-}
-.role-inspector-invite:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--color-accent);
-}
-.role-inspector-invite:active {
-  transform: translateY(0.5px);
-  filter: brightness(1);
-}
 .role-inspector-body {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: 0;
+  border-top: 1px solid var(--border);
 }
 .role-inspector-section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: 8px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
 }
 .role-inspector-section-title {
-  margin: 0 0 2px;
-  font-family: var(--font-sans);
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  letter-spacing: 0.005em;
-}
-.role-inspector-field {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-.role-inspector-field-label {
+  margin: 0;
+  padding: 0 2px;
   font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 600;
@@ -1517,23 +1428,147 @@
   text-transform: uppercase;
   color: var(--color-text-muted);
 }
-.role-inspector-field-value {
+.role-inspector-row {
+  box-sizing: border-box;
+  width: 100%;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+}
+.role-inspector-row--editable {
+  appearance: none;
+  text-align: left;
+  text-decoration: none;
+  background: var(--color-card-elevated);
+  border-color: var(--border);
+  color: var(--color-text-primary);
+  box-shadow: 0 1px 2px rgba(10, 10, 11, 0.035);
+  cursor: pointer;
+  transition:
+    border-color 0.12s ease,
+    background 0.12s ease,
+    box-shadow 0.12s ease,
+    transform 0.12s ease;
+}
+.role-inspector-row--editable:hover,
+.role-inspector-row--editable:focus-visible {
+  outline: none;
+  border-color: var(--input-border-hover);
+  background: var(--color-card);
+  box-shadow: var(--shadow-sm);
+}
+.role-inspector-row--editable:active {
+  transform: translateY(0.5px);
+}
+.role-inspector-row--readonly {
+  align-items: flex-start;
+  justify-content: space-between;
+  background: var(--bg-row);
+  color: var(--color-text-primary);
+}
+.role-inspector-row-icon {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--color-card-muted);
+  color: var(--color-text-secondary);
+}
+.role-inspector-row-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.role-inspector-row-label {
+  display: block;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.role-inspector-row-title {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--color-text-primary);
+}
+.role-inspector-row-detail {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
+  line-height: 1.35;
+  color: var(--color-text-secondary);
+}
+.role-inspector-row-arrow {
+  flex: 0 0 auto;
+  color: var(--color-text-muted);
+  transition:
+    color 0.12s ease,
+    transform 0.12s ease;
+}
+.role-inspector-row--editable:hover .role-inspector-row-arrow,
+.role-inspector-row--editable:focus-visible .role-inspector-row-arrow {
+  color: var(--color-text-primary);
+  transform: translateX(2px);
+}
+.role-inspector-row-value {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
   font-family: var(--font-sans);
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
-  flex-wrap: wrap;
-  min-width: 0;
 }
-.role-inspector-field-value code {
+.role-inspector-row-value code,
+.role-inspector-holder-link code {
   font-family: var(--font-sans);
   font-size: var(--font-size-xs);
-  background: var(--color-card-muted);
+  background: var(--color-card-elevated);
   padding: 2px 8px;
   border-radius: 999px;
   font-variant-numeric: tabular-nums;
+}
+.role-inspector-row-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+.role-inspector-row-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 8px;
+  background: var(--bg-row);
+  color: var(--color-text-muted);
+  border-radius: 999px;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
 }
 .role-inspector-copy {
   display: inline-flex;
@@ -1557,98 +1592,6 @@
 .role-inspector-copy:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--color-accent);
-}
-.role-inspector-mandate {
-  flex: 1;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-primary);
-  line-height: 1.45;
-}
-.role-inspector-mandate-empty {
-  color: var(--color-text-muted);
-  font-style: italic;
-}
-/* Charter preview card — the role's mandate rendered as a clickable
-   card with the idea name + first-paragraph excerpt + tag chips.
-   Click lands on the canonical idea detail page; editing happens
-   there. Hover surface lifts subtly to telegraph clickability without
-   competing with the inspector's other fields. */
-.role-inspector-charter-card {
-  display: block;
-  padding: 12px 14px;
-  background: var(--color-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  color: var(--color-text-primary);
-  text-decoration: none;
-  transition:
-    border-color 0.12s ease,
-    box-shadow 0.12s ease,
-    background 0.12s ease,
-    transform 0.12s ease;
-}
-.role-inspector-charter-card:hover,
-.role-inspector-charter-card:focus-visible {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: var(--shadow-sm);
-}
-.role-inspector-charter-card:focus-visible {
-  box-shadow: 0 0 0 2px var(--color-accent);
-}
-.role-inspector-charter-card:active {
-  transform: translateY(0.5px);
-}
-.role-inspector-charter-card-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-.role-inspector-charter-card-name {
-  flex: 1;
-  font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-.role-inspector-charter-card-arrow {
-  color: var(--color-text-muted);
-  transition: transform 0.12s ease;
-}
-.role-inspector-charter-card:hover .role-inspector-charter-card-arrow,
-.role-inspector-charter-card:focus-visible .role-inspector-charter-card-arrow {
-  color: var(--accent);
-  transform: translateX(2px);
-}
-.role-inspector-charter-card-excerpt {
-  margin: 8px 0 0 0;
-  font-family: var(--font-sans);
-  font-size: var(--font-size-sm);
-  line-height: 1.5;
-  color: var(--color-text-primary);
-}
-.role-inspector-charter-card-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 8px;
-}
-.role-inspector-charter-card-tag {
-  display: inline-flex;
-  align-items: center;
-  height: 18px;
-  padding: 0 8px;
-  background: var(--bg-row);
-  color: var(--color-text-muted);
-  border-radius: 999px;
-  font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
 }
 .role-inspector-stat {
   font-family: var(--font-display);
