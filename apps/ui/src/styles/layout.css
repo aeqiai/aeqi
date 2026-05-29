@@ -8854,6 +8854,20 @@ button.ideas-content-pill:hover {
   background: var(--color-card-muted);
   color: var(--color-text-primary);
 }
+button.ideas-tag-add.ideas-content-pill,
+button.ideas-ref-add.ideas-content-pill {
+  background: var(--color-card-elevated);
+  color: var(--color-text-secondary);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+button.ideas-tag-add.ideas-content-pill:hover,
+button.ideas-ref-add.ideas-content-pill:hover,
+button.ideas-tag-add.ideas-content-pill:focus-visible,
+button.ideas-ref-add.ideas-content-pill:focus-visible {
+  background: var(--color-card);
+  color: var(--color-text-primary);
+  box-shadow: inset 0 0 0 1px var(--input-border-hover);
+}
 .ideas-ref-chip.ideas-content-pill {
   gap: 5px;
 }
