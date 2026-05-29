@@ -2,8 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 async function writeClipboard(value: string) {
   if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(value);
-    return;
+    try {
+      await navigator.clipboard.writeText(value);
+      return;
+    } catch {
+      /* Fall through to the selected-text copy path. */
+    }
   }
 
   const textarea = document.createElement("textarea");
@@ -13,8 +17,9 @@ async function writeClipboard(value: string) {
   textarea.style.left = "-9999px";
   document.body.appendChild(textarea);
   textarea.select();
-  document.execCommand("copy");
+  const copied = document.execCommand("copy");
   document.body.removeChild(textarea);
+  if (!copied) throw new Error("Could not copy to clipboard.");
 }
 
 export function useClipboardToast(timeoutMs = 1800) {
