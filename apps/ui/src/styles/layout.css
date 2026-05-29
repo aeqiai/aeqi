@@ -191,7 +191,7 @@
   /* Vertical insets matching .content-column's shell frame. The top is
      slightly tighter than the bottom so the global chrome sits closer to
      the viewport edge without making the workspace feel bottom-heavy. */
-  padding-top: 8px;
+  padding-top: var(--shell-top-inset, 6px);
   padding-bottom: var(--shell-footer-h, 28px);
 }
 .left-sidebar.collapsed {
@@ -309,7 +309,7 @@
 /* Brand left edge (16px) aligns with nav-item icon-slot left edge
    (nav padding 8px + item padding 8px), so wordmark sits directly
    above the icon column. */
-/* 44px band optically matches the primitive shell top rail on the right:
+/* 36px band optically matches the compact primitive shell top rail on the right:
    the wordmark, page title, search, and action controls share one chrome
    centerline while the working canvas starts beneath that rail. */
 .sidebar-header {
@@ -321,7 +321,7 @@
      collapse button sits in the same column as the help (?) button
      in the row below. The top inset compensates for the wordmark's
      optical bounds and centers it with the title/search/action rail. */
-  padding: 12px 8px 0;
+  padding: 4px 8px 0;
   box-sizing: border-box;
   flex-shrink: 0;
 }
@@ -1035,6 +1035,9 @@
   gap: 1px;
   padding: 8px;
 }
+.left-sidebar-body > .sidebar-surface-nav:first-child {
+  padding-top: 12px;
+}
 
 /* Sidebar bottom — sticks below the tree's scroll viewport. */
 .sidebar-bottom {
@@ -1196,7 +1199,7 @@
   background: var(--bg-sidebar);
   /* Tight top inset for the global chrome; bottom/right keep the frame
      rhythm so the workspace still reads as a floating operating surface. */
-  padding-top: 8px;
+  padding-top: var(--shell-top-inset, 6px);
   padding-bottom: var(--shell-footer-h);
   padding-right: var(--shell-footer-h);
 }

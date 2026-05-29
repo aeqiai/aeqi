@@ -140,8 +140,12 @@
      secondary meta line, without crowding the main content column. */
   --sidebar-panel-width: 300px;
 
-  /* Shell frame inset. The sidebar and content sheet both start on this
-     10px rail so the first row reads as one shared operating grid. */
+  /* Shell frame inset. Top is intentionally tighter than the bottom frame:
+     the global chrome should feel compact, while the bottom still gives the
+     workspace a little landing room. */
+  --shell-top-inset: 6px;
+
+  /* Shell bottom/right frame inset. */
   --shell-footer-h: 10px;
 
   /* Primitive toolbar rhythm: search + circular sort/filter/view controls.
