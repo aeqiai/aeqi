@@ -25,36 +25,35 @@ describe("TrustToolsTab", () => {
     });
   });
 
-  it("renders Tools with status below the page header", () => {
+  it("renders Tools as a flattened register below the page header", () => {
     render(<TrustToolsTab agentId="agent-1" />);
 
     const header = screen.getByLabelText("Tool controls");
     const main = screen.getByRole("main", { name: "Trust tools" });
-    const card = screen.getByLabelText("Trust tools").querySelector(".trust-tools-card");
+    const card = screen.getByLabelText("Tool register");
     const heading = within(header).getByRole("heading", { name: "Tools" });
-    const summary = screen.getByText("Default agent policy for Chief of Staff.");
-    const count = within(header).getByText(`${ALL_TOOLS.length - 1}/${ALL_TOOLS.length}`);
+    const count = header.querySelector(".trust-tools-header-count");
 
     expect(header).toHaveClass("trust-tools-page-header");
     expect(header).toHaveAttribute("data-title-variant", "plain");
-    expect(card).toHaveClass("trust-cockpit-card");
-    expect(summary).toHaveClass("trust-primitive-context-text");
-    expect(count).toHaveClass("tools-list-summary-n");
-    expect(screen.getAllByText(`${ALL_TOOLS.length - 1}/${ALL_TOOLS.length}`)).toHaveLength(1);
+    expect(card).toHaveClass("trust-tools-card");
+    expect(count).toHaveClass("trust-tools-header-count");
+    expect(count).toHaveTextContent(`${ALL_TOOLS.length - 1}`);
+    expect(screen.getByText("Chief of Staff")).toHaveClass("trust-tools-register-title");
+    expect(screen.getByRole("searchbox", { name: /search tools/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Filter: All" })).toBeInTheDocument();
     expect(heading.compareDocumentPosition(main)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(screen.getByText("Allow or block what this agent can call.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Shell/i })).toHaveClass("is-off");
   });
 
-  it("keeps the context strip when the trust has no default agent yet", () => {
+  it("keeps a register empty state when the trust has no default agent yet", () => {
     useDaemonStore.setState({ agents: [] });
 
     render(<TrustToolsTab agentId="" />);
 
     const header = screen.getByLabelText("Tool controls");
     expect(within(header).getByRole("heading", { name: "Tools" })).toBeInTheDocument();
-    expect(screen.getByText("Tool access is scoped to the trust's default agent.")).toHaveClass(
-      "trust-primitive-context-text",
-    );
+    expect(screen.getByText("No agent assigned")).toHaveClass("trust-tools-register-title");
     expect(
       screen.getByText("Tool access is available after this trust has an agent."),
     ).toBeInTheDocument();

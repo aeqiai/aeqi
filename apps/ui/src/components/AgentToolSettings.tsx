@@ -1,6 +1,7 @@
 import { useState } from "react";
+import type { ReactNode } from "react";
 import { api } from "@/lib/api";
-import { ALL_TOOLS } from "@/lib/tools";
+import { ALL_TOOLS, type ToolSpec } from "@/lib/tools";
 import type { Agent } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
 
@@ -12,6 +13,9 @@ interface AgentToolSettingsProps {
   titleId?: string;
   subtitle?: string;
   showSummary?: boolean;
+  showHeader?: boolean;
+  tools?: ToolSpec[];
+  emptyState?: ReactNode;
 }
 
 export default function AgentToolSettings({
@@ -22,6 +26,9 @@ export default function AgentToolSettings({
   titleId = "agent-settings-tools-title",
   subtitle = "Allow or block what this agent can call.",
   showSummary = true,
+  showHeader = true,
+  tools = ALL_TOOLS,
+  emptyState,
 }: AgentToolSettingsProps) {
   const fetchAgents = useDaemonStore((s) => s.fetchAgents);
   const [savingTool, setSavingTool] = useState<string | null>(null);
@@ -53,24 +60,28 @@ export default function AgentToolSettings({
   return (
     <section
       className={["agent-settings-card", className].filter(Boolean).join(" ")}
-      aria-labelledby={titleId}
+      aria-label={showHeader ? undefined : "Tools"}
+      aria-labelledby={showHeader ? titleId : undefined}
     >
-      <div className="agent-settings-card-head">
-        <div>
-          <h2 id={titleId} className="agent-settings-card-title">
-            Tools
-          </h2>
-          <p className="agent-settings-card-subtitle">{subtitle}</p>
+      {showHeader && (
+        <div className="agent-settings-card-head">
+          <div>
+            <h2 id={titleId} className="agent-settings-card-title">
+              Tools
+            </h2>
+            <p className="agent-settings-card-subtitle">{subtitle}</p>
+          </div>
+          {showSummary && (
+            <span className="tools-list-summary-n">
+              {activeCount}/{ALL_TOOLS.length}
+            </span>
+          )}
         </div>
-        {showSummary && (
-          <span className="tools-list-summary-n">
-            {activeCount}/{ALL_TOOLS.length}
-          </span>
-        )}
-      </div>
+      )}
 
       <div className="agent-settings-tools-list">
-        {ALL_TOOLS.map((tool) => {
+        {tools.length === 0 && emptyState}
+        {tools.map((tool) => {
           const allowed =
             tool.id === "question.ask" ? !!agent?.can_ask_director : !denied.includes(tool.id);
           const saving = savingTool === tool.id;
