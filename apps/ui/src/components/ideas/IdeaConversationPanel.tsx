@@ -307,7 +307,7 @@ export default function IdeaConversationPanel({
         </section>
       )}
 
-      {showActivity && !tabbed && (
+      {showActivity && !tabbed && !combined && (
         <section
           className="idea-convo-card idea-convo-card--activity idea-convo-activity-peek"
           aria-label="Recent activity"
