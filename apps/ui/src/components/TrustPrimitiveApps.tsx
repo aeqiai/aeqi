@@ -1,22 +1,15 @@
-import { useState } from "react";
-import type { FormEvent, ReactNode } from "react";
-import { Link } from "react-router-dom";
-import {
-  ArrowUpRight,
-  AtSign,
-  Check,
-  Copy,
-  Globe,
-  Inbox,
-  KeyRound,
-  Mail,
-  Send,
-  Users,
-} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowUpRight, Check, Copy, Globe, Mail, Send } from "lucide-react";
 
-import { Button } from "@/components/ui";
+import { Button, CardTrigger } from "@/components/ui";
 import { api } from "@/lib/api";
 import { formatDateTime, formatInteger } from "@/lib/i18n";
+import {
+  NewMailModal,
+  NewWebsiteModal,
+  sanitizeLocalPart,
+  titleFromLocalPart,
+} from "./TrustPrimitiveAppModals";
 
 export type TrustEmailIdentitySummary = {
   kind: string;
@@ -26,399 +19,170 @@ export type TrustEmailIdentitySummary = {
 };
 
 type HostingDomainSummary = Awaited<ReturnType<typeof api.listHostingDomains>>["domains"][number];
+type TrustEmailStatus = Awaited<ReturnType<typeof api.getTrustEmailMessages>>;
+type TrustEmailMessage = TrustEmailStatus["messages"][number];
+type WebsiteAnalytics = Awaited<ReturnType<typeof api.getTrustWebsiteAnalytics>>;
+
+export type TrustWebsiteDomain = {
+  domain: string;
+  kind: "aeqi" | "external";
+  status: string;
+  ssl?: boolean | null;
+  created_at?: string | null;
+};
 
 export function MailPrimitivePage({
-  accessBasePath,
   creatorOpen,
   domain,
   identities,
   loading,
+  onCreatorClose,
   status,
-  trustAgents,
   trustId,
 }: {
-  accessBasePath: string;
   creatorOpen: boolean;
   domain: string;
   identities: TrustEmailIdentitySummary[];
   loading: boolean;
-  status?: Awaited<ReturnType<typeof api.getTrustEmailMessages>>;
-  trustAgents: Array<{ id: string; name?: string | null; status?: string | null }>;
+  onCreatorClose: () => void;
+  status?: TrustEmailStatus;
   trustId: string;
 }) {
-  const messages = status?.messages ?? [];
-  const outboundReady = status?.outbound_status === "ready";
-  return (
-    <div className="trust-primitive-layout" aria-label="Mail management">
-      <section className="trust-primitive-panel trust-primitive-panel--main">
-        <header className="trust-primitive-panel-header">
-          <div>
-            <h2 className="trust-primitive-title">Mailboxes</h2>
-            <p className="trust-primitive-subtitle">{domain}</p>
-          </div>
-          <span
-            className="trust-app-status-pill"
-            data-status={outboundReady ? "connected" : undefined}
-          >
-            {loading ? "Checking" : outboundReady ? "Outbound ready" : "Inbound ready"}
-          </span>
-        </header>
-
-        {creatorOpen && <NewMailPanel domain={domain} />}
-
-        <div className="trust-mailbox-list">
-          {identities.map((identity) => (
-            <TrustEmailCard
-              key={identity.address}
-              email={identity.address}
-              identity={identity}
-              loading={loading}
-              status={status}
-              trustId={trustId}
-            />
-          ))}
-        </div>
-      </section>
-
-      <aside className="trust-primitive-panel trust-primitive-panel--side">
-        <header className="trust-primitive-panel-header">
-          <div>
-            <h2 className="trust-primitive-title">Access</h2>
-            <p className="trust-primitive-subtitle">Humans, roles, and agents that can use mail.</p>
-          </div>
-        </header>
-        <div className="trust-access-list">
-          <AccessRow
-            icon={<KeyRound size={16} strokeWidth={1.6} />}
-            label="Roles"
-            value="Use role grants"
-            to={`${accessBasePath}/roles`}
-          />
-          <AccessRow
-            icon={<Users size={16} strokeWidth={1.6} />}
-            label="Humans"
-            value="Members and invitees"
-            to={`${accessBasePath}/members`}
-          />
-          <AccessRow
-            icon={<Inbox size={16} strokeWidth={1.6} />}
-            label="Agents"
-            value={`${formatInteger(trustAgents.length)} available`}
-            to={`${accessBasePath}/agents`}
-          />
-        </div>
-      </aside>
-
-      <section className="trust-primitive-panel trust-primitive-panel--wide">
-        <header className="trust-primitive-panel-header">
-          <div>
-            <h2 className="trust-primitive-title">Recent inbound</h2>
-            <p className="trust-primitive-subtitle">
-              {messages.length
-                ? `${formatInteger(messages.length)} latest messages`
-                : "No replies yet"}
-            </p>
-          </div>
-        </header>
-        <div className="trust-mail-preview-list">
-          {messages.length ? (
-            messages.slice(0, 4).map((message) => (
-              <article key={message.id} className="trust-mail-preview-row">
-                <span className="trust-mail-preview-from">
-                  {message.sender || message.recipient}
-                </span>
-                <span className="trust-mail-preview-subject">
-                  {message.subject || "No subject"}
-                </span>
-                <span className="trust-mail-preview-time">
-                  {formatInboxTime(message.received_at)}
-                </span>
-              </article>
-            ))
-          ) : (
-            <div className="trust-primitive-empty">Replies to trust mail will appear here.</div>
-          )}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function NewMailPanel({ domain }: { domain: string }) {
-  return (
-    <div className="trust-primitive-create-panel">
-      <div className="trust-primitive-create-icon" aria-hidden>
-        <AtSign size={16} strokeWidth={1.7} />
-      </div>
-      <div className="trust-primitive-create-copy">
-        <span className="trust-primitive-create-title">New mailbox</span>
-        <span className="trust-primitive-create-subtitle">name@{domain}</span>
-      </div>
-      <div className="trust-primitive-create-fields">
-        <input aria-label="Mailbox name" placeholder="press" />
-        <span>@{domain}</span>
-      </div>
-    </div>
-  );
-}
-
-export function WebsitesPrimitivePage({
-  analytics,
-  basePath,
-  creatorOpen,
-  domains,
-  href,
-  live,
-  loading,
-  onDomainAdded,
-  primaryDomain,
-  trustId,
-}: {
-  analytics?: Awaited<ReturnType<typeof api.getTrustWebsiteAnalytics>>;
-  basePath: string;
-  creatorOpen: boolean;
-  domains: Array<{
-    domain: string;
-    kind: "aeqi" | "external";
-    status: string;
-  }>;
-  href: string;
-  live: boolean;
-  loading: boolean;
-  onDomainAdded: () => void;
-  primaryDomain: string;
-  trustId: string;
-}) {
-  return (
-    <div className="trust-primitive-layout" aria-label="Website management">
-      <section className="trust-primitive-panel trust-primitive-panel--main">
-        <header className="trust-primitive-panel-header">
-          <div>
-            <h2 className="trust-primitive-title">Canonical website</h2>
-            <p className="trust-primitive-subtitle">{primaryDomain}</p>
-          </div>
-          <span className="trust-app-status-pill" data-status={live ? "connected" : undefined}>
-            {loading ? "Checking" : live ? "Live" : "Private"}
-          </span>
-        </header>
-        {creatorOpen && (
-          <NewWebsitePanel
-            onDomainAdded={onDomainAdded}
-            primaryDomain={primaryDomain}
-            trustId={trustId}
-          />
-        )}
-        <WebsiteAppCard
-          analytics={analytics}
-          domain={primaryDomain}
-          href={href}
-          live={live}
-          loading={loading}
-        />
-      </section>
-
-      <aside className="trust-primitive-panel trust-primitive-panel--side">
-        <header className="trust-primitive-panel-header">
-          <div>
-            <h2 className="trust-primitive-title">Website modules</h2>
-            <p className="trust-primitive-subtitle">Public trust surface</p>
-          </div>
-        </header>
-        <div className="trust-access-list">
-          <AccessRow
-            icon={<Globe size={16} strokeWidth={1.6} />}
-            label="Hello page"
-            value="Canonical"
-            href={href}
-          />
-          <AccessRow
-            icon={<KeyRound size={16} strokeWidth={1.6} />}
-            label="Roles"
-            value="Public view"
-            to={`${basePath}/roles`}
-          />
-          <AccessRow
-            icon={<Inbox size={16} strokeWidth={1.6} />}
-            label="Activity"
-            value="Trust record"
-            to={`${basePath}/quests`}
-          />
-        </div>
-      </aside>
-
-      <section className="trust-primitive-panel trust-primitive-panel--wide">
-        <header className="trust-primitive-panel-header">
-          <div>
-            <h2 className="trust-primitive-title">Domains</h2>
-            <p className="trust-primitive-subtitle">One AEQI subdomain plus external domains.</p>
-          </div>
-        </header>
-        <div className="trust-domain-list">
-          {domains.map((domain) => (
-            <DomainRow key={domain.domain} domain={domain} />
-          ))}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function NewWebsitePanel({
-  onDomainAdded,
-  primaryDomain,
-  trustId,
-}: {
-  onDomainAdded: () => void;
-  primaryDomain: string;
-  trustId: string;
-}) {
-  const [domain, setDomain] = useState("");
-  const [state, setState] = useState<"idle" | "saving" | "saved" | "failed">("idle");
-  const normalizedDomain = domain.trim().toLowerCase();
-  const canSubmit = normalizedDomain.length > 3 && normalizedDomain.includes(".");
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!canSubmit || state === "saving") return;
-    setState("saving");
-    try {
-      await api.addHostingDomain({
-        domain: normalizedDomain,
-        app_id: `website:${trustId}`,
-        trust_id: trustId,
-      });
-      setDomain("");
-      setState("saved");
-      onDomainAdded();
-      window.setTimeout(() => setState("idle"), 1800);
-    } catch {
-      setState("failed");
+  const [localIdentities, setLocalIdentities] = useState<TrustEmailIdentitySummary[]>([]);
+  const mailboxes = useMemo(() => {
+    const byAddress = new Map<string, TrustEmailIdentitySummary>();
+    for (const identity of [...identities, ...localIdentities]) {
+      byAddress.set(identity.address.toLowerCase(), identity);
     }
+    return [...byAddress.values()];
+  }, [identities, localIdentities]);
+  const [selectedAddress, setSelectedAddress] = useState(mailboxes[0]?.address ?? "");
+
+  useEffect(() => {
+    if (!mailboxes.length) return;
+    if (!mailboxes.some((identity) => identity.address === selectedAddress)) {
+      setSelectedAddress(mailboxes[0].address);
+    }
+  }, [mailboxes, selectedAddress]);
+
+  const selected =
+    mailboxes.find((identity) => identity.address === selectedAddress) ?? mailboxes[0];
+  const messages = status?.messages ?? [];
+
+  function handleCreateMailbox(localPart: string, label: string) {
+    const local = sanitizeLocalPart(localPart);
+    if (!local) return;
+    const address = `${local}@${domain}`;
+    const next = {
+      kind: "alias",
+      label: label.trim() || titleFromLocalPart(local),
+      local_part: local,
+      address,
+    };
+    setLocalIdentities((current) => {
+      if (current.some((identity) => identity.address.toLowerCase() === address.toLowerCase())) {
+        return current;
+      }
+      return [...current, next];
+    });
+    setSelectedAddress(address);
+    onCreatorClose();
   }
 
   return (
-    <form className="trust-primitive-create-panel" onSubmit={handleSubmit}>
-      <div className="trust-primitive-create-icon" aria-hidden>
-        <Globe size={16} strokeWidth={1.7} />
-      </div>
-      <div className="trust-primitive-create-copy">
-        <span className="trust-primitive-create-title">Attach website</span>
-        <span className="trust-primitive-create-subtitle">
-          External domains point at {primaryDomain}
-        </span>
-      </div>
-      <div className="trust-primitive-create-fields trust-primitive-create-fields--wide">
-        <input
-          aria-label="External domain"
-          onChange={(event) => setDomain(event.target.value)}
-          placeholder="www.company.com"
-          value={domain}
-        />
-      </div>
-      <Button
-        className="trust-primitive-create-action"
-        disabled={!canSubmit}
-        loading={state === "saving"}
-        size="md"
-        type="submit"
-        variant={state === "saved" ? "secondary" : "primary"}
-      >
-        {state === "saved" ? "Attached" : state === "failed" ? "Retry" : "Add Domain"}
-      </Button>
-    </form>
-  );
-}
+    <div className="trust-apps-register-layout" aria-label="Mail management">
+      <section className="trust-apps-register-card" aria-labelledby="mail-register-heading">
+        <header className="trust-apps-register-head">
+          <div>
+            <h2 id="mail-register-heading" className="trust-apps-register-title">
+              Mailboxes
+            </h2>
+            <p className="trust-apps-register-subtitle">{domain}</p>
+          </div>
+          <StatusPill
+            loading={loading}
+            connected={status?.outbound_status === "ready"}
+            label={status?.outbound_status === "ready" ? "Ready" : "Inbound"}
+          />
+        </header>
 
-function WebsiteAppCard({
-  analytics,
-  domain,
-  href,
-  live,
-  loading,
-}: {
-  analytics?: Awaited<ReturnType<typeof api.getTrustWebsiteAnalytics>>;
-  domain: string;
-  href: string;
-  live: boolean;
-  loading: boolean;
-}) {
-  const tracking = analyticsTrackingLabel(analytics, loading, live);
-  const views24h = analytics?.stats ? formatInteger(analytics.stats.last_24h.pageviews) : "-";
-  const viewsValue = loading
-    ? "Checking"
-    : analytics?.status === "setup_required"
-      ? "Setup"
-      : views24h;
-  return (
-    <article className="trust-app-card trust-app-card--identity" data-selected="true">
-      <header className="trust-app-card-header">
-        <span className="trust-app-card-icon" aria-hidden>
-          <Globe size={18} strokeWidth={1.5} />
-        </span>
-        <div className="trust-app-card-title-block">
-          <h3 className="trust-app-card-title">Website</h3>
-          <p className="trust-app-card-summary">Public TRUST website and launch page</p>
+        <div className="trust-apps-table-head trust-apps-table-head--mail" aria-hidden>
+          <span>Address</span>
+          <span>Messages</span>
+          <span>Outbound</span>
         </div>
-        <span className="trust-app-status-pill" data-status={live ? "connected" : undefined}>
-          {live ? "Live" : "Private"}
-        </span>
-      </header>
-      <div className="trust-app-card-stats trust-app-card-stats--identity">
-        <Stat label="Domain" value={domain} />
-        <Stat label="Visibility" value={live ? "Public" : "Private"} />
-        <Stat label="Tracking" value={tracking} />
-        <Stat label="Today Views" value={viewsValue} />
-      </div>
-      <a className="trust-app-card-action" href={href} target="_blank" rel="noreferrer">
-        <ArrowUpRight size={14} strokeWidth={1.5} aria-hidden />
-        Open Website
-      </a>
-    </article>
+        <div className="trust-apps-register-list">
+          {mailboxes.map((identity) => (
+            <CardTrigger
+              key={identity.address}
+              className="trust-apps-register-row trust-apps-register-row--mail"
+              data-selected={identity.address === selected?.address ? "true" : undefined}
+              onClick={() => setSelectedAddress(identity.address)}
+            >
+              <span className="trust-apps-row-main">
+                <span className="trust-apps-row-title">{identity.label}</span>
+                <span className="trust-apps-row-subtitle">{identity.address}</span>
+              </span>
+              <span className="trust-apps-row-cell">
+                {formatInteger(status?.message_count ?? messages.length)}
+              </span>
+              <span className="trust-apps-row-cell">
+                {status?.outbound_status === "ready" ? "Ready" : "Setup"}
+              </span>
+            </CardTrigger>
+          ))}
+        </div>
+      </section>
+
+      <MailDetail
+        identity={selected}
+        loading={loading}
+        messages={messages}
+        status={status}
+        trustId={trustId}
+      />
+
+      <NewMailModal
+        domain={domain}
+        existing={mailboxes}
+        onClose={onCreatorClose}
+        onCreate={handleCreateMailbox}
+        open={creatorOpen}
+      />
+    </div>
   );
 }
 
-function analyticsTrackingLabel(
-  analytics: Awaited<ReturnType<typeof api.getTrustWebsiteAnalytics>> | undefined,
-  loading: boolean,
-  live: boolean,
-): string {
-  if (loading) return "Checking";
-  if (analytics?.tracking_status === "installed") return "Installed";
-  if (live) return "Installed";
-  return "Ready";
-}
-
-function TrustEmailCard({
-  email,
+function MailDetail({
   identity,
   loading,
+  messages,
   status,
   trustId,
 }: {
-  email: string;
-  identity: TrustEmailIdentitySummary;
+  identity?: TrustEmailIdentitySummary;
   loading: boolean;
-  status?: Awaited<ReturnType<typeof api.getTrustEmailMessages>>;
+  messages: TrustEmailMessage[];
+  status?: TrustEmailStatus;
   trustId: string;
 }) {
   const [copied, setCopied] = useState(false);
   const [sendState, setSendState] = useState<"idle" | "sending" | "sent" | "failed">("idle");
-  const messages = status?.messages ?? [];
-  const latest = messages[0];
-  const routingLabel = loading
-    ? "Checking"
-    : status?.routing_status === "maildrop"
-      ? "Active"
-      : "Ready";
-  const outboundLabel = loading
-    ? "Checking"
-    : status?.outbound_status === "ready"
-      ? "Ready"
-      : "Setup";
+  const relatedMessages = identity
+    ? messages.filter((message) => {
+        const recipient = (message.recipient ?? "").toLowerCase();
+        return (
+          recipient === identity.address.toLowerCase() ||
+          recipient.startsWith(`${identity.local_part.toLowerCase()}@`)
+        );
+      })
+    : messages;
+  const visibleMessages = relatedMessages.length ? relatedMessages : messages;
 
   async function copyEmail() {
+    if (!identity) return;
     try {
-      await navigator.clipboard?.writeText(email);
+      await navigator.clipboard?.writeText(identity.address);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1400);
     } catch {
@@ -438,42 +202,46 @@ function TrustEmailCard({
   }
 
   return (
-    <article className="trust-app-card trust-app-card--identity" data-selected="true">
-      <header className="trust-app-card-header">
-        <span className="trust-app-card-icon" aria-hidden>
+    <aside className="trust-apps-detail-panel" aria-label="Mailbox detail">
+      <header className="trust-apps-detail-header">
+        <span className="trust-apps-detail-icon" aria-hidden>
           <Mail size={18} strokeWidth={1.5} />
         </span>
-        <div className="trust-app-card-title-block">
-          <h3 className="trust-app-card-title">{identity.label}</h3>
-          <p className="trust-app-card-summary">{identity.address}</p>
+        <div>
+          <h2 className="trust-apps-detail-title">{identity?.label ?? "Mailbox"}</h2>
+          <p className="trust-apps-detail-subtitle">{identity?.address ?? "No mailbox selected"}</p>
         </div>
-        <span
-          className="trust-app-status-pill"
-          data-status={status?.routing_status === "maildrop" ? "connected" : undefined}
-        >
-          {routingLabel}
-        </span>
       </header>
-      <div className="trust-app-card-stats trust-app-card-stats--email">
-        <Stat label="Address" value={email} />
-        <Stat label="Local" value={identity.local_part} />
-        <Stat label="Inbox" value={formatInteger(status?.message_count ?? messages.length)} />
-        <Stat label="Outbound" value={outboundLabel} />
+
+      <div className="trust-apps-detail-grid">
+        <DetailField label="Address" value={identity?.address ?? "-"} />
+        <DetailField
+          label="Routing"
+          value={loading ? "Checking" : status?.routing_status === "maildrop" ? "Active" : "Ready"}
+        />
+        <DetailField
+          label="Outbound"
+          value={loading ? "Checking" : status?.outbound_status === "ready" ? "Ready" : "Setup"}
+        />
+        <DetailField
+          label="Messages"
+          value={formatInteger(status?.message_count ?? messages.length)}
+        />
       </div>
-      <div className="trust-app-card-actions">
+
+      <div className="trust-apps-detail-actions">
         <Button
-          className="trust-app-card-button"
           variant="secondary"
           size="md"
           onClick={copyEmail}
+          disabled={!identity}
           leadingIcon={
             copied ? <Check size={14} strokeWidth={1.5} /> : <Copy size={14} strokeWidth={1.5} />
           }
         >
-          {copied ? "Copied" : "Copy Email"}
+          {copied ? "Copied" : "Copy"}
         </Button>
         <Button
-          className="trust-app-card-button"
           variant="secondary"
           size="md"
           onClick={sendTestEmail}
@@ -495,72 +263,213 @@ function TrustEmailCard({
                 : "Send Test"}
         </Button>
       </div>
-      <div className="trust-app-card-footnote">
-        {latest?.received_at
-          ? `Latest inbound ${formatInboxTime(latest.received_at)}`
-          : "Replies land in this trust inbox."}
-      </div>
-    </article>
+
+      <section className="trust-apps-mini-section" aria-labelledby="mail-inbound-heading">
+        <h3 id="mail-inbound-heading" className="trust-apps-mini-title">
+          Inbound
+        </h3>
+        {visibleMessages.length ? (
+          <div className="trust-apps-mini-list">
+            {visibleMessages.slice(0, 4).map((message) => (
+              <article key={message.id} className="trust-apps-mini-row">
+                <span className="trust-apps-mini-row-title">{message.subject || "No subject"}</span>
+                <span className="trust-apps-mini-row-subtitle">
+                  {message.sender || message.recipient} · {formatInboxTime(message.received_at)}
+                </span>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="trust-apps-empty-row">No inbound yet.</div>
+        )}
+      </section>
+    </aside>
   );
 }
 
-function AccessRow({
+export function WebsitesPrimitivePage({
+  analytics,
+  creatorOpen,
+  domains,
   href,
-  icon,
-  label,
-  to,
-  value,
+  live,
+  loading,
+  onCreatorClose,
+  onDomainAdded,
+  primaryDomain,
+  trustId,
 }: {
-  href?: string;
-  icon: ReactNode;
-  label: string;
-  to?: string;
-  value: string;
+  analytics?: WebsiteAnalytics;
+  creatorOpen: boolean;
+  domains: TrustWebsiteDomain[];
+  href: string;
+  live: boolean;
+  loading: boolean;
+  onCreatorClose: () => void;
+  onDomainAdded: () => void;
+  primaryDomain: string;
+  trustId: string;
 }) {
-  const content = (
-    <>
-      <span className="trust-access-icon" aria-hidden>
-        {icon}
-      </span>
-      <span className="trust-access-copy">
-        <span className="trust-access-label">{label}</span>
-        <span className="trust-access-value">{value}</span>
-      </span>
-      <ArrowUpRight size={14} strokeWidth={1.5} aria-hidden />
-    </>
-  );
-  if (href) {
-    return (
-      <a className="trust-access-row" href={href} target="_blank" rel="noreferrer">
-        {content}
-      </a>
-    );
-  }
+  const [selectedDomain, setSelectedDomain] = useState(domains[0]?.domain ?? primaryDomain);
+
+  useEffect(() => {
+    if (!domains.length) return;
+    if (!domains.some((domain) => domain.domain === selectedDomain)) {
+      setSelectedDomain(domains[0].domain);
+    }
+  }, [domains, selectedDomain]);
+
+  const selected = domains.find((domain) => domain.domain === selectedDomain) ?? domains[0];
+
   return (
-    <Link className="trust-access-row" to={to ?? "#"}>
-      {content}
-    </Link>
+    <div className="trust-apps-register-layout" aria-label="Website management">
+      <section className="trust-apps-register-card" aria-labelledby="website-register-heading">
+        <header className="trust-apps-register-head">
+          <div>
+            <h2 id="website-register-heading" className="trust-apps-register-title">
+              Websites
+            </h2>
+            <p className="trust-apps-register-subtitle">{primaryDomain}</p>
+          </div>
+          <StatusPill loading={loading} connected={live} label={live ? "Live" : "Private"} />
+        </header>
+
+        <div className="trust-apps-table-head trust-apps-table-head--website" aria-hidden>
+          <span>Domain</span>
+          <span>Kind</span>
+          <span>Status</span>
+        </div>
+        <div className="trust-apps-register-list">
+          {domains.map((domain) => (
+            <CardTrigger
+              key={domain.domain}
+              className="trust-apps-register-row trust-apps-register-row--website"
+              data-selected={domain.domain === selected?.domain ? "true" : undefined}
+              onClick={() => setSelectedDomain(domain.domain)}
+            >
+              <span className="trust-apps-row-main">
+                <span className="trust-apps-row-title">{domain.domain}</span>
+                <span className="trust-apps-row-subtitle">
+                  {domain.kind === "aeqi" ? "Default subdomain" : "External domain"}
+                </span>
+              </span>
+              <span className="trust-apps-row-cell">
+                {domain.kind === "aeqi" ? "aeqi" : "External"}
+              </span>
+              <span className="trust-apps-row-cell">{domain.status}</span>
+            </CardTrigger>
+          ))}
+        </div>
+      </section>
+
+      <WebsiteDetail
+        analytics={analytics}
+        domain={selected}
+        href={href}
+        live={live}
+        loading={loading}
+      />
+
+      <NewWebsiteModal
+        onClose={onCreatorClose}
+        onDomainAdded={onDomainAdded}
+        open={creatorOpen}
+        primaryDomain={primaryDomain}
+        trustId={trustId}
+      />
+    </div>
   );
 }
 
-function DomainRow({
+function WebsiteDetail({
+  analytics,
   domain,
+  href,
+  live,
+  loading,
 }: {
-  domain: {
-    domain: string;
-    kind: "aeqi" | "external";
-    status: string;
-  };
+  analytics?: WebsiteAnalytics;
+  domain?: TrustWebsiteDomain;
+  href: string;
+  live: boolean;
+  loading: boolean;
+}) {
+  const tracking = analyticsTrackingLabel(analytics, loading, live);
+  const views24h = analytics?.stats ? formatInteger(analytics.stats.last_24h.pageviews) : "-";
+  const visitors7d = analytics?.stats ? formatInteger(analytics.stats.last_7d.visitors) : "-";
+  const openHref = domain?.domain ? `https://${domain.domain}` : href;
+
+  return (
+    <aside className="trust-apps-detail-panel" aria-label="Website detail">
+      <header className="trust-apps-detail-header">
+        <span className="trust-apps-detail-icon" aria-hidden>
+          <Globe size={18} strokeWidth={1.5} />
+        </span>
+        <div>
+          <h2 className="trust-apps-detail-title">{domain?.domain ?? "Website"}</h2>
+          <p className="trust-apps-detail-subtitle">
+            {domain?.kind === "external" ? "External domain" : "Default website"}
+          </p>
+        </div>
+      </header>
+
+      <div className="trust-apps-detail-grid">
+        <DetailField label="Visibility" value={live ? "Public" : "Private"} />
+        <DetailField label="DNS" value={domain?.status ?? "Ready"} />
+        <DetailField label="Tracking" value={tracking} />
+        <DetailField label="Today" value={loading ? "Checking" : views24h} />
+        <DetailField label="7d Visitors" value={loading ? "Checking" : visitors7d} />
+        <DetailField label="SSL" value={domain?.ssl === false ? "Pending" : "Ready"} />
+      </div>
+
+      <div className="trust-apps-detail-actions">
+        <a className="trust-apps-inline-action" href={openHref} target="_blank" rel="noreferrer">
+          <ArrowUpRight size={14} strokeWidth={1.5} aria-hidden />
+          Open Website
+        </a>
+      </div>
+    </aside>
+  );
+}
+
+function DetailField({ label, value }: { label: string; value: string }) {
+  return (
+    <span className="trust-apps-detail-field">
+      <span className="trust-apps-detail-field-value">{value}</span>
+      <span className="trust-apps-detail-field-label">{label}</span>
+    </span>
+  );
+}
+
+function StatusPill({
+  connected,
+  label,
+  loading,
+}: {
+  connected: boolean;
+  label: string;
+  loading: boolean;
 }) {
   return (
-    <article className="trust-domain-row">
-      <span className="trust-domain-kind" data-kind={domain.kind}>
-        {domain.kind === "aeqi" ? "AEQI" : "External"}
-      </span>
-      <span className="trust-domain-name">{domain.domain}</span>
-      <span className="trust-domain-status">{domain.status}</span>
-    </article>
+    <span className="trust-app-status-pill" data-status={connected ? "connected" : undefined}>
+      {loading ? "Checking" : label}
+    </span>
   );
+}
+
+function analyticsTrackingLabel(
+  analytics: WebsiteAnalytics | undefined,
+  loading: boolean,
+  live: boolean,
+): string {
+  if (loading) return "Checking";
+  if (analytics?.tracking_status === "installed") return "Installed";
+  if (live) return "Ready";
+  return "Setup";
+}
+
+function formatInboxTime(value: string): string {
+  return formatDateTime(value, { fallback: "Received" });
 }
 
 export function normalizeEmailIdentities(
@@ -583,30 +492,18 @@ export function normalizeWebsiteDomains(
   primaryDomain: string,
   domains: HostingDomainSummary[] | undefined,
   trustId: string,
-): Array<{ domain: string; kind: "aeqi" | "external"; status: string }> {
+): TrustWebsiteDomain[] {
   const external = (domains ?? [])
     .filter((item) => item.root === trustId)
-    .map((item) => item.domain)
-    .filter((domain) => domain && domain !== primaryDomain);
+    .filter((item) => item.domain && item.domain !== primaryDomain);
   return [
-    { domain: primaryDomain, kind: "aeqi", status: "Default subdomain" },
-    ...[...new Set(external)].map((domain) => ({
-      domain,
+    { domain: primaryDomain, kind: "aeqi", status: "Default", ssl: true },
+    ...external.map((item) => ({
+      domain: item.domain,
       kind: "external" as const,
-      status: "Attached",
+      status: item.ssl === false ? "DNS pending" : "Attached",
+      ssl: item.ssl,
+      created_at: item.created_at,
     })),
   ];
-}
-
-function formatInboxTime(value: string): string {
-  return formatDateTime(value, { fallback: "Received" });
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <span className="trust-apps-stat">
-      <span className="trust-apps-stat-value">{value}</span>
-      <span className="trust-apps-stat-label">{label}</span>
-    </span>
-  );
 }

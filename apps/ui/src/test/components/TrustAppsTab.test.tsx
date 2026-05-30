@@ -89,7 +89,7 @@ describe("TrustAppsTab", () => {
     );
   }
 
-  it("renders Integrations with status below the page header", async () => {
+  it("renders Integrations as a provider register with detail", async () => {
     renderTab();
 
     const header = screen.getByLabelText("Integrations controls");
@@ -99,25 +99,23 @@ describe("TrustAppsTab", () => {
 
     expect(header).toHaveAttribute("data-title-variant", "plain");
     expect(toolbar).toBeNull();
-    expect(within(header).getByRole("button", { name: "Gateways" })).toBeInTheDocument();
+    expect(within(header).getByRole("button", { name: "New Integration" })).toBeInTheDocument();
     expect(actionSlot).not.toBeNull();
-    expect(heading.compareDocumentPosition(screen.getByText("Google Workspace"))).toBe(
+    expect(heading.compareDocumentPosition(screen.getByText("Providers"))).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
     await waitFor(() => {
       expect(screen.getByText(/workspace apps ·/)).toHaveClass("trust-primitive-context-text");
     });
-    expect(screen.getByRole("heading", { name: "Gmail" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Docs" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Sheets" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Slides" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Meet" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Reconnect Workspace" })).toBeInTheDocument();
-    expect(screen.getAllByText("Routes")).toHaveLength(2);
+    expect(screen.getByRole("heading", { name: "Google Workspace" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reconnect" })).toBeInTheDocument();
+    expect(screen.getByText("Gmail")).toBeInTheDocument();
+    expect(screen.getByText("Calendar")).toBeInTheDocument();
+    expect(screen.getAllByText("Gateway").length).toBeGreaterThan(0);
     expect(screen.queryByText("Chats")).not.toBeInTheDocument();
   });
 
-  it("renders Mails and Websites as native trust surfaces", async () => {
+  it("renders Mails and Websites as simple registers with detail", async () => {
     renderTab("mail");
     expect(screen.getByRole("heading", { name: "Mails" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "New Mail" })).toBeInTheDocument();
@@ -125,13 +123,13 @@ describe("TrustAppsTab", () => {
     await waitFor(() => {
       expect(screen.getAllByText("hello@root.aeqi.ai").length).toBeGreaterThan(0);
     });
-    expect(screen.getByRole("heading", { name: "Access" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Mailbox detail")).toBeInTheDocument();
 
     queryClient.clear();
     renderTab("websites");
-    expect(screen.getByRole("heading", { name: "Websites" })).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "Websites" }).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "New Website" })).toBeInTheDocument();
-    expect(await screen.findByRole("heading", { name: "Canonical website" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Domains" })).toBeInTheDocument();
+    expect(await screen.findByLabelText("Website detail")).toBeInTheDocument();
+    expect(screen.getAllByText("root.aeqi.ai").length).toBeGreaterThan(0);
   });
 });

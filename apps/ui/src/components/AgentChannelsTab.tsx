@@ -1,12 +1,21 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { Plus, Waypoints } from "lucide-react";
 import { useNav } from "@/hooks/useNav";
 import * as channelsApi from "@/api/channels";
 import type { AllowedChat, ChannelEntry } from "@/api/channels";
 import { useAgentChannels, useAgentChannelsCache, useChannelSessions } from "@/queries/channels";
-import { Button, CardTrigger, EmptyState, PrimitivePageHeader, Select, TabTrigger } from "./ui";
+import {
+  Button,
+  CardTrigger,
+  EmptyState,
+  Input,
+  Modal,
+  PrimitivePageHeader,
+  Select,
+  TabTrigger,
+} from "./ui";
 import { BaileysPairingPanel } from "./BaileysPairingPanel";
 import "@/styles/overview.css";
 
@@ -81,6 +90,78 @@ function GatewayHeaderTitle({ count }: { count: number }) {
   );
 }
 
+function GatewayCreateModal({
+  error,
+  fields,
+  onClose,
+  onFieldChange,
+  onSubmit,
+  onTypeChange,
+  open,
+  saving,
+  type,
+}: {
+  error: string | null;
+  fields: Record<string, string>;
+  onClose: () => void;
+  onFieldChange: (key: string, value: string) => void;
+  onSubmit: () => void;
+  onTypeChange: (value: string) => void;
+  open: boolean;
+  saving: boolean;
+  type: string;
+}) {
+  return (
+    <Modal open={open} onClose={onClose} title="New Gateway">
+      <div className="trust-apps-modal-form">
+        <div className="channel-type-picker gateway-type-picker">
+          {CHANNEL_TYPES.map((channelType) => (
+            <TabTrigger
+              key={channelType.value}
+              active={type === channelType.value}
+              onClick={() => onTypeChange(channelType.value)}
+            >
+              {channelType.label}
+            </TabTrigger>
+          ))}
+        </div>
+
+        <div className="gateway-form-grid">
+          {(CHANNEL_FIELDS[type] || []).map((field) => {
+            const key = fieldKey(field.label);
+            return (
+              <Input
+                key={key}
+                label={field.label}
+                type={field.type || "text"}
+                placeholder={field.placeholder}
+                value={fields[key] || ""}
+                onChange={(event) => onFieldChange(key, event.target.value)}
+              />
+            );
+          })}
+        </div>
+
+        {type === "whatsapp-baileys" && (
+          <p className="channel-form-hint gateway-form-hint">
+            Pairing opens on the gateway detail after creation.
+          </p>
+        )}
+        {error && <div className="channel-form-error gateway-form-error">{error}</div>}
+
+        <div className="trust-apps-modal-actions">
+          <Button type="button" variant="secondary" size="md" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="primary" size="md" onClick={onSubmit} loading={saving} disabled={saving}>
+            Create Gateway
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 function GatewayShell({
   actions,
   children,
@@ -115,6 +196,7 @@ function GatewayShell({
 export default function AgentChannelsTab({ agentId }: { agentId: string }) {
   const { goEntity, trustId } = useNav();
   const { itemId } = useParams<{ itemId?: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const selectedId = itemId || null;
 
   const { data: channels = NO_CHANNELS } = useAgentChannels(agentId);
@@ -134,12 +216,27 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
   // each call and compare on completion — late responses are dropped.
   const allowedSeqRef = useRef(0);
 
+  const openAddForm = useCallback((kind?: string | null) => {
+    const found = CHANNEL_TYPES.find((item) => item.value === kind);
+    if (found) {
+      setNewChannelType(found.value);
+    }
+    setShowAddForm(true);
+    setError(null);
+    setNewChannelFields({});
+    setSaving(false);
+  }, []);
+
+  const closeAddForm = useCallback(() => {
+    setShowAddForm(false);
+    setError(null);
+    setNewChannelFields({});
+    setSaving(false);
+  }, []);
+
   useEffect(() => {
     const handler = () => {
-      setShowAddForm(true);
-      setError(null);
-      setNewChannelFields({});
-      setSaving(false); // Reset stale "Connecting…" if a prior submit hung.
+      openAddForm();
     };
     window.addEventListener("aeqi:new-gateway", handler);
     window.addEventListener("aeqi:new-channel", handler);
@@ -147,7 +244,16 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
       window.removeEventListener("aeqi:new-gateway", handler);
       window.removeEventListener("aeqi:new-channel", handler);
     };
-  }, []);
+  }, [openAddForm]);
+
+  useEffect(() => {
+    if (searchParams.get("new") !== "1") return;
+    openAddForm(searchParams.get("kind"));
+    const next = new URLSearchParams(searchParams);
+    next.delete("new");
+    next.delete("kind");
+    setSearchParams(next, { replace: true });
+  }, [openAddForm, searchParams, setSearchParams]);
 
   const selected = channels.find((c) => c.id === selectedId);
 
@@ -248,85 +354,26 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
     totalSessions,
     "session",
   )} · ${countLabel(totalAllowed, "allowed route")}`;
-  const fireNew = () => window.dispatchEvent(new CustomEvent("aeqi:new-gateway"));
-
-  if (showAddForm) {
-    return (
-      <GatewayShell
-        count={channels.length}
-        summary="Add an external ingress and egress endpoint for this trust."
-        actions={
-          <Button
-            variant="secondary"
-            size="md"
-            onClick={() => {
-              setShowAddForm(false);
-              setError(null);
-            }}
-          >
-            Cancel
-          </Button>
-        }
-      >
-        <section className="trust-cockpit-card trust-cockpit-card--wide gateway-surface-card">
-          <header className="trust-cockpit-card-header gateway-card-header">
-            <div>
-              <h2 className="trust-cockpit-card-title">Add gateway</h2>
-              <p className="trust-cockpit-card-sub">
-                External messages become sessions when routed through a gateway.
-              </p>
-            </div>
-          </header>
-
-          <div className="channel-type-picker gateway-type-picker">
-            {CHANNEL_TYPES.map((ct) => (
-              <TabTrigger
-                key={ct.value}
-                active={newChannelType === ct.value}
-                onClick={() => {
-                  setNewChannelType(ct.value);
-                  setNewChannelFields({});
-                  setError(null);
-                }}
-              >
-                {ct.label}
-              </TabTrigger>
-            ))}
-          </div>
-          <div className="gateway-form-grid">
-            {(CHANNEL_FIELDS[newChannelType] || []).map((f) => {
-              const k = fieldKey(f.label);
-              return (
-                <div key={k} className="agent-settings-field gateway-form-field">
-                  <label className="agent-settings-label">{f.label}</label>
-                  <input
-                    className="agent-settings-input"
-                    type={f.type || "text"}
-                    placeholder={f.placeholder}
-                    value={newChannelFields[k] || ""}
-                    onChange={(e) => setNewChannelFields((p) => ({ ...p, [k]: e.target.value }))}
-                  />
-                </div>
-              );
-            })}
-          </div>
-          {newChannelType === "whatsapp-baileys" && (
-            <p className="channel-form-hint gateway-form-hint">
-              Pairing is done by scanning a QR code with WhatsApp on your phone. After you press
-              Connect, a QR will appear on this gateway's detail page. The session is stored on the
-              server and survives restarts.
-            </p>
-          )}
-          {error && <div className="channel-form-error gateway-form-error">{error}</div>}
-          <div className="gateway-form-actions">
-            <Button variant="primary" onClick={handleAdd} loading={saving} disabled={saving}>
-              Connect
-            </Button>
-          </div>
-        </section>
-      </GatewayShell>
-    );
-  }
+  const fireNew = () => openAddForm();
+  const gatewayCreator = (
+    <GatewayCreateModal
+      error={error}
+      fields={newChannelFields}
+      onClose={closeAddForm}
+      onFieldChange={(key, value) =>
+        setNewChannelFields((current) => ({ ...current, [key]: value }))
+      }
+      onSubmit={handleAdd}
+      onTypeChange={(value) => {
+        setNewChannelType(value);
+        setNewChannelFields({});
+        setError(null);
+      }}
+      open={showAddForm}
+      saving={saving}
+      type={newChannelType}
+    />
+  );
 
   if (!selected) {
     return (
@@ -403,6 +450,7 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
             </div>
           )}
         </section>
+        {gatewayCreator}
       </GatewayShell>
     );
   }
@@ -588,6 +636,7 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
           </div>
         )}
       </section>
+      {gatewayCreator}
     </GatewayShell>
   );
 }

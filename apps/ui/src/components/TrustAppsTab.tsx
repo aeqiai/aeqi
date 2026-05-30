@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   CalendarDays,
   Cloud,
@@ -26,9 +26,9 @@ import { formatInteger } from "@/lib/i18n";
 import { goExternal } from "@/lib/navigation";
 import { publicWebsiteDomain, publicWebsiteUrl } from "@/lib/publicWebsite";
 import { trustEmailAddress, trustEmailDomain } from "@/lib/trustEmail";
-import type { TrustAppKind, TrustAppSummary } from "@/lib/trustApps";
+import type { TrustAppKind } from "@/lib/trustApps";
 import { useDaemonStore } from "@/store/daemon";
-import { Button, PrimitivePageHeader } from "./ui";
+import { Button, CardTrigger, Modal, PrimitivePageHeader } from "./ui";
 import {
   MailPrimitivePage,
   WebsitesPrimitivePage,
@@ -113,10 +113,11 @@ export default function TrustAppsTab({
   trustId: string;
 }) {
   const navigate = useNavigate();
-  const [params] = useSearchParams();
   const [mailCreatorOpen, setMailCreatorOpen] = useState(false);
   const [websiteCreatorOpen, setWebsiteCreatorOpen] = useState(false);
-  const selectedKind = params.get("app");
+  const [integrationCreatorOpen, setIntegrationCreatorOpen] = useState(false);
+  const [selectedIntegrationId, setSelectedIntegrationId] = useState("google-workspace");
+  const [connectingIntegration, setConnectingIntegration] = useState<string | null>(null);
   const entities = useDaemonStore((s) => s.entities);
   const entity = entities.find((item) => item.id === trustId);
   const basePath = entity ? entityBasePath(entity) : "/launch";
@@ -148,7 +149,6 @@ export default function TrustAppsTab({
   const googleConnected = googleStatus.data?.connected === true;
   const workspaceServices = GOOGLE_WORKSPACE_APPS.length;
   const gatewaysPath = `${basePath}/gateways`;
-  const gatewayActionLabel = "Open Gateways";
   const channelApps = summaries.filter((summary) => summary.entry.category === "channel");
   const billingApps = summaries.filter((summary) => summary.entry.category === "billing");
   const billingReady = billingApps.length > 0;
@@ -169,6 +169,80 @@ export default function TrustAppsTab({
     : websiteAnalytics.isLoading
       ? "Checking"
       : "Ready";
+
+  async function startGoogleIntegration(source = "google-workspace") {
+    setConnectingIntegration(source);
+    try {
+      const res = await integrationsApi.startTrustGoogle(trustId);
+      goExternal(res.authorize_url);
+    } finally {
+      setConnectingIntegration(null);
+    }
+  }
+
+  function openGatewayCreate(kind: "telegram" | "whatsapp" | "whatsapp-baileys") {
+    navigate(`${gatewaysPath}?new=1&kind=${encodeURIComponent(kind)}`);
+  }
+
+  const integrationItems: IntegrationItem[] = [
+    {
+      id: "google-workspace",
+      name: "Google Workspace",
+      category: "Workspace",
+      summary: "Mail, calendar, files, docs, sheets, slides, and meetings.",
+      connected: googleConnected,
+      statusLabel: googleStatus.isLoading ? "Checking" : googleConnected ? "Connected" : "Ready",
+      icon: <AppLogo kind="gmail" icon={<Cloud size={18} strokeWidth={1.5} />} />,
+      meta: [
+        { label: "Account", value: googleStatus.data?.account_email || "Trust" },
+        { label: "Scopes", value: formatInteger(googleStatus.data?.scopes?.length ?? 0) },
+        { label: "Apps", value: formatInteger(workspaceServices) },
+      ],
+      actionLabel: googleConnected ? "Reconnect" : "Connect",
+      onAction: () => void startGoogleIntegration("google-workspace"),
+      detail: GOOGLE_WORKSPACE_APPS.map((app) => app.name),
+    },
+    ...billingApps.map(
+      (summary): IntegrationItem => ({
+        id: summary.entry.kind,
+        name: summary.entry.name,
+        category: "Billing",
+        summary: summary.entry.summary,
+        connected: summary.status === "connected",
+        statusLabel: summary.status === "connected" ? "Connected" : "Ready",
+        icon: APP_ICONS[summary.entry.kind],
+        meta: [
+          { label: "Scope", value: "Account" },
+          { label: "Checkout", value: "Ready" },
+          { label: "Webhooks", value: "Ready" },
+        ],
+        actionLabel: "Open Billing",
+        onAction: () => navigate("/account/billing"),
+        detail: ["Billing portal", "Checkout", "Webhooks"],
+      }),
+    ),
+    ...channelApps.map(
+      (summary): IntegrationItem => ({
+        id: summary.entry.kind,
+        name: summary.entry.name,
+        category: "Gateway",
+        summary: summary.entry.summary,
+        connected: summary.status === "connected",
+        statusLabel: summary.status === "connected" ? "Connected" : "Ready",
+        icon: APP_ICONS[summary.entry.kind],
+        meta: [
+          { label: "Gateways", value: formatInteger(summary.connectedChannels) },
+          { label: "Routes", value: formatInteger(summary.allowedChats) },
+          { label: "Agents", value: formatInteger(summary.agentCount) },
+        ],
+        actionLabel: "Open Gateways",
+        onAction: () => navigate(gatewaysPath),
+        detail: ["Inbound sessions", "Auto-reply routing", "Read-only routes"],
+      }),
+    ),
+  ];
+  const selectedIntegration =
+    integrationItems.find((item) => item.id === selectedIntegrationId) ?? integrationItems[0];
   const pageTitle =
     surface === "mail" ? "Mails" : surface === "websites" ? "Websites" : "Integrations";
   const primitiveCount =
@@ -210,7 +284,7 @@ export default function TrustAppsTab({
       <Button
         variant="primary"
         size="md"
-        onClick={() => setMailCreatorOpen((value) => !value)}
+        onClick={() => setMailCreatorOpen(true)}
         leadingIcon={<Plus size={14} strokeWidth={1.6} />}
       >
         New Mail
@@ -219,19 +293,19 @@ export default function TrustAppsTab({
       <Button
         variant="primary"
         size="md"
-        onClick={() => setWebsiteCreatorOpen((value) => !value)}
+        onClick={() => setWebsiteCreatorOpen(true)}
         leadingIcon={<Plus size={14} strokeWidth={1.6} />}
       >
         New Website
       </Button>
     ) : surface === "integrations" ? (
       <Button
-        variant="secondary"
+        variant="primary"
         size="md"
-        onClick={() => navigate(gatewaysPath)}
-        leadingIcon={<Smartphone size={14} strokeWidth={1.6} />}
+        onClick={() => setIntegrationCreatorOpen(true)}
+        leadingIcon={<Plus size={14} strokeWidth={1.6} />}
       >
-        Gateways
+        New Integration
       </Button>
     ) : undefined;
 
@@ -253,13 +327,12 @@ export default function TrustAppsTab({
 
           {surface === "mail" && entity && (
             <MailPrimitivePage
-              accessBasePath={basePath}
               creatorOpen={mailCreatorOpen}
               domain={emailDomain}
               identities={emailIdentities}
               loading={emailStatus.isLoading}
+              onCreatorClose={() => setMailCreatorOpen(false)}
               status={emailStatus.data}
-              trustAgents={trustAgents}
               trustId={trustId}
             />
           )}
@@ -267,12 +340,12 @@ export default function TrustAppsTab({
           {surface === "websites" && entity && (
             <WebsitesPrimitivePage
               analytics={websiteAnalytics.data}
-              basePath={basePath}
               creatorOpen={websiteCreatorOpen}
               domains={trustDomains}
               href={publicWebsiteUrl(entity)}
               live={entity.public === true}
               loading={websiteAnalytics.isLoading || hostingDomains.isLoading}
+              onCreatorClose={() => setWebsiteCreatorOpen(false)}
               onDomainAdded={() => void hostingDomains.refetch()}
               primaryDomain={primaryWebsiteDomain}
               trustId={trustId}
@@ -299,192 +372,86 @@ export default function TrustAppsTab({
         </div>
 
         {surface === "integrations" && (
-          <>
+          <div className="trust-apps-register-layout" aria-label="Integration management">
             <section
-              className="trust-cockpit-card trust-cockpit-card--wide trust-apps-section"
-              aria-labelledby="platform-integrations-heading"
+              className="trust-apps-register-card"
+              aria-labelledby="integration-register-heading"
             >
-              <header className="trust-cockpit-card-header">
+              <header className="trust-apps-register-head">
                 <div>
-                  <h2 id="platform-integrations-heading" className="trust-cockpit-card-title">
-                    Google Workspace
+                  <h2 id="integration-register-heading" className="trust-apps-register-title">
+                    Providers
                   </h2>
-                  <p className="trust-cockpit-card-sub">
-                    Connect once, then expose each workspace app as its own trust capability.
+                  <p className="trust-apps-register-subtitle">
+                    Accounts and gateways connected to this trust.
                   </p>
                 </div>
-                <GoogleWorkspaceAction
-                  connected={googleConnected}
-                  loading={googleStatus.isLoading}
-                  status={googleStatus.data}
-                  trustId={trustId}
-                />
               </header>
-              <div className="trust-apps-grid trust-apps-grid--services">
-                {GOOGLE_WORKSPACE_APPS.map((app) => (
-                  <GoogleWorkspaceServiceCard
-                    key={app.kind}
-                    app={app}
-                    connected={googleConnected}
-                    loading={googleStatus.isLoading}
-                    status={googleStatus.data}
-                  />
+
+              <div className="trust-apps-table-head trust-apps-table-head--integration" aria-hidden>
+                <span>Provider</span>
+                <span>Type</span>
+                <span>Status</span>
+              </div>
+              <div className="trust-apps-register-list">
+                {integrationItems.map((item) => (
+                  <CardTrigger
+                    key={item.id}
+                    className="trust-apps-register-row trust-apps-register-row--integration"
+                    data-selected={item.id === selectedIntegration?.id ? "true" : undefined}
+                    onClick={() => setSelectedIntegrationId(item.id)}
+                  >
+                    <span className="trust-apps-row-main trust-apps-row-main--with-icon">
+                      <span className="trust-apps-row-icon" aria-hidden>
+                        {item.icon}
+                      </span>
+                      <span>
+                        <span className="trust-apps-row-title">{item.name}</span>
+                        <span className="trust-apps-row-subtitle">{item.summary}</span>
+                      </span>
+                    </span>
+                    <span className="trust-apps-row-cell">{item.category}</span>
+                    <span className="trust-apps-row-cell">{item.statusLabel}</span>
+                  </CardTrigger>
                 ))}
               </div>
             </section>
 
-            {billingApps.length > 0 && (
-              <section
-                className="trust-cockpit-card trust-cockpit-card--wide trust-apps-section trust-apps-section--compact"
-                aria-labelledby="business-integrations-heading"
-              >
-                <header className="trust-cockpit-card-header">
-                  <div>
-                    <h2 id="business-integrations-heading" className="trust-cockpit-card-title">
-                      Business integrations
-                    </h2>
-                    <p className="trust-cockpit-card-sub">
-                      Billing, checkout, and account-level services.
-                    </p>
-                  </div>
-                </header>
-                <div className="trust-apps-grid trust-apps-grid--workspace">
-                  {billingApps.map((summary) => (
-                    <AppDetailCard
-                      key={summary.entry.kind}
-                      selected={selectedKind === summary.entry.kind}
-                      summary={summary}
-                      channelsPath="/account/billing"
-                      actionLabel="Open Billing"
-                    />
-                  ))}
-                </div>
-              </section>
+            {selectedIntegration && (
+              <IntegrationDetail
+                connecting={connectingIntegration === selectedIntegration.id}
+                item={selectedIntegration}
+              />
             )}
 
-            <section
-              className="trust-cockpit-card trust-cockpit-card--wide trust-apps-section trust-apps-section--compact"
-              aria-labelledby="gateway-integrations-heading"
-            >
-              <header className="trust-cockpit-card-header">
-                <div>
-                  <h2 id="gateway-integrations-heading" className="trust-cockpit-card-title">
-                    Gateway integrations
-                  </h2>
-                  <p className="trust-cockpit-card-sub">
-                    External messaging providers managed through Gateways.
-                  </p>
-                </div>
-                <Link to={gatewaysPath} className="trust-apps-link">
-                  {gatewayActionLabel}
-                </Link>
-              </header>
-              <div className="trust-apps-grid">
-                {channelApps.map((summary) => (
-                  <AppDetailCard
-                    key={summary.entry.kind}
-                    selected={selectedKind === summary.entry.kind}
-                    summary={summary}
-                    channelsPath={gatewaysPath}
-                    actionLabel={gatewayActionLabel}
-                  />
-                ))}
-              </div>
-            </section>
-          </>
+            <IntegrationCreateModal
+              connecting={connectingIntegration}
+              onClose={() => setIntegrationCreatorOpen(false)}
+              onGateway={openGatewayCreate}
+              onGoogle={() => void startGoogleIntegration("modal-google")}
+              onStripe={() => navigate("/account/billing")}
+              open={integrationCreatorOpen}
+            />
+          </div>
         )}
       </main>
     </div>
   );
 }
 
-function GoogleWorkspaceAction({
-  connected,
-  loading,
-  status,
-  trustId,
-}: {
+type IntegrationItem = {
+  id: string;
+  name: string;
+  category: "Workspace" | "Billing" | "Gateway";
+  summary: string;
   connected: boolean;
-  loading: boolean;
-  status?: Awaited<ReturnType<typeof integrationsApi.getTrustGoogleStatus>>;
-  trustId: string;
-}) {
-  const [connecting, setConnecting] = useState(false);
-  const account = status?.account_email || "TRUST";
-  const scopes = status?.scopes?.length ?? 0;
-
-  async function connect() {
-    setConnecting(true);
-    try {
-      const res = await integrationsApi.startTrustGoogle(trustId);
-      goExternal(res.authorize_url);
-    } finally {
-      setConnecting(false);
-    }
-  }
-
-  return (
-    <div className="trust-workspace-action">
-      <span className="trust-workspace-action-meta">
-        {loading
-          ? "Checking"
-          : connected
-            ? `${account} · ${formatInteger(scopes)} scopes`
-            : "No Google account connected"}
-      </span>
-      <Button
-        className="trust-app-card-button"
-        variant={connected ? "secondary" : "primary"}
-        size="md"
-        loading={connecting}
-        onClick={connect}
-        leadingIcon={<Cloud size={14} strokeWidth={1.5} />}
-      >
-        {connected ? "Reconnect Workspace" : "Connect Workspace"}
-      </Button>
-    </div>
-  );
-}
-
-function GoogleWorkspaceServiceCard({
-  app,
-  connected,
-  loading,
-  status,
-}: {
-  app: (typeof GOOGLE_WORKSPACE_APPS)[number];
-  connected: boolean;
-  loading: boolean;
-  status?: Awaited<ReturnType<typeof integrationsApi.getTrustGoogleStatus>>;
-}) {
-  const account = status?.account_email || "TRUST";
-  const scopes = status?.scopes?.length ?? 0;
-
-  return (
-    <article
-      className="trust-app-card trust-app-card--service"
-      data-selected={connected ? "true" : undefined}
-    >
-      <header className="trust-app-card-header">
-        <span className="trust-app-card-icon" aria-hidden>
-          <AppLogo kind={app.kind} icon={app.icon} />
-        </span>
-        <div className="trust-app-card-title-block">
-          <h3 className="trust-app-card-title">{app.name}</h3>
-          <p className="trust-app-card-summary">{app.summary}</p>
-        </div>
-        <span className="trust-app-status-pill" data-status={connected ? "connected" : undefined}>
-          {loading ? "Checking" : connected ? "Connected" : "Ready"}
-        </span>
-      </header>
-      <div className="trust-app-card-stats trust-app-card-stats--service">
-        <Stat label="Account" value={account} />
-        <Stat label="Access" value={app.access} />
-        <Stat label="Scopes" value={formatInteger(scopes)} />
-      </div>
-    </article>
-  );
-}
+  statusLabel: string;
+  icon: ReactNode;
+  meta: Array<{ label: string; value: string }>;
+  actionLabel: string;
+  onAction: () => void;
+  detail: string[];
+};
 
 function AppLogo({ icon, kind }: { icon: ReactNode; kind: WorkspaceAppKind | TrustAppKind }) {
   return (
@@ -494,66 +461,151 @@ function AppLogo({ icon, kind }: { icon: ReactNode; kind: WorkspaceAppKind | Tru
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function IntegrationDetail({ connecting, item }: { connecting: boolean; item: IntegrationItem }) {
+  const actionIcon =
+    item.category === "Billing" ? (
+      <CreditCard size={14} strokeWidth={1.5} />
+    ) : item.category === "Gateway" ? (
+      <Smartphone size={14} strokeWidth={1.5} />
+    ) : (
+      <Cloud size={14} strokeWidth={1.5} />
+    );
+
   return (
-    <span className="trust-apps-stat">
-      <span className="trust-apps-stat-value">{value}</span>
-      <span className="trust-apps-stat-label">{label}</span>
-    </span>
+    <aside className="trust-apps-detail-panel" aria-label="Integration detail">
+      <header className="trust-apps-detail-header">
+        <span className="trust-apps-detail-icon" aria-hidden>
+          {item.icon}
+        </span>
+        <div>
+          <h2 className="trust-apps-detail-title">{item.name}</h2>
+          <p className="trust-apps-detail-subtitle">{item.summary}</p>
+        </div>
+      </header>
+
+      <div className="trust-apps-detail-grid">
+        {item.meta.map((field) => (
+          <span key={field.label} className="trust-apps-detail-field">
+            <span className="trust-apps-detail-field-value">{field.value}</span>
+            <span className="trust-apps-detail-field-label">{field.label}</span>
+          </span>
+        ))}
+      </div>
+
+      <section className="trust-apps-mini-section" aria-labelledby="integration-detail-heading">
+        <h3 id="integration-detail-heading" className="trust-apps-mini-title">
+          Capability
+        </h3>
+        <div className="trust-apps-chip-list">
+          {item.detail.map((value) => (
+            <span key={value} className="trust-apps-chip">
+              {value}
+            </span>
+          ))}
+        </div>
+      </section>
+
+      <div className="trust-apps-detail-actions">
+        <Button
+          variant={item.connected ? "secondary" : "primary"}
+          size="md"
+          onClick={item.onAction}
+          loading={connecting}
+          leadingIcon={actionIcon}
+        >
+          {item.actionLabel}
+        </Button>
+      </div>
+    </aside>
   );
 }
 
-function AppDetailCard({
-  actionLabel,
-  channelsPath,
-  selected,
-  summary,
+function IntegrationCreateModal({
+  connecting,
+  onClose,
+  onGateway,
+  onGoogle,
+  onStripe,
+  open,
 }: {
-  actionLabel: string;
-  channelsPath: string;
-  selected: boolean;
-  summary: TrustAppSummary;
+  connecting: string | null;
+  onClose: () => void;
+  onGateway: (kind: "telegram" | "whatsapp" | "whatsapp-baileys") => void;
+  onGoogle: () => void;
+  onStripe: () => void;
+  open: boolean;
 }) {
-  const connected = summary.status === "connected";
-  const billing = summary.entry.category === "billing";
-
   return (
-    <article className="trust-app-card" data-selected={selected ? "true" : undefined}>
-      <header className="trust-app-card-header">
-        <span className="trust-app-card-icon" aria-hidden>
-          {APP_ICONS[summary.entry.kind]}
-        </span>
-        <div className="trust-app-card-title-block">
-          <h3 className="trust-app-card-title">{summary.entry.name}</h3>
-          <p className="trust-app-card-summary">{summary.entry.summary}</p>
-        </div>
-        <span className="trust-app-status-pill" data-status={summary.status}>
-          {connected ? "Connected" : "Ready"}
-        </span>
-      </header>
-      {billing ? (
-        <div className="trust-app-card-stats trust-app-card-stats--billing">
-          <Stat label="Scope" value="Account" />
-          <Stat label="Checkout" value="Ready" />
-          <Stat label="Webhooks" value="Ready" />
-          <Stat label="Portal" value="Stripe" />
-        </div>
-      ) : (
-        <div className="trust-app-card-stats">
-          <Stat label="Gateways" value={formatInteger(summary.connectedChannels)} />
-          <Stat label="Enabled" value={formatInteger(summary.enabledChannels)} />
-          <Stat label="Routes" value={formatInteger(summary.allowedChats)} />
-          <Stat label="Agents" value={formatInteger(summary.agentCount)} />
-        </div>
-      )}
-      <Link to={channelsPath} className="trust-app-card-action">
-        {billing ? (
-          <CreditCard size={14} strokeWidth={1.5} aria-hidden />
-        ) : (
-          <Smartphone size={14} strokeWidth={1.5} aria-hidden />
-        )}
-        {actionLabel}
-      </Link>
-    </article>
+    <Modal open={open} onClose={onClose} title="New Integration">
+      <div className="trust-apps-provider-list">
+        <ProviderAction
+          icon={<Cloud size={18} strokeWidth={1.5} />}
+          title="Google Workspace"
+          subtitle="Connect one Google account for workspace tools."
+          action="Connect"
+          loading={connecting === "modal-google"}
+          onClick={onGoogle}
+        />
+        <ProviderAction
+          icon={<CreditCard size={18} strokeWidth={1.5} />}
+          title="Stripe"
+          subtitle="Manage billing, checkout, and customer portal."
+          action="Open"
+          onClick={() => {
+            onClose();
+            onStripe();
+          }}
+        />
+        <ProviderAction
+          icon={<Send size={18} strokeWidth={1.5} />}
+          title="Telegram"
+          subtitle="Add a bot gateway for external sessions."
+          action="Add"
+          onClick={() => {
+            onClose();
+            onGateway("telegram");
+          }}
+        />
+        <ProviderAction
+          icon={<MessageCircle size={18} strokeWidth={1.5} />}
+          title="WhatsApp"
+          subtitle="Pair a WhatsApp gateway with QR."
+          action="Add"
+          onClick={() => {
+            onClose();
+            onGateway("whatsapp-baileys");
+          }}
+        />
+      </div>
+    </Modal>
+  );
+}
+
+function ProviderAction({
+  action,
+  icon,
+  loading,
+  onClick,
+  subtitle,
+  title,
+}: {
+  action: string;
+  icon: ReactNode;
+  loading?: boolean;
+  onClick: () => void;
+  subtitle: string;
+  title: string;
+}) {
+  return (
+    <CardTrigger className="trust-apps-provider-row" onClick={onClick} disabled={loading}>
+      <span className="trust-apps-provider-icon" aria-hidden>
+        {icon}
+      </span>
+      <span className="trust-apps-provider-copy">
+        <span className="trust-apps-provider-title">{title}</span>
+        <span className="trust-apps-provider-subtitle">{subtitle}</span>
+      </span>
+      <span className="trust-apps-provider-action">{loading ? "Connecting" : action}</span>
+    </CardTrigger>
   );
 }
