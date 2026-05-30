@@ -5198,7 +5198,7 @@
   width: 100%;
   min-height: 0;
   margin: 0;
-  padding: var(--roles-section-inset) 0 16px;
+  padding: 0 0 16px;
 }
 
 .ideas-workspace-document-head {
