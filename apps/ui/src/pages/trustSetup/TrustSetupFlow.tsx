@@ -75,16 +75,28 @@ function NameSection({
   nameError,
   onTrustNameChange,
 }: Pick<TrustSetupFlowProps, "trustName" | "nameHint" | "nameError" | "onTrustNameChange">) {
+  const launchSteps = ["Name", "Blueprint", "Runtime"];
+
   return (
     <section className="launch-form-step launch-form-step--name" aria-labelledby="launch-title">
       <div className="launch-form-step-body">
         <div className="launch-form-step-head">
+          <p className="launch-kicker">TRUST launch</p>
           <h1 id="launch-title" className="auth-heading">
-            Launch your TRUST.
+            Launch a working TRUST.
           </h1>
           <p className="auth-subheading">
-            A TRUST is the shared AI workspace and runtime for one mission.
+            Create the company container: identity, roles, agents, quests, memory, and runtime
+            capacity.
           </p>
+          <ol className="launch-sequence" aria-label="Launch sequence">
+            {launchSteps.map((step, index) => (
+              <li key={step} className="launch-sequence-item">
+                <span className="launch-sequence-index">{String(index + 1).padStart(2, "0")}</span>
+                <span>{step}</span>
+              </li>
+            ))}
+          </ol>
         </div>
 
         <Input
@@ -120,11 +132,13 @@ function BlueprintSection({
           </Link>
         </div>
         <div className="launch-blueprint-summary">
-          <span className="launch-blueprint-summary-name">{blueprint.name}</span>
+          <span className="launch-blueprint-summary-head">
+            <span className="launch-blueprint-summary-name">{blueprint.name}</span>
+            <span className="launch-blueprint-summary-meta">{blueprintStats(blueprint)}</span>
+          </span>
           <span className="launch-blueprint-summary-copy">
             Start with your first agent, roles, quests, memory, tools, and evidence.
           </span>
-          <span className="launch-blueprint-summary-meta">{blueprintStats(blueprint)}</span>
         </div>
       </div>
     </section>

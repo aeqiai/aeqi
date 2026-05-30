@@ -62,37 +62,88 @@
 }
 
 .launch-split {
-  background: var(--bg-base);
+  min-height: 100svh;
+  background: var(--color-paper);
 }
 
 .launch-form-side {
+  flex: 0 0 48%;
   min-width: 0;
   align-items: center;
   justify-content: center;
-  gap: var(--space-3);
-  padding-top: var(--space-6);
-  padding-bottom: var(--space-6);
+  gap: var(--space-4);
+  padding: var(--space-8) var(--space-6);
   overflow-y: auto;
 }
 
 .launch-pitch-side {
+  flex: 1 1 52%;
   background-image: url("/launch-hero.png");
-  background-position: 48% 50%;
+  background-position: 50% 50%;
+}
+
+.launch-pitch-content {
+  max-width: 560px;
+}
+
+.launch-pitch-content .signup-pitch-heading {
+  letter-spacing: 0;
+  max-width: 520px;
+}
+
+.launch-pitch-content .signup-lead {
+  max-width: 440px;
+}
+
+.launch-pitch-ledger {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: var(--space-8) 0 0;
+  padding: var(--space-4) 0 0;
+  border-top: 1px solid var(--color-ink-card-border);
+}
+
+.launch-pitch-ledger div {
+  min-width: 0;
+}
+
+.launch-pitch-ledger dt,
+.launch-pitch-ledger dd {
+  margin: 0;
+}
+
+.launch-pitch-ledger dt {
+  color: var(--color-ink-card-text);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.3;
+}
+
+.launch-pitch-ledger dd {
+  margin-top: var(--space-1);
+  color: var(--color-ink-card-text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
+  line-height: 1.45;
 }
 
 .launch-flow-card {
-  width: min(100%, 520px);
-  max-width: 520px;
-  padding: var(--space-6);
+  width: min(100%, 592px);
+  max-width: 592px;
+  padding: var(--space-8);
+  border-color: var(--color-border-faint);
+  box-shadow: var(--shadow-sm);
 }
 
 .launch-logo {
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-5);
 }
 
 .launch-flow-exit {
-  width: min(100%, 480px);
-  max-width: 480px;
+  width: min(100%, 552px);
+  max-width: 552px;
   display: flex;
   justify-content: flex-start;
   margin-bottom: calc(var(--space-2) * -1);
@@ -147,7 +198,7 @@
 .launch-compact-form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-5);
 }
 
 .launch-form-step {
@@ -162,16 +213,67 @@
 }
 
 .launch-form-step-body {
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 
 .launch-form-step-head {
-  gap: var(--space-1);
+  gap: var(--space-2);
 }
 
 .launch-form-step-head .auth-heading,
 .launch-form-step-head .auth-subheading {
   margin-bottom: 0;
+}
+
+.launch-form-step-head .auth-heading {
+  font-size: var(--font-size-3xl);
+  letter-spacing: 0;
+}
+
+.launch-form-step-head .auth-subheading {
+  max-width: 48ch;
+}
+
+.launch-kicker {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-micro);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.launch-sequence {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.launch-sequence-item {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-faint);
+  border-radius: var(--radius-md);
+  background: var(--color-card-muted);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.25;
+}
+
+.launch-sequence-index {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-micro);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
 }
 
 .launch-form-step--name input {
@@ -244,18 +346,27 @@
 .launch-blueprint-summary {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-2) var(--space-3);
+  gap: var(--space-2);
+  padding: var(--space-4);
   border: 1px solid var(--color-border-faint);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--color-card-muted);
   color: var(--color-text-primary);
 }
 
+.launch-blueprint-summary-head {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
 .launch-blueprint-summary-name {
+  min-width: 0;
   color: var(--color-text-primary);
   font-family: var(--font-display);
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-lg);
   font-weight: var(--font-weight-semibold);
   line-height: 1.2;
 }
@@ -268,17 +379,18 @@
 }
 
 .launch-blueprint-summary-meta {
-  margin-top: var(--space-1);
+  flex: 0 0 auto;
   font-weight: var(--font-weight-semibold);
+  text-align: right;
 }
 
 .launch-operations-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-2);
-  padding: var(--space-1);
+  padding: var(--space-2);
   border: 1px solid var(--color-border-faint);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--color-card-muted);
 }
 
@@ -296,10 +408,10 @@
   text-align: left;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
+  align-items: start;
   gap: var(--space-3);
-  min-height: 72px;
-  padding: var(--space-2) var(--space-3);
+  min-height: 84px;
+  padding: var(--space-3);
   border: 1px solid var(--color-border-faint);
   border-radius: var(--radius-md);
   background: var(--color-card);
@@ -328,11 +440,11 @@
 }
 
 .launch-operation-card.is-selected {
-  border-color: var(--color-warmth);
+  border-color: var(--color-accent);
   background: var(--color-card-elevated);
   box-shadow:
-    0 0 0 1px var(--color-warmth),
-    0 0 0 4px var(--color-warmth-bg);
+    0 0 0 1px var(--color-accent),
+    0 0 0 4px var(--color-accent-bg);
 }
 
 .launch-operation-radio {
@@ -355,11 +467,11 @@
 }
 
 .launch-operation-card.is-selected .launch-operation-radio {
-  border-color: var(--color-warmth);
+  border-color: var(--color-accent);
 }
 
 .launch-operation-card.is-selected .launch-operation-radio-dot {
-  background: var(--color-warmth);
+  background: var(--color-accent);
 }
 
 .launch-operation-title {
@@ -404,12 +516,12 @@
 }
 
 .launch-operation-detail {
-  color: var(--color-warmth);
+  color: var(--color-text-primary);
   font-weight: var(--font-weight-semibold);
 }
 
 .launch-actions {
-  margin-top: var(--space-3);
+  margin-top: var(--space-5);
 }
 
 .launch-page {
@@ -759,11 +871,17 @@
 
 @media (max-width: 768px) {
   .launch-form-side {
+    flex: 0 0 auto;
     padding: var(--space-6) var(--space-4);
   }
 
   .launch-pitch-side {
+    flex: 0 0 auto;
     min-height: 320px;
+  }
+
+  .launch-pitch-ledger {
+    display: none;
   }
 
   .launch-flow-card {
@@ -773,6 +891,20 @@
 
   .launch-flow-exit {
     display: none;
+  }
+
+  .launch-form-step-head .auth-heading {
+    font-size: var(--font-size-2xl);
+  }
+
+  .launch-blueprint-summary-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-1);
+  }
+
+  .launch-blueprint-summary-meta {
+    text-align: left;
   }
 }
 

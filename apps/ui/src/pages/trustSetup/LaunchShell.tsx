@@ -10,9 +10,9 @@ export interface LaunchPitchContent {
 }
 
 const DEFAULT_PITCH: LaunchPitchContent = {
-  eyebrow: "LAUNCH A TRUST",
-  lines: ["Company", "operating", "system."],
-  lead: "A TRUST is the container for ownership, agents, quests, and ideas. Humans set direction; AEQI keeps the work, memory, and proof in one runtime.",
+  eyebrow: "GENESIS RUNTIME",
+  lines: ["Launch", "the company", "that works."],
+  lead: "One launch binds identity, agents, quests, memory, and proof into a live operating surface.",
 };
 
 function LaunchPitch({ pitch = DEFAULT_PITCH }: { pitch?: LaunchPitchContent }) {
@@ -27,6 +27,20 @@ function LaunchPitch({ pitch = DEFAULT_PITCH }: { pitch?: LaunchPitchContent }) 
           ))}
         </h2>
         <p className="signup-lead">{pitch.lead}</p>
+        <dl className="launch-pitch-ledger">
+          <div>
+            <dt>Identity</dt>
+            <dd>TRUST, roles, ownership</dd>
+          </div>
+          <div>
+            <dt>Runtime</dt>
+            <dd>Agents, quests, triggers</dd>
+          </div>
+          <div>
+            <dt>Memory</dt>
+            <dd>Ideas, evidence, proof</dd>
+          </div>
+        </dl>
       </div>
     </aside>
   );
