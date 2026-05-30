@@ -41,7 +41,7 @@ describe("StartPage MVP surface", () => {
     expect(screen.getByRole("heading", { level: 1, name: "aeqi" })).toBeInTheDocument();
     expect(screen.getByText("Start something that can work without you.")).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: /launch trust/i }).length).toBeGreaterThan(0);
-    expect(screen.getByRole("link", { name: /blueprints/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /view blueprint/i })).toBeInTheDocument();
 
     expect(screen.queryByRole("region", { name: "Operating context" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Your TRUSTs" })).not.toBeInTheDocument();
@@ -49,27 +49,25 @@ describe("StartPage MVP surface", () => {
     expect(screen.queryByText("Active TRUST")).not.toBeInTheDocument();
   });
 
-  it("keeps the two global rows focused on launch, promotion, economy, and learning", () => {
+  it("keeps the global rows focused on launch, economy, referrals, and learning", () => {
     renderStartPage();
 
     const startRow = screen.getByRole("region", { name: "Start with aeqi" });
     expect(within(startRow).getByRole("heading", { name: "Launch a TRUST" })).toBeInTheDocument();
-    expect(within(startRow).getByRole("heading", { name: "First Company" })).toBeInTheDocument();
-    expect(within(startRow).getByRole("heading", { name: "Why aeqi pivoted" })).toBeInTheDocument();
-    expect(within(startRow).getByRole("link", { name: /read update/i })).toHaveAttribute(
+    expect(within(startRow).getByRole("link", { name: /view blueprint/i })).toHaveAttribute(
       "href",
-      "https://aeqi.ai/blog/why-aeqi-pivoted",
+      "/blueprints",
     );
-
-    const publicRow = screen.getByRole("region", { name: "aeqi public surfaces" });
-    expect(within(publicRow).getByText("Public market surface")).toBeInTheDocument();
+    expect(within(startRow).getByText("Public market surface")).toBeInTheDocument();
     expect(
-      within(publicRow).getByRole("heading", { name: "Invite the first operators" }),
+      within(startRow).getByRole("heading", { name: "Invite the first operators" }),
     ).toBeInTheDocument();
-    expect(within(publicRow).getByRole("link", { name: /invite someone/i })).toHaveAttribute(
+    expect(within(startRow).getByRole("link", { name: /invite someone/i })).toHaveAttribute(
       "href",
       expect.stringContaining("mailto:"),
     );
+    expect(screen.queryByRole("link", { name: /read update/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "First Company" })).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Learn aeqi" })).toBeInTheDocument();
   });
 

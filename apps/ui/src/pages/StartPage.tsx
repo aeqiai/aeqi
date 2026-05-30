@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, BookOpen, Globe, PlayCircle, Plus, Rocket, Share2, Users } from "lucide-react";
+import { ArrowRight, BookOpen, Globe, Plus, Rocket, Share2, Users } from "lucide-react";
 import { LEARN_POSTS } from "./startPageLearnPosts";
 import "@/styles/roles.css";
 
@@ -8,11 +8,12 @@ export default function StartPage() {
   return (
     <div className="home-page">
       <header className="home-hero home-hero--global" aria-label="aeqi home">
-        <div className="home-hero-identity">
-          <div className="home-hero-text">
-            <p className="home-hero-eyebrow">The company OS</p>
-            <h1 className="home-hero-title">aeqi</h1>
-            <div className="home-hero-profile">
+        <img src="/welcome/start-hero.png" alt="" className="home-hero-image" aria-hidden="true" />
+        <div className="home-hero-overlay">
+          <div className="home-hero-identity">
+            <div className="home-hero-text">
+              <p className="home-hero-eyebrow">The company OS</p>
+              <h1 className="home-hero-title">aeqi</h1>
               <span className="home-hero-profile-copy">
                 <span className="home-hero-subtitle">
                   Start something that can work without you.
@@ -24,25 +25,10 @@ export default function StartPage() {
             </div>
           </div>
         </div>
-        <nav className="home-hero-actions" aria-label="Home actions">
-          <Link to="/blueprints" className="home-hero-action home-hero-action--secondary">
-            Blueprints
-            <ArrowRight size={14} strokeWidth={1.8} />
-          </Link>
-          <Link to="/launch" className="home-hero-action">
-            <Plus size={14} strokeWidth={1.8} />
-            Launch TRUST
-          </Link>
-        </nav>
       </header>
 
       <section className="home-row-promos" aria-label="Start with aeqi">
         <LaunchTrustCard />
-        <BlueprintPromoCard />
-        <FounderUpdateCard />
-      </section>
-
-      <section className="home-row-two" aria-label="aeqi public surfaces">
         <EconomyCard />
         <ReferralCard />
       </section>
@@ -71,53 +57,12 @@ function LaunchTrustCard() {
           <Plus size={16} strokeWidth={1.8} />
           Launch TRUST
         </Link>
-      </div>
-    </article>
-  );
-}
-
-function BlueprintPromoCard() {
-  return (
-    <article className="home-card home-card--launch">
-      <span className="home-launch-kicker">
-        <BookOpen size={15} strokeWidth={1.7} aria-hidden="true" />
-        Blueprint
-      </span>
-      <div className="home-launch-body">
-        <h2 className="home-launch-title">First Company</h2>
-        <p className="home-launch-hint">
-          The v1 package for a founder, a Chief of Staff, and the first execution loop.
-        </p>
-      </div>
-      <div className="home-launch-actions">
         <Link to="/blueprints" className="home-primary-action home-primary-action--secondary">
           View blueprint
           <ArrowRight size={16} strokeWidth={1.8} />
         </Link>
       </div>
     </article>
-  );
-}
-
-function FounderUpdateCard() {
-  const update = LEARN_POSTS[0];
-
-  return (
-    <a className="home-card home-card--video" href={update.href} target="_blank" rel="noreferrer">
-      <span className="home-launch-kicker">
-        <PlayCircle size={15} strokeWidth={1.7} aria-hidden="true" />
-        Founder update
-      </span>
-      <img src={update.image} alt="" className="home-video-image" aria-hidden="true" />
-      <div className="home-launch-body">
-        <h2 className="home-launch-title">{update.title}</h2>
-        <p className="home-launch-hint">{update.summary}</p>
-      </div>
-      <span className="home-primary-action home-primary-action--secondary">
-        Read update
-        <ArrowRight size={16} strokeWidth={1.8} />
-      </span>
-    </a>
   );
 }
 
