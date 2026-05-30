@@ -3101,7 +3101,7 @@
 }
 
 .trust-quests .quest-scope-header {
-  min-height: var(--toolbar-control-h);
+  min-height: var(--quest-scope-card-h);
   padding: 0;
 }
 
@@ -3394,10 +3394,11 @@
 /* Quest focus row — a compact drop target for one card-sized project anchor. */
 .quest-scope {
   --quest-scope-card-w: clamp(248px, 24vw, 320px);
+  --quest-scope-card-h: 64px;
 
   display: grid;
   grid-template-columns: minmax(0, 1fr) var(--quest-scope-card-w);
-  align-items: start;
+  align-items: stretch;
   gap: 10px;
   margin: 12px 20px 0;
   padding: 8px;
@@ -3411,7 +3412,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  min-height: 32px;
+  min-height: var(--quest-scope-card-h);
   padding: 0;
 }
 
@@ -3442,7 +3443,7 @@
   align-items: stretch;
   width: 100%;
   min-width: 0;
-  min-height: 64px;
+  min-height: var(--quest-scope-card-h);
   margin: 0;
   border-radius: var(--radius-sm);
   transition:
@@ -3472,7 +3473,7 @@
   display: flex;
   align-items: center;
   width: 100%;
-  min-height: 64px;
+  min-height: var(--quest-scope-card-h);
   padding: 9px 10px;
   border: 1.5px dashed color-mix(in oklch, var(--color-text-secondary) 34%, transparent);
   border-radius: var(--radius-sm);
@@ -3498,6 +3499,11 @@
   .quest-scope {
     grid-template-columns: minmax(0, 1fr);
     margin: 10px 14px 0;
+  }
+
+  .trust-quests .quest-scope-header,
+  .quest-scope-header {
+    min-height: 32px;
   }
 
   .quest-scope-slot {
