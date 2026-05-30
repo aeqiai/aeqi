@@ -172,9 +172,14 @@ export default function IdeaWorkspaceInspector({
           </div>
         )}
 
-        <InspectorSection title="Idea">
+        <InspectorSection
+          title="Idea"
+          collapsible
+          defaultOpen
+          className="ideas-workspace-idea-section"
+        >
           {scopeLocked ? (
-            <InspectorRow label="Scope" tone="recessed">
+            <InspectorRow label="Scope" tone="raised" className="ideas-workspace-readonly-row">
               {SCOPE_LABEL[scope]}
             </InspectorRow>
           ) : (
@@ -201,15 +206,19 @@ export default function IdeaWorkspaceInspector({
               </div>
             </InspectorRow>
           )}
-          <InspectorRow label="Kind" tone="recessed">
+          <InspectorRow label="Type" tone="raised" className="ideas-workspace-readonly-row">
             {idea?.kind ?? "note"}
           </InspectorRow>
           {idea && (
-            <InspectorRow label="Idea ID" tone="raised" className="ideas-workspace-id-row">
+            <InspectorRow
+              label="Idea ID"
+              tone="raised"
+              className="ideas-workspace-readonly-row ideas-workspace-id-row"
+            >
               {compactIdeaId(idea.id)}
             </InspectorRow>
           )}
-          <div className="ideas-workspace-inspector-stack">
+          <div className="ideas-workspace-inspector-stack ideas-workspace-inspector-stack--inline">
             <span className="ideas-workspace-inspector-label">Tags</span>
             <div className="ideas-workspace-inspector-field">
               {idea ? (
@@ -227,7 +236,7 @@ export default function IdeaWorkspaceInspector({
               )}
             </div>
           </div>
-          <div className="ideas-workspace-inspector-stack">
+          <div className="ideas-workspace-inspector-stack ideas-workspace-inspector-stack--inline">
             <span className="ideas-workspace-inspector-label">References</span>
             <div className="ideas-workspace-inspector-field">
               {idea ? (

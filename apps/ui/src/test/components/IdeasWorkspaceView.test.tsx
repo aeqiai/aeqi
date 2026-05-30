@@ -148,7 +148,20 @@ describe("IdeasWorkspaceView", () => {
     const details = screen.getByRole("complementary", { name: "Details" });
     expect(details).toBeInTheDocument();
     expect(within(details).getByText("Scope")).toBeInTheDocument();
+    expect(within(details).getByText("Type")).toBeInTheDocument();
     expect(within(details).getByText("Details")).toHaveClass("ideas-workspace-detail-object");
+    const ideaSection = details.querySelector(
+      "details.ideas-workspace-idea-section",
+    ) as HTMLDetailsElement | null;
+    expect(ideaSection).toBeTruthy();
+    expect(ideaSection).toHaveAttribute("open");
+    expect(within(ideaSection!).getByText("Scope").closest("div")).toHaveClass(
+      "ideas-workspace-readonly-row",
+    );
+
+    await user.click(ideaSection!.querySelector("summary")!);
+
+    expect(ideaSection).not.toHaveAttribute("open");
 
     const main = screen.getByRole("main", { name: "Idea" });
     const canvas = screen.getByRole("region", { name: "Mock idea canvas" });
