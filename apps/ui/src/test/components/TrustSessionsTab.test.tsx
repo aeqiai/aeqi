@@ -124,14 +124,18 @@ describe("TrustSessionsTab", () => {
     const detailStrip = document.querySelector(".trust-session-detail-strip");
     const shell = document.querySelector(".inbox-shell");
     const detailPane = document.querySelector(".inbox-pane-detail");
+    const composerDock = document.querySelector(".trust-sessions-composer-dock");
 
     expect(detailStrip).toBeTruthy();
     expect(shell).toBeTruthy();
     expect(detailPane).toBeTruthy();
+    expect(composerDock).toBeTruthy();
+    expect(composerDock?.querySelector(".composer-wrap")).toBeTruthy();
     expect(detailStrip?.compareDocumentPosition(shell as Element)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
     expect(detailPane?.querySelector(".session-detail-header")).toBeNull();
+    expect(detailPane?.querySelector(".inbox-composer-wrap")).toBeNull();
   });
 
   it("sends from the selected trust-wide session composer", async () => {
@@ -140,7 +144,7 @@ describe("TrustSessionsTab", () => {
 
     const input = await screen.findByLabelText("Message body");
     await user.type(input, "continue here");
-    await user.keyboard("{Enter}");
+    await user.click(screen.getByRole("button", { name: "Send" }));
 
     await waitFor(() => {
       expect(api.sendSessionMessage).toHaveBeenCalledWith(

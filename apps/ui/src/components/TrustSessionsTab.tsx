@@ -4,6 +4,7 @@ import { Bot, Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import { entityPathFromId } from "@/lib/entityPath";
 import { recencyBucket, timeAgo, timeShort } from "@/lib/format";
+import Composer from "@/components/composer/Composer";
 import { inboxMessagesAdapter } from "@/components/inbox/inboxMessagesAdapter";
 import {
   gatewayLabel,
@@ -68,6 +69,7 @@ export default function TrustSessionsTab({
   const [creatingSession, setCreatingSession] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [composerBody, setComposerBody] = useState("");
 
   const agentNameById = useMemo(
     () => new Map(agents.map((agent) => [agent.id, agent.name])),
@@ -201,7 +203,7 @@ export default function TrustSessionsTab({
   }, [loadMessages, selectedAgentName, selectedId]);
 
   useEffect(() => {
-    setSendError(null);
+    setComposerBody("");
   }, [selectedId]);
 
   const handleSelect = useCallback(
@@ -294,19 +296,12 @@ export default function TrustSessionsTab({
     [selected?.agent_id, selectedId, trustId],
   );
 
-  const handleStop = useCallback(() => {
-    if (!selectedId) return;
-    api.cancelSession(selectedId).catch(() => undefined);
-  }, [selectedId]);
-
-  const composerHistory = useMemo(
-    () =>
-      messages
-        .filter((message) => message.role === "user" || message.from_kind === "user")
-        .map((message) => message.content.trim())
-        .filter(Boolean),
-    [messages],
-  );
+  const handleComposerSend = useCallback(async () => {
+    const trimmed = composerBody.trim();
+    if (!trimmed || sending || !selectedId) return;
+    setComposerBody("");
+    await handleSend(trimmed);
+  }, [composerBody, handleSend, selectedId, sending]);
 
   const empty = !loading && rows.length === 0;
   const visibleConversationCount = rows.length;
@@ -440,19 +435,35 @@ export default function TrustSessionsTab({
               messages={messages}
               isStreaming={selectedStreaming}
               onSend={handleSend}
-              onStop={selectedStreaming ? handleStop : undefined}
+              hideComposer
               hideHeader
               surface="recessed"
-              composerPlaceholder={`Message ${selectedAgentName || "session"}...`}
-              composerDisabled={sending || !selectedId}
-              errorMessage={sendError}
-              historySource={composerHistory}
               emptyTitle={messagesLoading ? "loading messages" : "no messages yet"}
               emptyHint={messagesLoading ? "fetching the transcript" : "select another session"}
             />
           </div>
         </div>
       </main>
+      <div className="trust-sessions-composer-dock">
+        {sendError && (
+          <div className="trust-sessions-composer-error" role="alert">
+            {sendError}
+          </div>
+        )}
+        <div className="composer-wrap trust-sessions-composer-wrap">
+          <div className="persistent-composer">
+            <Composer
+              variant="shell"
+              value={composerBody}
+              onChange={setComposerBody}
+              onSend={() => void handleComposerSend()}
+              streaming={selectedStreaming}
+              placeholder={`Message ${selectedAgentName || "session"}...`}
+              disabled={sending || !selectedId}
+            />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
