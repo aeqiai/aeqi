@@ -273,8 +273,8 @@ mod tests {
         assert_eq!(default.seed_agents.len(), 1);
         assert!(default.agent_template_refs.is_empty());
         assert_eq!(default.seed_events.len(), 9);
-        assert_eq!(default.seed_ideas.len(), 13);
-        assert_eq!(default.seed_quests.len(), 8);
+        assert_eq!(default.seed_ideas.len(), 19);
+        assert_eq!(default.seed_quests.len(), 9);
     }
 
     #[test]
@@ -346,6 +346,27 @@ mod tests {
                 "default blueprint should seed {idea_name}",
             );
         }
+        for idea_name in [
+            "Baseline package index",
+            "Agent team design guide",
+            "Deep research package",
+            "Software delivery package",
+            "Content campaign package",
+            "Data operations package",
+        ] {
+            assert!(
+                default.seed_ideas.iter().any(|idea| idea.name == idea_name),
+                "default blueprint should seed baseline package idea {idea_name}",
+            );
+        }
+        assert!(
+            default
+                .seed_quests
+                .iter()
+                .any(|quest| quest.key.as_deref() == Some("baseline_package")
+                    && quest.subject == "Choose the first baseline package"),
+            "default blueprint should ask the Director to choose or skip a baseline package",
+        );
         let public_website = default
             .seed_quests
             .iter()

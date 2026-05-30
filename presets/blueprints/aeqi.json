@@ -62,6 +62,8 @@
               "Website brief",
               "Working style",
               "Company shape",
+              "Baseline package index",
+              "Agent team design guide",
               "Chief of Staff brief",
               "Founder Associate brief",
               "AEQI agent usage guide"
@@ -71,7 +73,7 @@
         {
           "tool": "ideas.search",
           "args": {
-            "query": "director brief operating snapshot decisions active quests website brief operating rules company shape chief of staff founder associate",
+            "query": "director brief operating snapshot decisions active quests website brief operating rules company shape baseline packages agent team chief of staff founder associate",
             "top_k": 8,
             "tags": ["identity", "priorities", "decision", "evergreen"]
           }
@@ -120,6 +122,7 @@
               "AEQI agent usage guide",
               "Capture rule",
               "Operating loop",
+              "Baseline package index",
               "Operating snapshot"
             ]
           }
@@ -127,7 +130,7 @@
         {
           "tool": "ideas.search",
           "args": {
-            "query": "current request related ideas quests roles agents events decisions",
+            "query": "current request related ideas quests roles agents events decisions baseline package team pattern",
             "top_k": 6,
             "tags": ["procedure", "decision", "priorities", "evergreen"]
           }
@@ -147,6 +150,7 @@
               "Director's brief",
               "Operating snapshot",
               "Company shape",
+              "Agent team design guide",
               "Chief of Staff brief",
               "Operating loop"
             ]
@@ -155,7 +159,7 @@
         {
           "tool": "ideas.search",
           "args": {
-            "query": "quest context related decisions requirements constraints completion test role ownership",
+            "query": "quest context related decisions requirements constraints completion test role ownership package team topology",
             "top_k": 8,
             "tags": ["identity", "procedure", "decision", "priorities"]
           }
@@ -361,6 +365,42 @@
     },
     {
       "owner": "default",
+      "name": "Baseline package index",
+      "content": "Baseline packages are reusable starting points for recurring company work. Start with the Director's brief, then choose a package only when the work is likely to repeat or needs multiple specialist lenses. Current baseline package cards: Agent team design, Deep research, Software delivery, Content campaign, and Data operations. If none fits, keep the first quest custom and record what a future package should contain.",
+      "tags": ["procedure", "blueprint", "package", "agents", "evergreen"]
+    },
+    {
+      "owner": "default",
+      "name": "Agent team design guide",
+      "content": "Use this guide before hiring specialists. Pick the smallest topology that matches the work: single operator for one-context work, pipeline for dependent phases, fan-out/fan-in for independent perspectives, expert pool for routed specialist calls, producer-reviewer for quality gates, supervisor for dynamic task queues, and shallow hierarchy only when responsibilities naturally split. Translate the choice into roles, agent briefs, package ideas, first quests, review rubric, and any necessary context-loading events.",
+      "tags": ["procedure", "blueprint", "package", "agents", "roles", "evergreen"]
+    },
+    {
+      "owner": "default",
+      "name": "Deep research package",
+      "content": "Use this package when a decision needs multiple evidence lanes. Default shape: Research Lead plus official, market, community, and skeptic-review lenses. Seed a research question, source policy, contradiction log, and evidence rubric. First quests: define the question, collect lane reports, synthesize one brief, and review claims against evidence. Done means the Director sees answer, evidence, contradictions, confidence, open risks, and next decision.",
+      "tags": ["research", "blueprint", "package", "agents", "evergreen"]
+    },
+    {
+      "owner": "default",
+      "name": "Software delivery package",
+      "content": "Use this package when the company repeatedly ships product or code. Default shape: Delivery Lead, Product Engineer, Design Engineer when UI is touched, targeted reviewer pool, and Release Steward. Seed definition of done, review lanes, handoff protocol, and rollback policy. First quests: scope the smallest shippable change, implement in a worktree, run matching reviews, verify, deploy if needed, and record evidence.",
+      "tags": ["software", "product", "blueprint", "package", "agents", "evergreen"]
+    },
+    {
+      "owner": "default",
+      "name": "Content campaign package",
+      "content": "Use this package for repeatable content, launch, or marketing work. Default shape: Campaign Lead, Researcher, Writer, Visual Planner, Distribution Operator, and QA Reviewer. Seed audience brief, message house, channel policy, and experiment log. First quests: write the campaign brief, draft assets, review claims and channel fit, publish or schedule, then capture results for the next run.",
+      "tags": ["content", "marketing", "blueprint", "package", "agents", "evergreen"]
+    },
+    {
+      "owner": "default",
+      "name": "Data operations package",
+      "content": "Use this package when the company ingests, transforms, validates, or reports data repeatedly. Default shape: Data Lead, Schema Designer, Pipeline Builder, Validation Engineer, and Monitor Operator. Seed data contract, schema change policy, validation rubric, and incident log. First quests: define the data contract, build the first pipeline slice, add checks and monitor, run a dry run or backfill, and document the recovery path.",
+      "tags": ["data", "operations", "blueprint", "package", "agents", "evergreen"]
+    },
+    {
+      "owner": "default",
       "name": "Review routine",
       "content": "Default routine: a short weekly review on Monday morning. Use it to look for open decisions, stalled quests, shipped work, changed priorities, website drift, and whether the company shape should change. End the review by updating the Operating snapshot and Decision log if anything durable changed. The routine is intentionally light; the Director can change the schedule, disable it, or replace it with a different cadence once their working style is clear.",
       "tags": ["procedure", "events", "review", "cadence", "evergreen"]
@@ -413,6 +453,14 @@
       "subject": "Sketch the first role map",
       "description": "Decide which responsibilities already need a named role. Keep the default as Director plus Chief of Staff plus Founder Associate unless the brief clearly needs another slot. If a role is warranted, draft its title, authority boundary, occupant type, and the grants it should eventually hold before creating it. Update Company shape and the Operating snapshot.",
       "labels": ["onboarding", "roles", "authority"]
+    },
+    {
+      "owner": "default",
+      "key": "baseline_package",
+      "parent": "setup_first_company",
+      "subject": "Choose the first baseline package",
+      "description": "Map the Director's brief against the Baseline package index. If the work is recurring or needs multiple specialist lenses, pick a starting package such as Deep research, Software delivery, Content campaign, or Data operations, then record the choice and assumptions in the Operating snapshot. If no package fits, keep the first quest custom and note what package would be useful later.",
+      "labels": ["onboarding", "blueprint", "packages", "agents"]
     },
     {
       "owner": "default",

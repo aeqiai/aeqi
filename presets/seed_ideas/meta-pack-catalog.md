@@ -6,7 +6,7 @@ description: Current contents of aeqi's default seed pack. Queryable via ideas s
 
 # Seed Pack Catalog (vanilla install)
 
-Updated: 2026-04-25
+Updated: 2026-05-30
 
 ## Identity (1)
 
@@ -22,7 +22,7 @@ Updated: 2026-04-25
 - `meta:consolidator-template` — per-tag threshold consolidation (exactly
   one item out per firing).
 
-## Skill (6)
+## Skill (7)
 
 - `create-idea` — store tagged knowledge.
 - `create-quest` — convert actionable work to a quest with a worktree.
@@ -30,6 +30,8 @@ Updated: 2026-04-25
 - `spawn-subagent` — hire persistent sub or ephemeral session.
 - `evolve-identity` — amend your baseline identity.
 - `manage-tools` — allow/deny scope merging.
+- `design-agent-team` — choose an agent-team topology and translate it
+  into roles, agents, ideas, quests, and events.
 
 ## Ritual (2 markdown templates + runtime-seeded lifecycle events)
 
@@ -68,13 +70,29 @@ Outstanding candidate principle imports: Zettelkasten atomic-notes rule.
 - `fact`, `decision`, `preference`, `procedure`, `skill`, `evergreen`,
   `reflection`, `source:session`, `meta`, `identity` [added α].
 
-## Pack infrastructure (3, meta)
+## Pack infrastructure (5, meta)
 
 - `meta:content-taxonomy` — 5 category map.
 - `meta:evaluation-criteria` — import checklist.
 - `meta:pack-catalog` — this file.
+- `meta:placeholder-providers` — TOML registry for custom idea assembly
+  placeholders.
+- `meta:mcp-servers` — TOML registry for opt-in MCP server bootstrap.
 
-## Wisdom packs (3)
+## Agent-team baseline packages (5)
+
+- `meta:pack:agent-team-baselines` — package index for harness-style
+  team topologies translated into aeqi primitives.
+- `meta:pack:deep-research` — fan-out/fan-in research lanes plus
+  synthesis and evidence review.
+- `meta:pack:software-delivery` — implementation pipeline, targeted
+  review lanes, release evidence, and rollback policy.
+- `meta:pack:content-campaign` — campaign brief, research, copy,
+  visual planning, distribution, QA, and experiment logging.
+- `meta:pack:data-operations` — data contract, schema, ETL, validation,
+  monitoring, and incident follow-up.
+
+## Integration and channel packs (6)
 
 - `meta:pack:google-workspace` — eleven native tools (Gmail / Calendar /
   Meet) backed by T1.9's `oauth2` lifecycle. Per-agent scoping;
@@ -131,13 +149,15 @@ Outstanding candidate principle imports: Zettelkasten atomic-notes rule.
 ## Candidate expansion areas
 
 - More skills: code review, commit messages, debugging, incident
-  response, research, planning.
+  response.
 - More personas: reviewer, researcher, planner, security auditor.
 - More rituals: weekly review, standup, end-of-sprint retro.
 - Principle category: seeded with Karpathy-inspired pair in β; future
   additions (Zettelkasten, reflection-principles) earn their slot
   case-by-case.
 - Domain packs: language/stack-specific (Rust, TypeScript, DevOps).
+- Additional package cards: legal review, finance ops, customer support,
+  security audit, education/course production.
 - Messaging app packs: WeCom Callback first for company-grade WeChat,
   personal Weixin later as a user-scoped device-session channel.
 

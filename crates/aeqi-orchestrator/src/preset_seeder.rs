@@ -1,10 +1,10 @@
 //! Preset idea seeder — first-boot hydration from `presets/seed_ideas/*.md`.
 //!
 //! AEQI ships with a small library of foundational ideas — skill primers for
-//! the four primitives (create-idea, create-quest, create-event, spawn-subagent,
-//! manage-tools, evolve-identity) and a vanilla baseline identity. They live as
-//! markdown + frontmatter under `presets/seed_ideas/` so the text stays
-//! human-editable and reviewable alongside the code.
+//! the primitives, baseline identities, tag policies, and starter packages
+//! for common agent-team workflows. They live as markdown + frontmatter under
+//! `presets/seed_ideas/` so the text stays human-editable and reviewable
+//! alongside the code.
 //!
 //! This module loads those files and inserts each as a **global** idea
 //! (`agent_id = NULL`) with **insert-if-absent** semantics: if an idea with the
@@ -400,6 +400,19 @@ mod tests {
             "spawn-subagent",
             "evolve-identity",
             "manage-tools",
+            "design-agent-team",
+        ];
+        // Baseline packages that teach fresh installs how to translate
+        // recurring workflows into aeqi-native role / agent / quest /
+        // event structures. These are adapted from harness-style team
+        // architecture patterns and should remain globally discoverable
+        // even if the public blueprint catalog stays intentionally narrow.
+        const REQUIRED_BASELINE_PACKS: &[&str] = &[
+            "meta:pack:agent-team-baselines",
+            "meta:pack:deep-research",
+            "meta:pack:software-delivery",
+            "meta:pack:content-campaign",
+            "meta:pack:data-operations",
         ];
         // Pack-infrastructure meta-ideas — the rulebook for future
         // external imports. Added in β. Queried by future authors to
@@ -453,6 +466,7 @@ mod tests {
             .iter()
             .chain(REQUIRED_POLICIES.iter())
             .chain(REQUIRED_HOW_TOS.iter())
+            .chain(REQUIRED_BASELINE_PACKS.iter())
             .chain(REQUIRED_PACK_INFRA.iter())
             .chain(REQUIRED_PRINCIPLES.iter())
         {
