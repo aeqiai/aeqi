@@ -1,18 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { api } from "@/lib/api";
-import { Banner, Button, Icon, PrimitivePageHeader, PrimitiveSearchField } from "../ui";
+import { formatInteger } from "@/lib/i18n";
+import { Banner, Button, Icon, PrimitivePageHeader } from "../ui";
 import { ImportMenu } from "../blueprints/ImportMenu";
 import type { Quest, QuestStatus, User } from "@/lib/types";
 import { formatAssignee } from "@/lib/assignee";
 import { useRelativeNow } from "@/hooks/useRelativeNow";
 import type { QuestsView } from "./questView";
-import QuestsSortPopover, { type QuestSort } from "./QuestsSortPopover";
-import QuestsFilterPopover from "./QuestsFilterPopover";
+import type { QuestSort } from "./QuestsSortPopover";
 import StatusDot from "./StatusDot";
 import QuestList from "./QuestList";
 import QuestActiveCard from "./QuestActiveCard";
 import QuestArchiveStrips from "./QuestArchiveStrips";
+import QuestBoardToolbar from "./QuestBoardToolbar";
 import QuestBoardEmptyState from "./QuestBoardEmptyState";
 import QuestBoardNoMatches from "./QuestBoardNoMatches";
 import QuestColumnEmptyState, { COLLAPSIBLE_STATUSES } from "./QuestColumnEmptyState";
@@ -38,6 +39,8 @@ export default function QuestBoard({
   onCreated,
   onPick,
   onCompose,
+  search,
+  onSearchChange,
   view,
   onViewChange,
   sort,
@@ -65,6 +68,8 @@ export default function QuestBoard({
   /** Navigates to the dedicated quest-compose page. Optional `status`
    *  pre-selects the column the new quest lands in. */
   onCompose: (status?: QuestStatus) => void;
+  search: string;
+  onSearchChange: (next: string) => void;
   view: QuestsView;
   onViewChange: (next: QuestsView) => void;
   sort: QuestSort;
@@ -89,7 +94,6 @@ export default function QuestBoard({
   // drop targets — promote / demote flows survive the split. Strip
   // open/close state lives inside `QuestArchiveStrips`.
   const [err, setErr] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
 
   // Tick "X ago" labels on the cards once a minute so they don't
@@ -107,9 +111,9 @@ export default function QuestBoard({
   );
 
   // Search narrows what's displayed in the columns. Scope filtering
-  // happens upstream (parent AgentQuestsTab) and feeds us `quests`; we
-  // either preserve the current sort mode or switch to discovery ranking
-  // when the user is actively searching.
+  // happens upstream (parent AgentQuestsTab) and feeds us `quests`.
+  // Active search switches to discovery ranking; the saved sort mode
+  // resumes as soon as the query clears.
   const visibleQuests = useMemo(
     () => (search.trim() ? searchHits.map((hit) => hit.quest) : sortQuests(quests, sort)),
     [quests, search, searchHits, sort],
@@ -240,6 +244,10 @@ export default function QuestBoard({
   }, [sortedVisibleQuests, optimistic]);
   const hasSearch = search.trim().length > 0;
   const hasBoardNarrowing = scopeFilter !== "all" || !!boardScopeId;
+  const searchCountLabel =
+    sortedVisibleQuests.length === 1
+      ? "1 match"
+      : `${formatInteger(sortedVisibleQuests.length)} matches`;
 
   // Flat traversal order used by j/k. In Board view: column-major over
   // backlog → todo → in_progress → in_review → done → cancelled. In List
@@ -343,22 +351,21 @@ export default function QuestBoard({
         }
         aria-label="Quest controls"
         children={
-          <div className="ideas-toolbar trust-quests-toolbar">
-            <PrimitiveSearchField
-              inputRef={searchRef}
-              placeholder="Search quests"
-              value={search}
-              onChange={setSearch}
-              showKbdHint
-            />
-            <QuestsSortPopover sort={sort} onChange={onSortChange} />
-            <QuestsFilterPopover
-              agentId={resolvedAgentId}
-              quests={allQuests}
-              filter={scopeFilter}
-              onChange={onScopeChange}
-            />
-          </div>
+          <QuestBoardToolbar
+            searchInputRef={searchRef}
+            search={search}
+            onSearchChange={onSearchChange}
+            showSearchCount={hasSearch}
+            searchCountLabel={searchCountLabel}
+            view={view}
+            onViewChange={onViewChange}
+            sort={sort}
+            onSortChange={onSortChange}
+            agentId={resolvedAgentId}
+            quests={allQuests}
+            filter={scopeFilter}
+            onFilterChange={onScopeChange}
+          />
         }
         actions={
           <>
@@ -468,14 +475,14 @@ export default function QuestBoard({
             }}
             onTake={handleTake}
             search={search}
-            onClearSearch={() => setSearch("")}
+            onClearSearch={() => onSearchChange("")}
             agents={agents}
             users={users}
             childCounts={childCounts}
             searchMatches={searchMatchById}
           />
         ) : hasSearch && sortedVisibleQuests.length === 0 ? (
-          <QuestBoardNoMatches onClear={() => setSearch("")} onCompose={() => onCompose()} />
+          <QuestBoardNoMatches onClear={() => onSearchChange("")} onCompose={() => onCompose()} />
         ) : sortedVisibleQuests.length === 0 ? (
           <QuestBoardEmptyState
             isFiltered={hasBoardNarrowing}

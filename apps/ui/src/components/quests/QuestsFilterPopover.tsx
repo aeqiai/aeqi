@@ -57,11 +57,14 @@ export default function QuestsFilterPopover({
       trigger={
         <button
           type="button"
-          className={`ideas-toolbar-btn${active ? " active" : ""}${open ? " open" : ""}`}
+          className={`ideas-toolbar-btn quest-toolbar-popover-btn${active ? " active" : ""}${
+            open ? " open" : ""
+          }`}
           aria-haspopup="dialog"
           aria-expanded={open}
           aria-controls={popoverId}
           title={active ? `Filter — ${SCOPE_LABEL[filter]}` : "Filter"}
+          aria-label={active ? `Filter: ${SCOPE_LABEL[filter]}` : "Filter: All"}
         >
           <svg
             width="13"
@@ -75,6 +78,7 @@ export default function QuestsFilterPopover({
           >
             <path d="M2 3.25h9M3.5 6.5h6M5 9.75h3" />
           </svg>
+          <span className="quest-toolbar-trigger-label">{SCOPE_LABEL[filter]}</span>
           {active && <span className="ideas-toolbar-btn-dot" aria-hidden />}
         </button>
       }

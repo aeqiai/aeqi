@@ -75,6 +75,11 @@ export const QUEST_FILTER_VALUES: QuestFilter[] = [
   "inherited",
 ];
 
+export function parseQuestFilter(raw: string | null): QuestFilter {
+  if (raw === "siblings" || raw === "branch") return "global";
+  return QUEST_FILTER_VALUES.includes(raw as QuestFilter) ? (raw as QuestFilter) : "all";
+}
+
 export function isQuestInherited(q: Quest, agentId: string): boolean {
   return q.agent_id != null && q.agent_id !== agentId;
 }

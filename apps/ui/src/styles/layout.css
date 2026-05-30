@@ -6770,13 +6770,13 @@
   font-variant-numeric: tabular-nums;
 }
 .quest-board .ideas-list-group[data-status="in_progress"] > .ideas-list-group-head {
-  background: var(--color-info-bg);
+  background: var(--state-progress-bg);
 }
 .quest-board .ideas-list-group[data-status="in_review"] > .ideas-list-group-head {
-  background: var(--color-warning-bg);
+  background: var(--state-review-bg);
 }
 .quest-board .ideas-list-group[data-status="done"] > .ideas-list-group-head {
-  background: var(--color-success-bg);
+  background: var(--state-verified-bg);
 }
 .quest-board .ideas-list-group-count {
   display: inline-flex;

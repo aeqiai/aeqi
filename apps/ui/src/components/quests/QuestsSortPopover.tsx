@@ -6,10 +6,10 @@ export type QuestSort = "updated" | "created" | "priority" | "subject" | "due";
 export const QUEST_SORT_MODES: QuestSort[] = ["updated", "created", "priority", "due", "subject"];
 
 export const QUEST_SORT_LABELS: Record<QuestSort, string> = {
-  updated: "recent",
-  created: "created",
-  priority: "priority",
-  due: "due",
+  updated: "Recent",
+  created: "Created",
+  priority: "Priority",
+  due: "Due",
   subject: "A → Z",
 };
 
@@ -17,10 +17,6 @@ export const QUEST_SORT_LABELS: Record<QuestSort, string> = {
 // at rest. Stroke-only 13×13 matches filter / view glyphs in the
 // same toolbar.
 //
-// Quests deliberately does NOT disable sort under search the way Ideas
-// does — Ideas search returns relevance-ranked results, but the Quests
-// search at AgentQuestsTab is a plain substring filter, so the user's
-// chosen sort still produces meaningful order during search.
 const SORT_GLYPH: Record<QuestSort, ReactElement> = {
   updated: (
     <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" aria-hidden>
@@ -69,25 +65,38 @@ const SORT_GLYPH: Record<QuestSort, ReactElement> = {
 
 export interface QuestsSortPopoverProps {
   sort: QuestSort;
+  searchActive?: boolean;
   onChange: (next: QuestSort) => void;
 }
 
-export default function QuestsSortPopover({ sort, onChange }: QuestsSortPopoverProps) {
+export default function QuestsSortPopover({
+  sort,
+  searchActive = false,
+  onChange,
+}: QuestsSortPopoverProps) {
   const [open, setOpen] = useState(false);
+  const triggerLabel = searchActive ? "Relevance" : QUEST_SORT_LABELS[sort];
   return (
     <Popover
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={(next) => !searchActive && setOpen(next)}
       placement="bottom-end"
       trigger={
         <button
           type="button"
-          className={`ideas-toolbar-btn${open ? " open" : ""}`}
+          className={`ideas-toolbar-btn quest-toolbar-popover-btn${
+            open ? " open" : ""
+          }${searchActive ? " disabled" : ""}`}
+          disabled={searchActive}
           aria-haspopup="dialog"
           aria-expanded={open}
-          title={`Sort: ${QUEST_SORT_LABELS[sort]}`}
+          aria-label={searchActive ? "Sort: Relevance" : `Sort: ${QUEST_SORT_LABELS[sort]}`}
+          title={
+            searchActive ? "Search results ranked by relevance" : `Sort: ${QUEST_SORT_LABELS[sort]}`
+          }
         >
           {SORT_GLYPH[sort]}
+          <span className="quest-toolbar-trigger-label">{triggerLabel}</span>
         </button>
       }
     >

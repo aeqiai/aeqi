@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { StrictMode } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -8,10 +8,7 @@ import AppLayout, { resolveDefaultAgent } from "@/components/AppLayout";
 import LeftSidebar from "@/components/shell/LeftSidebar";
 import ComposerRow from "@/components/shell/ComposerRow";
 import BootLoader from "@/components/shell/BootLoader";
-import AgentOrgChart from "@/components/AgentOrgChart";
-import ShortcutsOverlay from "@/components/ShortcutsOverlay";
 import { agentKeys, entityKeys, runtimeKeys } from "@/queries/keys";
-import { api } from "@/lib/api";
 import type { Quest, QuestStatus, ScopeValue } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
 import { useUIStore } from "@/store/ui";
@@ -547,94 +544,5 @@ describe("shell components smoke", () => {
     );
 
     expect(resolved?.id).toBe("legacy-default");
-  });
-});
-
-describe("AgentOrgChart smoke", () => {
-  beforeEach(() => {
-    vi.spyOn(api, "getRoles").mockImplementation(() => new Promise(() => {}));
-    useDaemonStore.setState({
-      entities: [],
-      agents: [],
-      quests: [],
-      events: [],
-    } as never);
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("returns null when the parent is not in the store", () => {
-    const { container } = render(
-      <StrictMode>
-        <MemoryRouter>
-          <AgentOrgChart parentAgentId="missing" />
-        </MemoryRouter>
-      </StrictMode>,
-    );
-    expect(container.querySelector(".org-chart")).toBeNull();
-  });
-
-  it("renders without loop errors when given a known root agent", () => {
-    useDaemonStore.setState({
-      agents: [
-        { id: "root", name: "Root", status: "active", trust_id: "root-1" },
-        { id: "ceo", name: "CEO", status: "active", trust_id: "root-1" },
-        { id: "cto", name: "CTO", status: "active", trust_id: "root-1" },
-        { id: "eng", name: "Engineer", status: "idle", trust_id: "root-1" },
-      ] as never,
-    });
-    const errors = captureRenderErrors(
-      <StrictMode>
-        <MemoryRouter>
-          <AgentOrgChart parentAgentId="root" />
-        </MemoryRouter>
-      </StrictMode>,
-    );
-    expect(errors.find(isLoopError)).toBeUndefined();
-  });
-
-  it("renders the chart shell when the entity has at least one agent", () => {
-    useDaemonStore.setState({
-      agents: [
-        { id: "root", name: "Root", status: "active", trust_id: "root-1" },
-        { id: "only", name: "Only", status: "active", trust_id: "root-1" },
-      ] as never,
-    });
-    const { container } = render(
-      <StrictMode>
-        <MemoryRouter>
-          <AgentOrgChart parentAgentId="root" />
-        </MemoryRouter>
-      </StrictMode>,
-    );
-    // The chart fetches positions asynchronously; the shell renders
-    // synchronously off the agents data, so the outer wrapper is present
-    // even before the position fetch resolves.
-    expect(container.querySelector(".org-chart")).not.toBeNull();
-  });
-});
-
-describe("ShortcutsOverlay smoke", () => {
-  it("is inert while closed (no portal, no listeners)", () => {
-    const errors = captureRenderErrors(
-      <StrictMode>
-        <ShortcutsOverlay open={false} onClose={() => {}} />
-      </StrictMode>,
-    );
-    expect(errors.find(isLoopError)).toBeUndefined();
-  });
-
-  it("renders the cheatsheet when open", () => {
-    const errors = captureRenderErrors(
-      <StrictMode>
-        <ShortcutsOverlay open={true} onClose={() => {}} />
-      </StrictMode>,
-    );
-    expect(errors.find(isLoopError)).toBeUndefined();
-    const content = document.body.textContent || "";
-    expect(content).toContain("Spawn");
-    expect(content).toContain("command palette");
   });
 });

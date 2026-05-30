@@ -14,10 +14,10 @@ import {
   childCountsByParent,
   isDirectChildOf,
   matchesQuestFilter,
+  parseQuestFilter,
   parseQuestSort,
   questAncestors,
   questParentId,
-  type QuestFilter,
 } from "./quests/agentQuestsHelpers";
 
 export default function AgentQuestsTab({
@@ -35,13 +35,14 @@ export default function AgentQuestsTab({
   // no collision risk.
   const composing = itemId === "new";
   const selectedId = !composing && itemId ? itemId : null;
-  const [questFilter, setQuestFilter] = useState<QuestFilter>("all");
 
   // View + sort persist in URL (mirrors AgentIdeasTab idiom). The
   // compose page also accepts `?fromIdea=<id>` to pre-pin Flow B.
   const [searchParams, setSearchParams] = useSearchParams();
   const view: QuestsView = searchParams.get("view") === "list" ? "list" : "board";
   const sort: QuestSort = parseQuestSort(searchParams.get("sort"));
+  const query = searchParams.get("q") ?? "";
+  const questFilter = parseQuestFilter(searchParams.get("visibility"));
   const boardScopeId = searchParams.get("scope") || null;
 
   const openCompose = useCallback(
@@ -80,6 +81,36 @@ export default function AgentQuestsTab({
           const np = new URLSearchParams(p);
           if (next !== "updated") np.set("sort", next);
           else np.delete("sort");
+          return np;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const setQuery = useCallback(
+    (next: string) => {
+      setSearchParams(
+        (p) => {
+          const np = new URLSearchParams(p);
+          if (next) np.set("q", next);
+          else np.delete("q");
+          return np;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const setQuestFilter = useCallback(
+    (next: ReturnType<typeof parseQuestFilter>) => {
+      setSearchParams(
+        (p) => {
+          const np = new URLSearchParams(p);
+          if (next !== "all") np.set("visibility", next);
+          else np.delete("visibility");
           return np;
         },
         { replace: true },
@@ -224,6 +255,8 @@ export default function AgentQuestsTab({
         onBoardScopeChange={setBoardScope}
         onOpenQuest={(id) => goEntity(trustId, "quests", id)}
         onOpenParent={(id) => setBoardScope(questParentId(id))}
+        search={query}
+        onSearchChange={setQuery}
         view={view}
         onViewChange={setView}
         sort={sort}
