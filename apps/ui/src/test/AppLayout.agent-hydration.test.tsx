@@ -239,8 +239,11 @@ describe("AppLayout drilled-agent hydration", () => {
     const dock = await screen.findByLabelText("Agent dock");
     expect(container.querySelector(".content-card")?.nextElementSibling).toBe(dock);
 
-    expect(within(dock).getByText("Chief of Staff")).toBeInTheDocument();
-    expect(within(dock).getByRole("link", { name: /open connected session/i })).toHaveAttribute(
+    expect(within(dock).queryByText("Chief of Staff")).not.toBeInTheDocument();
+    expect(within(dock).queryByText("Second session")).not.toBeInTheDocument();
+    expect(
+      within(dock).getByRole("link", { name: /open connected session: second session/i }),
+    ).toHaveAttribute(
       "href",
       "/trust/F9s1sSJRm2CobSLkd1BN1Vj4UigRo9zpZhb6raXsQzPq/agents/agent-1/inbox/session-2",
     );

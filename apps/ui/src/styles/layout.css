@@ -2481,12 +2481,15 @@
   z-index: 1;
   flex-shrink: 0;
   display: flex;
+  justify-content: center;
   padding: var(--space-2) 0 0;
   background: transparent;
   pointer-events: auto;
 }
 .composer-row--dock .composer-wrap {
-  max-width: none;
+  flex: 0 1 820px;
+  width: 100%;
+  max-width: 820px;
   min-height: 18px;
   max-height: 18px;
   overflow: hidden;
@@ -2505,41 +2508,31 @@
 }
 .agent-dock-header {
   min-height: 18px;
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: var(--space-2);
 }
-.agent-dock-kicker {
-  min-width: 0;
-  overflow: hidden;
+.agent-dock-cue {
   color: var(--composer-text-muted);
-  font-size: var(--font-size-2xs);
-  line-height: 18px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .agent-dock-session-link {
-  min-width: 0;
-  max-width: min(42vw, 260px);
+  position: absolute;
+  right: 0;
   height: 18px;
+  width: 24px;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: var(--space-1);
   color: var(--composer-text-muted);
-  font-size: var(--font-size-2xs);
   line-height: 1;
   text-decoration: none;
-  white-space: nowrap;
 }
 .agent-dock-session-link:hover,
 .agent-dock-session-link:focus-visible {
   color: var(--composer-text);
-}
-.agent-dock-session-link span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .composer-row--dock .persistent-composer {
   opacity: 0;
