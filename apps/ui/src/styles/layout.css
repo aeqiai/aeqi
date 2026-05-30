@@ -1015,6 +1015,9 @@
 .sidebar-surface-nav.sidebar-trust-nav .sidebar-section-label:first-child {
   margin-top: 2px;
 }
+.sidebar-surface-nav.sidebar-trust-nav .sidebar-section-label.active {
+  color: var(--color-text-title);
+}
 .sidebar-surface-nav.sidebar-trust-nav .acting-as-trigger {
   margin-bottom: 4px;
   padding: 8px 10px;

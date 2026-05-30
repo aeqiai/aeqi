@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   Workflow,
   MessagesSquare,
+  PinOff,
   Bot,
   Activity,
   Target,
@@ -88,8 +89,11 @@ const SearchIcon = () => <Icon icon={Search} size="sm" />;
 const CollapseSidebarIcon = () => <Icon icon={PanelLeftClose} size="sm" />;
 const ExpandSidebarIcon = () => <Icon icon={PanelLeftOpen} size="sm" />;
 const GroupChevronIcon = () => <Icon icon={ChevronDown} size="sm" />;
+const UnpinIcon = () => <Icon icon={PinOff} size="sm" />;
 
 type TrustNavGroupId = "operations" | "ownership" | "infrastructure";
+type TrustNavGroupState = Record<TrustNavGroupId, boolean>;
+const PINNED_USER_SESSIONS_STORAGE_KEY = "aeqi_sidebar_pinned_my_sessions";
 
 const TRUST_NAV_MATCHES: Record<TrustNavGroupId, string[]> = {
   operations: [
@@ -125,6 +129,10 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
   const setSidebarWidth = useUIStore((s) => s.setSidebarWidth);
   const [isMobileShell, setIsMobileShell] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [pinnedUserSessionsVisible, setPinnedUserSessionsVisible] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return window.localStorage.getItem(PINNED_USER_SESSIONS_STORAGE_KEY) !== "false";
+  });
   const isMac =
     typeof navigator !== "undefined" && /mac|iphone|ipad|ipod/i.test(navigator.userAgent);
   const commandKey = isMac ? "⌘" : "Ctrl";
@@ -209,7 +217,7 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
     if (!base) return false;
     return path === `${base}/${id}` || path.startsWith(`${base}/${id}/`);
   };
-  const isCompanyOverview = !!base && path === base;
+  const isCompanyOverview = !!base && (path === base || path === "/trust");
   const activeUserSessionsView =
     !!base && isActiveTab("sessions") && sessionsViewFromSearch(location.search) === "mine";
   const isActiveGroupTab = (id: string) =>
@@ -219,13 +227,18 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
     (Object.entries(TRUST_NAV_MATCHES) as Array<[TrustNavGroupId, string[]]>).find(([, ids]) =>
       isActiveWithin(ids),
     )?.[0] ?? null;
-  const [openTrustGroup, setOpenTrustGroup] = useState<TrustNavGroupId>(
-    activeTrustGroup ?? "operations",
-  );
+  const [openTrustGroups, setOpenTrustGroups] = useState<TrustNavGroupState>(() => ({
+    operations: !activeTrustGroup || activeTrustGroup === "operations",
+    ownership: activeTrustGroup === "ownership",
+    infrastructure: activeTrustGroup === "infrastructure",
+  }));
 
   useEffect(() => {
-    setOpenTrustGroup(activeTrustGroup ?? "operations");
-  }, [activeTrustGroup]);
+    if (!activeTrustGroup) return;
+    setOpenTrustGroups((current) =>
+      current[activeTrustGroup] ? current : { ...current, [activeTrustGroup]: true },
+    );
+  }, [activeTrustGroup, path]);
 
   // Top-level public rows.
   const isEconomy = path === "/economy" || path.startsWith("/economy/");
@@ -312,7 +325,7 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
   );
 
   const trustNavGroup = (id: TrustNavGroupId, label: string, items: React.ReactNode) => {
-    const open = openTrustGroup === id;
+    const open = openTrustGroups[id];
     const active = activeTrustGroup === id;
 
     return (
@@ -321,7 +334,7 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
           type="button"
           className={`sidebar-group-title${active ? " active" : ""}`}
           aria-expanded={open}
-          onClick={() => setOpenTrustGroup(id)}
+          onClick={() => setOpenTrustGroups((current) => ({ ...current, [id]: !current[id] }))}
         >
           <span className="sidebar-group-label">{label}</span>
           <span className="sidebar-group-chevron" aria-hidden>
@@ -331,6 +344,16 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
         {open && <div className="sidebar-group-items">{items}</div>}
       </section>
     );
+  };
+
+  const unpinUserSessionsView = () => {
+    setPinnedUserSessionsVisible(false);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(PINNED_USER_SESSIONS_STORAGE_KEY, "false");
+    }
+    if (activeUserSessionsView) {
+      navigate(`${base}/sessions`);
+    }
   };
 
   const collapsedBrandButton = (ariaLabel: string) => (
@@ -431,28 +454,36 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
           {topLevelItem("/blueprints", "Blueprints", <BlueprintsIcon />, isBlueprints)}
         </nav>
 
-        {/* ── Trust group — pinned views first, then primitive registries. ── */}
+        {/* ── Trust group — pinned rows first, then primitive registries. ── */}
         {hasCompany && (
           <>
             <nav className="sidebar-surface-nav sidebar-zone sidebar-trust-nav" aria-label="Trust">
-              <div className="sidebar-section-label">Trust</div>
-              <ActingAsSelector />
-              <div className="sidebar-section-label">Pinned Views</div>
-              <div key="my-sessions" className="sidebar-nav-row">
-                <a
-                  className={`sidebar-nav-item ${activeUserSessionsView ? "active" : ""}`}
-                  href={userSessionsPath(base)}
-                  title={USER_SESSIONS_VIEW_LABEL}
-                  aria-current={activeUserSessionsView ? "page" : undefined}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    navigate(userSessionsPath(base));
-                  }}
-                >
-                  <SessionsIcon />
-                  <span className="sidebar-nav-label">{USER_SESSIONS_VIEW_LABEL}</span>
-                </a>
+              <div className={`sidebar-section-label${isCompanyOverview ? " active" : ""}`}>
+                Trust
               </div>
+              <ActingAsSelector />
+              {pinnedUserSessionsVisible && (
+                <div key="my-sessions" className="sidebar-nav-row">
+                  <a
+                    className={`sidebar-nav-item ${activeUserSessionsView ? "active" : ""}`}
+                    href={userSessionsPath(base)}
+                    title={USER_SESSIONS_VIEW_LABEL}
+                    aria-current={activeUserSessionsView ? "page" : undefined}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate(userSessionsPath(base));
+                    }}
+                  >
+                    <SessionsIcon />
+                    <span className="sidebar-nav-label">{USER_SESSIONS_VIEW_LABEL}</span>
+                  </a>
+                  {rowAction(
+                    `Unpin ${USER_SESSIONS_VIEW_LABEL}`,
+                    <UnpinIcon />,
+                    unpinUserSessionsView,
+                  )}
+                </div>
+              )}
               <div key="views" className="sidebar-nav-row">
                 <a
                   className={`sidebar-nav-item ${isCompanyOverview ? "active" : ""}`}

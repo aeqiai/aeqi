@@ -19,6 +19,7 @@ function withQueryClient(ui: React.ReactElement) {
 
 describe("LeftSidebar trust navigation", () => {
   beforeEach(() => {
+    window.localStorage.removeItem("aeqi_sidebar_pinned_my_sessions");
     useDaemonStore.setState({
       status: null,
       dashboard: null,
@@ -42,8 +43,8 @@ describe("LeftSidebar trust navigation", () => {
     });
   });
 
-  it("shows My sessions as a pinned view and keeps one trust group open", () => {
-    const { getByRole, queryByRole } = render(
+  it("shows My sessions as a pinned row and allows multiple trust groups open", () => {
+    const { getByRole, getByText, queryByRole, queryByText } = render(
       withQueryClient(
         <StrictMode>
           <MemoryRouter initialEntries={["/trust/root-1"]}>
@@ -61,15 +62,23 @@ describe("LeftSidebar trust navigation", () => {
     const pinnedView = getByRole("link", { name: "My sessions" });
     expect(pinnedView).toBeInTheDocument();
     expect(pinnedView).toHaveAttribute("href", "/trust/root-1/sessions?view=mine");
+    expect(getByRole("button", { name: "Unpin My sessions" })).toBeInTheDocument();
+    expect(queryByText("Pinned Views")).not.toBeInTheDocument();
+    expect(getByText("Trust")).toHaveClass("active");
     expect(queryByRole("link", { name: "Inbox" })).not.toBeInTheDocument();
     expect(queryByRole("link", { name: "Your Inbox" })).not.toBeInTheDocument();
     expect(getByRole("button", { name: "Operations" })).toHaveAttribute("aria-expanded", "true");
 
     fireEvent.click(getByRole("button", { name: "Ownership" }));
 
+    expect(getByRole("button", { name: "Operations" })).toHaveAttribute("aria-expanded", "true");
     expect(getByRole("button", { name: "Ownership" })).toHaveAttribute("aria-expanded", "true");
+    expect(getByRole("link", { name: "Agents" })).toBeInTheDocument();
     expect(getByRole("link", { name: "Shares" })).toBeInTheDocument();
     expect(getByRole("link", { name: "My sessions" })).toBeInTheDocument();
     expect(queryByRole("link", { name: "Inbox" })).not.toBeInTheDocument();
+
+    fireEvent.click(getByRole("button", { name: "Unpin My sessions" }));
+    expect(queryByRole("link", { name: "My sessions" })).not.toBeInTheDocument();
   });
 });

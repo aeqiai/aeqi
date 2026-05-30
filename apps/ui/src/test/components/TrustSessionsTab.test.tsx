@@ -194,7 +194,7 @@ describe("TrustSessionsTab", () => {
     });
 
     const header = screen.getByLabelText("Session controls");
-    expect(within(header).getByRole("heading", { name: /My sessions/ })).toBeInTheDocument();
+    expect(within(header).getByRole("heading", { name: /Sessions/ })).toBeInTheDocument();
     expect(within(header).getByPlaceholderText("Search my sessions")).toBeInTheDocument();
     expect(await screen.findAllByText("Approve the launch spend?")).toHaveLength(2);
     expect(screen.getAllByText(/Chief of Staff.*Awaiting you/).length).toBeGreaterThan(0);

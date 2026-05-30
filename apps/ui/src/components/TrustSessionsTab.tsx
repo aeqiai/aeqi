@@ -4,11 +4,7 @@ import { Bot, Plus } from "lucide-react";
 import { api, type InboxItem } from "@/lib/api";
 import { entityPathFromId } from "@/lib/entityPath";
 import { recencyBucket, timeAgo, timeShort } from "@/lib/format";
-import {
-  sessionsViewFromSearch,
-  withUserSessionsView,
-  USER_SESSIONS_VIEW_LABEL,
-} from "@/lib/sessionViews";
+import { sessionsViewFromSearch, withUserSessionsView } from "@/lib/sessionViews";
 import Composer from "@/components/composer/Composer";
 import { inboxMessagesAdapter } from "@/components/inbox/inboxMessagesAdapter";
 import {
@@ -368,7 +364,7 @@ export default function TrustSessionsTab({
     : userSessionsView
       ? "sessions that mention or include you will appear here"
       : "agent conversations will appear here";
-  const titleText = userSessionsView ? USER_SESSIONS_VIEW_LABEL : "Sessions";
+  const titleText = "Sessions";
   const searchPlaceholder = userSessionsView ? "Search my sessions" : "Search sessions";
 
   return (
