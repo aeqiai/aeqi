@@ -312,6 +312,16 @@ export default function IdeasWorkspaceView({
         padding="none"
         actions={
           <div className="ideas-workspace-head-actions">
+            <ImportMenu
+              size="md"
+              trustId={trustId}
+              parts={["ideas"]}
+              blueprintTitle="Import child ideas from a Blueprint"
+              accept="*/*"
+              fileLabel="From files"
+              onMarkdownPicked={(files) => void handleFileImport(files)}
+              onBlueprintSpawned={() => void invalidateIdeas()}
+            />
             <Tooltip content={activeIdea ? `New under ${activeIdea.name}` : "New idea"}>
               <Button
                 variant="primary"
@@ -320,7 +330,7 @@ export default function IdeasWorkspaceView({
                 leadingIcon={<Icon icon={Plus} size="sm" />}
                 disabled={!rootIdea}
               >
-                New
+                Idea
               </Button>
             </Tooltip>
           </div>
@@ -377,18 +387,6 @@ export default function IdeasWorkspaceView({
                     aria-selected={isSelected}
                     aria-expanded={node.children.length > 0 ? expanded : undefined}
                   >
-                    {node.children.length > 0 ? (
-                      <button
-                        type="button"
-                        className={`ideas-workspace-tree-toggle${expanded ? " is-open" : ""}`}
-                        aria-label={expanded ? "Collapse idea" : "Expand idea"}
-                        onClick={() => toggleIdea(idea.id, defaultExpanded)}
-                      >
-                        <ChevronRight size={13} strokeWidth={1.9} />
-                      </button>
-                    ) : (
-                      <span className="ideas-workspace-tree-toggle-spacer" aria-hidden />
-                    )}
                     <button
                       type="button"
                       className="ideas-workspace-tree-item"
@@ -401,6 +399,18 @@ export default function IdeasWorkspaceView({
                       )}
                       <span>{idea.name || "Untitled"}</span>
                     </button>
+                    {node.children.length > 0 ? (
+                      <button
+                        type="button"
+                        className={`ideas-workspace-tree-toggle${expanded ? " is-open" : ""}`}
+                        aria-label={expanded ? "Collapse idea" : "Expand idea"}
+                        onClick={() => toggleIdea(idea.id, defaultExpanded)}
+                      >
+                        <ChevronRight size={13} strokeWidth={1.9} />
+                      </button>
+                    ) : (
+                      <span className="ideas-workspace-tree-toggle-spacer" aria-hidden />
+                    )}
                   </div>
                 );
               })}
@@ -507,17 +517,6 @@ export default function IdeasWorkspaceView({
                 canTrack={Boolean(activeIdea && !rootSelected)}
                 canDelete={Boolean(activeIdea && activeIdea.id !== rootIdea?.id)}
                 scopeLocked={rootSelected}
-                importMenu={
-                  <ImportMenu
-                    trustId={trustId}
-                    parts={["ideas"]}
-                    blueprintTitle="Import child ideas from a Blueprint"
-                    accept="*/*"
-                    fileLabel="From files"
-                    onMarkdownPicked={(files) => void handleFileImport(files)}
-                    onBlueprintSpawned={() => void invalidateIdeas()}
-                  />
-                }
                 onScopeChange={(next) => void handleScopeChange(next)}
                 onTagAdd={(tag) => {
                   if (!activeIdea) return;

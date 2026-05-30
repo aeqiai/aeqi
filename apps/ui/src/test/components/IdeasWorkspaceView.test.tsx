@@ -144,11 +144,15 @@ describe("IdeasWorkspaceView", () => {
       screen.getByRole("complementary", { name: "Eich Holding idea explorer" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Explorer")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Idea" })).toBeInTheDocument();
     expect(screen.getByRole("main", { name: "Idea" })).toBeInTheDocument();
     const details = screen.getByRole("complementary", { name: "Details" });
     expect(details).toBeInTheDocument();
     expect(within(details).getByText("Scope")).toBeInTheDocument();
     expect(within(details).getByText("Type")).toBeInTheDocument();
+    expect(within(details).queryByText(/^Activity/)).not.toBeInTheDocument();
+    expect(within(details).queryByText("Import")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Import/ })).toBeInTheDocument();
     expect(within(details).getByText("Details")).toHaveClass("ideas-workspace-detail-object");
     const ideaSection = details.querySelector(
       "details.ideas-workspace-idea-section",
@@ -194,9 +198,10 @@ describe("IdeasWorkspaceView", () => {
 
     const explorer = screen.getByRole("complementary", { name: "Eich Holding idea explorer" });
     expect(within(explorer).getByRole("tree")).toBeInTheDocument();
-    expect(within(explorer).getByRole("treeitem", { name: /Eich Holding/i })).toHaveAttribute(
-      "aria-expanded",
-      "true",
+    const rootRow = within(explorer).getByRole("treeitem", { name: /Eich Holding/i });
+    expect(rootRow).toHaveAttribute("aria-expanded", "true");
+    expect(rootRow.lastElementChild).toBe(
+      within(rootRow).getByRole("button", { name: "Collapse idea" }),
     );
     expect(within(explorer).queryByLabelText("Explorer metrics")).not.toBeInTheDocument();
     expect(within(explorer).queryByText("Depth")).not.toBeInTheDocument();

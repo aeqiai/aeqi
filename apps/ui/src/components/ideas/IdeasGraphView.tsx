@@ -135,7 +135,7 @@ export default function IdeasGraphView({
               onClick={onNew}
               leadingIcon={<Icon icon={Plus} size="sm" />}
             >
-              New
+              Idea
             </Button>
           </Tooltip>
         }

@@ -327,7 +327,7 @@ export default function IdeasListView({
                 onClick={() => fireNew()}
                 leadingIcon={<Icon icon={Plus} size="sm" />}
               >
-                New
+                Idea
               </Button>
             </Tooltip>
           </>

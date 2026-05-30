@@ -122,7 +122,7 @@ export default function IdeasTableView({
               onClick={onNew}
               leadingIcon={<Icon icon={Plus} size="sm" />}
             >
-              New
+              Idea
             </Button>
           </Tooltip>
         }

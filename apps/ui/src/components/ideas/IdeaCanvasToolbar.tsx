@@ -88,7 +88,7 @@ export default function IdeaCanvasToolbar({
               </svg>
             }
           >
-            New
+            Idea
           </Button>
         </Tooltip>
       )}

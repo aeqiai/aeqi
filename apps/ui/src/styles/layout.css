@@ -4980,7 +4980,7 @@
 }
 
 .ideas-workspace-tree {
-  background: var(--bg-row);
+  background: var(--color-card);
   border-right: 1px solid var(--border-subtle, var(--border-faint));
 }
 
@@ -4991,7 +4991,7 @@
 .ideas-workspace-tree-head,
 .ideas-workspace-inspector-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 10px;
   min-height: var(--detail-control-h);
@@ -5026,16 +5026,19 @@
 
 .ideas-workspace-tree-row {
   display: grid;
-  grid-template-columns: 20px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 24px;
   align-items: center;
-  padding-left: calc(var(--idea-tree-depth, 0) * 14px);
+  min-height: 28px;
+  padding-left: calc(7px + var(--idea-tree-depth, 0) * 14px);
   position: relative;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
 }
 
 .ideas-workspace-tree-row::before {
   content: "";
   position: absolute;
-  left: calc(10px + var(--idea-tree-depth, 0) * 14px);
+  left: calc(7px + var(--idea-tree-depth, 0) * 14px);
   top: 0;
   bottom: 0;
   width: 1px;
@@ -5047,8 +5050,8 @@
 .ideas-workspace-tree-toggle,
 .ideas-workspace-tree-toggle-spacer {
   display: inline-flex;
-  width: 20px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   align-items: center;
   justify-content: center;
   color: var(--color-text-muted);
@@ -5065,7 +5068,7 @@
 .ideas-workspace-tree-toggle:hover,
 .ideas-workspace-tree-toggle:focus-visible {
   color: var(--color-text-primary);
-  background: var(--bg-surface-hover);
+  background: transparent;
   outline: none;
 }
 
@@ -5081,14 +5084,14 @@
   display: grid;
   grid-template-columns: 16px minmax(0, 1fr);
   min-width: 0;
-  min-height: 28px;
+  min-height: 26px;
   align-items: center;
   gap: 6px;
-  padding: 3px 7px;
+  padding: 3px 6px 3px 0;
   color: var(--color-text-secondary);
   background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  border: 0;
+  border-radius: 0;
   cursor: pointer;
   font-family: var(--font-sans);
   font-size: 12px;
@@ -5096,13 +5099,22 @@
   text-align: left;
 }
 
-.ideas-workspace-tree-item:hover,
-.ideas-workspace-tree-item:focus-visible,
-.ideas-workspace-tree-row[aria-selected="true"] .ideas-workspace-tree-item {
+.ideas-workspace-tree-row:hover,
+.ideas-workspace-tree-row:focus-within,
+.ideas-workspace-tree-row[aria-selected="true"] {
   color: var(--color-text-primary);
-  background: var(--color-card-elevated);
+  background: var(--bg-row);
   border-color: transparent;
   outline: none;
+}
+
+.ideas-workspace-tree-row:hover .ideas-workspace-tree-item,
+.ideas-workspace-tree-row:focus-within .ideas-workspace-tree-item,
+.ideas-workspace-tree-row[aria-selected="true"] .ideas-workspace-tree-item,
+.ideas-workspace-tree-row:hover .ideas-workspace-tree-toggle,
+.ideas-workspace-tree-row:focus-within .ideas-workspace-tree-toggle,
+.ideas-workspace-tree-row[aria-selected="true"] .ideas-workspace-tree-toggle {
+  color: var(--color-text-primary);
 }
 
 .ideas-workspace-tree-row[aria-selected="true"] .ideas-workspace-tree-item {
@@ -5672,6 +5684,7 @@
  * until it lives as a `<ToolbarIconButton>` in the design system. */
 .ideas-toolbar-btn {
   position: relative;
+  appearance: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -5692,7 +5705,7 @@
   color: var(--color-text-primary);
   background: var(--input-bg, var(--bg-base));
   border: 1px solid var(--input-border, var(--border));
-  border-radius: var(--radius-full);
+  border-radius: 999px;
   cursor: pointer;
   flex-shrink: 0;
   transition:

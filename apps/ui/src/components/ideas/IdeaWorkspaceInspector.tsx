@@ -1,4 +1,3 @@
-import { useState, type ReactNode } from "react";
 import { MoreHorizontal, Save, Trash2, X } from "lucide-react";
 import { blockTreeToPlainText } from "@/components/editor/blockEditorContent";
 import IdeaLinksPanel from "@/components/IdeaLinksPanel";
@@ -14,7 +13,6 @@ import {
   InspectorSection,
   Menu,
 } from "../ui";
-import IdeaActivityFeed from "./IdeaActivityFeed";
 import IdeaPropertyChips from "./IdeaPropertyChips";
 import { SCOPE_HINT, SCOPE_LABEL, SCOPE_PICKER_VALUES, relativeTime } from "./types";
 
@@ -33,7 +31,6 @@ export interface IdeaWorkspaceInspectorProps {
   canTrack: boolean;
   canDelete: boolean;
   scopeLocked?: boolean;
-  importMenu: ReactNode;
   onScopeChange: (scope: ScopeValue) => void;
   onTagAdd: (tag: string) => void;
   onTagRemove: (tag: string) => void;
@@ -63,7 +60,6 @@ export default function IdeaWorkspaceInspector({
   canTrack,
   canDelete,
   scopeLocked = false,
-  importMenu,
   onScopeChange,
   onTagAdd,
   onTagRemove,
@@ -72,7 +68,6 @@ export default function IdeaWorkspaceInspector({
   onSave,
   onCancel,
 }: IdeaWorkspaceInspectorProps) {
-  const [activityCount, setActivityCount] = useState(0);
   const words = idea
     ? blockTreeToPlainText(idea.content).trim().split(/\s+/).filter(Boolean).length
     : 0;
@@ -270,24 +265,6 @@ export default function IdeaWorkspaceInspector({
           <InspectorRow label="Words" tone="recessed">
             {words}
           </InspectorRow>
-        </InspectorSection>
-
-        {idea && (
-          <InspectorSection title={`Activity · ${activityCount}`} collapsible defaultOpen={false}>
-            <div className="ideas-workspace-inspector-stack">
-              <span className="ideas-workspace-inspector-label">Timeline</span>
-              <div className="ideas-workspace-inspector-field">
-                <IdeaActivityFeed ideaId={idea.id} limit={6} onCount={setActivityCount} />
-              </div>
-            </div>
-          </InspectorSection>
-        )}
-
-        <InspectorSection title="Import" collapsible defaultOpen={false}>
-          <div className="ideas-workspace-inspector-stack">
-            <span className="ideas-workspace-inspector-label">Sources</span>
-            <div className="ideas-workspace-inspector-field">{importMenu}</div>
-          </div>
         </InspectorSection>
       </div>
     </InspectorPanel>
