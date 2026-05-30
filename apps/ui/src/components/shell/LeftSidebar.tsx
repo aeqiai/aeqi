@@ -31,7 +31,7 @@ import ActingAsSelector from "@/components/shell/ActingAsSelector";
 import AccountDropdown from "@/components/shell/AccountDropdown";
 import Wordmark from "@/components/Wordmark";
 import HelpMenu from "@/components/shell/HelpMenu";
-import { IconButton, Tooltip } from "@/components/ui";
+import { Icon, IconButton, Tooltip } from "@/components/ui";
 import { useUIStore } from "@/store/ui";
 import { useDaemonStore } from "@/store/daemon";
 import { useRuntimeStatus } from "@/hooks/useRuntimeStatus";
@@ -48,47 +48,46 @@ interface LeftSidebarProps {
   path: string;
 }
 
-// Sidebar nav icons — Lucide, sized via CSS (.sidebar-nav-item > svg).
-// Stroke width is overridden to 1.65 by layout.css for the 16px optical sweet
-// spot; the icon prop here just controls glyph identity.
-const HomeIcon = () => <House />;
+// Sidebar nav icons — routed through the shared Icon primitive so the rail
+// follows the Storybook iconography rules (16px default, 1.5 stroke).
+const HomeIcon = () => <Icon icon={House} />;
 // Views — the composable trust landing. LayoutDashboard reads "saved
 // operating view" without overloading the Trust group itself.
-const ViewsIcon = () => <LayoutDashboard />;
-const AgentsIcon = () => <Bot />;
+const ViewsIcon = () => <Icon icon={LayoutDashboard} />;
+const AgentsIcon = () => <Icon icon={Bot} />;
 // Events — Activity: single-line waveform reads as the event stream
 // without the busy three-node pretzel of the prior Webhook glyph.
-const EventsIcon = () => <Activity />;
-const QuestsIcon = () => <Target />;
-const IdeasIcon = () => <Lightbulb />;
-const SessionsIcon = () => <MessagesSquare />;
-const GatewaysIcon = () => <Waypoints />;
-const ToolsIcon = () => <Wrench />;
-const AppsIcon = () => <AppWindow />;
-const BudgetsIcon = () => <WalletCards />;
-const TransactionsIcon = () => <ReceiptText />;
-const SharesIcon = () => <ScrollText />;
-const RoundsIcon = () => <CircleDollarSign />;
-const AssetsIcon = () => <Box />;
+const EventsIcon = () => <Icon icon={Activity} />;
+const QuestsIcon = () => <Icon icon={Target} />;
+const IdeasIcon = () => <Icon icon={Lightbulb} />;
+const SessionsIcon = () => <Icon icon={MessagesSquare} />;
+const GatewaysIcon = () => <Icon icon={Waypoints} />;
+const ToolsIcon = () => <Icon icon={Wrench} />;
+const AppsIcon = () => <Icon icon={AppWindow} />;
+const BudgetsIcon = () => <Icon icon={WalletCards} />;
+const TransactionsIcon = () => <Icon icon={ReceiptText} />;
+const SharesIcon = () => <Icon icon={ScrollText} />;
+const RoundsIcon = () => <Icon icon={CircleDollarSign} />;
+const AssetsIcon = () => <Icon icon={Box} />;
 // Roles — its own peer slot under Trust. The org-chart authority graph owns
 // hierarchy, selection, creation, and inline property edits in one workspace.
-const RolesIcon = () => <Workflow />;
-const MembersIcon = () => <Users />;
-const IntegrationsIcon = () => <Plug />;
-const SettingsIcon = () => <Settings />;
+const RolesIcon = () => <Icon icon={Workflow} />;
+const MembersIcon = () => <Icon icon={Users} />;
+const IntegrationsIcon = () => <Icon icon={Plug} />;
+const SettingsIcon = () => <Icon icon={Settings} />;
 // Economy — Globe reads "the wider network / world economy" — the
 // marketplace + inference + stake activity is happening *out there*
 // across every trust, not in your local store.
-const EconomyIcon = () => <Globe />;
-const BlueprintsIcon = () => <Blocks />;
+const EconomyIcon = () => <Icon icon={Globe} />;
+const BlueprintsIcon = () => <Icon icon={Blocks} />;
 
 // Admin — Lucide's Shield is the same silhouette as the prior hand-rolled.
-const SearchIcon = () => <Search />;
+const SearchIcon = () => <Icon icon={Search} size="sm" />;
 // Sidebar collapse/expand — state-aware glyphs so the affordance reads
 // in both directions.
-const CollapseSidebarIcon = () => <PanelLeftClose />;
-const ExpandSidebarIcon = () => <PanelLeftOpen />;
-const GroupChevronIcon = () => <ChevronDown size={14} strokeWidth={1.6} />;
+const CollapseSidebarIcon = () => <Icon icon={PanelLeftClose} size="sm" />;
+const ExpandSidebarIcon = () => <Icon icon={PanelLeftOpen} size="sm" />;
+const GroupChevronIcon = () => <Icon icon={ChevronDown} size="sm" />;
 
 type TrustNavGroupId = "operations" | "ownership" | "infrastructure";
 
@@ -334,6 +333,37 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
     );
   };
 
+  const collapsedBrandButton = (ariaLabel: string) => (
+    <button
+      type="button"
+      className="sidebar-nav-item sidebar-brand-collapsed"
+      onClick={handleSidebarToggle}
+      aria-label={ariaLabel}
+      data-pill-allowed=""
+    >
+      <span className="sidebar-brand-collapsed-rest" aria-hidden="true">
+        <span
+          style={{
+            fontFamily: "var(--font-brand)",
+            fontSize: 18,
+            fontWeight: 400,
+            letterSpacing: "-0.02em",
+            color: "var(--color-accent)",
+            lineHeight: 1,
+          }}
+        >
+          æ
+        </span>
+      </span>
+      <span className="sidebar-brand-collapsed-hover" aria-hidden="true">
+        <ExpandSidebarIcon />
+      </span>
+      <span className="sidebar-brand-collapsed-mobile-wordmark" aria-hidden="true">
+        <Wordmark size={28} />
+      </span>
+    </button>
+  );
+
   return (
     <div
       className={`left-sidebar${sidebarCollapsed ? " collapsed" : ""}${mobileMenuOpen ? " mobile-open" : ""}`}
@@ -349,61 +379,42 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
             <Link to="/" className="sidebar-brand" aria-label="aeqi — home">
               <Wordmark size={28} />
             </Link>
-            <Tooltip
-              content={isMobileShell ? mobileToggleLabel : `Collapse sidebar (${commandKey}B)`}
-            >
+            {isMobileShell ? (
               <IconButton
                 className="sidebar-collapse-btn"
                 onClick={handleSidebarToggle}
-                aria-label={isMobileShell ? mobileToggleLabel : "Collapse sidebar"}
+                aria-label={mobileToggleLabel}
               >
-                {isMobileShell && !mobileMenuOpen ? <ExpandSidebarIcon /> : <CollapseSidebarIcon />}
+                {!mobileMenuOpen ? <ExpandSidebarIcon /> : <CollapseSidebarIcon />}
               </IconButton>
-            </Tooltip>
+            ) : (
+              <Tooltip content={`Collapse sidebar (${commandKey}B)`}>
+                <IconButton
+                  className="sidebar-collapse-btn"
+                  onClick={handleSidebarToggle}
+                  aria-label="Collapse sidebar"
+                >
+                  <CollapseSidebarIcon />
+                </IconButton>
+              </Tooltip>
+            )}
           </>
         ) : (
           <>
-            <Tooltip
-              content={isMobileShell ? mobileToggleLabel : `Expand sidebar (${commandKey}B)`}
+            {isMobileShell ? (
+              collapsedBrandButton(mobileToggleLabel)
+            ) : (
+              <Tooltip content={`Expand sidebar (${commandKey}B)`}>
+                {collapsedBrandButton("Expand sidebar")}
+              </Tooltip>
+            )}
+            <IconButton
+              className="sidebar-collapse-btn sidebar-mobile-menu-btn"
+              onClick={handleSidebarToggle}
+              aria-label={mobileToggleLabel}
             >
-              <button
-                type="button"
-                className="sidebar-nav-item sidebar-brand-collapsed"
-                onClick={handleSidebarToggle}
-                aria-label={isMobileShell ? mobileToggleLabel : "Expand sidebar"}
-                data-pill-allowed=""
-              >
-                <span className="sidebar-brand-collapsed-rest" aria-hidden="true">
-                  <span
-                    style={{
-                      fontFamily: "var(--font-brand)",
-                      fontSize: 18,
-                      fontWeight: 400,
-                      letterSpacing: "-0.02em",
-                      color: "var(--color-accent)",
-                      lineHeight: 1,
-                    }}
-                  >
-                    æ
-                  </span>
-                </span>
-                <span className="sidebar-brand-collapsed-hover" aria-hidden="true">
-                  <ExpandSidebarIcon />
-                </span>
-                <span className="sidebar-brand-collapsed-mobile-wordmark" aria-hidden="true">
-                  <Wordmark size={28} />
-                </span>
-              </button>
-            </Tooltip>
-            <Tooltip content={mobileToggleLabel}>
-              <IconButton
-                className="sidebar-collapse-btn sidebar-mobile-menu-btn"
-                onClick={handleSidebarToggle}
-                aria-label={mobileToggleLabel}
-              >
-                {mobileMenuOpen ? <CollapseSidebarIcon /> : <ExpandSidebarIcon />}
-              </IconButton>
-            </Tooltip>
+              {mobileMenuOpen ? <CollapseSidebarIcon /> : <ExpandSidebarIcon />}
+            </IconButton>
           </>
         )}
       </div>

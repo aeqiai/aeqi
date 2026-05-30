@@ -1,5 +1,7 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react";
+import { ListFilter } from "lucide-react";
+import { Icon } from "@/components/ui";
 import SessionsToolbar from "./SessionsToolbar";
 
 const meta: Meta<typeof SessionsToolbar> = {
@@ -35,18 +37,7 @@ function FakePopoverButton({ label }: { label: string }) {
       title={label}
       style={{ pointerEvents: "none" }}
     >
-      <svg
-        width="13"
-        height="13"
-        viewBox="0 0 13 13"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.25"
-        strokeLinecap="round"
-        aria-hidden
-      >
-        <path d="M2 3.25h9M3.5 6.5h6M5 9.75h3" />
-      </svg>
+      <Icon icon={ListFilter} size="sm" />
     </button>
   );
 }

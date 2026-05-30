@@ -1,22 +1,22 @@
 /*  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- *  AEQI Design Language — v4 (Graphite + Ink)
+ *  AEQI Design Language — v6 (Warm Paper + Ink)
  *  ──────────────────────────────────────────────────
- *  Neutral greys, flat white card, near-black ink,
+ *  Warm paper, whisper-tinted cards, near-black ink,
  *  black-as-accent. The interface reads as a precision
- *  tool: Linear × Things × Vercel — trust through
- *  restraint, not through a brand colour.
+ *  operating tool: Notion × Stripe × Linear — trust through
+ *  restraint, not through decoration.
  *
  *  Ratio rule — hold these or it goes generic:
- *    ~70%  neutral grey + white card surfaces
- *    ~28%  ink body copy (black at 18–92% alpha)
+ *    ~70%  warm paper + card surfaces
+ *    ~28%  ink body copy (black at 30–95% alpha)
  *    ~2%   near-black accent (primary CTA, focus, active nav, selected)
  *
  *  Jade is reserved for the success semantic (completed quests, resolved
  *  events) so brand and status signal read visually distinct.
  *
  *  Avoid:
- *    - hueish greys (warm cream, cool steel-blue tints) — keeps the
- *      neutral clean so everything else can speak
+ *    - saturated surface tints — warmth belongs in the paper ladder,
+ *      not in colored panels
  *    - saturated accent colours (blues, purples, cyans)
  *    - gradients, glass, glow effects as decoration
  *    - success = accent everywhere (muddies both)
@@ -27,19 +27,19 @@
 :root {
   /* ── Colors ─────────────────────────────────────── */
 
-  /* Surface model — five tiers, all PURE NEUTRAL (zero chroma). Linear-
-     style elevation: every pane is a cleaner grey than the last, which
-     gives the interface its trust-through-restraint register. The ramp,
+  /* Surface model — five warm-paper tiers. Linear-style elevation:
+     every pane is a quieter value step than the last, which gives the
+     interface its trust-through-restraint register. The ramp,
      most recessed → most elevated:
 
        muted    — the stronger inset family INSIDE the card (page well).
        subtle   — the gentler inset family (input recess, hover trail).
        paper    — the shell / outer app world. Sidebar, frame, body bg.
        card     — primary reading surface. A whisper above paper, not
-                  pure white — the page reads as a stack of soft tiers
+                  bleached white — the page reads as a stack of soft tiers
                   rather than a single bleached sheet.
-       elevated — pure white. Reserved for surfaces that lift ABOVE the
-                  card: secondary buttons sitting on cards, popovers,
+       elevated — warm off-white. Reserved for surfaces that lift ABOVE
+                  the card: secondary buttons sitting on cards, popovers,
                   cards-on-cards, hovered modals.
 
      Canonical semantic roles:
@@ -85,9 +85,9 @@
 
   /* Compatibility bridge for existing selectors. Internal only — not part
      of the public design-system terminology.
-     Page-level "bg-base" used to alias `--color-card-muted` (slab,
-     #ededf0) — that conflated outer-page-bg with inset-inside-card.
-     v5.1 splits them: page bg uses paper, inset wells stay on slab. */
+     Page-level "bg-base" once aliased `--color-card-muted` — that
+     conflated outer-page-bg with inset-inside-card. v6 keeps page bg on
+     paper and inset wells on slab. */
   --color-bg-base: var(--color-paper);
   --color-bg-surface: var(--color-card-subtle);
   --color-bg-elevated: var(--color-card-elevated);
@@ -100,11 +100,10 @@
 
   /* Ink / Text — the ink-on-paper scale, PURE NEUTRAL (zero chroma).
      The near-black reads as charcoal, not blue-black or warm-black.
-     v5.1 bumped every tier ~10 alpha points (95/90/65/48/30) because
-     the v5 elevation pass moved cards off pure white (#fcfcfd), and
-     the previous 92/85/54/36/22 ladder read soft / washed against
-     the new lighter surface. Linear / Notion sit text in the same
-     65-90 alpha range against their light cards.
+     v6 uses the 95/90/65/48/30 ladder because the warm surface stack
+     needs clearer ink contrast than the old 92/85/54/36/22 ladder.
+     Linear / Notion sit text in the same 65-90 alpha range against
+     their light cards.
      --color-text-* are the canonical code-facing aliases; --color-ink-*
      mirror them so new code reads naturally (ink-on-paper). */
   --color-ink: #0a0a0b; /* near-black reference */
@@ -183,11 +182,10 @@
      on this surface; any other floating dark card (future: inline editors,
      playgrounds) picks up the same palette via these tokens.
 
-     v4 values: pure neutral graphite (zero chroma) that matches the brand
-     accent so the composer reads as "the brand asking for input" rather
-     than a foreign-hue widget. Replaces the v3 navy-tinted #1b1f26 /
-     #262b35 pair. Elevated tier steps one value up for chip / busy
-     surfaces so lifts still read inside the dark card. */
+     Pure neutral graphite (zero chroma) matches the brand accent so the
+     composer reads as "the brand asking for input" rather than a
+     foreign-hue widget. Elevated tier steps one value up for chip /
+     busy surfaces so lifts still read inside the dark card. */
   --color-ink-card: var(--color-accent); /* #0a0a0b */
   --color-ink-card-elevated: #1c1c1f;
   --color-ink-card-text: rgba(255, 255, 255, 0.94);
@@ -291,13 +289,13 @@
     0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.06);
 
   /* ── Card elevation ──────────────────────────────
-     Canonical treatment for any white card that needs to read as
+     Canonical treatment for any warm card that needs to read as
      "lifted off the paper". Composes three layers:
        1. 1px hairline border (via inset ring — no layout cost)
        2. whisper of ambient shadow
        3. long-range soft shadow for depth
-     Use on the content sheet, modals, popovers, any raised white
-     surface. Keeps the v4 restraint — no visible border color, the
+     Use on the content sheet, modals, popovers, any raised
+     surface. Keeps the v6 restraint — no visible border color, the
      sheet just "arrives" against the paper. */
   --card-elevation:
     0 0 0 1px var(--color-border), 0 1px 2px rgba(0, 0, 0, 0.03),
@@ -346,7 +344,8 @@
   --hover-lift: -1px;
   --hover-bg: rgba(0, 0, 0, 0.03);
   --focus-ring: 0 0 0 2px var(--color-card), 0 0 0 4px rgba(0, 0, 0, 0.16);
-  --focus-ring-danger: 0 0 0 2px var(--color-card), 0 0 0 4px var(--color-error);
+  --focus-ring-danger:
+    0 0 0 2px var(--color-card), 0 0 0 4px var(--color-error);
   --active-scale: 0.98;
 
   /* ── Action primitive states ────────────────────── */

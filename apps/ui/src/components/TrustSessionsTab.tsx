@@ -392,7 +392,7 @@ export default function TrustSessionsTab({
             onClick={() => void handleNewSession()}
             disabled={!targetAgentId}
             loading={creatingSession}
-            leadingIcon={<Plus size={14} strokeWidth={1.6} />}
+            leadingIcon={<Icon icon={Plus} size="sm" />}
           >
             New Session
           </Button>

@@ -1,7 +1,7 @@
 /**
  * `useRuntimeStatus` — read the platform's view of a TRUST's runtime
  * attachment. Powers the runtime-gated tabs (Agents / Quests / Ideas /
- * Events / Inbox / Sessions) and the Overview "Add runtime" affordance.
+ * Events / Sessions) and the Overview "Add runtime" affordance.
  *
  * Backed by `GET /api/runtime/status?trust_id=<id>` in
  * `aeqi-platform/src/routes/runtime.rs`. `trust_id` is the platform-side

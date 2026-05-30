@@ -1,10 +1,11 @@
 /*  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- *  aeqi Inbox — `/` daily-driver surface
+ *  aeqi Sessions — trust/user conversation surface
  *
  *  Two-pane layout: toolbar + time-grouped list (left, fixed ~400px)
  *  + detail/composer (right, flex:1). Mirror the Ideas surface for the
  *  toolbar — .ideas-list-head / .ideas-toolbar-btn etc. are reused, not
- *  forked. New classes here are inbox-only layout primitives.
+ *  forked. The `inbox-*` class names are retained as the shared
+ *  conversation layout layer while the canonical route is `/sessions`.
  *
  *  Design rules (from .impeccable.md):
  *    • Restraint over flourish.
@@ -757,15 +758,13 @@
    Do NOT split these into separate blocks to "add" a focus ring —
    the ring is already there via the primitive. (Investigated c18.)
 
-   c19 — extended the audit across the entire inbox in_review-state
+   c19 — extended the audit across the entire sessions in_review-state
    surface (events.css being out of lane, the equivalent sweep happens
    here). `--state-review` is consumed in inbox.css in exactly two
    places: this rule (a `<Button variant="ghost">` primitive, focus
    ring inherited as documented above) and `.sessions-rail-awaiting-dot`
    (line 546+, a decorative `<span>` — no focus state needed). Every
-   other raw `<button>` in the inbox surface (the 2 chip buttons in
-   MeInboxPage.tsx, the 8 raw buttons across InboxFilterPopover.tsx
-   and InboxSortPopover.tsx) uses shared `ideas-toolbar-btn` /
+   other raw `<button>` in the sessions surface uses shared `ideas-toolbar-btn` /
    `ideas-filter-row` / `ideas-list-chip` classes whose focus styles
    live in layout.css (out of the inbox lane) and none of them
    consume `--state-review` — they speak the chrome tier vocabulary,

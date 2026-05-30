@@ -42,6 +42,7 @@ const config: StorybookConfig = {
     "../src/components/ui/**/*.mdx",
     "../src/components/composer/**/*.stories.tsx",
     "../src/components/sessions/**/*.stories.tsx",
+    "../src/components/shell/**/*.stories.tsx",
   ],
   addons: [
     "@storybook/addon-a11y",

@@ -12,15 +12,21 @@ values.
 
 ## Row rhythm
 
-The app uses one canonical row height, `--input-h` (32px), for every
-dense interactive surface: sidebar nav rows, inputs, buttons at `md`,
+The app uses one canonical row height, `--input-h` (32px), for dense
+interactive surfaces: global shell nav rows, inputs, buttons at `md`,
 scope indicators. Buttons and inputs placed on the same row line up
 without tweaks.
+
+The trust subnav uses the named compact row token
+`--sidebar-trust-row-h` (28px). It is still on the system scale: the
+trust rail carries many primitive routes and must remain usable at
+small heights. Collapsed icon tiles stay 32px so the rail keeps a stable
+target size.
 
 The composer is taller (multi-line) but borrows the same border, radius,
 and colors so it reads as a member of the same family.
 
-- Use `sm` size to feel denser.
+- Use `sm` size or `--sidebar-trust-row-h` only for dense secondary rails.
 - Use `lg` size for hero and auth surfaces.
 - Do not introduce new row heights.
 

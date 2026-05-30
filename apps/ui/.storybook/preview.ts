@@ -8,10 +8,11 @@ const preview: Preview = {
     backgrounds: {
       default: "shell",
       values: [
-        { name: "shell", value: "#f4f4f5" },
-        { name: "card", value: "#ffffff" },
-        { name: "inset-subtle", value: "#f8f8f9" },
-        { name: "inset-strong", value: "#ededf0" },
+        { name: "shell", value: "#f4f2ec" },
+        { name: "card", value: "#faf9f5" },
+        { name: "elevated", value: "#fffefb" },
+        { name: "inset-subtle", value: "#f6f5ef" },
+        { name: "inset-strong", value: "#ecebe5" },
         { name: "inverse", value: "#0a0a0b" },
       ],
     },

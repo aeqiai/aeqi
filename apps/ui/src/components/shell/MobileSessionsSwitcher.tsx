@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import { ChevronUp, MessagesSquare } from "lucide-react";
 import { useLocation, useParams } from "react-router-dom";
-import { Modal } from "@/components/ui";
+import { Icon, Modal } from "@/components/ui";
 import { sessionLabel, type SessionInfo } from "@/components/session/types";
 import { useChatStore } from "@/store/chat";
 import { AgentInboxToolbar } from "./AgentInboxControls";
@@ -49,17 +49,12 @@ export default function MobileSessionsSwitcher({ currentTitle }: { currentTitle:
         aria-label={`Switch session, current: ${activeTitle}`}
         onClick={() => setOpen(true)}
       >
-        <MessagesSquare size={15} strokeWidth={1.5} aria-hidden="true" />
+        <Icon icon={MessagesSquare} size="sm" />
         <span className="mobile-session-switcher__copy">
           <span className="mobile-session-switcher__title">{activeTitle}</span>
           <span className="mobile-session-switcher__meta">{countLabel(sessionCount)}</span>
         </span>
-        <ChevronUp
-          className="mobile-session-switcher__chevron"
-          size={15}
-          strokeWidth={1.5}
-          aria-hidden="true"
-        />
+        <Icon icon={ChevronUp} size="sm" className="mobile-session-switcher__chevron" />
       </button>
 
       <Modal

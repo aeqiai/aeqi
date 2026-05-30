@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { ClockArrowDown, ClockArrowUp } from "lucide-react";
+import { Icon } from "../ui/Icon";
 import { Popover } from "../ui/Popover";
 
 export type SessionsSort = "recent" | "oldest";
@@ -10,25 +12,9 @@ const SORT_LABELS: Record<SessionsSort, string> = {
 
 const SORT_OPTIONS: SessionsSort[] = ["recent", "oldest"];
 
-// Clock glyph — matches the inbox sort glyph in weight + viewBox so the
-// agent and inbox toolbars read as the same primitive.
-const CLOCK_GLYPH = (
-  <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" aria-hidden>
-    <circle cx="6.5" cy="6.5" r="4.5" strokeWidth="1.2" />
-    <path d="M6.5 4 V6.5 L8.4 7.7" strokeWidth="1.2" strokeLinecap="round" />
-  </svg>
-);
-
-const REVERSE_CLOCK_GLYPH = (
-  <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" aria-hidden>
-    <circle cx="6.5" cy="6.5" r="4.5" strokeWidth="1.2" />
-    <path d="M6.5 9 V6.5 L4.6 5.3" strokeWidth="1.2" strokeLinecap="round" />
-  </svg>
-);
-
 const SORT_GLYPH: Record<SessionsSort, React.ReactElement> = {
-  recent: CLOCK_GLYPH,
-  oldest: REVERSE_CLOCK_GLYPH,
+  recent: <Icon icon={ClockArrowDown} size="sm" />,
+  oldest: <Icon icon={ClockArrowUp} size="sm" />,
 };
 
 export interface SessionsSortPopoverProps {

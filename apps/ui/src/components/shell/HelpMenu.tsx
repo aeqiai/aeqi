@@ -1,10 +1,10 @@
 import { CircleHelp, Keyboard, FileText } from "lucide-react";
-import { Menu, Tooltip } from "@/components/ui";
+import { Icon, Menu, Tooltip } from "@/components/ui";
 import type { MenuItem } from "@/components/ui/Menu";
 
-const HelpIcon = () => <CircleHelp />;
-const KeyboardIcon = () => <Keyboard />;
-const DocsIcon = () => <FileText />;
+const HelpIcon = () => <Icon icon={CircleHelp} />;
+const KeyboardIcon = () => <Icon icon={Keyboard} size="sm" />;
+const DocsIcon = () => <Icon icon={FileText} size="sm" />;
 
 export default function HelpMenu() {
   const isMac =

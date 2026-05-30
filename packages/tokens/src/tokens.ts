@@ -5,45 +5,45 @@
  * (charting libs, canvas rendering, inline styles, dynamic theming).
  * For CSS/Tailwind, use `./css` or `./tailwind` exports.
  *
- * Design system: v4 "Graphite + Ink"
+ * Design system: v6 "Warm Paper + Ink"
  * Single source of truth for values is tokens.css — this file mirrors it.
  */
 
 export const color = {
   bg: {
-    base: "#ededf0", // inset strong inside the primary card
-    surface: "#f8f8f9", // inset subtle inside the primary card
-    elevated: "#ffffff", // raised — modals, popovers, cards
-    overlay: "#ffffff", // highest — tooltips, floating menus
+    base: "#f4f2ec", // outer page bg + sidebar shell
+    surface: "#f6f5ef", // inset subtle inside the primary card
+    elevated: "#fffefb", // raised — modals, popovers, cards
+    overlay: "#fffefb", // highest — tooltips, floating menus
   },
 
   // Semantic surface aliases used across landing + dashboard
-  shell: "#f4f4f5",
-  paper: "#f4f4f5",
-  card: "#ffffff",
-  cardSubtle: "#f8f8f9",
-  cardMuted: "#ededf0",
-  sectionAlt: "#ffffff",
-  slab: "#ededf0",
-  slabElevated: "#f8f8f9",
+  shell: "#f4f2ec",
+  paper: "#f4f2ec",
+  card: "#faf9f5",
+  cardSubtle: "#f6f5ef",
+  cardMuted: "#ecebe5",
+  sectionAlt: "#fffefb",
+  slab: "#ecebe5",
+  slabElevated: "#f6f5ef",
   slabBorder: "rgba(0, 0, 0, 0.06)",
-  slabBorderHover: "rgba(0, 0, 0, 0.1)",
-  slabBorderFocus: "rgba(90, 115, 152, 0.45)",
+  slabBorderHover: "rgba(0, 0, 0, 0.12)",
+  slabBorderFocus: "rgba(0, 0, 0, 0.3)",
 
   text: {
-    title: "rgba(10, 10, 11, 0.92)", // titles, mastheads
-    primary: "rgba(10, 10, 11, 0.85)", // body copy
-    secondary: "rgba(10, 10, 11, 0.54)", // lead, captions
-    muted: "rgba(10, 10, 11, 0.36)", // eyebrows, section marks
-    disabled: "rgba(10, 10, 11, 0.22)",
+    title: "rgba(10, 10, 11, 0.95)", // titles, mastheads
+    primary: "rgba(10, 10, 11, 0.9)", // body copy
+    secondary: "rgba(10, 10, 11, 0.65)", // lead, captions
+    muted: "rgba(10, 10, 11, 0.48)", // eyebrows, section marks
+    disabled: "rgba(10, 10, 11, 0.3)",
   },
 
   ink: {
-    primary: "rgba(10, 10, 11, 0.92)",
-    text: "rgba(10, 10, 11, 0.85)",
-    secondary: "rgba(10, 10, 11, 0.54)",
-    muted: "rgba(10, 10, 11, 0.36)",
-    disabled: "rgba(10, 10, 11, 0.22)",
+    primary: "rgba(10, 10, 11, 0.95)",
+    text: "rgba(10, 10, 11, 0.9)",
+    secondary: "rgba(10, 10, 11, 0.65)",
+    muted: "rgba(10, 10, 11, 0.48)",
+    disabled: "rgba(10, 10, 11, 0.3)",
   },
 
   // Accent — near-black graphite. The one brand colour. Used sparingly.
@@ -145,6 +145,7 @@ export const font = {
     "2xl": "1.5rem", // 24px
     "3xl": "1.875rem", // 30px
     "4xl": "2.25rem", // 36px
+    "5xl": "2.5rem", // 40px
   },
 
   weight: {

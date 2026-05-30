@@ -1,4 +1,6 @@
 import { useId, useState } from "react";
+import { Check, ListFilter } from "lucide-react";
+import { Icon } from "../ui/Icon";
 import { Popover } from "../ui/Popover";
 
 export type SessionsStatusFilter = "all" | "active" | "archived";
@@ -51,18 +53,7 @@ export default function SessionsFilterPopover({ filter, onChange }: SessionsFilt
           aria-label={active > 0 ? `Filter — ${active} active` : "Filter"}
           title={active > 0 ? `Filter — ${active} active` : "Filter"}
         >
-          <svg
-            width="13"
-            height="13"
-            viewBox="0 0 13 13"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.25"
-            strokeLinecap="round"
-            aria-hidden
-          >
-            <path d="M2 3.25h9M3.5 6.5h6M5 9.75h3" />
-          </svg>
+          <Icon icon={ListFilter} size="sm" />
           {active > 0 && <span className="ideas-toolbar-btn-dot" aria-hidden />}
         </button>
       }
@@ -102,18 +93,7 @@ export default function SessionsFilterPopover({ filter, onChange }: SessionsFilt
                   }}
                 >
                   <span className="ideas-filter-row-mark" aria-hidden>
-                    {isActive && (
-                      <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
-                        <path
-                          d="M2 5.2 L4.2 7.4 L8 3"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.6"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    )}
+                    {isActive && <Icon icon={Check} size="xs" />}
                   </span>
                   <span className="ideas-filter-row-label">{STATUS_LABELS[s]}</span>
                 </button>

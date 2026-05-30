@@ -6,30 +6,30 @@ export default create({
   brandUrl: "https://aeqi.ai",
   brandTarget: "_blank",
 
-  // Monochromatic palette
+  // Warm paper + ink palette
   colorPrimary: "#000000",
   colorSecondary: "#000000",
 
   // UI
-  appBg: "#f4f4f5",
-  appContentBg: "#ffffff",
+  appBg: "#f4f2ec",
+  appContentBg: "#faf9f5",
   appBorderColor: "rgba(0, 0, 0, 0.06)",
   appBorderRadius: 8,
 
   // Text
-  textColor: "rgba(0, 0, 0, 0.85)",
-  textMutedColor: "rgba(0, 0, 0, 0.4)",
+  textColor: "rgba(10, 10, 11, 0.9)",
+  textMutedColor: "rgba(10, 10, 11, 0.48)",
   textInverseColor: "#ffffff",
 
   // Toolbar
-  barTextColor: "rgba(0, 0, 0, 0.5)",
+  barTextColor: "rgba(10, 10, 11, 0.65)",
   barSelectedColor: "#000000",
-  barBg: "#f4f4f5",
+  barBg: "#f4f2ec",
 
   // Form
-  inputBg: "#ffffff",
+  inputBg: "#fffefb",
   inputBorder: "rgba(0, 0, 0, 0.06)",
-  inputTextColor: "rgba(0, 0, 0, 0.85)",
+  inputTextColor: "rgba(10, 10, 11, 0.9)",
   inputBorderRadius: 6,
 
   // Typography

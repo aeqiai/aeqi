@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { Plus } from "lucide-react";
 import { apiRequest } from "@/api/client";
 import BlockAvatar from "@/components/BlockAvatar";
+import { Icon } from "@/components/ui";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
 import { entityPathFromId } from "@/lib/entityPath";
@@ -207,18 +209,7 @@ export default function ParticipantStrip({
           data-pill-allowed=""
           onClick={() => setShowModal(true)}
         >
-          <svg
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.3"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            width={14}
-            height={14}
-          >
-            <path d="M8 3v10M3 8h10" />
-          </svg>
+          <Icon icon={Plus} size="sm" />
         </button>
       </div>
       <AddParticipantModal

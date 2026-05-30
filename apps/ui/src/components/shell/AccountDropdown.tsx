@@ -1,15 +1,15 @@
 import { useCallback, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { User, CreditCard, LogOut, Shield } from "lucide-react";
-import { Popover, SelectOption } from "@/components/ui";
+import { Icon, Popover, SelectOption } from "@/components/ui";
 import UserAvatar from "@/components/UserAvatar";
 import { useAuthStore } from "@/store/auth";
 import { Events, useTrack } from "@/lib/analytics";
 
-const AccountIcon = () => <User />;
-const BillingIcon = () => <CreditCard />;
-const AdminIcon = () => <Shield />;
-const SignOutIcon = () => <LogOut />;
+const AccountIcon = () => <Icon icon={User} size="sm" />;
+const BillingIcon = () => <Icon icon={CreditCard} size="sm" />;
+const AdminIcon = () => <Icon icon={Shield} size="sm" />;
+const SignOutIcon = () => <Icon icon={LogOut} size="sm" />;
 
 export default function AccountDropdown() {
   const navigate = useNavigate();

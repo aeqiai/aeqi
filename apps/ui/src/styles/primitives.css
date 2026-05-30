@@ -25,10 +25,9 @@
   --bg-canvas: var(--color-paper);
   --bg-paper: var(--color-card);
 
-  /* Sidebar tint — a single subtle value step below the white content
+  /* Sidebar tint — a single subtle warm value step below the content
      so the sidebar reads as its own surface under a hairline divider.
-     No floating, no rounding — the shell is architectural. Neutral
-     grey (zero chroma) to match the v4 graphite-and-ink register. */
+     No floating, no rounding — the shell is architectural. */
   --bg-sidebar: var(--color-shell);
 
   /* In-card raised row/chip tint. The main content card is white
@@ -126,12 +125,16 @@
   --ring-muted: 0 0 0 3px rgba(0, 0, 0, 0.06);
   --ring-danger: 0 0 0 3px rgba(184, 92, 92, 0.2);
 
-  /* Sidebar row rhythm — one height for every row in the left rail
-     (nav items, agent tree, scope indicator). 32px is the Linear /
+  /* Sidebar row rhythm — one height for global rows in the left rail
+     (start nav, bottom account/help, collapsed icon tiles). 32px is the Linear /
      Notion / Raycast default for dense rails: 2× the 16px grid,
      enough vertical space for a 22px avatar, still dense enough
      to fit a long agent tree without scrolling. */
   --sidebar-row-h: 32px;
+  /* Trust subnav row rhythm. The trust rail contains pinned views plus
+     Operations/Ownership/Infrastructure, so it uses the existing small
+     input row height instead of inventing an off-scale number. */
+  --sidebar-trust-row-h: var(--input-h-sm);
 
   /* Width of the second-rail panel that sits between the primary
      LeftSidebar and the content card — used by .sessions-rail-col and
@@ -161,7 +164,7 @@
      solving the same problem with different numbers; these tokens are
      now the source of truth.
 
-     --input-h mirrors --sidebar-row-h so inputs and nav rows share the
+     --input-h mirrors --sidebar-row-h so inputs and global nav rows share the
      same vertical rhythm. The composer is taller (multiline) but keeps
      the same border/radius/colors so it reads as a member of the same
      family rather than a separate widget. */

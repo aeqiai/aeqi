@@ -3,6 +3,7 @@ import { ChevronRight } from "lucide-react";
 import { useUIStore } from "@/store/ui";
 import { useActiveEntity } from "@/queries/entities";
 import TrustAvatar from "@/components/TrustAvatar";
+import { Icon } from "@/components/ui";
 
 /**
  * Acting-as selector — the trust credential card in the sidebar's TRUST
@@ -50,7 +51,7 @@ export default function ActingAsSelector() {
         <span className="acting-as-role">{roleName}</span>
       </span>
       <span className="acting-as-chevron" aria-hidden="true">
-        <ChevronRight size={14} strokeWidth={1.9} />
+        <Icon icon={ChevronRight} size="sm" />
       </span>
     </button>
   );

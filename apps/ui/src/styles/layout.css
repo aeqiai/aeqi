@@ -662,11 +662,7 @@
   /* Was --text-muted (36%) — icons read as ghosts. --text-secondary (54%)
      gives them weight at rest so the rail doesn't feel skeletal. */
   color: var(--color-text-secondary);
-  /* 1.85 stroke at 16px lands in the institutional-software register —
-     authoritative without going chunky. 1.65 read thin against the warm
-     paper and let detailed glyphs (Quorum, Incorporation) lose their
-     silhouette. */
-  stroke-width: 1.85;
+  stroke-width: 1.5;
 }
 .sidebar-nav-item:hover > svg,
 .sidebar-nav-item.active > svg {
@@ -883,7 +879,7 @@
   flex-direction: column;
 }
 .sidebar-group + .sidebar-group {
-  margin-top: 10px;
+  margin-top: 8px;
 }
 /* Group title styled like a regular nav row — same row height, same
  * padding and hover treatment as .sidebar-nav-item — so the toggle
@@ -907,22 +903,22 @@
   border-radius: var(--radius-md);
   cursor: pointer;
   font-family: inherit;
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
+  font-size: var(--section-label-size);
+  font-weight: 650;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--color-text-muted);
+  color: var(--section-label-color);
   text-align: left;
   transition:
     color 0.12s ease,
     background 0.12s ease;
 }
 .sidebar-group-title:hover {
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   background: var(--state-hover);
 }
 .sidebar-group-title.active {
-  color: var(--color-text-primary);
+  color: var(--color-text-title);
 }
 .sidebar-group-chevron {
   margin-left: auto;
@@ -940,7 +936,7 @@
   transform: rotate(-90deg);
 }
 .sidebar-group-label {
-  line-height: 1;
+  line-height: 1.1;
 }
 
 /* "soon" chip on group titles. Group-level signal is enough — once a
@@ -1001,41 +997,93 @@
   gap: 2px;
 }
 
-.sidebar-trust-nav {
-  --sidebar-row-h: 28px;
+.sidebar-surface-nav.sidebar-trust-nav {
+  --sidebar-row-h: var(--sidebar-trust-row-h);
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  padding-top: 4px;
-  padding-bottom: 6px;
+  padding: 2px 8px 5px;
+  gap: 3px;
   scrollbar-width: thin;
 }
-.sidebar-trust-nav .sidebar-section-label {
-  margin: 5px 8px 3px;
-  font-size: 10px;
+.sidebar-surface-nav.sidebar-trust-nav .sidebar-section-label {
+  margin: 6px 8px 3px;
+  font-size: var(--section-label-size);
+  font-weight: 650;
   letter-spacing: 0.08em;
 }
-.sidebar-trust-nav .acting-as-trigger {
+.sidebar-surface-nav.sidebar-trust-nav .sidebar-section-label:first-child {
+  margin-top: 2px;
+}
+.sidebar-surface-nav.sidebar-trust-nav .acting-as-trigger {
   margin-bottom: 4px;
   padding: 8px 10px;
 }
-.sidebar-trust-nav .sidebar-nav-item {
+.sidebar-surface-nav.sidebar-trust-nav .sidebar-nav-item {
   gap: 8px;
   padding-inline: 7px;
 }
-.sidebar-trust-nav .sidebar-group + .sidebar-group {
-  margin-top: 2px;
+.sidebar-surface-nav.sidebar-trust-nav .sidebar-group + .sidebar-group {
+  margin-top: 4px;
 }
-.sidebar-trust-nav .sidebar-group-title {
+.sidebar-surface-nav.sidebar-trust-nav .sidebar-group-title {
   margin-inline: 4px;
-  min-height: 26px;
+  min-height: var(--sidebar-row-h);
   padding-inline: 7px;
-  font-size: 10px;
-  letter-spacing: 0.045em;
+  font-size: var(--section-label-size);
+  font-weight: 650;
+  letter-spacing: 0.08em;
 }
-.sidebar-trust-nav .sidebar-group-items {
-  gap: 0;
+.sidebar-surface-nav.sidebar-trust-nav .sidebar-group-items {
+  gap: 1px;
   padding-inline: 4px;
+}
+
+@media (min-width: 769px) and (max-height: 700px) {
+  .left-sidebar-body > .sidebar-surface-nav:first-child {
+    padding-bottom: 4px;
+  }
+
+  .sidebar-surface-nav.sidebar-trust-nav {
+    padding-top: 0;
+    padding-bottom: 3px;
+    gap: 2px;
+  }
+
+  .sidebar-surface-nav.sidebar-trust-nav .sidebar-section-label {
+    margin: 4px 8px 2px;
+  }
+
+  .sidebar-surface-nav.sidebar-trust-nav .sidebar-section-label:first-child {
+    margin-top: 1px;
+  }
+
+  .sidebar-surface-nav.sidebar-trust-nav .acting-as-trigger {
+    gap: 9px;
+    margin-bottom: 2px;
+    padding: 6px 9px;
+  }
+
+  .sidebar-surface-nav.sidebar-trust-nav .sidebar-group + .sidebar-group {
+    margin-top: 2px;
+  }
+
+  .sidebar-surface-nav.sidebar-trust-nav .sidebar-group-title {
+    min-height: var(--sidebar-row-h);
+  }
+
+  .sidebar-surface-nav.sidebar-trust-nav .sidebar-group-items {
+    gap: 0;
+  }
+
+  .sidebar-bottom-group {
+    padding-bottom: 4px;
+  }
+
+  .sidebar-bottom-group .sidebar-surface-nav {
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
 }
 
 .sidebar-nav-action {
@@ -1070,11 +1118,11 @@
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
   padding: 8px;
 }
 .left-sidebar-body > .sidebar-surface-nav:first-child {
-  padding-top: 8px;
+  padding: 8px 8px 6px;
 }
 
 /* Sidebar bottom — sticks below the tree's scroll viewport. */
@@ -4585,12 +4633,21 @@
   }
 
   .left-sidebar.mobile-open {
+    position: fixed;
+    inset: 0 0 var(--shell-footer-h, 28px);
     flex-direction: column;
     align-items: stretch;
     height: calc(100dvh - var(--shell-footer-h, 28px));
     max-height: calc(100dvh - var(--shell-footer-h, 28px));
     box-shadow: var(--card-elevation);
-    z-index: 30;
+    /* Mobile nav is an app-level overlay; it must sit above sticky page
+       actions while open so content chrome cannot peek through the top edge. */
+    z-index: 10000;
+  }
+
+  .left-sidebar.mobile-open ~ .content-column {
+    visibility: hidden;
+    pointer-events: none;
   }
 
   .sidebar-header {
@@ -4661,6 +4718,18 @@
 
   .left-sidebar.mobile-open .sidebar-section-label {
     display: block;
+  }
+
+  .left-sidebar.collapsed.mobile-open .sidebar-surface-nav .sidebar-section-label {
+    display: block;
+  }
+
+  .left-sidebar.collapsed.mobile-open .sidebar-group-title {
+    display: flex;
+  }
+
+  .left-sidebar.collapsed.mobile-open .sidebar-trust-nav .sidebar-group-items {
+    padding-inline: 4px;
   }
 
   .left-sidebar.mobile-open .sidebar-nav-row {
@@ -9850,10 +9919,10 @@ button.ideas-ref-add.ideas-content-pill:focus-visible {
 .sidebar-zone {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 .sidebar-zone + .sidebar-zone {
-  margin-top: 8px;
+  margin-top: 2px;
 }
 .sidebar-zone + .sidebar-zone--unlabeled {
   margin-top: 0;

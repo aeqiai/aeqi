@@ -1,10 +1,12 @@
 import type { Meta, StoryObj } from "@storybook/react";
+import { RefreshCw } from "lucide-react";
 import { Badge } from "./Badge";
 import { Banner } from "./Banner";
 import { Button } from "./Button";
 import { Card } from "./Card";
 import { DetailField } from "./DetailField";
 import { EmptyState } from "./EmptyState";
+import { Icon } from "./Icon";
 import { IconButton } from "./IconButton";
 import { Input } from "./Input";
 import {
@@ -154,12 +156,7 @@ export const ReviewCanvas: Story = {
               actions={
                 <>
                   <IconButton aria-label="Refresh launch work" variant="bordered" size="sm">
-                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6">
-                      <path d="M13 3v4H9" />
-                      <path d="M3 13V9h4" />
-                      <path d="M12.1 6A4.5 4.5 0 0 0 4.4 4.4L3 5.8" />
-                      <path d="M3.9 10A4.5 4.5 0 0 0 11.6 11.6L13 10.2" />
-                    </svg>
+                    <Icon icon={RefreshCw} size="sm" />
                   </IconButton>
                   <Button variant="primary" size="sm">
                     New Quest

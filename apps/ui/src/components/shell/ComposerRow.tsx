@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ChevronUp, MessagesSquare } from "lucide-react";
 import Composer from "@/components/composer/Composer";
+import { Icon } from "@/components/ui";
 import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 import { userSessionsPath } from "@/lib/sessionViews";
@@ -273,14 +274,14 @@ export default function ComposerRow({
       <div className="composer-wrap">
         {mode === "dock" && (
           <div className="agent-dock-header">
-            <ChevronUp className="agent-dock-cue" size={14} strokeWidth={1.8} aria-hidden />
+            <Icon icon={ChevronUp} size="sm" className="agent-dock-cue" />
             {sessionHref && (
               <Link
                 className="agent-dock-session-link"
                 to={sessionHref}
                 aria-label={`Open connected session: ${sessionLinkLabel}`}
               >
-                <MessagesSquare size={14} strokeWidth={1.8} aria-hidden />
+                <Icon icon={MessagesSquare} size="sm" />
               </Link>
             )}
           </div>
