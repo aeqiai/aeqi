@@ -1,6 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ComponentProps } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import type { Idea } from "@/lib/types";
@@ -46,8 +47,12 @@ vi.mock("@/components/IdeaCanvas", async () => {
           aria-label="Mock idea canvas"
           data-conversation-activity={props.conversationActivity}
         >
-          {props.contentHeaderSlot}
-          <h2>{props.idea?.name || props.initialName || "Untitled"}</h2>
+          <div className="ideas-canvas-paper">
+            <div className="ideas-canvas-content">
+              {props.contentHeaderSlot}
+              <h2>{props.idea?.name || props.initialName || "Untitled"}</h2>
+            </div>
+          </div>
         </section>
       );
     }),
@@ -96,7 +101,7 @@ const scopeCounts: Record<IdeasFilter, number> = {
   inherited: 0,
 };
 
-function renderWorkspace() {
+function renderWorkspace(overrides: Partial<ComponentProps<typeof IdeasWorkspaceView>> = {}) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -123,6 +128,7 @@ function renderWorkspace() {
           onNew={vi.fn()}
           onSelect={vi.fn()}
           preparingRoot={false}
+          {...overrides}
         />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -141,19 +147,55 @@ describe("IdeasWorkspaceView", () => {
     expect(screen.getByRole("main", { name: "Idea" })).toBeInTheDocument();
     const details = screen.getByRole("complementary", { name: "Details" });
     expect(details).toBeInTheDocument();
-    expect(within(details).getByText("Visibility")).toHaveClass("role-inspector-row-label");
-    expect(within(details).getByText("Details")).toHaveClass("role-inspector-object");
+    expect(within(details).getByText("Scope")).toBeInTheDocument();
+    expect(within(details).getByText("Details")).toHaveClass("ideas-workspace-detail-object");
 
     const main = screen.getByRole("main", { name: "Idea" });
     const canvas = screen.getByRole("region", { name: "Mock idea canvas" });
     expect(canvas).toHaveAttribute("data-conversation-activity", "combined");
+    const workspace = container.firstElementChild;
+    const pageHeader = workspace?.querySelector(".ideas-workspace-head");
+    const contentSurface = workspace?.querySelector(".ideas-workspace-layout");
+    expect(pageHeader).toBeTruthy();
+    expect(contentSurface).toBeTruthy();
+    expect(contentSurface?.contains(pageHeader ?? null)).toBe(false);
     expect(within(main).getByText("Idea")).toHaveClass("ideas-workspace-document-title");
-    expect(within(canvas).queryByText("Idea")).not.toBeInTheDocument();
+    expect(within(canvas).getByText("Idea")).toHaveClass("ideas-workspace-document-title");
+    expect(
+      container
+        .querySelector(".ideas-canvas-paper")
+        ?.contains(container.querySelector(".ideas-workspace-document-head")),
+    ).toBe(true);
 
     await user.click(screen.getByRole("button", { name: "Hide details" }));
 
     expect(container.firstElementChild).toHaveClass("ideas-workspace--details-collapsed");
     expect(screen.queryByRole("complementary", { name: "Details" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Show details" })).toBeInTheDocument();
+  });
+
+  it("keeps Explorer as a file tree instead of a metrics surface", async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    renderWorkspace({ onSelect });
+
+    const explorer = screen.getByRole("complementary", { name: "Eich Holding idea explorer" });
+    expect(within(explorer).getByRole("tree")).toBeInTheDocument();
+    expect(within(explorer).getByRole("treeitem", { name: /Eich Holding/i })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(within(explorer).queryByLabelText("Explorer metrics")).not.toBeInTheDocument();
+    expect(within(explorer).queryByText("Depth")).not.toBeInTheDocument();
+
+    await user.click(within(explorer).getByRole("button", { name: "Collapse idea" }));
+
+    expect(within(explorer).queryByText("Operating Notes")).not.toBeInTheDocument();
+    expect(within(explorer).getByRole("button", { name: "Expand idea" })).toBeInTheDocument();
+
+    await user.click(within(explorer).getByRole("button", { name: "Expand idea" }));
+    await user.click(within(explorer).getByRole("button", { name: "Operating Notes" }));
+
+    expect(onSelect).toHaveBeenCalledWith("idea-child");
   });
 });

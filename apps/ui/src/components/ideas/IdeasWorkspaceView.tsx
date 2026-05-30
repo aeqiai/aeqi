@@ -1,5 +1,12 @@
 import { useCallback, useMemo, useRef, useState, type CSSProperties } from "react";
-import { ChevronRight, FileText, PanelRightClose, PanelRightOpen, Plus } from "lucide-react";
+import {
+  ChevronRight,
+  FileText,
+  Folder,
+  PanelRightClose,
+  PanelRightOpen,
+  Plus,
+} from "lucide-react";
 import * as ideasApi from "@/api/ideas";
 import { ImportMenu } from "@/components/blueprints/ImportMenu";
 import { blockTreeToPlainText } from "@/components/editor/blockEditorContent";
@@ -8,17 +15,12 @@ import { useNav } from "@/hooks/useNav";
 import { asStringArray, parseFrontmatter } from "@/lib/frontmatter";
 import type { Idea, ScopeValue } from "@/lib/types";
 import { useAgentIdeasCache } from "@/queries/ideas";
-import { Badge, Button, Icon, IconButton, Tooltip, Loading } from "../ui";
+import { Button, Icon, IconButton, PrimitivePageHeader, Tooltip, Loading } from "../ui";
 import IdeaWorkspaceInspector from "./IdeaWorkspaceInspector";
 import IdeasToolbar from "./IdeasToolbar";
 import type { IdeasView } from "./IdeasViewPopover";
 import { importIdeaProperties, importIdeaScope, isMarkdownFile } from "./ideaImport";
-import {
-  buildIdeaWikiStructure,
-  buildWorkspaceTree,
-  flattenIdeaTree,
-  type IdeaTreeNode,
-} from "./ideaTree";
+import { buildWorkspaceTree, flattenIdeaTree } from "./ideaTree";
 import { type FilterState, type IdeasFilter, matchRank } from "./types";
 
 export interface IdeasWorkspaceViewProps {
@@ -41,10 +43,6 @@ export interface IdeasWorkspaceViewProps {
   onSelect: (ideaId: string) => void;
   preparingRoot: boolean;
   rootError?: string | null;
-}
-
-function nestedCount(node: IdeaTreeNode): number {
-  return node.children.reduce((total, child) => total + 1 + nestedCount(child), 0);
 }
 
 function descendantCount(id: string, ideas: Idea[]): number {
@@ -139,10 +137,6 @@ export default function IdeasWorkspaceView({
     if (!rootIdea) return [];
     return flattenIdeaTree([buildWorkspaceTree(rootIdea, ranked)], expandedIdeas);
   }, [rootIdea, ranked, expandedIdeas]);
-  const wikiStructure = useMemo(
-    () => (rootIdea ? buildIdeaWikiStructure(rootIdea, ranked) : null),
-    [rootIdea, ranked],
-  );
 
   const selectedTreeId = activeIdea?.id ?? null;
   const noMatchName = filter.search.trim();
@@ -311,8 +305,27 @@ export default function IdeasWorkspaceView({
     <div
       className={`ideas-workspace${detailsCollapsed ? " ideas-workspace--details-collapsed" : ""}`}
     >
-      <header className="ideas-workspace-head">
-        <h1>Ideas</h1>
+      <PrimitivePageHeader
+        className="ideas-workspace-head"
+        title="Ideas"
+        aria-label="Ideas workspace controls"
+        padding="none"
+        actions={
+          <div className="ideas-workspace-head-actions">
+            <Tooltip content={activeIdea ? `New under ${activeIdea.name}` : "New idea"}>
+              <Button
+                variant="primary"
+                size="md"
+                onClick={() => onNew(undefined, activeParentId)}
+                leadingIcon={<Icon icon={Plus} size="sm" />}
+                disabled={!rootIdea}
+              >
+                New
+              </Button>
+            </Tooltip>
+          </div>
+        }
+      >
         <IdeasToolbar
           filter={filter}
           scopeCounts={scopeCounts}
@@ -331,20 +344,7 @@ export default function IdeasWorkspaceView({
             else if (noMatchName) onNew(noMatchName, rootIdea?.id ?? null);
           }}
         />
-        <div className="ideas-workspace-head-actions">
-          <Tooltip content={activeIdea ? `New under ${activeIdea.name}` : "New idea"}>
-            <Button
-              variant="primary"
-              size="md"
-              onClick={() => onNew(undefined, activeParentId)}
-              leadingIcon={<Icon icon={Plus} size="sm" />}
-              disabled={!rootIdea}
-            >
-              New
-            </Button>
-          </Tooltip>
-        </div>
-      </header>
+      </PrimitivePageHeader>
       {rootError && (
         <div className="bp-error ideas-workspace-error" role="alert">
           {rootError}
@@ -356,37 +356,6 @@ export default function IdeasWorkspaceView({
             <span>Explorer</span>
             <small>{Math.max(0, ideas.length - (rootIdea ? 1 : 0))} ideas</small>
           </div>
-          {wikiStructure && (
-            <div className="ideas-workspace-structure" aria-label="Explorer status">
-              <div className="ideas-workspace-structure-status">
-                <Badge variant={wikiStructure.tone} size="sm" dot>
-                  {wikiStructure.label}
-                </Badge>
-                <span>{wikiStructure.indexPages} index pages</span>
-              </div>
-              <div className="ideas-workspace-structure-metrics" aria-label="Explorer metrics">
-                <span>Depth {wikiStructure.maxDepth}</span>
-                <span>Root {wikiStructure.rootChildren}</span>
-                <span>{wikiStructure.leafPages} leaves</span>
-                <span>{wikiStructure.unfiled} unfiled</span>
-              </div>
-              {wikiStructure.clusters.length > 0 && (
-                <div className="ideas-workspace-structure-clusters" aria-label="Wiki clusters">
-                  {wikiStructure.clusters.map((cluster) => (
-                    <button
-                      key={cluster.tag}
-                      type="button"
-                      onClick={() => onFilter({ tags: [cluster.tag] })}
-                      title={`${cluster.count} root pages tagged ${cluster.tag}`}
-                    >
-                      #{cluster.tag}
-                      <small>{cluster.count}</small>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
           {preparingRoot ? (
             <div className="ideas-workspace-loading">
               <Loading size="sm" />
@@ -396,7 +365,6 @@ export default function IdeasWorkspaceView({
             <div className="ideas-workspace-tree-list" role="tree">
               {treeRows.map(({ node, depth }) => {
                 const idea = node.idea;
-                const childTotal = nestedCount(node);
                 const defaultExpanded = depth <= 1;
                 const expanded = expandedIdeas[idea.id] ?? defaultExpanded;
                 const isSelected = selectedTreeId === idea.id && !composing;
@@ -426,9 +394,12 @@ export default function IdeasWorkspaceView({
                       className="ideas-workspace-tree-item"
                       onClick={() => onSelect(idea.id)}
                     >
-                      <FileText size={13} strokeWidth={1.7} />
+                      {node.children.length > 0 ? (
+                        <Folder size={13} strokeWidth={1.7} />
+                      ) : (
+                        <FileText size={13} strokeWidth={1.7} />
+                      )}
                       <span>{idea.name || "Untitled"}</span>
-                      {childTotal > 0 && <small>{childTotal}</small>}
                     </button>
                   </div>
                 );
@@ -446,49 +417,6 @@ export default function IdeasWorkspaceView({
             </div>
           ) : rootIdea ? (
             <>
-              <div className="ideas-workspace-document-head">
-                <div className="ideas-workspace-document-title">Idea</div>
-                <div className="ideas-workspace-document-actions">
-                  {canvasDirty && (
-                    <>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        onClick={handleCancel}
-                        disabled={inspectorBusy}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="primary"
-                        size="sm"
-                        onClick={() => void handleSave()}
-                        disabled={!canCommit}
-                        loading={inspectorBusy}
-                      >
-                        Save
-                      </Button>
-                    </>
-                  )}
-                  <Tooltip content={detailsCollapsed ? "Show details" : "Hide details"} portal>
-                    <IconButton
-                      variant="bordered"
-                      size="md"
-                      className="ideas-workspace-document-toggle"
-                      aria-label={detailsCollapsed ? "Show details" : "Hide details"}
-                      onClick={() => setDetailsCollapsed((collapsed) => !collapsed)}
-                    >
-                      {detailsCollapsed ? (
-                        <PanelRightOpen size={13} strokeWidth={1.7} />
-                      ) : (
-                        <PanelRightClose size={13} strokeWidth={1.7} />
-                      )}
-                    </IconButton>
-                  </Tooltip>
-                </div>
-              </div>
               <IdeaCanvas
                 ref={canvasRef}
                 key={composing ? `compose:${activeParentId ?? "root"}` : activeIdea?.id}
@@ -501,6 +429,51 @@ export default function IdeasWorkspaceView({
                 onPersisted={onSelect}
                 embedded
                 hideMetaStrip
+                contentHeaderSlot={
+                  <div className="ideas-workspace-document-head">
+                    <div className="ideas-workspace-document-title">Idea</div>
+                    <div className="ideas-workspace-document-actions">
+                      {canvasDirty && (
+                        <>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={handleCancel}
+                            disabled={inspectorBusy}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="primary"
+                            size="sm"
+                            onClick={() => void handleSave()}
+                            disabled={!canCommit}
+                            loading={inspectorBusy}
+                          >
+                            Save
+                          </Button>
+                        </>
+                      )}
+                      <Tooltip content={detailsCollapsed ? "Show details" : "Hide details"} portal>
+                        <IconButton
+                          variant="bordered"
+                          size="md"
+                          className="ideas-workspace-document-toggle"
+                          aria-label={detailsCollapsed ? "Show details" : "Hide details"}
+                          onClick={() => setDetailsCollapsed((collapsed) => !collapsed)}
+                        >
+                          {detailsCollapsed ? (
+                            <PanelRightOpen size={13} strokeWidth={1.7} />
+                          ) : (
+                            <PanelRightClose size={13} strokeWidth={1.7} />
+                          )}
+                        </IconButton>
+                      </Tooltip>
+                    </div>
+                  </div>
+                }
                 composeScope={composeScope}
                 onDirtyChange={setCanvasDirty}
                 onCanCommitChange={setCanCommit}

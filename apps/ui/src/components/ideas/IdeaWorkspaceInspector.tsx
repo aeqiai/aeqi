@@ -2,15 +2,21 @@ import { useState, type ReactNode } from "react";
 import { MoreHorizontal, Save, Trash2, X } from "lucide-react";
 import { blockTreeToPlainText } from "@/components/editor/blockEditorContent";
 import IdeaLinksPanel from "@/components/IdeaLinksPanel";
-import { PropertyGroup, ReadOnlyRow } from "@/components/roles/RoleInspectorPrimitives";
 import TagsEditor from "@/components/TagsEditor";
 import { formatDateTime } from "@/lib/i18n";
 import type { Idea, ScopeValue } from "@/lib/types";
-import { Button, Icon, IconButton, Menu } from "../ui";
+import {
+  Button,
+  Icon,
+  IconButton,
+  InspectorPanel,
+  InspectorRow,
+  InspectorSection,
+  Menu,
+} from "../ui";
 import IdeaActivityFeed from "./IdeaActivityFeed";
 import IdeaPropertyChips from "./IdeaPropertyChips";
 import { SCOPE_HINT, SCOPE_LABEL, SCOPE_PICKER_VALUES, relativeTime } from "./types";
-import "@/styles/roles.css";
 
 export interface IdeaWorkspaceInspectorProps {
   idea?: Idea;
@@ -35,6 +41,11 @@ export interface IdeaWorkspaceInspectorProps {
   onDelete: () => void;
   onSave: () => void;
   onCancel: () => void;
+}
+
+function compactIdeaId(id: string): string {
+  if (id.length <= 13) return id;
+  return `${id.slice(0, 6)}...${id.slice(-4)}`;
 }
 
 export default function IdeaWorkspaceInspector({
@@ -73,18 +84,22 @@ export default function IdeaWorkspaceInspector({
     : Array.from(new Set<ScopeValue>([scope, ...SCOPE_PICKER_VALUES]));
   const showPrimaryRow = !idea || canTrack || canDelete;
   return (
-    <div className="role-inspector role-inspector--page ideas-workspace-detail-inspector">
-      <header className="role-inspector-topbar ideas-workspace-detail-topbar">
-        <span className="role-inspector-object">{composing ? "New idea" : "Details"}</span>
+    <InspectorPanel
+      className="ideas-workspace-detail-inspector"
+      ariaLabel="Idea metadata"
+      surface="embedded"
+    >
+      <header className="ideas-workspace-detail-topbar">
+        <span className="ideas-workspace-detail-object">{composing ? "New idea" : "Details"}</span>
         <span
-          className="role-inspector-meta"
+          className="ideas-workspace-detail-meta"
           title={idea?.created_at ? formatDateTime(idea.created_at) : undefined}
         >
           {idea ? updated || "now" : "draft"}
         </span>
       </header>
 
-      <div className="role-inspector-body">
+      <div className="ideas-workspace-detail-body">
         {showPrimaryRow && (
           <div className="ideas-workspace-inspector-primary">
             {idea && canTrack ? (
@@ -157,11 +172,10 @@ export default function IdeaWorkspaceInspector({
           </div>
         )}
 
-        <PropertyGroup title="Idea" defaultOpen>
-          <div className="role-inspector-field-block">
-            <span className="role-inspector-row-label">Visibility</span>
+        <InspectorSection title="Idea">
+          <InspectorRow label="Scope" tone="plain" className="ideas-workspace-inspector-row">
             <div
-              className="role-inspector-field-body ideas-workspace-scope-options"
+              className="ideas-workspace-scope-options"
               role="radiogroup"
               aria-label="Idea visibility"
             >
@@ -181,23 +195,22 @@ export default function IdeaWorkspaceInspector({
                 </button>
               ))}
             </div>
-          </div>
-          <ReadOnlyRow label="Children">
-            <span className="role-inspector-stat">{childCount}</span>
-          </ReadOnlyRow>
-          <ReadOnlyRow label="Words">
-            <span className="role-inspector-stat">{words}</span>
-          </ReadOnlyRow>
-          <ReadOnlyRow label="Kind">
-            <span className="role-inspector-meta">{idea?.kind ?? "note"}</span>
-          </ReadOnlyRow>
-        </PropertyGroup>
+          </InspectorRow>
+          <InspectorRow label="Kind" tone="recessed">
+            {idea?.kind ?? "note"}
+          </InspectorRow>
+          {idea && (
+            <InspectorRow label="Idea ID" tone="raised" className="ideas-workspace-id-row">
+              {compactIdeaId(idea.id)}
+            </InspectorRow>
+          )}
+        </InspectorSection>
 
         {hasProperties && (
-          <PropertyGroup title="Properties">
-            <div className="role-inspector-field-block role-inspector-field-block--stacked">
-              <span className="role-inspector-row-label">Metadata</span>
-              <div className="role-inspector-field-body">
+          <InspectorSection title="Properties" collapsible defaultOpen={false}>
+            <div className="ideas-workspace-inspector-stack">
+              <span className="ideas-workspace-inspector-label">Metadata</span>
+              <div className="ideas-workspace-inspector-field">
                 <IdeaPropertyChips
                   ideaId={idea.id}
                   scopedEntity={scopedEntity}
@@ -205,13 +218,13 @@ export default function IdeaWorkspaceInspector({
                 />
               </div>
             </div>
-          </PropertyGroup>
+          </InspectorSection>
         )}
 
-        <PropertyGroup title="Tags" defaultOpen>
-          <div className="role-inspector-field-block role-inspector-field-block--stacked">
-            <span className="role-inspector-row-label">Labels</span>
-            <div className="role-inspector-field-body">
+        <InspectorSection title="Tags">
+          <div className="ideas-workspace-inspector-stack">
+            <span className="ideas-workspace-inspector-label">Labels</span>
+            <div className="ideas-workspace-inspector-field">
               {idea ? (
                 <TagsEditor
                   tags={idea.tags ?? []}
@@ -221,43 +234,54 @@ export default function IdeaWorkspaceInspector({
                   onRemove={onTagRemove}
                 />
               ) : (
-                <span className="role-inspector-meta">Available after the idea is saved</span>
+                <span className="ideas-workspace-detail-meta">
+                  Available after the idea is saved
+                </span>
               )}
             </div>
           </div>
-        </PropertyGroup>
+        </InspectorSection>
 
-        <PropertyGroup title="References">
-          <div className="role-inspector-field-block role-inspector-field-block--stacked">
-            <span className="role-inspector-row-label">Linked ideas</span>
-            <div className="role-inspector-field-body">
+        <InspectorSection title="References" collapsible defaultOpen={false}>
+          <div className="ideas-workspace-inspector-stack">
+            <span className="ideas-workspace-inspector-label">Linked ideas</span>
+            <div className="ideas-workspace-inspector-field">
               {idea ? (
                 <IdeaLinksPanel ideaId={idea.id} agentId={agentId} />
               ) : (
-                <span className="role-inspector-meta">Available after save</span>
+                <span className="ideas-workspace-detail-meta">Available after save</span>
               )}
             </div>
           </div>
-        </PropertyGroup>
+        </InspectorSection>
+
+        <InspectorSection title="Document" collapsible defaultOpen={false}>
+          <InspectorRow label="Children" tone="recessed">
+            {childCount}
+          </InspectorRow>
+          <InspectorRow label="Words" tone="recessed">
+            {words}
+          </InspectorRow>
+        </InspectorSection>
 
         {idea && (
-          <PropertyGroup title={`Activity · ${activityCount}`}>
-            <div className="role-inspector-field-block role-inspector-field-block--stacked">
-              <span className="role-inspector-row-label">Timeline</span>
-              <div className="role-inspector-field-body">
+          <InspectorSection title={`Activity · ${activityCount}`} collapsible defaultOpen={false}>
+            <div className="ideas-workspace-inspector-stack">
+              <span className="ideas-workspace-inspector-label">Timeline</span>
+              <div className="ideas-workspace-inspector-field">
                 <IdeaActivityFeed ideaId={idea.id} limit={6} onCount={setActivityCount} />
               </div>
             </div>
-          </PropertyGroup>
+          </InspectorSection>
         )}
 
-        <PropertyGroup title="Import">
-          <div className="role-inspector-field-block role-inspector-field-block--stacked">
-            <span className="role-inspector-row-label">Sources</span>
-            <div className="role-inspector-field-body">{importMenu}</div>
+        <InspectorSection title="Import" collapsible defaultOpen={false}>
+          <div className="ideas-workspace-inspector-stack">
+            <span className="ideas-workspace-inspector-label">Sources</span>
+            <div className="ideas-workspace-inspector-field">{importMenu}</div>
           </div>
-        </PropertyGroup>
+        </InspectorSection>
       </div>
-    </div>
+    </InspectorPanel>
   );
 }
