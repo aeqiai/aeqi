@@ -74,8 +74,9 @@ describe("TrustAppsTab", () => {
   });
 
   function renderTab(surface: "integrations" | "mail" | "websites" = "integrations") {
+    const segment = surface === "mail" ? "mails" : surface;
     render(
-      <MemoryRouter initialEntries={[`/trust/root-1/${surface}`]}>
+      <MemoryRouter initialEntries={[`/trust/root-1/${segment}`]}>
         <QueryClientProvider client={queryClient}>
           <Routes>
             <Route

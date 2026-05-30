@@ -55,7 +55,7 @@ interface TrustTabPageProps {
  *   /trust/:trustAddress/agents        → TrustAgentsTab (LIST)
  *   /trust/:trustAddress/sessions      → TrustSessionsTab (all trust sessions)
  *   /trust/:trustAddress/inbox         → MeInboxPage
- *   /trust/:trustAddress/mail          → TrustAppsTab(mails surface)
+ *   /trust/:trustAddress/mails         → TrustAppsTab(mails surface)
  *   /trust/:trustAddress/websites      → TrustAppsTab(websites surface)
  *   /trust/:trustAddress/campaigns     → TrustCampaignsTab
  *   /trust/:trustAddress/budgets       → TrustBudgetsTab
@@ -70,6 +70,7 @@ interface TrustTabPageProps {
  *   /trust/:trustAddress/health        → 308 redirect to bare cockpit (legacy URL)
  *   /trust/:trustAddress/apps          → redirect to Integrations (legacy apps tab)
  *   /trust/:trustAddress/channels      → redirect to Gateways (legacy channels tab)
+ *   /trust/:trustAddress/mail          → redirect to Mails (legacy singular)
  *   /trust/:trustAddress/website       → redirect to Websites (legacy website tab)
  */
 /** Tabs that require a per-tenant runtime service.
@@ -145,6 +146,10 @@ export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTab
     const target = location.pathname.replace(/\/channels(?=\/|$)/, "/gateways") + location.search;
     return <Navigate to={target} replace />;
   }
+  if (tab === "mail") {
+    const target = location.pathname.replace(/\/mail(?=\/|$)/, "/mails") + location.search;
+    return <Navigate to={target} replace />;
+  }
   if (tab === "website") {
     const target = location.pathname.replace(/\/website(?=\/|$)/, "/websites") + location.search;
     return <Navigate to={target} replace />;
@@ -213,7 +218,7 @@ export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTab
       </Suspense>
     );
   }
-  if (tab === "mail") {
+  if (tab === "mails") {
     return (
       <Suspense>
         <TrustAppsTab trustId={trustId} surface="mail" />

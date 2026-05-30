@@ -71,6 +71,8 @@ const COMPANY_PAGE_TABS = new Set([
   "agents",
   "sessions",
   "inbox",
+  "mails",
+  // Legacy alias: Mail is canonicalized to plural Mails.
   "mail",
   "websites",
   "campaigns",

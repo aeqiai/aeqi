@@ -1012,7 +1012,7 @@
 .trust-apps-shell-surface,
 .gateway-shell-surface {
   gap: var(--space-3);
-  padding: var(--space-4);
+  padding: var(--space-3) var(--space-4) var(--space-4);
   overflow-y: auto;
 }
 
@@ -1029,10 +1029,37 @@
   white-space: nowrap;
 }
 
-.trust-apps-page > .trust-cockpit-card {
-  margin: 0 var(--space-6) var(--space-5);
+.trust-apps-section,
+.gateway-surface-card {
+  gap: var(--space-4);
+  margin: 0;
+  padding: var(--space-4);
   background: var(--bg-row);
-  box-shadow: var(--card-elevation);
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 0 0 1px var(--color-border-faint);
+}
+
+.trust-apps-section .trust-cockpit-card-title,
+.gateway-surface-card .trust-cockpit-card-title {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-md);
+  font-weight: 640;
+  letter-spacing: 0;
+}
+
+.trust-apps-section .trust-cockpit-card-sub,
+.gateway-surface-card .trust-cockpit-card-sub {
+  margin-top: 3px;
+  font-size: var(--font-size-sm);
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.trust-apps-section--compact {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--border-faint);
 }
 
 .trust-primitive-layout {
@@ -1040,7 +1067,7 @@
   grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
   gap: var(--space-4);
   min-width: 0;
-  padding: 0 var(--space-6) var(--space-5);
+  padding: 0;
 }
 
 .trust-apps-shell-surface > .trust-primitive-layout {
@@ -1052,10 +1079,10 @@
   flex-direction: column;
   gap: var(--space-4);
   min-width: 0;
-  padding: var(--space-5);
+  padding: var(--space-4);
   background: var(--bg-row);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--card-elevation);
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 0 0 1px var(--color-border-faint);
 }
 
 .trust-primitive-panel--wide {
@@ -1096,7 +1123,7 @@
   min-width: 0;
   padding: var(--space-3);
   background: var(--color-card-elevated);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   box-shadow: inset 0 0 0 1px var(--color-border-faint);
 }
 
@@ -1141,7 +1168,8 @@
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
   background: var(--color-card);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 0 0 1px var(--border-faint);
 }
 
 .trust-primitive-create-fields--wide {
@@ -1198,7 +1226,8 @@
   color: var(--color-text-primary);
   text-decoration: none;
   background: var(--color-card-elevated);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 0 0 1px var(--color-border-faint);
 }
 
 .trust-access-row:hover {
@@ -1255,7 +1284,8 @@
   min-height: 44px;
   padding: var(--space-2) var(--space-3);
   background: var(--color-card-elevated);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 0 0 1px var(--color-border-faint);
 }
 
 .trust-domain-row {
@@ -1284,7 +1314,8 @@
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
   background: var(--color-card-elevated);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 0 0 1px var(--color-border-faint);
 }
 
 .trust-tools-toolbar {
@@ -1457,10 +1488,6 @@
   overflow: hidden;
 }
 
-.gateway-surface-card {
-  gap: var(--space-4);
-}
-
 .gateway-card-header {
   align-items: flex-start;
 }
@@ -1490,7 +1517,8 @@
   padding: var(--space-2) var(--space-3);
   color: var(--color-text-primary);
   background: var(--color-card-elevated);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 0 0 1px var(--color-border-faint);
   transition:
     background 0.12s ease,
     color 0.12s ease;
@@ -1578,7 +1606,8 @@
   min-height: var(--sidebar-row-h);
   padding: var(--space-2) var(--space-3);
   background: var(--color-card-elevated);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 0 0 1px var(--color-border-faint);
 }
 
 .gateway-session-main {
@@ -1757,49 +1786,59 @@
   flex-direction: column;
   justify-content: center;
   min-width: 86px;
-  min-height: 54px;
+  min-height: var(--input-h);
   padding: var(--space-2) var(--space-3);
   background: var(--color-card-elevated);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 0 0 1px var(--color-border-faint);
 }
 
 .trust-apps-stat-value {
-  font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 500;
-  line-height: 1.1;
+  overflow: hidden;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  font-weight: 620;
+  line-height: 1.25;
   color: var(--color-text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 
 .trust-apps-stat-label {
-  margin-top: 3px;
+  margin-top: 2px;
   font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 600;
+  font-size: var(--font-size-xs);
+  font-weight: 500;
   color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
 }
 
 .trust-apps-link {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  min-height: var(--toolbar-control-h);
+  padding: 0 var(--space-3);
   font-size: var(--font-size-sm);
-  font-weight: 500;
-  color: var(--color-accent);
+  font-weight: 560;
+  color: var(--color-text-primary);
   text-decoration: none;
+  background: var(--color-card);
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px var(--border);
 }
 
 .trust-apps-link:hover,
 .trust-app-card-action:hover {
-  text-decoration: underline;
+  background: var(--color-card-muted);
+  text-decoration: none;
 }
 
 .trust-apps-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
 .trust-apps-grid--launch {
@@ -1807,7 +1846,7 @@
 }
 
 .trust-apps-grid--services {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .trust-workspace-action {
@@ -1832,27 +1871,26 @@
 .trust-app-card {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-3);
   min-width: 0;
-  padding: var(--space-4);
+  padding: var(--space-3);
   background: var(--color-card-elevated);
-  border-radius: var(--radius-md);
-  box-shadow: var(--card-elevation);
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 0 0 1px var(--color-border-faint);
 }
 
 .trust-app-card--identity {
   background: var(--color-card-elevated);
-  box-shadow:
-    var(--card-elevation),
-    inset 0 0 0 1px var(--color-border-faint);
+  box-shadow: inset 0 0 0 1px var(--color-border-faint);
 }
 
 .trust-app-card--service {
-  min-height: 196px;
+  min-height: 140px;
 }
 
 .trust-app-card[data-selected="true"] {
-  box-shadow: inset 0 0 0 2px var(--color-accent);
+  background: var(--color-card);
+  box-shadow: inset 0 0 0 1px var(--border);
 }
 
 .trust-app-card-header {
@@ -1876,7 +1914,7 @@
   height: 34px;
   color: var(--color-text-primary);
   background: var(--color-card-muted);
-  border-radius: var(--radius-sm);
+  border-radius: 999px;
   box-shadow: inset 0 0 0 1px var(--color-border-faint);
 }
 
@@ -1891,15 +1929,15 @@
 }
 
 .trust-app-logo[data-app="telegram"] {
-  color: var(--event-tone-telegram);
+  color: var(--color-text-primary);
 }
 
 .trust-app-logo[data-app="whatsapp"] {
-  color: var(--success);
+  color: var(--color-text-primary);
 }
 
 .trust-app-logo[data-app="stripe"] {
-  color: var(--state-progress);
+  color: var(--color-text-primary);
 }
 
 .trust-app-card-title-block {
@@ -1909,11 +1947,11 @@
 
 .trust-app-card-title {
   margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--font-size-lg);
-  font-weight: 500;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  font-weight: 640;
   color: var(--color-text-primary);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .trust-app-card-summary {
@@ -1929,19 +1967,29 @@
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
+  gap: var(--space-1);
   min-height: 24px;
   padding: 0 var(--space-2);
   font-family: var(--font-sans);
   font-size: var(--font-size-xs);
   font-weight: 500;
   color: var(--color-text-muted);
-  background: var(--bg-row);
+  background: transparent;
   border-radius: 999px;
 }
 
+.trust-app-status-pill::before {
+  width: 6px;
+  height: 6px;
+  content: "";
+  background: currentColor;
+  border-radius: 999px;
+  opacity: 0.55;
+}
+
 .trust-app-status-pill[data-status="connected"] {
-  color: var(--state-progress);
-  background: var(--state-progress-bg);
+  color: var(--success);
+  background: var(--success-glow);
 }
 
 .trust-app-card-stats {
@@ -1954,7 +2002,7 @@
 }
 
 .trust-app-card-stats--service {
-  grid-template-columns: minmax(0, 1.5fr) repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .trust-app-card-stats--identity {
@@ -1969,27 +2017,19 @@
   min-width: 0;
 }
 
-.trust-app-card-stats--workspace .trust-apps-stat:first-child .trust-apps-stat-value,
-.trust-app-card-stats--service .trust-apps-stat:first-child .trust-apps-stat-value,
-.trust-app-card-stats--identity .trust-apps-stat:first-child .trust-apps-stat-value,
-.trust-app-card-stats--email .trust-apps-stat:nth-child(-n + 2) .trust-apps-stat-value,
-.trust-app-card-stats--billing .trust-apps-stat-value {
-  overflow: hidden;
-  font-family: var(--font-sans);
-  font-size: var(--font-size-sm);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .trust-app-card-action {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   align-self: flex-start;
+  min-height: 30px;
+  padding: 0 var(--space-3);
   font-size: var(--font-size-sm);
-  font-weight: 500;
-  color: var(--color-accent);
+  font-weight: 560;
+  color: var(--color-text-primary);
   text-decoration: none;
+  background: var(--bg-row);
+  border-radius: 999px;
 }
 
 .trust-app-card-actions {
@@ -2374,6 +2414,20 @@
   .trust-workspace-action {
     align-items: stretch;
     justify-content: flex-start;
+    width: 100%;
+  }
+
+  .trust-apps-section .trust-cockpit-card-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .trust-workspace-action {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .trust-workspace-action .trust-app-card-button {
     width: 100%;
   }
 

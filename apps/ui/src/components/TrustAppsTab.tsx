@@ -284,113 +284,116 @@ export default function TrustAppsTab({
   }
 
   return (
-    <div className="trust-overview trust-apps-page">
+    <div className="trust-apps-page trust-primitive-shell">
       <PrimitivePageHeader
-        className="trust-apps-page-header trust-apps-page-header--summary"
+        className="trust-apps-page-header trust-primitive-shell-header trust-apps-page-header--summary"
         title={headerTitle}
         aria-label={`${pageTitle} controls`}
         actions={headerActions}
+        padding="none"
       />
 
-      <div className="trust-primitive-context-strip" role="status">
-        <span className="trust-primitive-context-text">{toolbarSummary}</span>
-      </div>
+      <main className="trust-apps-main trust-primitive-shell-surface trust-apps-shell-surface">
+        <div className="trust-primitive-context-strip" role="status">
+          <span className="trust-primitive-context-text">{toolbarSummary}</span>
+        </div>
 
-      {surface === "integrations" && (
-        <>
-          <section
-            className="trust-cockpit-card trust-cockpit-card--wide"
-            aria-labelledby="platform-integrations-heading"
-          >
-            <header className="trust-cockpit-card-header">
-              <div>
-                <h2 id="platform-integrations-heading" className="trust-cockpit-card-title">
-                  Google Workspace
-                </h2>
-                <p className="trust-cockpit-card-sub">
-                  Connect once, then expose each workspace app as its own trust capability.
-                </p>
-              </div>
-              <GoogleWorkspaceAction
-                connected={googleConnected}
-                loading={googleStatus.isLoading}
-                status={googleStatus.data}
-                trustId={trustId}
-              />
-            </header>
-            <div className="trust-apps-grid trust-apps-grid--services">
-              {GOOGLE_WORKSPACE_APPS.map((app) => (
-                <GoogleWorkspaceServiceCard
-                  key={app.kind}
-                  app={app}
-                  connected={googleConnected}
-                  loading={googleStatus.isLoading}
-                  status={googleStatus.data}
-                />
-              ))}
-            </div>
-          </section>
-
-          {billingApps.length > 0 && (
+        {surface === "integrations" && (
+          <>
             <section
-              className="trust-cockpit-card trust-cockpit-card--wide"
-              aria-labelledby="business-integrations-heading"
+              className="trust-cockpit-card trust-cockpit-card--wide trust-apps-section"
+              aria-labelledby="platform-integrations-heading"
             >
               <header className="trust-cockpit-card-header">
                 <div>
-                  <h2 id="business-integrations-heading" className="trust-cockpit-card-title">
-                    Business integrations
+                  <h2 id="platform-integrations-heading" className="trust-cockpit-card-title">
+                    Google Workspace
                   </h2>
                   <p className="trust-cockpit-card-sub">
-                    Billing, checkout, and account-level services.
+                    Connect once, then expose each workspace app as its own trust capability.
                   </p>
                 </div>
+                <GoogleWorkspaceAction
+                  connected={googleConnected}
+                  loading={googleStatus.isLoading}
+                  status={googleStatus.data}
+                  trustId={trustId}
+                />
               </header>
-              <div className="trust-apps-grid trust-apps-grid--workspace">
-                {billingApps.map((summary) => (
-                  <AppDetailCard
-                    key={summary.entry.kind}
-                    selected={selectedKind === summary.entry.kind}
-                    summary={summary}
-                    channelsPath="/account/billing"
-                    actionLabel="Open Billing"
+              <div className="trust-apps-grid trust-apps-grid--services">
+                {GOOGLE_WORKSPACE_APPS.map((app) => (
+                  <GoogleWorkspaceServiceCard
+                    key={app.kind}
+                    app={app}
+                    connected={googleConnected}
+                    loading={googleStatus.isLoading}
+                    status={googleStatus.data}
                   />
                 ))}
               </div>
             </section>
-          )}
 
-          <section
-            className="trust-cockpit-card trust-cockpit-card--wide"
-            aria-labelledby="gateway-integrations-heading"
-          >
-            <header className="trust-cockpit-card-header">
-              <div>
-                <h2 id="gateway-integrations-heading" className="trust-cockpit-card-title">
-                  Gateway integrations
-                </h2>
-                <p className="trust-cockpit-card-sub">
-                  External messaging providers managed through Gateways.
-                </p>
+            {billingApps.length > 0 && (
+              <section
+                className="trust-cockpit-card trust-cockpit-card--wide trust-apps-section trust-apps-section--compact"
+                aria-labelledby="business-integrations-heading"
+              >
+                <header className="trust-cockpit-card-header">
+                  <div>
+                    <h2 id="business-integrations-heading" className="trust-cockpit-card-title">
+                      Business integrations
+                    </h2>
+                    <p className="trust-cockpit-card-sub">
+                      Billing, checkout, and account-level services.
+                    </p>
+                  </div>
+                </header>
+                <div className="trust-apps-grid trust-apps-grid--workspace">
+                  {billingApps.map((summary) => (
+                    <AppDetailCard
+                      key={summary.entry.kind}
+                      selected={selectedKind === summary.entry.kind}
+                      summary={summary}
+                      channelsPath="/account/billing"
+                      actionLabel="Open Billing"
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            <section
+              className="trust-cockpit-card trust-cockpit-card--wide trust-apps-section trust-apps-section--compact"
+              aria-labelledby="gateway-integrations-heading"
+            >
+              <header className="trust-cockpit-card-header">
+                <div>
+                  <h2 id="gateway-integrations-heading" className="trust-cockpit-card-title">
+                    Gateway integrations
+                  </h2>
+                  <p className="trust-cockpit-card-sub">
+                    External messaging providers managed through Gateways.
+                  </p>
+                </div>
+                <Link to={gatewaysPath} className="trust-apps-link">
+                  {gatewayActionLabel}
+                </Link>
+              </header>
+              <div className="trust-apps-grid">
+                {channelApps.map((summary) => (
+                  <AppDetailCard
+                    key={summary.entry.kind}
+                    selected={selectedKind === summary.entry.kind}
+                    summary={summary}
+                    channelsPath={gatewaysPath}
+                    actionLabel={gatewayActionLabel}
+                  />
+                ))}
               </div>
-              <Link to={gatewaysPath} className="trust-apps-link">
-                {gatewayActionLabel}
-              </Link>
-            </header>
-            <div className="trust-apps-grid">
-              {channelApps.map((summary) => (
-                <AppDetailCard
-                  key={summary.entry.kind}
-                  selected={selectedKind === summary.entry.kind}
-                  summary={summary}
-                  channelsPath={gatewaysPath}
-                  actionLabel={gatewayActionLabel}
-                />
-              ))}
-            </div>
-          </section>
-        </>
-      )}
+            </section>
+          </>
+        )}
+      </main>
     </div>
   );
 }

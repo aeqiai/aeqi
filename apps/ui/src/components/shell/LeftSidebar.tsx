@@ -384,7 +384,7 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
               {navItem("sessions", "Sessions", <SessionsIcon />, {
                 locked: runtimeLocked,
               })}
-              {navItem("mail", "Mails", <MailIcon />)}
+              {navItem("mails", "Mails", <MailIcon />)}
               {navItem("websites", "Websites", <WebsitesIcon />)}
               {navItem("campaigns", "Campaigns", <CampaignsIcon />, {
                 locked: runtimeLocked,
