@@ -33,7 +33,7 @@ import AccountDropdown from "@/components/shell/AccountDropdown";
 import Wordmark from "@/components/Wordmark";
 import HelpMenu from "@/components/shell/HelpMenu";
 import { Icon, IconButton, Tooltip } from "@/components/ui";
-import { useUIStore } from "@/store/ui";
+import { useUIStore, type PinnedView } from "@/store/ui";
 import { useDaemonStore } from "@/store/daemon";
 import { useRuntimeStatus } from "@/hooks/useRuntimeStatus";
 import { entityBasePath } from "@/lib/entityPath";
@@ -127,6 +127,8 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const sidebarWidth = useUIStore((s) => s.sidebarWidth);
   const setSidebarWidth = useUIStore((s) => s.setSidebarWidth);
+  const pinnedViews = useUIStore((s) => s.pinnedViews);
+  const removePinnedView = useUIStore((s) => s.removePinnedView);
   const [isMobileShell, setIsMobileShell] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [pinnedUserSessionsVisible, setPinnedUserSessionsVisible] = useState(() => {
@@ -198,6 +200,8 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
   const activeEntityObj = trustId ? (entities.find((e) => e.id === trustId) ?? null) : null;
   const base = activeEntityObj ? entityBasePath(activeEntityObj) : "";
   const hasCompany = !!trustId;
+  const globalPinnedViews = pinnedViews.filter((view) => !view.trustId);
+  const trustPinnedViews = pinnedViews.filter((view) => view.trustId === trustId);
 
   // Runtime gate cue — when the TRUST has no runtime attached, the
   // execution-tab rows (Agents/Events/Quests/Ideas) read as locked
@@ -323,6 +327,30 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
       {opts.action}
     </div>
   );
+
+  const pinnedViewItem = (view: PinnedView) => {
+    const href = `${view.path}${view.search}`;
+    const active = path === view.path && location.search === view.search;
+
+    return (
+      <div key={view.id} className="sidebar-nav-row">
+        <a
+          className={`sidebar-nav-item ${active ? "active" : ""}`}
+          href={href}
+          title={view.label}
+          aria-current={active ? "page" : undefined}
+          onClick={(e) => {
+            e.preventDefault();
+            navigate(href);
+          }}
+        >
+          <ViewsIcon />
+          <span className="sidebar-nav-label">{view.label}</span>
+        </a>
+        {rowAction(`Unpin ${view.label}`, <UnpinIcon />, () => removePinnedView(view.id))}
+      </div>
+    );
+  };
 
   const trustNavGroup = (id: TrustNavGroupId, label: string, items: React.ReactNode) => {
     const open = openTrustGroups[id];
@@ -452,9 +480,10 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
           })}
           {topLevelItem("/economy", "Economy", <EconomyIcon />, isEconomy)}
           {topLevelItem("/blueprints", "Blueprints", <BlueprintsIcon />, isBlueprints)}
+          {globalPinnedViews.map(pinnedViewItem)}
         </nav>
 
-        {/* ── Trust group — pinned rows first, then primitive registries. ── */}
+        {/* ── Trust group — pinned views first, then primitive registries. ── */}
         {hasCompany && (
           <>
             <nav className="sidebar-surface-nav sidebar-zone sidebar-trust-nav" aria-label="Trust">
@@ -484,6 +513,7 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
                   )}
                 </div>
               )}
+              {trustPinnedViews.map(pinnedViewItem)}
               <div key="views" className="sidebar-nav-row">
                 <a
                   className={`sidebar-nav-item ${isCompanyOverview ? "active" : ""}`}

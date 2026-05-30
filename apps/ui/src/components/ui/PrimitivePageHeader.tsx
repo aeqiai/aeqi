@@ -1,4 +1,5 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
+import PinCurrentViewButton from "./internal/PinCurrentViewButton";
 import styles from "./PrimitivePageHeader.module.css";
 
 function cx(...classes: Array<string | undefined | false>) {
@@ -18,6 +19,7 @@ export const PrimitivePageHeader = forwardRef<HTMLElement, PrimitivePageHeaderPr
     ref,
   ) {
     const hasChrome = Boolean(children);
+    const defaultPinnedLabel = typeof title === "string" ? title : undefined;
     return (
       <header
         ref={ref}
@@ -29,7 +31,10 @@ export const PrimitivePageHeader = forwardRef<HTMLElement, PrimitivePageHeaderPr
       >
         <h1 className={styles.title}>{title}</h1>
         {children && <div className={styles.chrome}>{children}</div>}
-        {actions && <div className={styles.actions}>{actions}</div>}
+        <div className={styles.actions}>
+          <PinCurrentViewButton defaultLabel={defaultPinnedLabel} />
+          {actions}
+        </div>
       </header>
     );
   },

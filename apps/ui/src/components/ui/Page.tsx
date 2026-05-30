@@ -1,4 +1,5 @@
 import { forwardRef, type ReactNode } from "react";
+import PinCurrentViewButton from "./internal/PinCurrentViewButton";
 import type { SpaceToken } from "./Stack";
 import styles from "./Page.module.css";
 
@@ -49,6 +50,7 @@ export const PageHeader = forwardRef<HTMLElement, PageHeaderProps>(function Page
   { title, description, meta, actions, className, children, ...rest },
   ref,
 ) {
+  const defaultPinnedLabel = typeof title === "string" ? title : undefined;
   return (
     <header ref={ref} className={cx(styles.header, className)} {...rest}>
       <div className={styles.headerContent}>
@@ -57,7 +59,10 @@ export const PageHeader = forwardRef<HTMLElement, PageHeaderProps>(function Page
         {description && <p className={styles.description}>{description}</p>}
         {children}
       </div>
-      {actions && <div className={styles.headerActions}>{actions}</div>}
+      <div className={styles.headerActions}>
+        <PinCurrentViewButton defaultLabel={defaultPinnedLabel} />
+        {actions}
+      </div>
     </header>
   );
 });
