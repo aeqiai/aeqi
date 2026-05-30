@@ -111,6 +111,13 @@ Outstanding candidate principle imports: Zettelkasten atomic-notes rule.
   metadata; write surface is draft-only in V1 so agents can prepare
   commerce work without publishing products. Crate `aeqi-pack-etsy`,
   registered by the MCP Apps proxy integration catalog.
+- `meta:pack:wecom` — planned WeCom / Enterprise WeChat messaging
+  integration. First target is callback mode for self-built enterprise
+  apps: encrypted inbound callbacks, immediate ACK, async agent session,
+  proactive `message/send`, multi-corp routing, dedupe, TRUST-scoped
+  service-account credentials, and role/app grants. Not callable yet;
+  surfaced only through the MCP Apps planned/roadmap catalog until a
+  real pack and credential lifecycle ship.
 
 ## Known gaps (things we should NOT re-import if encountered)
 
@@ -131,6 +138,8 @@ Outstanding candidate principle imports: Zettelkasten atomic-notes rule.
   additions (Zettelkasten, reflection-principles) earn their slot
   case-by-case.
 - Domain packs: language/stack-specific (Rust, TypeScript, DevOps).
+- Messaging app packs: WeCom Callback first for company-grade WeChat,
+  personal Weixin later as a user-scoped device-session channel.
 
 ## Invariants (what must stay true of the pack)
 

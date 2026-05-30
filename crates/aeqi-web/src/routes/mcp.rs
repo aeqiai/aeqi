@@ -657,6 +657,19 @@ async fn call_apps(
         .and_then(|v| v.as_str())
         .unwrap_or("list_tools");
     match action {
+        "planned" | "roadmap" => {
+            let provider = args
+                .get("provider")
+                .and_then(|v| v.as_str())
+                .map(str::trim)
+                .filter(|s| !s.is_empty());
+            let planned = planned_integration_catalog(provider);
+            Ok(serde_json::json!({
+                "ok": true,
+                "count": planned.len(),
+                "apps": planned,
+            }))
+        }
         "catalog" | "list_apps" => {
             let provider = args
                 .get("provider")
@@ -1534,6 +1547,19 @@ struct IntegrationPack {
     capabilities: &'static [&'static str],
 }
 
+#[derive(Debug, Clone, Copy)]
+struct PlannedIntegration {
+    provider: &'static str,
+    title: &'static str,
+    category: &'static str,
+    description: &'static str,
+    recommended_mode: &'static str,
+    auth_model: &'static str,
+    default_scope_kind: &'static str,
+    capabilities: &'static [&'static str],
+    implementation_notes: &'static [&'static str],
+}
+
 impl IntegrationPack {
     fn matches_tool(&self, tool_name: &str) -> bool {
         self.tool_prefixes.iter().any(|prefix| {
@@ -1616,6 +1642,58 @@ const INTEGRATION_PACKS: &[IntegrationPack] = &[
     },
 ];
 
+const PLANNED_INTEGRATIONS: &[PlannedIntegration] = &[
+    PlannedIntegration {
+        provider: "wecom",
+        title: "WeCom",
+        category: "messaging",
+        description: "Enterprise WeChat channel for company operators, customers, and group workflows.",
+        recommended_mode: "callback_self_built_app",
+        auth_model: "service_account_callback",
+        default_scope_kind: "trust",
+        capabilities: &[
+            "direct_messages",
+            "group_messages",
+            "encrypted_callbacks",
+            "proactive_send",
+            "multi_corp_routing",
+            "media",
+            "typing",
+            "streaming",
+        ],
+        implementation_notes: &[
+            "Prefer WeCom Callback for AEQI companies: it appears as a self-built enterprise app and supports multi-corp routing.",
+            "Inbound callbacks must verify signature, decrypt XML, deduplicate WeCom retries, immediately ACK, and queue async agent work.",
+            "Outbound replies should use WeCom message/send with cached access tokens and one refresh retry on token expiry.",
+            "Access should bind to TRUST role/app grants plus channel allowlists, not to raw webhook possession.",
+        ],
+    },
+    PlannedIntegration {
+        provider: "weixin",
+        title: "Weixin / WeChat",
+        category: "messaging",
+        description: "Personal WeChat channel for founder/operator DMs after enterprise WeCom is in place.",
+        recommended_mode: "ilink_long_polling",
+        auth_model: "qr_device_session",
+        default_scope_kind: "user",
+        capabilities: &[
+            "direct_messages",
+            "qr_login",
+            "long_polling",
+            "images",
+            "files",
+            "voice",
+            "typing",
+        ],
+        implementation_notes: &[
+            "Treat Weixin as a later personal channel, not the first company integration.",
+            "QR/iLink bot identities have group-delivery limitations; most deployments should expect reliable DMs first.",
+            "Persist account token and per-peer context tokens as a device-session credential lifecycle.",
+            "Do not promise ordinary WeChat group support until a real account type proves events are delivered.",
+        ],
+    },
+];
+
 fn integration_tools() -> Vec<Arc<dyn Tool>> {
     let mut tools = Vec::new();
     tools.extend(aeqi_pack_google_workspace::all_tools());
@@ -1684,6 +1762,32 @@ fn integration_catalog(provider: Option<&str>) -> Vec<serde_json::Value> {
                     "apps.use",
                     format!("apps.{}.use", pack.provider),
                 ],
+            })
+        })
+        .collect()
+}
+
+fn planned_integration_catalog(provider: Option<&str>) -> Vec<serde_json::Value> {
+    PLANNED_INTEGRATIONS
+        .iter()
+        .filter(|pack| provider.is_none_or(|requested| requested == pack.provider))
+        .map(|pack| {
+            serde_json::json!({
+                "provider": pack.provider,
+                "title": pack.title,
+                "category": pack.category,
+                "status": "planned",
+                "description": pack.description,
+                "recommended_mode": pack.recommended_mode,
+                "auth_model": pack.auth_model,
+                "credential": {
+                    "provider": pack.provider,
+                    "default_scope_kind": pack.default_scope_kind,
+                },
+                "capabilities": pack.capabilities,
+                "tool_count": 0,
+                "tools": [],
+                "implementation_notes": pack.implementation_notes,
             })
         })
         .collect()
@@ -2257,7 +2361,7 @@ fn tool_defs() -> serde_json::Value {
         {
             "name": "apps",
             "title": "AEQI Apps Proxy",
-            "description": "Universal TRUST-role proxy for connected apps. Use catalog to discover available app packs, credential scope, capabilities, and safe/destructive tools; use list_tools for raw function schemas; use call to dispatch through the credential substrate. Scoped calls require the acting role to occupy the TRUST and hold an app grant such as apps.google.use or apps.use.",
+            "description": "Universal TRUST-role proxy for connected apps. Use catalog to discover available app packs, credential scope, capabilities, and safe/destructive tools; use planned/roadmap to inspect non-callable next integrations; use list_tools for raw function schemas; use call to dispatch through the credential substrate. Scoped calls require the acting role to occupy the TRUST and hold an app grant such as apps.google.use or apps.use.",
             "annotations": {
                 "title": "AEQI Apps Proxy",
                 "readOnlyHint": false,
@@ -2268,8 +2372,8 @@ fn tool_defs() -> serde_json::Value {
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "action": {"type": "string", "enum": ["catalog", "list_apps", "list_tools", "call"], "description": "catalog/list_apps returns app-pack metadata and capability summaries; list_tools returns callable app/provider-pack tool specs; call dispatches one tool through role authorization and credential resolution."},
-                    "provider": {"type": "string", "description": "App/provider key, for example google, github, notion, slack, or etsy. Required when the provider cannot be inferred from the tool name."},
+                    "action": {"type": "string", "enum": ["catalog", "list_apps", "planned", "roadmap", "list_tools", "call"], "description": "catalog/list_apps returns available app-pack metadata; planned/roadmap returns non-callable next-integration plans; list_tools returns callable app/provider-pack tool specs; call dispatches one tool through role authorization and credential resolution."},
+                    "provider": {"type": "string", "description": "App/provider key, for example google, github, notion, slack, etsy, wecom, or weixin. Required when the provider cannot be inferred from the tool name."},
                     "tool": {"type": "string", "description": "App tool name for call, for example google.request, drive.list_files, or gmail.search."},
                     "arguments": {"type": "object", "description": "Arguments passed unchanged to the app tool."},
                     "trust_id": {"type": "string", "description": "TRUST/entity id to authorize against. Defaults to the MCP allowed root."},
@@ -2283,7 +2387,7 @@ fn tool_defs() -> serde_json::Value {
         {
             "name": "integrations",
             "title": "AEQI Integration Proxy",
-            "description": "Compatibility alias for AEQI Apps. Prefer apps for new clients. Existing integration grants still work, and apps.* grants are also accepted. Supports the same catalog, list_tools, and call actions.",
+            "description": "Compatibility alias for AEQI Apps. Prefer apps for new clients. Existing integration grants still work, and apps.* grants are also accepted. Supports the same catalog, planned, list_tools, and call actions.",
             "annotations": {
                 "title": "AEQI Integration Proxy",
                 "readOnlyHint": false,
@@ -2294,8 +2398,8 @@ fn tool_defs() -> serde_json::Value {
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "action": {"type": "string", "enum": ["catalog", "list_apps", "list_tools", "call"], "description": "catalog/list_apps returns app-pack metadata and capability summaries; list_tools returns callable app/provider-pack tool specs; call dispatches one tool through role authorization and credential resolution."},
-                    "provider": {"type": "string", "description": "Integration provider key, for example google, github, notion, slack, or etsy. Required when the provider cannot be inferred from the tool name."},
+                    "action": {"type": "string", "enum": ["catalog", "list_apps", "planned", "roadmap", "list_tools", "call"], "description": "catalog/list_apps returns available app-pack metadata; planned/roadmap returns non-callable next-integration plans; list_tools returns callable app/provider-pack tool specs; call dispatches one tool through role authorization and credential resolution."},
+                    "provider": {"type": "string", "description": "Integration provider key, for example google, github, notion, slack, etsy, wecom, or weixin. Required when the provider cannot be inferred from the tool name."},
                     "tool": {"type": "string", "description": "App tool name for call, for example google.request, drive.list_files, or gmail.search."},
                     "arguments": {"type": "object", "description": "Arguments passed unchanged to the app tool."},
                     "trust_id": {"type": "string", "description": "TRUST/entity id to authorize against. Defaults to the MCP allowed root."},
@@ -2802,6 +2906,11 @@ mod tests {
                 .iter()
                 .any(|action| action.as_str() == Some("catalog"))
         );
+        assert!(
+            app_actions
+                .iter()
+                .any(|action| action.as_str() == Some("planned"))
+        );
 
         let integrations = by_name("integrations");
         assert_eq!(integrations["title"], "AEQI Integration Proxy");
@@ -2856,6 +2965,38 @@ mod tests {
         let google_only = integration_catalog(Some("google"));
         assert_eq!(google_only.len(), 1);
         assert_eq!(google_only[0]["provider"], "google");
+    }
+
+    #[test]
+    fn planned_integration_catalog_keeps_wecom_non_callable() {
+        let planned = planned_integration_catalog(None);
+        let providers = planned
+            .iter()
+            .filter_map(|entry| entry["provider"].as_str())
+            .collect::<Vec<_>>();
+
+        assert!(providers.contains(&"wecom"));
+        assert!(providers.contains(&"weixin"));
+
+        let wecom = planned
+            .iter()
+            .find(|entry| entry["provider"] == "wecom")
+            .expect("wecom planned entry");
+        assert_eq!(wecom["status"], "planned");
+        assert_eq!(wecom["recommended_mode"], "callback_self_built_app");
+        assert_eq!(wecom["credential"]["default_scope_kind"], "trust");
+        assert_eq!(wecom["tool_count"], 0);
+        assert!(wecom["tools"].as_array().unwrap().is_empty());
+        assert!(
+            wecom["implementation_notes"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|note| note.as_str().unwrap().contains("immediately ACK"))
+        );
+
+        assert!(integration_catalog(Some("wecom")).is_empty());
+        assert_eq!(provider_for_integration_tool("wecom.send"), None);
     }
 
     #[test]
