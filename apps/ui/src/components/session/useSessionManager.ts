@@ -39,7 +39,7 @@ export function useSessionManager({
   }, [activeSessionId]);
 
   // Navigate helpers — agent-scoped. `setSession(sid)` jumps to the
-  // canonical session URL `/trust/<addr>/agents/<aid>/inbox/<sid>`.
+  // canonical session URL `/trust/<addr>/sessions/<sid>`.
   // `setSession(null)` strips the session id and lands at
   // the agent's bare URL `/trust/<addr>/agents/<aid>` — chat-as-default
   // empty state. The first message in that empty state creates the

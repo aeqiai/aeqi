@@ -3,23 +3,17 @@ import { entityPath } from "@/lib/entityPath";
 
 /**
  * Build the canonical session URL —
- * `/trust/<addr>/agents/<agent>/inbox/<session>` for launched entities.
- * When entity or agent isn't known at the call site, falls back to the
- * flat `/sessions/<session>` form which the SessionRedirect resolves.
+ * `/trust/<addr>/sessions/<session>` for launched entities.
+ * When the entity isn't known at the call site, falls back to the flat
+ * `/sessions/<session>` form which the SessionRedirect resolves.
  */
 export function sessionDeepUrl(
   entity: Pick<Trust, "id" | "trust_address"> | null | undefined,
-  agentId: string | null | undefined,
+  _agentId: string | null | undefined,
   sessionId: string,
 ): string {
-  if (entity && agentId) {
-    return entityPath(
-      entity,
-      "agents",
-      encodeURIComponent(agentId),
-      "inbox",
-      encodeURIComponent(sessionId),
-    );
+  if (entity) {
+    return entityPath(entity, "sessions", encodeURIComponent(sessionId));
   }
   return `/sessions/${encodeURIComponent(sessionId)}`;
 }

@@ -1125,6 +1125,31 @@
   padding-top: 8px;
 }
 
+.events-detail-context-strip {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.events-detail-context.session-detail-header {
+  min-height: 52px;
+  margin: 0;
+  padding: 0 var(--space-4);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.events-detail-context .session-detail-header-title {
+  font-size: 13.5px;
+  font-weight: 620;
+  letter-spacing: 0;
+}
+
+.events-detail-context .session-detail-header-meta {
+  font-size: 11.5px;
+  line-height: 1.2;
+}
+
 /* ── Detail header — folded into the canonical `.ideas-toolbar.ideas-canvas-toolbar`
    shape. Back · name input · chips · spacer · enabled · test · delete · save.
    Byte-identical chrome with idea + quest detail. The classes below decorate
@@ -1152,6 +1177,13 @@
   cursor: default;
   background: transparent;
 }
+
+@media (max-width: 640px) {
+  .events-detail-name-input {
+    display: none;
+  }
+}
+
 .events-detail-title-badge {
   font-family: var(--font-sans);
   font-size: 9px;

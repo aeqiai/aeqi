@@ -102,6 +102,10 @@ export default function TrustSessionsTab({
 
   const activeView = sessionsViewFromSearch(location.search);
   const userSessionsView = activeView === "mine";
+  const agentParam = useMemo(
+    () => searchParam(location.search, "agent") ?? "all",
+    [location.search],
+  );
 
   useEffect(() => {
     let alive = true;
@@ -141,6 +145,13 @@ export default function TrustSessionsTab({
       setAgentFilter("all");
     }
   }, [agentFilter, agentOptions]);
+
+  useEffect(() => {
+    if (agentParam === "all") return;
+    if (agentOptions.some((option) => option.id === agentParam)) {
+      setAgentFilter(agentParam);
+    }
+  }, [agentParam, agentOptions]);
 
   const rows = useMemo<SessionRailRow[]>(() => {
     const q = query.trim().toLowerCase();
@@ -522,4 +533,16 @@ export default function TrustSessionsTab({
       </div>
     </div>
   );
+}
+
+function searchParam(search: string, key: string): string | null {
+  const clean = search.startsWith("?") ? search.slice(1) : search;
+  const encodedKey = encodeURIComponent(key);
+  for (const part of clean.split("&")) {
+    const splitAt = part.indexOf("=");
+    const rawKey = splitAt === -1 ? part : part.slice(0, splitAt);
+    const rawValue = splitAt === -1 ? "" : part.slice(splitAt + 1);
+    if (rawKey === encodedKey) return decodeURIComponent(rawValue.replace(/\+/g, " "));
+  }
+  return null;
 }

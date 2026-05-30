@@ -5,6 +5,7 @@ import Composer from "@/components/composer/Composer";
 import { Icon } from "@/components/ui";
 import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
+import { entityPathFromId } from "@/lib/entityPath";
 import { userSessionsPath } from "@/lib/sessionViews";
 import { createDraftId, useChatStore } from "@/store/chat";
 import { useDaemonStore } from "@/store/daemon";
@@ -60,6 +61,7 @@ export default function ComposerRow({
   const { tab, itemId } = useParams<{ tab?: string; itemId?: string }>();
   const { trustId } = useNav();
   const agents = useDaemonStore((s) => s.agents);
+  const entities = useDaemonStore((s) => s.entities);
   const setPendingMessage = useChatStore((s) => s.setPendingMessage);
 
   const agent = agentId ? agents.find((a) => a.id === agentId) : undefined;
@@ -102,8 +104,33 @@ export default function ComposerRow({
     if (sessionsMounted) {
       window.dispatchEvent(new CustomEvent("aeqi:send-message", { detail }));
     } else {
-      if (agentId) setPendingMessage(agentId, detail);
-      navigate(composeHref || userSessionsPath(base));
+      if (agentId && trustId) {
+        void (async () => {
+          try {
+            const data = await api.createSession(agentId, trustId);
+            const sessionId = (data.session_id as string | undefined) ?? null;
+            if (!sessionId) throw new Error("No session id returned");
+            await api.sendSessionMessage(
+              {
+                message: text,
+                agent_id: agentId,
+                session_id: sessionId,
+                session_ideas: ideas.length > 0 ? ideas : undefined,
+                quest_id: task?.id,
+                files: files.length > 0 ? files : undefined,
+              },
+              trustId,
+            );
+            navigate(entityPathFromId(entities, trustId, "sessions", sessionId));
+          } catch {
+            setPendingMessage(agentId, detail);
+            navigate(composeHref || userSessionsPath(base));
+          }
+        })();
+      } else {
+        if (agentId) setPendingMessage(agentId, detail);
+        navigate(composeHref || userSessionsPath(base));
+      }
     }
     setInput("");
     setFiles([]);
@@ -121,6 +148,8 @@ export default function ComposerRow({
     composeHref,
     base,
     agentId,
+    trustId,
+    entities,
   ]);
 
   const handleStop = useCallback(() => {

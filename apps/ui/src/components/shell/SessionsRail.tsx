@@ -47,11 +47,9 @@ function sessionSecondaryLabel(s: SessionInfo): string {
  * with the trust Sessions view through the compact card rail variant.
  */
 export default function SessionsRail({ onSelectSession }: SessionsRailProps = {}) {
-  // Mounted under `/trust/<addr>/agents/<agent>/inbox[/...]`. The route
-  // exposes `trustAddress` as the param; resolve it back to a trustId via
-  // the daemon entities array so the URL builder can pick the canonical
-  // base. Without this, clicks on the agent rail no-op'd on `/trust/...`
-  // routes because `trustId` was undefined and the early return fired.
+  // Legacy adapter for the retired drilled-agent session rail. Kept for
+  // mobile/session primitives that still render it directly; clicks now
+  // resolve to the trust-level Sessions URL.
   const { trustId, trustAddress, agentId, itemId } = useParams<{
     trustId?: string;
     trustAddress?: string;

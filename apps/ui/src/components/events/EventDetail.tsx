@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import type { AgentEvent, ToolCall } from "@/lib/types";
 import { Button, Tooltip } from "../ui";
 import { useNav } from "@/hooks/useNav";
+import { timeAgo } from "@/lib/format";
 import TestTriggerPanel from "../TestTriggerPanel";
 import EventCanvasEditor, { type CanvasDraft } from "./EventCanvasEditor";
 import FiresPanel from "./FiresPanel";
@@ -112,9 +113,44 @@ export default function EventDetail({
   // Header is the canonical `.ideas-toolbar.ideas-canvas-toolbar` shape —
   // byte-identical chrome with idea + quest detail. Back · name input ·
   // chips · spacer · save state · enabled · test · delete · save.
+  const scopeLabel = isGlobal
+    ? SCOPE_LABEL.global
+    : event.scope
+      ? SCOPE_LABEL[event.scope]
+      : SCOPE_LABEL.self;
+  const activityLabel = event.last_fired
+    ? `Last fired ${timeAgo(event.last_fired)}`
+    : event.fire_count > 0
+      ? `${event.fire_count} fire${event.fire_count === 1 ? "" : "s"}`
+      : "Never fired";
 
   return (
     <div className="events-detail">
+      <div className="events-detail-context-strip">
+        <div className="session-detail-header trust-session-detail-header events-detail-context">
+          <div className="session-detail-header-from">
+            <span className="session-detail-header-title" title={event.name}>
+              {event.name}
+            </span>
+            <div className="session-detail-header-meta">
+              <span className="session-detail-header-subtitle" title={event.pattern}>
+                {event.pattern}
+              </span>
+              <span className="session-detail-header-meta-sep" aria-hidden>
+                {"\u00b7"}
+              </span>
+              <span className="session-detail-header-subtitle">{scopeLabel}</span>
+              <span className="session-detail-header-meta-sep" aria-hidden>
+                {"\u00b7"}
+              </span>
+              <span className="session-detail-header-activity" role="status">
+                {activityLabel}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="ideas-list-head ideas-canvas-head">
         <div className="ideas-toolbar ideas-canvas-toolbar">
           <Tooltip content="Back to events">
@@ -156,7 +192,7 @@ export default function EventDetail({
               {SCOPE_LABEL.global}
             </span>
           )}
-          {event.scope && event.scope !== "self" && (
+          {event.scope && event.scope !== "self" && !(isGlobal && event.scope === "global") && (
             <span className={`scope-chip scope-chip--${event.scope}`}>
               {SCOPE_LABEL[event.scope]}
             </span>

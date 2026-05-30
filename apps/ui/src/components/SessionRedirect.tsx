@@ -12,7 +12,7 @@ interface Resolved {
 
 /**
  * Bounces the legacy flat `/sessions/:sessionId` URL onto the canonical
- * deep shape `/trust/<addr>/agents/<agent>/inbox/<sessionId>`.
+ * deep shape `/trust/<addr>/sessions/<sessionId>`.
  *
  * Resolution order:
  * 1. Inbox store (sync, populated for awaiting sessions).

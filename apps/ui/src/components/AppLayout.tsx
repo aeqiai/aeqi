@@ -3,7 +3,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Navigate, useLocation, useParams } from "react-router-dom";
 import LeftSidebar from "./shell/LeftSidebar";
 import BootLoader from "./shell/BootLoader";
-import { AgentInboxControlsProvider, AgentInboxToolbar } from "./shell/AgentInboxControls";
 import { useDaemonStore } from "@/store/daemon";
 import { activityKeys, agentKeys, entityKeys, questKeys, runtimeKeys } from "@/queries/keys";
 import { useUIStore } from "@/store/ui";
@@ -23,9 +22,6 @@ import { sessionLabel } from "@/components/session/types";
 
 const CommandPalette = lazy(() => import("./CommandPalette"));
 const AgentPage = lazy(() => import("./AgentPage"));
-const AgentSurfaceHeader = lazy(() => import("./AgentSurfaceHeader"));
-const AgentSessionContextHeader = lazy(() => import("./shell/AgentSessionContextHeader"));
-const SessionsRail = lazy(() => import("./shell/SessionsRail"));
 const ComposerRow = lazy(() => import("./shell/ComposerRow"));
 const ShortcutsOverlay = lazy(() => import("./ShortcutsOverlay"));
 const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
@@ -44,9 +40,9 @@ const AgentSettingsPage = lazy(() => import("@/pages/AgentSettingsPage"));
 
 const NO_AGENT_SESSIONS: ReturnType<typeof useChatStore.getState>["sessionsByAgent"][string] = [];
 
-// Legacy drilled-agent segments. MVP agent detail exposes only Sessions
-// and Settings; stale deep links collapse to Settings rather than
-// duplicating full primitive pages under an agent.
+// Legacy drilled-agent segments. MVP agent detail exposes a simple card;
+// stale primitive sub-tabs collapse to that card rather than duplicating
+// full primitive pages under an agent.
 const RELOCATED_AGENT_TABS = new Set(["overview", "quests", "events", "ideas", "integrations"]);
 
 // Top-level segments under /blueprints that are catalog-kind tabs, not
@@ -326,10 +322,6 @@ export default function AppLayout() {
   // No-tab default at entity scope = "overview" internally. The product
   // label is Views, but the legacy tab id remains the compatibility path
   // behind the canonical bare trust URL.
-  //
-  // Drilled-agent default is Settings. Conversations are first-class under
-  // trust-wide Sessions, with drilled-agent `/inbox` kept as a legacy direct
-  // chat deep link for existing conversations.
   const isEntityRoute = !!routeTrustAddress;
   // Are we on the agent's settings sub-surface? The route shape is
   // `agents/:agentId/settings[/:settingsTab[/:itemId]]`. We detect via
@@ -373,17 +365,19 @@ export default function AppLayout() {
     return <Navigate to={`${base}${search}`} replace />;
   }
 
-  // Legacy drilled-agent sessions URL rewrites to the drilled agent inbox.
-  // Trust-level `/trust/<addr>/sessions` is its own all-agent session index.
+  // Legacy drilled-agent session URLs rewrite to the trust-level Sessions
+  // primitive. The nested agent inbox page is retired.
   if (drilledAgent && tab === "sessions" && encodedEntityId) {
-    const suffix = itemId ? `/inbox/${encodeURIComponent(itemId)}` : "/inbox";
-    const agentSeg = `/agents/${encodeURIComponent(drilledAgent.id)}`;
-    return <Navigate to={`${base}${agentSeg}${suffix}${search}`} replace />;
+    const target = itemId
+      ? `${base}/sessions/${encodeURIComponent(itemId)}${search}`
+      : `${base}/sessions?agent=${encodeURIComponent(drilledAgent.id)}`;
+    return <Navigate to={target} replace />;
   }
-
-  if (drilledAgent && !tab && !agentSettingsSegment) {
-    const agentSeg = `/agents/${encodeURIComponent(drilledAgent.id)}`;
-    return <Navigate to={`${base}${agentSeg}/settings${search}`} replace />;
+  if (drilledAgent && tab === "inbox" && encodedEntityId) {
+    const target = itemId
+      ? `${base}/sessions/${encodeURIComponent(itemId)}${search}`
+      : `${base}/sessions?agent=${encodeURIComponent(drilledAgent.id)}`;
+    return <Navigate to={target} replace />;
   }
 
   // Personality and the old drilled-agent primitive tabs no longer have a
@@ -393,7 +387,7 @@ export default function AppLayout() {
     (tab === "personality" || (agentSettingsSegment && settingsTab === "personality"))
   ) {
     const agentSeg = `/agents/${encodeURIComponent(drilledAgent.id)}`;
-    return <Navigate to={`${base}${agentSeg}/settings${search}`} replace />;
+    return <Navigate to={`${base}${agentSeg}${search}`} replace />;
   }
 
   if (drilledAgent && agentSettingsSegment && settingsTab) {
@@ -405,7 +399,7 @@ export default function AppLayout() {
   // recreating the whole app under an agent.
   if (drilledAgent && tab && RELOCATED_AGENT_TABS.has(tab) && !agentSettingsSegment) {
     const agentSeg = `/agents/${encodeURIComponent(drilledAgent.id)}`;
-    return <Navigate to={`${base}${agentSeg}/settings${search}`} replace />;
+    return <Navigate to={`${base}${agentSeg}${search}`} replace />;
   }
 
   if (drilledAgent && tab === "treasury" && !agentSettingsSegment) {
@@ -488,31 +482,12 @@ export default function AppLayout() {
     if (drilledAgent && agentSettingsSegment) {
       return <AgentSettingsPage agentId={activeAgentId} />;
     }
-    // Default drilled-agent surface: AppLayout renders the shared inbox
-    // topbar and mounts the SessionsRail / ComposerRow around the chat
-    // content column. AgentPage owns only the selected conversation.
+    // Default drilled-agent surface: simple agent detail card. Sessions
+    // live only on the trust-level Sessions primitive.
     return <AgentPage agentId={activeAgentId} tab={effectiveTab} itemId={itemId} />;
   })();
 
-  // The chat composer + sessions rail belong on the drilled-agent
-  // default surface (`/trust/<addr>/agents/<id>/[inbox/<sid>]`). Trust-
-  // scoped session views mount their own rail/detail/composer, so they
-  // must not also mount the AppLayout chat composer.
-  const isAgentChatDefault =
-    !!drilledAgent && !agentSettingsSegment && (tab === undefined || tab === "inbox");
-  const sessionsMounted =
-    !isNotFound &&
-    !isHome &&
-    !isAccount &&
-    !isAdmin &&
-    !isLaunch &&
-    !isBlueprints &&
-    !isEconomy &&
-    !isStart &&
-    !isTrustsPicker &&
-    isAgentChatDefault;
-  const showComposer = sessionsMounted;
-  const showSessionsRail = sessionsMounted && !!isEntityRoute;
+  const showComposer = false;
   const ambientDockAllowed =
     !showComposer &&
     !isNotFound &&
@@ -537,7 +512,7 @@ export default function AppLayout() {
       return bTs - aTs;
     })[0];
   const dockComposeHref = activeAgentId
-    ? `${base}/agents/${encodeURIComponent(activeAgentId)}/inbox`
+    ? `${base}/sessions?agent=${encodeURIComponent(activeAgentId)}`
     : userSessionsPath(base);
   const dockSessionHref = dockSession
     ? sessionDeepUrlFromId(entities, trustId, activeAgentId, dockSession.id)
@@ -545,24 +520,13 @@ export default function AppLayout() {
 
   const contentBody = (
     <div className="content-body-row">
-      {showSessionsRail && (
-        <aside className="sessions-rail-col">
-          <Suspense fallback={null}>
-            <SessionsRail />
-          </Suspense>
-        </aside>
-      )}
       <main id="main-content" className="content-main-col">
         <div className="content-scroll">
           <Suspense fallback={null}>{mainContent}</Suspense>
         </div>
         {showComposer && (
           <Suspense fallback={null}>
-            <ComposerRow
-              agentId={activeAgentId || null}
-              base={base}
-              sessionsMounted={sessionsMounted}
-            />
+            <ComposerRow agentId={activeAgentId || null} base={base} sessionsMounted={false} />
           </Suspense>
         )}
       </main>
@@ -579,23 +543,7 @@ export default function AppLayout() {
 
         <div className="content-column">
           <div className="content-card">
-            <div className="content-paper">
-              {showSessionsRail ? (
-                <AgentInboxControlsProvider>
-                  <div className="agent-inbox-shell">
-                    <Suspense fallback={null}>
-                      <AgentSurfaceHeader agentId={activeAgentId} middle={<AgentInboxToolbar />} />
-                    </Suspense>
-                    <Suspense fallback={null}>
-                      <AgentSessionContextHeader />
-                    </Suspense>
-                    {contentBody}
-                  </div>
-                </AgentInboxControlsProvider>
-              ) : (
-                contentBody
-              )}
-            </div>
+            <div className="content-paper">{contentBody}</div>
           </div>
           {ambientDockAllowed && (
             <Suspense fallback={null}>
