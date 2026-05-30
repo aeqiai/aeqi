@@ -1,20 +1,19 @@
+import { useState } from "react";
 import { MoreHorizontal, Save, Trash2, X } from "lucide-react";
 import { blockTreeToPlainText } from "@/components/editor/blockEditorContent";
 import IdeaLinksPanel from "@/components/IdeaLinksPanel";
 import TagsEditor from "@/components/TagsEditor";
-import { formatDateTime } from "@/lib/i18n";
 import type { Idea, ScopeValue } from "@/lib/types";
+import { Button, Icon, IconButton, Menu } from "../ui";
 import {
-  Button,
-  Icon,
-  IconButton,
-  InspectorPanel,
-  InspectorRow,
-  InspectorSection,
-  Menu,
-} from "../ui";
+  CopyableRow,
+  PropertyGroup,
+  ReadOnlyRow,
+  compactAddress,
+} from "../roles/RoleInspectorPrimitives";
+import "@/styles/roles.css";
 import IdeaPropertyChips from "./IdeaPropertyChips";
-import { SCOPE_HINT, SCOPE_LABEL, SCOPE_PICKER_VALUES, relativeTime } from "./types";
+import { SCOPE_HINT, SCOPE_LABEL, SCOPE_PICKER_VALUES } from "./types";
 
 export interface IdeaWorkspaceInspectorProps {
   idea?: Idea;
@@ -40,11 +39,6 @@ export interface IdeaWorkspaceInspectorProps {
   onCancel: () => void;
 }
 
-function compactIdeaId(id: string): string {
-  if (id.length <= 13) return id;
-  return `${id.slice(0, 6)}...${id.slice(-4)}`;
-}
-
 export default function IdeaWorkspaceInspector({
   idea,
   agentId,
@@ -68,33 +62,34 @@ export default function IdeaWorkspaceInspector({
   onSave,
   onCancel,
 }: IdeaWorkspaceInspectorProps) {
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const words = idea
     ? blockTreeToPlainText(idea.content).trim().split(/\s+/).filter(Boolean).length
     : 0;
-  const updated = idea ? relativeTime(idea.created_at) : "";
   const showSaveRow = composing || dirty;
   const hasProperties = idea && Object.keys(idea.properties ?? {}).length > 0;
   const scopeOptions = scopeLocked
     ? [scope]
     : Array.from(new Set<ScopeValue>([scope, ...SCOPE_PICKER_VALUES]));
   const showPrimaryRow = !idea || canTrack || canDelete;
+
+  const copyIdeaId = () => {
+    if (!idea) return;
+    void navigator.clipboard.writeText(idea.id).then(() => {
+      setCopiedField("ideaId");
+      setTimeout(() => setCopiedField((current) => (current === "ideaId" ? null : current)), 1500);
+    });
+  };
+
   return (
-    <InspectorPanel
-      className="ideas-workspace-detail-inspector"
-      ariaLabel="Idea metadata"
-      surface="embedded"
-    >
-      <header className="ideas-workspace-detail-topbar">
-        <span className="ideas-workspace-detail-object">{composing ? "New idea" : "Details"}</span>
-        <span
-          className="ideas-workspace-detail-meta"
-          title={idea?.created_at ? formatDateTime(idea.created_at) : undefined}
-        >
-          {idea ? updated || "now" : "draft"}
+    <div className="role-inspector role-inspector--page ideas-workspace-detail-inspector">
+      <header className="role-inspector-topbar ideas-workspace-detail-topbar">
+        <span className="role-inspector-object ideas-workspace-detail-object">
+          {composing ? "New idea" : "Details"}
         </span>
       </header>
 
-      <div className="ideas-workspace-detail-body">
+      <div className="role-inspector-body ideas-workspace-detail-body">
         {showPrimaryRow && (
           <div className="ideas-workspace-inspector-primary">
             {idea && canTrack ? (
@@ -167,20 +162,16 @@ export default function IdeaWorkspaceInspector({
           </div>
         )}
 
-        <InspectorSection
-          title="Idea"
-          collapsible
-          defaultOpen
-          className="ideas-workspace-idea-section"
-        >
+        <PropertyGroup title="Idea" defaultOpen>
           {scopeLocked ? (
-            <InspectorRow label="Scope" tone="raised" className="ideas-workspace-readonly-row">
-              {SCOPE_LABEL[scope]}
-            </InspectorRow>
+            <ReadOnlyRow label="Scope">
+              <span className="role-inspector-meta">{SCOPE_LABEL[scope]}</span>
+            </ReadOnlyRow>
           ) : (
-            <InspectorRow label="Scope" tone="plain" className="ideas-workspace-inspector-row">
+            <div className="role-inspector-field-block">
+              <span className="role-inspector-row-label">Scope</span>
               <div
-                className="ideas-workspace-scope-options"
+                className="role-inspector-field-body ideas-workspace-scope-options"
                 role="radiogroup"
                 aria-label="Idea visibility"
               >
@@ -199,23 +190,22 @@ export default function IdeaWorkspaceInspector({
                   </button>
                 ))}
               </div>
-            </InspectorRow>
+            </div>
           )}
-          <InspectorRow label="Type" tone="raised" className="ideas-workspace-readonly-row">
-            {idea?.kind ?? "note"}
-          </InspectorRow>
+          <ReadOnlyRow label="Type">
+            <span className="role-inspector-meta">{idea?.kind ?? "note"}</span>
+          </ReadOnlyRow>
           {idea && (
-            <InspectorRow
+            <CopyableRow
               label="Idea ID"
-              tone="raised"
-              className="ideas-workspace-readonly-row ideas-workspace-id-row"
-            >
-              {compactIdeaId(idea.id)}
-            </InspectorRow>
+              title={compactAddress(idea.id)}
+              copied={copiedField === "ideaId"}
+              onCopy={copyIdeaId}
+            />
           )}
-          <div className="ideas-workspace-inspector-stack ideas-workspace-inspector-stack--inline">
-            <span className="ideas-workspace-inspector-label">Tags</span>
-            <div className="ideas-workspace-inspector-field">
+          <div className="role-inspector-field-block">
+            <span className="role-inspector-row-label">Tags</span>
+            <div className="role-inspector-field-body">
               {idea ? (
                 <TagsEditor
                   tags={idea.tags ?? []}
@@ -225,29 +215,27 @@ export default function IdeaWorkspaceInspector({
                   onRemove={onTagRemove}
                 />
               ) : (
-                <span className="ideas-workspace-detail-meta">
-                  Available after the idea is saved
-                </span>
+                <span className="role-inspector-meta">Available after the idea is saved</span>
               )}
             </div>
           </div>
-          <div className="ideas-workspace-inspector-stack ideas-workspace-inspector-stack--inline">
-            <span className="ideas-workspace-inspector-label">References</span>
-            <div className="ideas-workspace-inspector-field">
+          <div className="role-inspector-field-block">
+            <span className="role-inspector-row-label">References</span>
+            <div className="role-inspector-field-body">
               {idea ? (
                 <IdeaLinksPanel ideaId={idea.id} agentId={agentId} />
               ) : (
-                <span className="ideas-workspace-detail-meta">Available after save</span>
+                <span className="role-inspector-meta">Available after save</span>
               )}
             </div>
           </div>
-        </InspectorSection>
+        </PropertyGroup>
 
         {hasProperties && (
-          <InspectorSection title="Properties" collapsible defaultOpen={false}>
-            <div className="ideas-workspace-inspector-stack">
-              <span className="ideas-workspace-inspector-label">Metadata</span>
-              <div className="ideas-workspace-inspector-field">
+          <PropertyGroup title="Properties" defaultOpen={false}>
+            <div className="role-inspector-field-block role-inspector-field-block--stacked">
+              <span className="role-inspector-row-label">Metadata</span>
+              <div className="role-inspector-field-body">
                 <IdeaPropertyChips
                   ideaId={idea.id}
                   scopedEntity={scopedEntity}
@@ -255,18 +243,18 @@ export default function IdeaWorkspaceInspector({
                 />
               </div>
             </div>
-          </InspectorSection>
+          </PropertyGroup>
         )}
 
-        <InspectorSection title="Document" collapsible defaultOpen={false}>
-          <InspectorRow label="Children" tone="recessed">
-            {childCount}
-          </InspectorRow>
-          <InspectorRow label="Words" tone="recessed">
-            {words}
-          </InspectorRow>
-        </InspectorSection>
+        <PropertyGroup title="Document" defaultOpen={false}>
+          <ReadOnlyRow label="Children">
+            <span className="role-inspector-meta">{childCount}</span>
+          </ReadOnlyRow>
+          <ReadOnlyRow label="Words">
+            <span className="role-inspector-meta">{words}</span>
+          </ReadOnlyRow>
+        </PropertyGroup>
       </div>
-    </InspectorPanel>
+    </div>
   );
 }

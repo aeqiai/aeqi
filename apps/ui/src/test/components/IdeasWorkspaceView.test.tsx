@@ -154,13 +154,13 @@ describe("IdeasWorkspaceView", () => {
     expect(within(details).queryByText("Import")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Import/ })).toBeInTheDocument();
     expect(within(details).getByText("Details")).toHaveClass("ideas-workspace-detail-object");
-    const ideaSection = details.querySelector(
-      "details.ideas-workspace-idea-section",
-    ) as HTMLDetailsElement | null;
+    const ideaSection = Array.from(
+      details.querySelectorAll<HTMLDetailsElement>("details.role-inspector-group"),
+    ).find((section) => section.querySelector("summary")?.textContent?.includes("Idea"));
     expect(ideaSection).toBeTruthy();
     expect(ideaSection).toHaveAttribute("open");
     expect(within(ideaSection!).getByText("Scope").closest("div")).toHaveClass(
-      "ideas-workspace-readonly-row",
+      "role-inspector-row--readonly",
     );
 
     await user.click(ideaSection!.querySelector("summary")!);

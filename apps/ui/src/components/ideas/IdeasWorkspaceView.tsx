@@ -469,7 +469,7 @@ export default function IdeasWorkspaceView({
                       <Tooltip content={detailsCollapsed ? "Show details" : "Hide details"} portal>
                         <IconButton
                           variant="bordered"
-                          size="md"
+                          size="sm"
                           className="ideas-workspace-document-toggle"
                           aria-label={detailsCollapsed ? "Show details" : "Hide details"}
                           onClick={() => setDetailsCollapsed((collapsed) => !collapsed)}
