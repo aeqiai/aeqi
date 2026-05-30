@@ -1522,6 +1522,7 @@
 }
 
 .trust-role-detail-document .ideas-canvas-title {
+  margin-top: -10px;
   font-size: clamp(26px, 2vw, 31px);
 }
 
