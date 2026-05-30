@@ -357,31 +357,19 @@ export default function IdeasWorkspaceView({
             <small>{Math.max(0, ideas.length - (rootIdea ? 1 : 0))} ideas</small>
           </div>
           {wikiStructure && (
-            <div className="ideas-workspace-structure" aria-label="Wiki structure">
+            <div className="ideas-workspace-structure" aria-label="Explorer status">
               <div className="ideas-workspace-structure-status">
                 <Badge variant={wikiStructure.tone} size="sm" dot>
                   {wikiStructure.label}
                 </Badge>
                 <span>{wikiStructure.indexPages} index pages</span>
               </div>
-              <dl className="ideas-workspace-structure-metrics">
-                <div>
-                  <dt>Depth</dt>
-                  <dd>{wikiStructure.maxDepth}</dd>
-                </div>
-                <div>
-                  <dt>Root</dt>
-                  <dd>{wikiStructure.rootChildren}</dd>
-                </div>
-                <div>
-                  <dt>Leaves</dt>
-                  <dd>{wikiStructure.leafPages}</dd>
-                </div>
-                <div>
-                  <dt>Unfiled</dt>
-                  <dd>{wikiStructure.unfiled}</dd>
-                </div>
-              </dl>
+              <div className="ideas-workspace-structure-metrics" aria-label="Explorer metrics">
+                <span>Depth {wikiStructure.maxDepth}</span>
+                <span>Root {wikiStructure.rootChildren}</span>
+                <span>{wikiStructure.leafPages} leaves</span>
+                <span>{wikiStructure.unfiled} unfiled</span>
+              </div>
               {wikiStructure.clusters.length > 0 && (
                 <div className="ideas-workspace-structure-clusters" aria-label="Wiki clusters">
                   {wikiStructure.clusters.map((cluster) => (
@@ -457,68 +445,68 @@ export default function IdeasWorkspaceView({
               <Loading size="md" />
             </div>
           ) : rootIdea ? (
-            <IdeaCanvas
-              ref={canvasRef}
-              key={composing ? `compose:${activeParentId ?? "root"}` : activeIdea?.id}
-              agentId={agentId}
-              idea={activeIdea}
-              initialName={presetName}
-              parentIdeaId={activeParentId}
-              onBack={() => onSelect(rootIdea.id)}
-              onNew={() => onNew(undefined, activeIdea?.id ?? rootIdea.id)}
-              onPersisted={onSelect}
-              embedded
-              hideMetaStrip
-              contentHeaderSlot={
-                <div className="ideas-workspace-document-head">
-                  <div className="ideas-workspace-document-title">Idea</div>
-                  <div className="ideas-workspace-document-actions">
-                    {canvasDirty && (
-                      <>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          onClick={handleCancel}
-                          disabled={inspectorBusy}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="primary"
-                          size="sm"
-                          onClick={() => void handleSave()}
-                          disabled={!canCommit}
-                          loading={inspectorBusy}
-                        >
-                          Save
-                        </Button>
-                      </>
-                    )}
-                    <Tooltip content={detailsCollapsed ? "Show details" : "Hide details"} portal>
-                      <IconButton
-                        variant="bordered"
-                        size="md"
-                        className="ideas-workspace-document-toggle"
-                        aria-label={detailsCollapsed ? "Show details" : "Hide details"}
-                        onClick={() => setDetailsCollapsed((collapsed) => !collapsed)}
+            <>
+              <div className="ideas-workspace-document-head">
+                <div className="ideas-workspace-document-title">Idea</div>
+                <div className="ideas-workspace-document-actions">
+                  {canvasDirty && (
+                    <>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={handleCancel}
+                        disabled={inspectorBusy}
                       >
-                        {detailsCollapsed ? (
-                          <PanelRightOpen size={13} strokeWidth={1.7} />
-                        ) : (
-                          <PanelRightClose size={13} strokeWidth={1.7} />
-                        )}
-                      </IconButton>
-                    </Tooltip>
-                  </div>
+                        Cancel
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        onClick={() => void handleSave()}
+                        disabled={!canCommit}
+                        loading={inspectorBusy}
+                      >
+                        Save
+                      </Button>
+                    </>
+                  )}
+                  <Tooltip content={detailsCollapsed ? "Show details" : "Hide details"} portal>
+                    <IconButton
+                      variant="bordered"
+                      size="md"
+                      className="ideas-workspace-document-toggle"
+                      aria-label={detailsCollapsed ? "Show details" : "Hide details"}
+                      onClick={() => setDetailsCollapsed((collapsed) => !collapsed)}
+                    >
+                      {detailsCollapsed ? (
+                        <PanelRightOpen size={13} strokeWidth={1.7} />
+                      ) : (
+                        <PanelRightClose size={13} strokeWidth={1.7} />
+                      )}
+                    </IconButton>
+                  </Tooltip>
                 </div>
-              }
-              composeScope={composeScope}
-              onDirtyChange={setCanvasDirty}
-              onCanCommitChange={setCanCommit}
-              conversationActivity="combined"
-            />
+              </div>
+              <IdeaCanvas
+                ref={canvasRef}
+                key={composing ? `compose:${activeParentId ?? "root"}` : activeIdea?.id}
+                agentId={agentId}
+                idea={activeIdea}
+                initialName={presetName}
+                parentIdeaId={activeParentId}
+                onBack={() => onSelect(rootIdea.id)}
+                onNew={() => onNew(undefined, activeIdea?.id ?? rootIdea.id)}
+                onPersisted={onSelect}
+                embedded
+                hideMetaStrip
+                composeScope={composeScope}
+                onDirtyChange={setCanvasDirty}
+                onCanCommitChange={setCanCommit}
+                conversationActivity="combined"
+              />
+            </>
           ) : (
             <div className="empty-state-hero muted">
               <span className="empty-state-hero-eyebrow">workspace unavailable</span>

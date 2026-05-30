@@ -54,6 +54,10 @@ vi.mock("@/components/IdeaCanvas", async () => {
   };
 });
 
+vi.mock("@/components/ideas/IdeaActivityFeed", () => ({
+  default: () => <div>Activity feed</div>,
+}));
+
 const rootIdea: Idea = {
   id: "idea-root",
   name: "Eich Holding",
@@ -135,11 +139,16 @@ describe("IdeasWorkspaceView", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Explorer")).toBeInTheDocument();
     expect(screen.getByRole("main", { name: "Idea" })).toBeInTheDocument();
-    expect(screen.getByRole("complementary", { name: "Details" })).toBeInTheDocument();
+    const details = screen.getByRole("complementary", { name: "Details" });
+    expect(details).toBeInTheDocument();
+    expect(within(details).getByText("Visibility")).toHaveClass("role-inspector-row-label");
+    expect(within(details).getByText("Details")).toHaveClass("role-inspector-object");
 
+    const main = screen.getByRole("main", { name: "Idea" });
     const canvas = screen.getByRole("region", { name: "Mock idea canvas" });
     expect(canvas).toHaveAttribute("data-conversation-activity", "combined");
-    expect(within(canvas).getByText("Idea")).toHaveClass("ideas-workspace-document-title");
+    expect(within(main).getByText("Idea")).toHaveClass("ideas-workspace-document-title");
+    expect(within(canvas).queryByText("Idea")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Hide details" }));
 
