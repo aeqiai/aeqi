@@ -1,7 +1,7 @@
 //! Company blueprint IPC handlers.
 //!
-//! A "blueprint" here is a pre-threaded starter kit for a company: a flat
-//! set of agents plus seed roles, events, ideas, and quests. The shipped
+//! A "blueprint" here is a pre-threaded starter kit for a company: seed
+//! agents plus seed roles, events, hierarchical ideas, and quests. The shipped
 //! catalog is embedded at compile time (see [`crate::blueprints`]) so the
 //! runtime is self-contained regardless of the cwd it launches from. The
 //! on-disk `presets/blueprints/*.json` files remain the source of truth
@@ -141,6 +141,14 @@ pub struct ToolCallSpec {
 pub struct SeedIdeaSpec {
     #[serde(default = "default_owner_default")]
     pub owner: String,
+    /// Optional stable key used by other seed ideas' `parent` field. If
+    /// omitted, the name is also registered as a reference key.
+    #[serde(default)]
+    pub key: Option<String>,
+    /// Optional parent idea reference. Must match a prior seed idea's
+    /// `key` or `name`; unknown parents warn and create the idea flat.
+    #[serde(default)]
+    pub parent: Option<String>,
     pub name: String,
     pub content: String,
     #[serde(default)]
@@ -560,6 +568,8 @@ pub async fn spawn_blueprint(
     let mut created_ideas = 0usize;
     if want_ideas {
         if let Some(store) = idea_store {
+            let mut idea_refs: std::collections::HashMap<String, String> =
+                std::collections::HashMap::new();
             for idea in &blueprint.seed_ideas {
                 let owner_id = match resolve_owner(&owner_to_agent_id, &idea.owner) {
                     Some(id) => id,
@@ -571,6 +581,23 @@ pub async fn spawn_blueprint(
                         continue;
                     }
                 };
+                let parent_id = match idea
+                    .parent
+                    .as_ref()
+                    .filter(|parent| !parent.trim().is_empty())
+                {
+                    Some(parent) => match idea_refs.get(parent) {
+                        Some(id) => Some(id.clone()),
+                        None => {
+                            warnings.push(format!(
+                                "seed_idea '{}' parent '{}' not found; creating as a top-level idea",
+                                idea.name, parent,
+                            ));
+                            None
+                        }
+                    },
+                    None => None,
+                };
                 let tags = if idea.tags.is_empty() {
                     vec!["fact".to_string()]
                 } else {
@@ -580,7 +607,21 @@ pub async fn spawn_blueprint(
                     .store(&idea.name, &idea.content, &tags, Some(owner_id))
                     .await
                 {
-                    Ok(_) => created_ideas += 1,
+                    Ok(created_id) => {
+                        if let Some(parent_id) = parent_id.as_deref()
+                            && let Err(err) = store.set_parent(&created_id, Some(parent_id)).await
+                        {
+                            warnings.push(format!(
+                                "seed_idea '{}' parent set failed: {err}",
+                                idea.name,
+                            ));
+                        }
+                        created_ideas += 1;
+                        idea_refs.insert(idea.name.clone(), created_id.clone());
+                        if let Some(key) = idea.key.as_ref().filter(|key| !key.trim().is_empty()) {
+                            idea_refs.insert(key.clone(), created_id);
+                        }
+                    }
                     Err(err) => {
                         warnings.push(format!("seed_idea '{}' store failed: {err}", idea.name,))
                     }
@@ -1474,12 +1515,16 @@ mod tests {
             seed_ideas: vec![
                 SeedIdeaSpec {
                     owner: "root".to_string(),
+                    key: Some("voice".to_string()),
+                    parent: None,
                     name: "Voice".to_string(),
                     content: "Direct, no throat-clearing.".to_string(),
                     tags: vec!["editorial".to_string()],
                 },
                 SeedIdeaSpec {
                     owner: "Editor".to_string(),
+                    key: Some("rubric".to_string()),
+                    parent: Some("voice".to_string()),
                     name: "Rubric".to_string(),
                     content: "Thesis, three moves, example, memorable line.".to_string(),
                     tags: vec!["voice".to_string()],
@@ -1627,6 +1672,21 @@ mod tests {
             editor_events.iter().any(|e| e.name == "on_draft"),
             "editor should have 'on_draft' event",
         );
+
+        // Verify seed idea parent references materialize into the idea tree.
+        let seeded_ideas = idea_store
+            .ideas_by_tags(&["editorial".to_string(), "voice".to_string()], 50)
+            .await
+            .unwrap();
+        let voice = seeded_ideas
+            .iter()
+            .find(|idea| idea.name == "Voice")
+            .expect("Voice seed idea should be stored");
+        let rubric = seeded_ideas
+            .iter()
+            .find(|idea| idea.name == "Rubric")
+            .expect("Rubric seed idea should be stored");
+        assert_eq!(rubric.parent_idea_id.as_deref(), Some(voice.id.as_str()));
 
         // Verify at least one persona idea landed under the default agent.
         let identity_ideas = idea_store

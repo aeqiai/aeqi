@@ -1,7 +1,7 @@
 //! Compile-time-embedded company templates.
 //!
-//! A template is a pre-threaded starter kit: a flat agent set plus seed roles,
-//! events, ideas, and quests. Shipped catalog lives under
+//! A template is a pre-threaded starter kit: seed agents plus seed roles,
+//! events, hierarchical ideas, and quests. Shipped catalog lives under
 //! `presets/blueprints/*.json` and is `include_str!`'d so the runtime is
 //! self-contained regardless of where it launches from.
 //!
@@ -340,6 +340,31 @@ mod tests {
                 .any(|idea| idea.name == "First Company operating guide"),
             "default lifecycle events should assemble a top-level operating guide",
         );
+        let guide = default
+            .seed_ideas
+            .iter()
+            .find(|idea| idea.name == "First Company operating guide")
+            .expect("default blueprint should seed a top-level operating guide");
+        assert_eq!(guide.key.as_deref(), Some("first_company_kb"));
+        assert!(
+            guide.parent.is_none(),
+            "top-level guide must be the root of the starter knowledge base",
+        );
+        let mut prior_idea_refs = std::collections::HashSet::new();
+        for idea in &default.seed_ideas {
+            if let Some(parent) = idea.parent.as_deref() {
+                assert!(
+                    prior_idea_refs.contains(parent),
+                    "seed idea '{}' references parent '{}' before it is defined",
+                    idea.name,
+                    parent,
+                );
+            }
+            prior_idea_refs.insert(idea.name.clone());
+            if let Some(key) = idea.key.as_ref().filter(|key| !key.trim().is_empty()) {
+                prior_idea_refs.insert(key.clone());
+            }
+        }
         for idea_name in ["Operating snapshot", "Decision log", "Website brief"] {
             assert!(
                 default.seed_ideas.iter().any(|idea| idea.name == idea_name),
@@ -363,6 +388,26 @@ mod tests {
                 "default blueprint should seed baseline package idea {idea_name}",
             );
         }
+        let baseline_index = default
+            .seed_ideas
+            .iter()
+            .find(|idea| idea.name == "Baseline package index")
+            .expect("default blueprint should seed the baseline package index");
+        assert_eq!(
+            baseline_index.parent.as_deref(),
+            Some("first_company_kb"),
+            "baseline package index should sit under the top-level knowledge base",
+        );
+        let software_package = default
+            .seed_ideas
+            .iter()
+            .find(|idea| idea.name == "Software delivery package")
+            .expect("default blueprint should seed the software package idea");
+        assert_eq!(
+            software_package.parent.as_deref(),
+            Some("baseline_package_index"),
+            "package cards should be grouped under the baseline package index idea",
+        );
         assert!(
             default
                 .seed_quests

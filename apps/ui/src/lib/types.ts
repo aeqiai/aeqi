@@ -388,6 +388,8 @@ export interface BlueprintSeedEvent {
 
 export interface BlueprintSeedIdea {
   owner?: string;
+  key?: string;
+  parent?: string;
   name: string;
   content?: string;
   tags?: string[];
