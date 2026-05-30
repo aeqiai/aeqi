@@ -9,6 +9,87 @@ use crate::quest_assignee::{
 
 use super::tenancy::{check_agent_access, is_allowed};
 
+const QUEST_LIST_SNIPPET_CHARS: usize = 240;
+
+fn text_snippet(input: &str, max_chars: usize) -> String {
+    let normalized = input.split_whitespace().collect::<Vec<_>>().join(" ");
+    if normalized.chars().count() <= max_chars {
+        return normalized;
+    }
+    let mut snippet = normalized.chars().take(max_chars).collect::<String>();
+    snippet.push('…');
+    snippet
+}
+
+fn quest_project<'a>(quest: &'a aeqi_quests::Quest, project_filter: Option<&'a str>) -> &'a str {
+    quest.agent_id.as_deref().or(project_filter).unwrap_or("")
+}
+
+fn quest_full_json(
+    quest: &aeqi_quests::Quest,
+    idea: Option<&aeqi_core::traits::Idea>,
+    project_filter: Option<&str>,
+) -> serde_json::Value {
+    serde_json::json!({
+        "id": quest.id.0,
+        "idea_id": quest.idea_id,
+        "idea": idea.map(idea_to_json),
+        "status": quest.status.to_string(),
+        "priority": quest.priority.to_string(),
+        "agent_id": quest.agent_id,
+        "assignee": quest.assignee,
+        "scope": quest.scope.as_str(),
+        "retry_count": quest.retry_count,
+        "project": quest_project(quest, project_filter),
+        "created_at": quest.created_at.to_rfc3339(),
+        "updated_at": quest.updated_at.map(|t| t.to_rfc3339()),
+        "closed_at": quest.closed_at.map(|t| t.to_rfc3339()),
+        "due_at": quest.due_at.map(|t| t.to_rfc3339()),
+        "outcome": quest.quest_outcome(),
+        "runtime": quest.runtime(),
+    })
+}
+
+fn quest_summary_json(
+    quest: &aeqi_quests::Quest,
+    idea: Option<&aeqi_core::traits::Idea>,
+    project_filter: Option<&str>,
+) -> serde_json::Value {
+    let title = idea
+        .map(|idea| idea.name.as_str())
+        .filter(|name| !name.trim().is_empty())
+        .unwrap_or_else(|| {
+            let title = quest.title();
+            if title.trim().is_empty() {
+                quest.id.0.as_str()
+            } else {
+                title
+            }
+        });
+    let snippet = idea
+        .map(|idea| text_snippet(&idea.content, QUEST_LIST_SNIPPET_CHARS))
+        .filter(|snippet| !snippet.is_empty());
+
+    serde_json::json!({
+        "id": quest.id.0,
+        "title": title,
+        "status": quest.status.to_string(),
+        "priority": quest.priority.to_string(),
+        "assignee": quest.assignee,
+        "updated_at": quest.updated_at.map(|t| t.to_rfc3339()),
+        "snippet": snippet,
+        "idea_id": quest.idea_id,
+        "agent_id": quest.agent_id,
+        "project": quest_project(quest, project_filter),
+        "scope": quest.scope.as_str(),
+        "created_at": quest.created_at.to_rfc3339(),
+        "closed_at": quest.closed_at.map(|t| t.to_rfc3339()),
+        "due_at": quest.due_at.map(|t| t.to_rfc3339()),
+        "outcome_summary": quest.outcome_summary(),
+        "tags": idea.map(|idea| idea.tags.clone()).unwrap_or_default(),
+    })
+}
+
 /// Quest 67-213 phase-1: resolve the `caller_entity_id` for `role:<id>`
 /// assignee validation.
 ///
@@ -56,6 +137,14 @@ pub async fn handle_quests(
     let project_filter = request.get("project").and_then(|v| v.as_str());
     let status_filter = request.get("status").and_then(|v| v.as_str());
     let agent_filter = request.get("agent_id").and_then(|v| v.as_str());
+    let compact = request
+        .get("compact")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let limit = request
+        .get("limit")
+        .and_then(|v| v.as_u64())
+        .map(|value| value.clamp(1, 500) as usize);
     let resolved_agent = if agent_filter.is_some() {
         agent_filter.map(|s| s.to_string())
     } else if let Some(proj) = project_filter {
@@ -113,6 +202,7 @@ pub async fn handle_quests(
                         .map(|a| ids.contains(a))
                         .unwrap_or(true),
                 })
+                .take(limit.unwrap_or(usize::MAX))
                 .collect();
             let idea_ids: Vec<String> = visible
                 .iter()
@@ -142,24 +232,11 @@ pub async fn handle_quests(
                     } else {
                         ideas.get(quest.idea_id.as_str())
                     };
-                    serde_json::json!({
-                        "id": quest.id.0,
-                        "idea_id": quest.idea_id,
-                        "idea": idea.map(idea_to_json),
-                        "status": quest.status.to_string(),
-                        "priority": quest.priority.to_string(),
-                        "agent_id": quest.agent_id,
-                        "assignee": quest.assignee,
-                        "scope": quest.scope.as_str(),
-                        "retry_count": quest.retry_count,
-                        "project": quest.agent_id.as_deref().or(project_filter).unwrap_or(""),
-                        "created_at": quest.created_at.to_rfc3339(),
-                        "updated_at": quest.updated_at.map(|t| t.to_rfc3339()),
-                        "closed_at": quest.closed_at.map(|t| t.to_rfc3339()),
-                        "due_at": quest.due_at.map(|t| t.to_rfc3339()),
-                        "outcome": quest.quest_outcome(),
-                        "runtime": quest.runtime(),
-                    })
+                    if compact {
+                        quest_summary_json(quest, idea, project_filter)
+                    } else {
+                        quest_full_json(quest, idea, project_filter)
+                    }
                 })
                 .collect();
             serde_json::json!({"ok": true, "quests": all_quests, "partial": false})
@@ -1527,6 +1604,29 @@ mod tests {
             worktree_path: None,
             creator_session_id: None,
         }
+    }
+
+    #[test]
+    fn compact_quest_summary_omits_full_idea_content() {
+        let quest = stub_quest("ch-116.12", None);
+        let idea = aeqi_core::traits::Idea::recalled(
+            "idea-ch-116.12".to_string(),
+            "Concise quest and idea listing modes".to_string(),
+            "Long body ".repeat(80),
+            vec!["workflow".to_string()],
+            None,
+            chrono::Utc::now(),
+            None,
+            0.0,
+        );
+
+        let row = quest_summary_json(&quest, Some(&idea), Some("aeqi"));
+
+        assert_eq!(row["id"], "ch-116.12");
+        assert_eq!(row["title"], "Concise quest and idea listing modes");
+        assert!(row.get("idea").is_none());
+        assert!(row.get("content").is_none());
+        assert!(row["snippet"].as_str().unwrap().len() < idea.content.len());
     }
 
     async fn quest_update_ctx() -> (

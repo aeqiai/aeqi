@@ -803,6 +803,9 @@ async fn call_ideas(
                     "include_superseded",
                 ],
             );
+            if !args.get("full").and_then(|v| v.as_bool()).unwrap_or(false) {
+                req["compact"] = serde_json::json!(true);
+            }
             ipc(state, ctx, req).await
         }
         "update" => {
@@ -2017,7 +2020,14 @@ fn quests_list_ipc_request(args: &serde_json::Value, _default_project: &str) -> 
     // list pass `project` (or `agent`/`agent_id`) explicitly; absent those,
     // the daemon returns the entity-visible set including globals.
     let mut req = serde_json::json!({ "cmd": "quests" });
-    copy_fields(args, &mut req, &["project", "status", "agent", "agent_id"]);
+    copy_fields(
+        args,
+        &mut req,
+        &["project", "status", "agent", "agent_id", "limit"],
+    );
+    if !args.get("full").and_then(|v| v.as_bool()).unwrap_or(false) {
+        req["compact"] = serde_json::json!(true);
+    }
     req
 }
 
@@ -2175,6 +2185,7 @@ fn tool_defs() -> serde_json::Value {
                     "file_id": {"type": "string", "description": "Optional blob/file row id when storing an idea with kind=file."},
                     "query": {"type": "string", "description": "Natural language search query for search."},
                     "limit": {"type": "integer", "description": "Maximum search/walk results. Defaults to the runtime action default."},
+                    "full": {"type": "boolean", "description": "When true, include full idea content in search results. Default false returns compact summaries."},
                     "agent_id": {"type": "string", "description": "Optional explicit agent scope. Omit for entity/global memory owned by the authenticated user/company context."},
                     "from": {"type": "string", "description": "Source idea ID for link or walk."},
                     "to": {"type": "string", "description": "Target idea ID for link."},
@@ -2214,6 +2225,8 @@ fn tool_defs() -> serde_json::Value {
                     "description": {"type": "string", "description": "Quest description for create."},
                     "agent": {"type": "string", "description": "Optional explicit agent name or hint for delegated/agent-scoped work. Omit for user/entity global quests."},
                     "agent_id": {"type": "string", "description": "Optional explicit agent ID for delegated/agent-scoped work."},
+                    "limit": {"type": "integer", "description": "Maximum list rows. Applies to list only."},
+                    "full": {"type": "boolean", "description": "When true, list returns full linked idea bodies and runtime detail. Default false returns compact summaries; use show for one full quest."},
                     "assignee": {
                         "oneOf": [
                             {"type": "string", "description": "Assignee token, for example agent:<id> or user:<id>."},
@@ -2539,6 +2552,31 @@ mod tests {
         );
         assert_eq!(req["agent_id"], "a6107b6a-1959-45f9-901c-77fa1f333cbe");
         assert!(req.get("project").is_none());
+    }
+
+    #[test]
+    fn http_mcp_quest_list_defaults_to_compact_and_forwards_limit() {
+        let req = quests_list_ipc_request(
+            &serde_json::json!({
+                "limit": 7,
+            }),
+            "default-project",
+        );
+
+        assert_eq!(req["compact"], true);
+        assert_eq!(req["limit"], 7);
+    }
+
+    #[test]
+    fn http_mcp_quest_list_full_disables_compact() {
+        let req = quests_list_ipc_request(
+            &serde_json::json!({
+                "full": true,
+            }),
+            "default-project",
+        );
+
+        assert!(req.get("compact").is_none());
     }
 
     #[test]

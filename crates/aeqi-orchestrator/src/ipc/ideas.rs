@@ -36,6 +36,18 @@ use aeqi_ideas::tag_policy::{EffectivePolicy, POLICY_TAG};
 
 use super::request_field;
 
+const IDEA_SEARCH_SNIPPET_CHARS: usize = 360;
+
+fn text_snippet(input: &str, max_chars: usize) -> String {
+    let normalized = input.split_whitespace().collect::<Vec<_>>().join(" ");
+    if normalized.chars().count() <= max_chars {
+        return normalized;
+    }
+    let mut snippet = normalized.chars().take(max_chars).collect::<String>();
+    snippet.push('…');
+    snippet
+}
+
 fn carries_identity_tag_for_agent(tags: &[String], agent_id: &str) -> bool {
     let persona_tag = format!("personality:{agent_id}");
     tags.iter().any(|tag| {
@@ -1657,6 +1669,10 @@ pub async fn handle_search_ideas(
         .get("explain")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
+    let compact = request
+        .get("compact")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
     if let Some(hint) = request_field(request, "route_hint") {
         query.route_hint = Some(hint.to_string());
     }
@@ -1686,7 +1702,7 @@ pub async fn handle_search_ideas(
         for hit in &mut cached {
             hit.why.cache = aeqi_core::traits::CacheSource::Hit { age_ms };
         }
-        return build_search_response(cached, explain);
+        return build_search_response(cached, explain, compact);
     }
 
     match idea_store.search_explained(&query).await {
@@ -1698,7 +1714,7 @@ pub async fn handle_search_ideas(
                 hit.why.cache = aeqi_core::traits::CacheSource::Fresh;
             }
             ctx.recall_cache.put(cache_key, hits.clone());
-            build_search_response(hits, explain)
+            build_search_response(hits, explain, compact)
         }
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
     }
@@ -1710,11 +1726,16 @@ pub async fn handle_search_ideas(
 fn build_search_response(
     hits: Vec<aeqi_core::traits::SearchHit>,
     explain: bool,
+    compact: bool,
 ) -> serde_json::Value {
     let items: Vec<serde_json::Value> = hits
         .iter()
         .map(|h| {
-            let mut v = idea_to_json(&h.idea);
+            let mut v = if compact {
+                idea_summary_json(&h.idea)
+            } else {
+                idea_to_json(&h.idea)
+            };
             if explain {
                 let cache_val = match h.why.cache {
                     aeqi_core::traits::CacheSource::Fresh => serde_json::json!("fresh"),
@@ -1738,6 +1759,21 @@ fn build_search_response(
         })
         .collect();
     serde_json::json!({"ok": true, "ideas": items})
+}
+
+fn idea_summary_json(idea: &aeqi_core::traits::Idea) -> serde_json::Value {
+    serde_json::json!({
+        "id": idea.id,
+        "name": idea.name,
+        "snippet": text_snippet(&idea.content, IDEA_SEARCH_SNIPPET_CHARS),
+        "tags": idea.tags,
+        "agent_id": idea.agent_id,
+        "scope": idea.scope.as_str(),
+        "created_at": idea.created_at.to_rfc3339(),
+        "score": idea.score,
+        "kind": idea.kind,
+        "file_id": idea.file_id,
+    })
 }
 
 /// Multi-hop graph walk from a starting idea. Scopes every visited node
@@ -2562,6 +2598,27 @@ mod tests {
             Ok(_) => panic!("missing name must fail"),
             Err(e) => assert!(e.contains("name")),
         }
+    }
+
+    #[test]
+    fn compact_idea_summary_omits_full_content() {
+        let idea = aeqi_core::traits::Idea::recalled(
+            "idea-1".to_string(),
+            "workflow/listing-mode".to_string(),
+            "Long body ".repeat(80),
+            vec!["workflow".to_string()],
+            None,
+            chrono::Utc::now(),
+            None,
+            0.42,
+        );
+
+        let row = idea_summary_json(&idea);
+
+        assert_eq!(row["id"], "idea-1");
+        assert_eq!(row["name"], "workflow/listing-mode");
+        assert!(row.get("content").is_none());
+        assert!(row["snippet"].as_str().unwrap().len() < idea.content.len());
     }
 
     // ── Fix #6: unique-constraint downcast ──────────────────────────

@@ -139,7 +139,7 @@
       ]
     },
     "scripts": {
-      "count": 39,
+      "count": 41,
       "description": "Tracked operator, verification, install, and deploy scripts.",
       "files": [
         "scripts/aeqi-pre-dispatch.sh",
@@ -156,6 +156,8 @@
         "scripts/install-git-hooks.sh",
         "scripts/install.sh",
         "scripts/launch-smoke.mjs",
+        "scripts/maintainability-baseline.json",
+        "scripts/maintainability-ratchet.mjs",
         "scripts/onboarding-excellence-loop.sh",
         "scripts/operator-rehearsal-browser-evidence.mjs",
         "scripts/performance-regression-detection.sh",

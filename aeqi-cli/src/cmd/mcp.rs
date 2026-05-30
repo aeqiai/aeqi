@@ -670,6 +670,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                     "agent_id": {"type": "string", "description": "Optional explicit agent scope. Omit for entity/global memory owned by the authenticated user/company context."},
                     "query": {"type": "string", "description": "Natural language search query (for search). Uses tag-routed BM25 + vector similarity with MMR diversification."},
                     "limit": {"type": "integer", "description": "Max results (for search, default: 5)"},
+                    "full": {"type": "boolean", "description": "When true, include full idea content in search results. Default false returns compact summaries; use ideas(action='show') is not available, so set full only when the body is needed."},
                     "explain": {"type": "boolean", "description": "Include per-component score breakdown (bm25/vector/hotness/graph/confidence/decay/final_score) on each hit. Default false."},
                     "route_hint": {"type": "string", "description": "Optional routing hint for search. 'auto' (default) picks tags from the corpus; passing an explicit hint biases the planner."},
                     "include_superseded": {"type": "boolean", "description": "When true, include archived and superseded rows in search. Default false."},
@@ -711,6 +712,8 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                     "description": {"type": "string", "description": "Quest description (for create)"},
                     "agent": {"type": "string", "description": "Optional explicit agent name or hint for delegated/agent-scoped work. Omit for user/entity global quests."},
                     "agent_id": {"type": "string", "description": "Optional explicit agent ID for delegated/agent-scoped work."},
+                    "limit": {"type": "integer", "description": "Max list rows. Applies to list only; omitted keeps the runtime default."},
+                    "full": {"type": "boolean", "description": "When true, list returns full linked idea bodies and runtime detail. Default false returns compact summaries; use show for one full quest."},
                     "assignee": {
                         "oneOf": [
                             {"type": "string", "description": "Assignee token, for example agent:<id> or user:<id>."},
@@ -947,6 +950,9 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 }
                                 if let Some(v) = args.get("include_superseded") {
                                     ipc["include_superseded"] = v.clone();
+                                }
+                                if !args.get("full").and_then(|v| v.as_bool()).unwrap_or(false) {
+                                    ipc["compact"] = serde_json::json!(true);
                                 }
                                 call_ipc(&ipc)
                             }
@@ -1907,6 +1913,12 @@ fn quests_list_ipc_request(args: &serde_json::Value, _default_project: &str) -> 
     if let Some(agent_id) = args.get("agent_id") {
         ipc["agent_id"] = agent_id.clone();
     }
+    if let Some(limit) = args.get("limit") {
+        ipc["limit"] = limit.clone();
+    }
+    if !args.get("full").and_then(|v| v.as_bool()).unwrap_or(false) {
+        ipc["compact"] = serde_json::json!(true);
+    }
     ipc
 }
 
@@ -2372,6 +2384,31 @@ mod tests {
         );
         assert_eq!(req["agent_id"], "a6107b6a-1959-45f9-901c-77fa1f333cbe");
         assert!(req.get("project").is_none());
+    }
+
+    #[test]
+    fn quests_list_request_defaults_to_compact_and_forwards_limit() {
+        let req = quests_list_ipc_request(
+            &serde_json::json!({
+                "limit": 7,
+            }),
+            "default-project",
+        );
+
+        assert_eq!(req["compact"], true);
+        assert_eq!(req["limit"], 7);
+    }
+
+    #[test]
+    fn quests_list_request_full_disables_compact() {
+        let req = quests_list_ipc_request(
+            &serde_json::json!({
+                "full": true,
+            }),
+            "default-project",
+        );
+
+        assert!(req.get("compact").is_none());
     }
 
     #[test]
