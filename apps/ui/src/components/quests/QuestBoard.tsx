@@ -21,9 +21,7 @@ import {
   QUEST_ACTIVE_COLUMNS,
   QUEST_ALL_COLUMNS,
   importQuestFromMarkdown,
-  isDirectChildOf,
   rankQuestDiscovery,
-  questParentId,
   sortQuests,
   type QuestDiscoveryHit,
   type QuestFilter,
@@ -121,17 +119,6 @@ export default function QuestBoard({
   // Stable sort means within-bucket order in Board reflects the chosen
   // mode without a secondary pass.
   const sortedVisibleQuests = visibleQuests;
-  const scopeParentId = boardScopeId ? questParentId(boardScopeId) : null;
-  const scopeOptions = useMemo(
-    () =>
-      sortQuests(
-        allQuests.filter(
-          (q) => isDirectChildOf(q, scopeParentId) && (childCounts.get(q.id) ?? 0) > 0,
-        ),
-        "updated",
-      ),
-    [allQuests, childCounts, scopeParentId],
-  );
 
   // Drag-and-drop state. `dragging` is the quest id being dragged so cards can
   // dim themselves; `dropTarget` is the column that'll receive the drop so its
@@ -251,7 +238,6 @@ export default function QuestBoard({
     }
     return buckets;
   }, [sortedVisibleQuests, optimistic]);
-  const scopeSummary = view === "list" ? { columns, grouped } : { columns, grouped };
   const hasSearch = search.trim().length > 0;
   const hasBoardNarrowing = scopeFilter !== "all" || !!boardScopeId;
 
@@ -404,7 +390,7 @@ export default function QuestBoard({
               size="md"
               onClick={() => onCompose()}
               aria-label={boardScopeId ? "New subquest" : "New quest"}
-              title={boardScopeId ? "New subquest in this scope (N)" : "New quest (N)"}
+              title={boardScopeId ? "New subquest under focus (N)" : "New quest (N)"}
               leadingIcon={<Icon icon={Plus} size="sm" />}
             >
               {boardScopeId ? "Subquest" : "Quest"}
@@ -415,17 +401,12 @@ export default function QuestBoard({
       <div className="quest-board-main">
         <QuestBoardScope
           scope={boardScopeQuest}
-          childCount={
-            boardScopeQuest ? (childCounts.get(boardScopeQuest.id) ?? 0) : scopeOptions.length
-          }
+          childCount={boardScopeQuest ? (childCounts.get(boardScopeQuest.id) ?? 0) : 0}
           parentScopeId={
             boardScopeAncestors.length > 0
               ? boardScopeAncestors[boardScopeAncestors.length - 1].id
               : null
           }
-          projectCount={scopeOptions.length}
-          scopeOptions={scopeOptions}
-          summary={scopeSummary}
           dragging={dragging}
           dropActive={scopeDropActive}
           onDropActiveChange={setScopeDropActive}
@@ -434,7 +415,6 @@ export default function QuestBoard({
             setDragging(null);
             setDropTarget(null);
           }}
-          onScopeSelect={onBoardScopeChange}
           onUp={() =>
             onBoardScopeChange(
               boardScopeAncestors.length > 0

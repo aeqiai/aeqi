@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { StrictMode } from "react";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
 import AgentQuestsTab from "@/components/AgentQuestsTab";
@@ -228,17 +228,16 @@ describe("AgentQuestsTab smoke", () => {
 
     expect(screen.getByRole("button", { name: /Open board for Root quest/ })).toBeInTheDocument();
     expect(screen.queryByText("Child quest")).not.toBeInTheDocument();
-    expect(screen.getByText("Focus the board by project")).toBeInTheDocument();
-    expect(
-      within(screen.getByLabelText("Project scopes")).getByRole("button", { name: /Root quest/ }),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Focus")).toBeInTheDocument();
+    expect(screen.getByText("Drop project here")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Project scopes")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Open board for Root quest/ }));
 
     expect(screen.getByText("Child quest")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /New subquest/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Clear scope/ })).toBeInTheDocument();
-    expect(screen.getByText("Scope")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Clear focus/ })).toBeInTheDocument();
+    expect(screen.getByText("Focus")).toBeInTheDocument();
   });
 
   it("list view keeps Backlog and In review visible", () => {
@@ -269,7 +268,7 @@ describe("AgentQuestsTab smoke", () => {
     expect(screen.getByText("Review quest")).toBeInTheDocument();
   });
 
-  it("scope status summary stays informational while list groups collapse", () => {
+  it("focus row stays compact while list groups collapse", () => {
     useDaemonStore.setState({
       quests: [
         questFixture("67-review", "Review quest", "in_review"),
@@ -291,10 +290,8 @@ describe("AgentQuestsTab smoke", () => {
     );
 
     expect(screen.getByText("Review quest")).toBeInTheDocument();
-    const summary = within(screen.getByLabelText("Quest status counts"));
-
-    expect(summary.getByText("In review")).toBeInTheDocument();
-    expect(summary.getByText("Done")).toBeInTheDocument();
+    expect(screen.getByText("Drop project here")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Quest status counts")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Hide In review column/ })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /^In review\s+1$/ }));
