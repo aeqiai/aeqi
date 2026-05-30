@@ -20,6 +20,7 @@ members = [
     "crates/aeqi-pack-github",
     "crates/aeqi-pack-notion",
     "crates/aeqi-pack-slack",
+    "crates/aeqi-pack-etsy",
     "crates/aeqi-wallets",
     "crates/aeqi-ipfs",
     "crates/aeqi-architect",
@@ -142,6 +143,7 @@ aeqi-pack-google-workspace = { version = "0.15.0", path = "crates/aeqi-pack-goog
 aeqi-pack-github = { version = "0.15.0", path = "crates/aeqi-pack-github" }
 aeqi-pack-notion = { version = "0.15.0", path = "crates/aeqi-pack-notion" }
 aeqi-pack-slack = { version = "0.15.0", path = "crates/aeqi-pack-slack" }
+aeqi-pack-etsy = { version = "0.15.0", path = "crates/aeqi-pack-etsy" }
 aeqi-ipfs = { version = "0.15.0", path = "crates/aeqi-ipfs" }
 aeqi-architect = { version = "0.15.0", path = "crates/aeqi-architect" }
 aeqi-redact = { version = "0.15.0", path = "crates/aeqi-redact" }

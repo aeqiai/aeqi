@@ -1513,6 +1513,7 @@ fn integration_tools() -> Vec<Arc<dyn Tool>> {
     tools.extend(aeqi_pack_github::all_tools());
     tools.extend(aeqi_pack_notion::all_tools());
     tools.extend(aeqi_pack_slack::all_tools());
+    tools.extend(aeqi_pack_etsy::all_tools());
     tools
 }
 
@@ -1522,6 +1523,7 @@ fn provider_for_integration_tool(tool_name: &str) -> Option<&'static str> {
         "github" => Some("github"),
         "notion" => Some("notion"),
         "slack" => Some("slack"),
+        name if name.starts_with("etsy_") => Some("etsy"),
         _ => None,
     }
 }

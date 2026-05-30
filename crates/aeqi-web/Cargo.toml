@@ -17,6 +17,7 @@ aeqi-pack-github = { workspace = true }
 aeqi-pack-google-workspace = { workspace = true }
 aeqi-pack-notion = { workspace = true }
 aeqi-pack-slack = { workspace = true }
+aeqi-pack-etsy = { workspace = true }
 aeqi-providers = { workspace = true }
 aeqi-quests = { workspace = true }
 aeqi-wallets = { workspace = true }

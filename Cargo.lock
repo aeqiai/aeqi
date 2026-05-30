@@ -240,6 +240,7 @@ dependencies = [
  "aeqi-graph",
  "aeqi-ideas",
  "aeqi-mcp",
+ "aeqi-pack-etsy",
  "aeqi-pack-github",
  "aeqi-pack-google-workspace",
  "aeqi-pack-notion",
@@ -268,6 +269,21 @@ dependencies = [
  "toml",
  "tracing",
  "uuid",
+]
+
+[[package]]
+name = "aeqi-pack-etsy"
+version = "0.15.0"
+dependencies = [
+ "aeqi-core",
+ "anyhow",
+ "async-trait",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "urlencoding",
 ]
 
 [[package]]
@@ -478,6 +494,7 @@ dependencies = [
  "aeqi-core",
  "aeqi-graph",
  "aeqi-hosting",
+ "aeqi-pack-etsy",
  "aeqi-pack-github",
  "aeqi-pack-google-workspace",
  "aeqi-pack-notion",

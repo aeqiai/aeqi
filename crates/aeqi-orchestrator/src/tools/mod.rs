@@ -618,6 +618,9 @@ pub fn build_orchestration_tools(
     #[cfg(feature = "slack")]
     tools.extend(aeqi_pack_slack::all_tools());
 
+    #[cfg(feature = "etsy")]
+    tools.extend(aeqi_pack_etsy::all_tools());
+
     tools
 }
 

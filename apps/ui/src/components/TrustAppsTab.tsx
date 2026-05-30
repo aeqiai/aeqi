@@ -12,6 +12,7 @@ import {
   Plus,
   Presentation,
   Send,
+  ShoppingBag,
   Smartphone,
   Table2,
   Video,
@@ -131,6 +132,12 @@ export default function TrustAppsTab({
     enabled: Boolean(trustId),
     staleTime: 20_000,
   });
+  const etsyStatus = useQuery({
+    queryKey: ["trust-etsy-status", trustId],
+    queryFn: () => integrationsApi.getTrustEtsyStatus(trustId),
+    enabled: Boolean(trustId),
+    staleTime: 20_000,
+  });
   const emailStatus = useQuery({
     queryKey: ["trust-email-messages", trustId],
     queryFn: () => api.getTrustEmailMessages(trustId),
@@ -150,7 +157,9 @@ export default function TrustAppsTab({
     staleTime: 20_000,
   });
   const googleConnected = googleStatus.data?.connected === true;
+  const etsyConnected = etsyStatus.data?.connected === true;
   const workspaceServices = GOOGLE_WORKSPACE_APPS.length;
+  const commerceApps = 1;
   const gatewaysPath = `${basePath}/gateways`;
   const channelApps = summaries.filter((summary) => summary.entry.category === "channel");
   const billingApps = summaries.filter((summary) => summary.entry.category === "billing");
@@ -195,6 +204,16 @@ export default function TrustAppsTab({
     }
   }
 
+  async function startEtsyIntegration(source = "etsy-shop") {
+    setConnectingIntegration(source);
+    try {
+      const res = await integrationsApi.startTrustEtsy(trustId);
+      goExternal(res.authorize_url);
+    } finally {
+      setConnectingIntegration(null);
+    }
+  }
+
   function openGatewayCreate(kind: "telegram" | "whatsapp" | "whatsapp-baileys") {
     navigate(`${gatewaysPath}?new=1&kind=${encodeURIComponent(kind)}`);
   }
@@ -216,6 +235,23 @@ export default function TrustAppsTab({
       actionLabel: googleConnected ? "Reconnect" : "Connect",
       onAction: () => void startGoogleIntegration("google-workspace"),
       detail: GOOGLE_WORKSPACE_APPS.map((app) => app.name),
+    },
+    {
+      id: "etsy-shop",
+      name: "Etsy Shop",
+      category: "Commerce",
+      summary: "Shop, listings, orders, and draft-safe product creation.",
+      connected: etsyConnected,
+      statusLabel: etsyStatus.isLoading ? "Checking" : etsyConnected ? "Connected" : "Ready",
+      icon: <AppLogo kind="etsy" icon={<ShoppingBag size={18} strokeWidth={1.5} />} />,
+      meta: [
+        { label: "Account", value: etsyStatus.data?.account_email || "Trust" },
+        { label: "Scopes", value: formatInteger(etsyStatus.data?.scopes?.length ?? 0) },
+        { label: "Mode", value: "Drafts" },
+      ],
+      actionLabel: etsyConnected ? "Reconnect" : "Connect",
+      onAction: () => void startEtsyIntegration("etsy-shop"),
+      detail: ["Shop discovery", "Listings", "Orders", "Draft listings"],
     },
     ...billingApps.map(
       (summary): IntegrationItem => ({
@@ -273,7 +309,7 @@ export default function TrustAppsTab({
         ? emailIdentities.length
         : surface === "websites"
           ? trustDomains.length
-          : workspaceServices + channelApps.length + billingApps.length;
+          : workspaceServices + commerceApps + channelApps.length + billingApps.length;
   const headerTitle = (
     <span className="trust-primitive-page-title">
       <span className="trust-primitive-page-title-text">{pageTitle}</span>
@@ -302,6 +338,8 @@ export default function TrustAppsTab({
           : isLoading
             ? "Loading integration status"
             : `${formatInteger(workspaceServices)} workspace apps · ${formatInteger(
+                commerceApps,
+              )} commerce app · ${formatInteger(
                 installed.enabledChannels,
               )} gateway endpoints · ${formatInteger(
                 trustAgents.length,
@@ -467,6 +505,7 @@ export default function TrustAppsTab({
               connecting={connectingIntegration}
               onClose={() => setIntegrationCreatorOpen(false)}
               onGateway={openGatewayCreate}
+              onEtsy={() => void startEtsyIntegration("modal-etsy")}
               onGoogle={() => void startGoogleIntegration("modal-google")}
               onStripe={() => navigate("/account/billing")}
               open={integrationCreatorOpen}
@@ -481,7 +520,7 @@ export default function TrustAppsTab({
 type IntegrationItem = {
   id: string;
   name: string;
-  category: "Workspace" | "Billing" | "Gateway";
+  category: "Workspace" | "Commerce" | "Billing" | "Gateway";
   summary: string;
   connected: boolean;
   statusLabel: string;
@@ -492,7 +531,13 @@ type IntegrationItem = {
   detail: string[];
 };
 
-function AppLogo({ icon, kind }: { icon: ReactNode; kind: WorkspaceAppKind | TrustAppKind }) {
+function AppLogo({
+  icon,
+  kind,
+}: {
+  icon: ReactNode;
+  kind: WorkspaceAppKind | TrustAppKind | "etsy";
+}) {
   return (
     <span className="trust-app-logo" data-app={kind} aria-hidden>
       {icon}
@@ -506,6 +551,8 @@ function IntegrationDetail({ connecting, item }: { connecting: boolean; item: In
       <CreditCard size={14} strokeWidth={1.5} />
     ) : item.category === "Gateway" ? (
       <Smartphone size={14} strokeWidth={1.5} />
+    ) : item.category === "Commerce" ? (
+      <ShoppingBag size={14} strokeWidth={1.5} />
     ) : (
       <Cloud size={14} strokeWidth={1.5} />
     );

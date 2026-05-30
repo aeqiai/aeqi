@@ -2343,7 +2343,8 @@
   color: var(--color-text-primary);
 }
 
-.trust-app-logo[data-app="stripe"] {
+.trust-app-logo[data-app="stripe"],
+.trust-app-logo[data-app="etsy"] {
   color: var(--color-text-primary);
 }
 

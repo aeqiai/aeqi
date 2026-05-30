@@ -1,11 +1,12 @@
 import type { ReactNode } from "react";
-import { Cloud, CreditCard, MessageCircle, Send } from "lucide-react";
+import { Cloud, CreditCard, MessageCircle, Send, ShoppingBag } from "lucide-react";
 
 import { CardTrigger, Modal } from "./ui";
 
 export default function TrustIntegrationCreateModal({
   connecting,
   onClose,
+  onEtsy,
   onGateway,
   onGoogle,
   onStripe,
@@ -13,6 +14,7 @@ export default function TrustIntegrationCreateModal({
 }: {
   connecting: string | null;
   onClose: () => void;
+  onEtsy: () => void;
   onGateway: (kind: "telegram" | "whatsapp" | "whatsapp-baileys") => void;
   onGoogle: () => void;
   onStripe: () => void;
@@ -28,6 +30,14 @@ export default function TrustIntegrationCreateModal({
           action="Connect"
           loading={connecting === "modal-google"}
           onClick={onGoogle}
+        />
+        <ProviderAction
+          icon={<ShoppingBag size={18} strokeWidth={1.5} />}
+          title="Etsy Shop"
+          subtitle="Connect shop, listings, orders, and draft product tools."
+          action="Connect"
+          loading={connecting === "modal-etsy"}
+          onClick={onEtsy}
         />
         <ProviderAction
           icon={<CreditCard size={18} strokeWidth={1.5} />}

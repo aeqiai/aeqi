@@ -83,6 +83,8 @@ export type AgentGithubStartResponse = AgentGoogleStartResponse;
 export type AgentGithubStatusResponse = AgentGoogleStatusResponse;
 export type TrustGoogleStartResponse = AgentGoogleStartResponse;
 export type TrustGoogleStatusResponse = AgentGoogleStatusResponse;
+export type TrustEtsyStartResponse = AgentGoogleStartResponse;
+export type TrustEtsyStatusResponse = AgentGoogleStatusResponse;
 
 // ── API ──────────────────────────────────────────────────────────────────
 
@@ -133,6 +135,14 @@ export const integrationsApi = {
 
   getTrustGoogleStatus(trustId: string): Promise<TrustGoogleStatusResponse> {
     return apiRequest(`/trust/${encodeURIComponent(trustId)}/apps/google/status`);
+  },
+
+  startTrustEtsy(trustId: string): Promise<TrustEtsyStartResponse> {
+    return apiRequest(`/trust/${encodeURIComponent(trustId)}/apps/etsy/start`);
+  },
+
+  getTrustEtsyStatus(trustId: string): Promise<TrustEtsyStatusResponse> {
+    return apiRequest(`/trust/${encodeURIComponent(trustId)}/apps/etsy/status`);
   },
 
   startAgentGithub(agentId: string): Promise<AgentGithubStartResponse> {
