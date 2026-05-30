@@ -5003,12 +5003,24 @@
 }
 
 .ideas-workspace-tree-head {
-  margin: var(--roles-section-inset) 0 8px;
+  margin: 10px 0 8px;
   border-bottom: 0;
 }
 
 .ideas-workspace-inspector-head {
   border-bottom: 1px solid var(--border-faint);
+}
+
+.ideas-workspace-tree-head > span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ideas-workspace-tree-head small,

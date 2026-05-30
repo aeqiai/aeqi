@@ -5161,7 +5161,7 @@
 
 /* ── Pill-radius reset for buttons and chips ───── */
 
-button:not([data-pill-allowed]) {
+button:not([data-pill-allowed]):not(.ideas-toolbar-btn) {
   border-radius: var(--radius-sm);
 }
 

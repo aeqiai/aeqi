@@ -1438,6 +1438,7 @@
   min-width: 0;
   overflow: hidden;
   color: var(--color-text-primary);
+  font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 650;
   line-height: 1.2;
@@ -1446,13 +1447,13 @@
 }
 
 .trust-role-detail-surface-action {
-  width: var(--toolbar-control-h);
-  min-width: var(--toolbar-control-h);
-  height: var(--toolbar-control-h);
-  min-height: var(--toolbar-control-h);
-  inline-size: var(--toolbar-control-h);
-  block-size: var(--toolbar-control-h);
-  flex: 0 0 var(--toolbar-control-h);
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
+  inline-size: 28px;
+  block-size: 28px;
+  flex: 0 0 28px;
   color: var(--color-text-primary);
   background: var(--input-bg, var(--bg-base));
   border-color: var(--input-border, var(--border));
