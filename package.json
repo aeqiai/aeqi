@@ -27,6 +27,6 @@
     "solana:test": "cd projects/aeqi-solana && anchor test --skip-build"
   },
   "devDependencies": {
-    "playwright": "^1.52.0"
+    "playwright": "^1.60.0"
   }
 }
