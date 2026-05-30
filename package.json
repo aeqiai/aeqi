@@ -21,6 +21,8 @@
     "visual:check:list": "node scripts/visual-check.mjs --list",
     "visual:route": "node scripts/visual-route.mjs",
     "browser:capture": "node scripts/browser-capture.mjs",
+    "deck:pitch:render": "node decks/aeqi-mvp-pitch/render.mjs",
+    "deck:pitch:sync": "node decks/aeqi-mvp-pitch/sync-google-slides.mjs",
     "rehearsal:browser-evidence": "node scripts/operator-rehearsal-browser-evidence.mjs",
     "launch:smoke": "node scripts/launch-smoke.mjs",
     "solana:build": "cd projects/aeqi-solana && anchor build",
