@@ -230,6 +230,9 @@ export default function SessionDetail({
       if (newHeight !== lastHeightRef.current) {
         lastHeightRef.current = newHeight;
         detail.style.setProperty("--inbox-composer-height", `${newHeight}px`);
+        if (stuckRef.current && scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
       }
     };
 

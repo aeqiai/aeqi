@@ -317,31 +317,142 @@
 }
 
 .trust-sessions-page .session-detail-thread {
-  padding: var(--space-4) var(--space-5) var(--space-5);
+  padding: var(--space-4) var(--space-5) calc(var(--inbox-composer-height, 108px) + var(--space-5));
 }
 
-.trust-sessions-composer-dock {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex-shrink: 0;
-  padding: 0 var(--space-4);
-  pointer-events: none;
+.trust-sessions-page .session-detail--recessed:has(.inbox-composer-wrap)::after {
+  bottom: var(--inbox-composer-height, 108px);
 }
 
-.trust-sessions-composer-dock > * {
-  pointer-events: auto;
+.trust-sessions-page .inbox-composer-wrap {
+  align-items: stretch;
+  padding: 0;
+  background: color-mix(in srgb, var(--color-card) 92%, var(--color-card-muted) 8%);
+  box-shadow: inset 0 1px 0 var(--border);
 }
 
-.trust-sessions-composer-wrap {
-  width: min(820px, 100%);
+.trust-sessions-page .inbox-composer-wrap:has(.asv-textarea:focus-visible) {
+  box-shadow:
+    inset 0 1px 0 var(--border),
+    inset 0 2px 0 color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
-.trust-sessions-composer-error {
-  width: min(820px, 100%);
-  padding: 0 0 var(--space-2);
+.trust-sessions-page .inbox-composer-wrap > .composer-wrap {
+  width: 100%;
+  max-width: none;
+}
+
+.trust-sessions-page .inbox-composer-error {
+  max-width: none;
+  padding: var(--space-2) var(--space-5) 0;
   color: var(--color-error);
   font-size: var(--font-size-xs);
+}
+
+.trust-sessions-page .inbox-composer-wrap .composer-wrap {
+  --composer-bg: transparent;
+  --composer-bg-elevated: var(--color-card-elevated);
+  --composer-text: var(--color-text-primary);
+  --composer-text-muted: var(--color-text-muted);
+  --composer-border: var(--border);
+  --composer-chip-bg: var(--bg-row);
+
+  max-width: none;
+  padding: var(--space-2) var(--space-5) var(--space-3);
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.trust-sessions-page .inbox-composer-wrap .composer-wrap::before {
+  display: none;
+}
+
+.trust-sessions-page .inbox-composer-wrap .composer-wrap:has(.asv-textarea:focus) {
+  box-shadow: none;
+}
+
+.trust-sessions-page .inbox-composer-wrap .composer-wrap .asv-composer-inner {
+  max-width: none;
+  padding: var(--space-2) 0 0;
+  background: transparent;
+  border-radius: 0;
+}
+
+.trust-sessions-page .inbox-composer-wrap .asv-composer-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
+}
+
+.trust-sessions-page .inbox-composer-wrap .asv-attach-chips {
+  grid-column: 1 / -1;
+}
+
+.trust-sessions-page .inbox-composer-wrap .composer-wrap .asv-textarea {
+  grid-column: 1;
+  grid-row: 1;
+  min-height: 44px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  color: var(--color-text-primary);
+  caret-color: var(--accent);
+}
+
+.trust-sessions-page .inbox-composer-wrap .composer-wrap .asv-textarea:hover,
+.trust-sessions-page .inbox-composer-wrap .composer-wrap .asv-textarea:focus,
+.trust-sessions-page .inbox-composer-wrap .composer-wrap .asv-textarea:focus-visible {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.trust-sessions-page .inbox-composer-wrap .composer-wrap .asv-textarea::placeholder {
+  color: var(--color-text-muted);
+}
+
+.trust-sessions-page .inbox-composer-wrap .asv-composer-footer {
+  grid-column: 2;
+  grid-row: 1;
+  min-height: 32px;
+  align-items: flex-end;
+  padding-top: 0;
+}
+
+.trust-sessions-page .inbox-composer-wrap .asv-attach-row:empty {
+  display: none;
+}
+
+.trust-sessions-page .inbox-composer-wrap .asv-send {
+  height: 32px;
+  border-radius: var(--radius-full);
+  color: var(--color-text-muted);
+}
+
+.trust-sessions-page .inbox-composer-wrap .asv-send.ready {
+  background: var(--accent);
+  color: var(--color-card);
+  box-shadow: none;
+}
+
+.trust-sessions-page .inbox-composer-wrap .asv-send.ready:hover {
+  background: var(--color-accent-hover);
+  box-shadow: none;
+}
+
+.trust-sessions-page .inbox-composer-wrap .asv-send-stack .asv-send.busy {
+  background: var(--bg-row);
+  color: var(--color-text-primary);
+}
+
+.trust-sessions-page .inbox-composer-wrap .asv-composer-busy::after {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--border);
 }
 
 /* Left pane — fixed-width light recessed slab, matching the active
@@ -1075,8 +1186,38 @@
     border-radius: 0;
   }
 
-  .inbox-page.trust-sessions:has(.inbox-shell.has-selection) .trust-sessions-composer-dock {
-    padding: var(--space-2) var(--space-3) 0;
+  .inbox-page.trust-sessions:has(.inbox-shell.has-selection) .inbox-composer-wrap {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .trust-sessions-page .session-detail-thread {
+    padding: var(--space-3) var(--space-3)
+      calc(var(--inbox-composer-height, 112px) + var(--space-4));
+  }
+
+  .trust-sessions-page .inbox-composer-error {
+    padding-inline: var(--space-3);
+  }
+
+  .trust-sessions-page .inbox-composer-wrap .composer-wrap {
+    padding: var(--space-2) var(--space-3) var(--space-2);
+  }
+
+  .trust-sessions-page .inbox-composer-wrap .composer-wrap .asv-composer-inner {
+    max-width: none;
+    padding-top: var(--space-1);
+  }
+
+  .trust-sessions-page .inbox-composer-wrap .composer-wrap .asv-textarea {
+    min-height: 44px;
+    font-size: var(--font-size-sm);
+    line-height: 22px;
+  }
+
+  .trust-sessions-page .inbox-composer-wrap .asv-send,
+  .trust-sessions-page .inbox-composer-wrap .asv-attach-btn {
+    min-width: 40px;
+    min-height: 40px;
   }
 
   /* Reveal back button only on mobile */
