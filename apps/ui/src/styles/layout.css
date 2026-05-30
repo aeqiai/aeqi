@@ -2511,8 +2511,8 @@
 }
 
 /* Ambient Agent Dock — below-card composer affordance for non-chat
-   app pages. It collapses to a tight ink strip, expands on hover/focus,
-   and uses the same Composer primitive + dark token cascade as chat. */
+   app pages. It reads as a bottom drawer: square bottom edge, rounded
+   top corners, and a slight bleed into the shell footer inset. */
 .composer-row--dock {
   position: relative;
   left: auto;
@@ -2523,6 +2523,7 @@
   display: flex;
   justify-content: center;
   padding: var(--space-2) 0 0;
+  margin-bottom: calc(-1 * var(--shell-footer-h, 10px));
   background: transparent;
   pointer-events: auto;
 }
@@ -2533,7 +2534,7 @@
   min-height: 18px;
   max-height: 18px;
   overflow: hidden;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
   padding: 0 var(--space-2);
   transition:
     max-height 0.22s ease,
@@ -2543,7 +2544,7 @@
 }
 .composer-row--dock:is(:hover, :focus-within) .composer-wrap {
   max-height: 220px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
   padding: var(--space-2);
 }
 .agent-dock-header {
