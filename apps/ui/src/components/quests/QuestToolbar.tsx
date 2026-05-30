@@ -102,7 +102,7 @@ export default function QuestToolbar({
         onClick={onNew}
         leadingIcon={<Plus size={13} strokeWidth={1.5} />}
       >
-        New
+        {isDetailToolbar ? "Quest" : "New"}
       </Button>
     </Tooltip>
   ) : null;
@@ -121,22 +121,12 @@ export default function QuestToolbar({
           Quests
         </Button>
       </Tooltip>
-      {breadcrumbLabel && (
-        <span
-          className={isDetailToolbar ? "quest-detail-toolbar-pill" : "quest-detail-breadcrumb"}
-          aria-label="Quest detail"
-          title={breadcrumbLabel}
-        >
-          {isDetailToolbar ? (
-            <span className="quest-detail-toolbar-pill-title">{breadcrumbLabel}</span>
-          ) : (
-            <>
-              <span className="quest-detail-breadcrumb-sep" aria-hidden>
-                /
-              </span>
-              <span className="quest-detail-breadcrumb-item">{breadcrumbLabel}</span>
-            </>
-          )}
+      {breadcrumbLabel && !isDetailToolbar && (
+        <span className="quest-detail-breadcrumb" aria-label="Quest detail" title={breadcrumbLabel}>
+          <span className="quest-detail-breadcrumb-sep" aria-hidden>
+            /
+          </span>
+          <span className="quest-detail-breadcrumb-item">{breadcrumbLabel}</span>
         </span>
       )}
       {!isDetailToolbar && newQuestButton}

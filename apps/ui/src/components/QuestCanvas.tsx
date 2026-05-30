@@ -604,6 +604,11 @@ function ViewCanvas({
             onDirtyChange={setBodyDirty}
             embedded
             hideMetaStrip
+            contentHeaderSlot={
+              <div className="quest-detail-surface-header">
+                <div className="quest-detail-surface-title">Quest</div>
+              </div>
+            }
           />
         </main>
         <QuestDetailSummary
