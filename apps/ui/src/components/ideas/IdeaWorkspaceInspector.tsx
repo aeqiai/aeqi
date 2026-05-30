@@ -173,29 +173,34 @@ export default function IdeaWorkspaceInspector({
         )}
 
         <InspectorSection title="Idea">
-          <InspectorRow label="Scope" tone="plain" className="ideas-workspace-inspector-row">
-            <div
-              className="ideas-workspace-scope-options"
-              role="radiogroup"
-              aria-label="Idea visibility"
-            >
-              {scopeOptions.map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  role="radio"
-                  aria-checked={scope === value}
-                  title={SCOPE_HINT[value]}
-                  className={`ideas-workspace-scope-option${scope === value ? " active" : ""}`}
-                  disabled={scopeLocked}
-                  onClick={() => onScopeChange(value)}
-                >
-                  <span className={`scope-dot scope-dot--${value}`} aria-hidden />
-                  <span>{SCOPE_LABEL[value]}</span>
-                </button>
-              ))}
-            </div>
-          </InspectorRow>
+          {scopeLocked ? (
+            <InspectorRow label="Scope" tone="recessed">
+              {SCOPE_LABEL[scope]}
+            </InspectorRow>
+          ) : (
+            <InspectorRow label="Scope" tone="plain" className="ideas-workspace-inspector-row">
+              <div
+                className="ideas-workspace-scope-options"
+                role="radiogroup"
+                aria-label="Idea visibility"
+              >
+                {scopeOptions.map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={scope === value}
+                    title={SCOPE_HINT[value]}
+                    className={`ideas-workspace-scope-option${scope === value ? " active" : ""}`}
+                    onClick={() => onScopeChange(value)}
+                  >
+                    <span className={`scope-dot scope-dot--${value}`} aria-hidden />
+                    <span>{SCOPE_LABEL[value]}</span>
+                  </button>
+                ))}
+              </div>
+            </InspectorRow>
+          )}
           <InspectorRow label="Kind" tone="recessed">
             {idea?.kind ?? "note"}
           </InspectorRow>
@@ -204,26 +209,8 @@ export default function IdeaWorkspaceInspector({
               {compactIdeaId(idea.id)}
             </InspectorRow>
           )}
-        </InspectorSection>
-
-        {hasProperties && (
-          <InspectorSection title="Properties" collapsible defaultOpen={false}>
-            <div className="ideas-workspace-inspector-stack">
-              <span className="ideas-workspace-inspector-label">Metadata</span>
-              <div className="ideas-workspace-inspector-field">
-                <IdeaPropertyChips
-                  ideaId={idea.id}
-                  scopedEntity={scopedEntity}
-                  properties={idea.properties}
-                />
-              </div>
-            </div>
-          </InspectorSection>
-        )}
-
-        <InspectorSection title="Tags">
           <div className="ideas-workspace-inspector-stack">
-            <span className="ideas-workspace-inspector-label">Labels</span>
+            <span className="ideas-workspace-inspector-label">Tags</span>
             <div className="ideas-workspace-inspector-field">
               {idea ? (
                 <TagsEditor
@@ -240,11 +227,8 @@ export default function IdeaWorkspaceInspector({
               )}
             </div>
           </div>
-        </InspectorSection>
-
-        <InspectorSection title="References" collapsible defaultOpen={false}>
           <div className="ideas-workspace-inspector-stack">
-            <span className="ideas-workspace-inspector-label">Linked ideas</span>
+            <span className="ideas-workspace-inspector-label">References</span>
             <div className="ideas-workspace-inspector-field">
               {idea ? (
                 <IdeaLinksPanel ideaId={idea.id} agentId={agentId} />
@@ -254,6 +238,21 @@ export default function IdeaWorkspaceInspector({
             </div>
           </div>
         </InspectorSection>
+
+        {hasProperties && (
+          <InspectorSection title="Properties" collapsible defaultOpen={false}>
+            <div className="ideas-workspace-inspector-stack">
+              <span className="ideas-workspace-inspector-label">Metadata</span>
+              <div className="ideas-workspace-inspector-field">
+                <IdeaPropertyChips
+                  ideaId={idea.id}
+                  scopedEntity={scopedEntity}
+                  properties={idea.properties}
+                />
+              </div>
+            </div>
+          </InspectorSection>
+        )}
 
         <InspectorSection title="Document" collapsible defaultOpen={false}>
           <InspectorRow label="Children" tone="recessed">
