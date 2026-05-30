@@ -8038,12 +8038,17 @@
   display: grid;
   grid-template-columns: 236px minmax(0, 1fr) 280px;
   gap: 0;
+  height: 100%;
   min-height: 0;
   padding: 0;
   overflow: hidden;
   border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--color-card) 84%, var(--color-card-elevated) 16%);
   box-shadow: var(--card-elevation);
+}
+
+.quest-detail-layout--no-rail {
+  grid-template-columns: minmax(0, 1fr) 280px;
 }
 
 .quest-detail-rail {
@@ -8273,6 +8278,53 @@
 
 .quest-detail-document .idea-convo-card--activity-combined > .idea-convo-panel {
   width: 100%;
+}
+
+.quest-detail-summary.role-inspector {
+  gap: 10px;
+  padding: var(--roles-section-inset);
+  box-shadow: inset 1px 0 0 var(--border-subtle, var(--border-faint));
+}
+
+.quest-detail-summary .role-inspector-topbar small {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quest-detail-control {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.quest-detail-control > * {
+  width: 100%;
+}
+
+.quest-detail-control .ideas-scope-btn,
+.quest-detail-control .quest-detail-field-btn {
+  width: 100%;
+  justify-content: space-between;
+}
+
+.quest-detail-scope-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.quest-detail-scope-picker p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .quest-detail-document .idea-convo-title {

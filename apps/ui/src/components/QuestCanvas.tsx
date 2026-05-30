@@ -525,6 +525,7 @@ function ViewCanvas({
       q.id !== quest.id &&
       (siblingIds.has(q.id) || (quest.idea_id != null && q.idea_id === quest.idea_id)),
   );
+  const showQuestRail = Boolean(parentQuest || childQuests.length > 0 || siblingQuests.length > 0);
   const displayQuest: Quest = quest.idea
     ? {
         ...quest,
@@ -585,14 +586,16 @@ function ViewCanvas({
           }
         />
       </div>
-      <div className="quest-detail-layout">
-        <QuestDetailRail
-          quest={displayQuest}
-          parentQuest={parentQuest}
-          childQuests={childQuests}
-          siblingQuests={siblingQuests}
-          onOpenQuest={openQuest}
-        />
+      <div className={`quest-detail-layout${showQuestRail ? "" : " quest-detail-layout--no-rail"}`}>
+        {showQuestRail && (
+          <QuestDetailRail
+            quest={displayQuest}
+            parentQuest={parentQuest}
+            childQuests={childQuests}
+            siblingQuests={siblingQuests}
+            onOpenQuest={openQuest}
+          />
+        )}
         <main className="quest-detail-document">
           <IdeaCanvas
             ref={canvasRef}

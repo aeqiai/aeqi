@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { ReactNode } from "react";
 import { dueLabel, timeAgo } from "@/lib/format";
 import { formatDateTime } from "@/lib/i18n";
@@ -15,6 +16,13 @@ import QuestDueDatePopover from "./QuestDueDatePopover";
 import QuestPriorityPopover from "./QuestPriorityPopover";
 import QuestStatusPopover from "./QuestStatusPopover";
 import StatusDot from "./StatusDot";
+import {
+  CopyableRow,
+  PropertyGroup,
+  ReadOnlyRow,
+  compactAddress,
+} from "../roles/RoleInspectorPrimitives";
+import "@/styles/roles.css";
 
 const STATUS_LABEL: Record<QuestStatus, string> = {
   backlog: "Backlog",
@@ -39,11 +47,11 @@ function formatKind(kind: string | undefined): string {
   return kind;
 }
 
-function DetailRow({ label, children }: { label: string; children: ReactNode }) {
+function ControlRow({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="quest-detail-meta-row">
-      <dt>{label}</dt>
-      <dd>{children}</dd>
+    <div className="role-inspector-row quest-detail-control-row">
+      <span className="role-inspector-row-label">{label}</span>
+      <div className="role-inspector-row-control quest-detail-control">{children}</div>
     </div>
   );
 }
@@ -120,33 +128,81 @@ export default function QuestDetailSummary({
   dueOpen?: boolean;
   onDueOpenChange?: (next: boolean) => void;
 }) {
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const display = assigneeDisplay(assignee, agents, users);
   const sharedCount = quest.sibling_quest_ids?.length ?? 0;
   const doneChildren = childQuests.filter((q) => q.status === "done").length;
   const due = dueValue(dueAt);
   const idea = quest.idea;
 
+  async function copy(value: string, field: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedField(field);
+      window.setTimeout(() => setCopiedField(null), 1200);
+    } catch {
+      setCopiedField(null);
+    }
+  }
+
   return (
-    <aside className="quest-detail-summary ideas-workspace-inspector" aria-label="Quest details">
-      <header className="ideas-workspace-inspector-head">
-        <span>Details</span>
+    <aside
+      className="quest-detail-summary ideas-workspace-inspector role-inspector role-inspector--page"
+      aria-label="Quest details"
+    >
+      <header className="role-inspector-topbar">
+        <span className="role-inspector-object">Details</span>
         <small title={quest.updated_at ? formatDateTime(quest.updated_at) : undefined}>
           {quest.updated_at ? timeAgo(quest.updated_at) : quest.id}
         </small>
       </header>
 
-      <div className="quest-detail-context ideas-workspace-section quest-detail-settings">
-        <h2>Quest</h2>
-        <dl className="quest-detail-meta">
-          <DetailRow label="Status">
+      <div className="role-inspector-body">
+        {idea && (
+          <PropertyGroup title="Idea" defaultOpen>
+            <ReadOnlyRow label="Scope">
+              <span className="role-inspector-meta">{SCOPE_LABEL[scope] ?? scope}</span>
+            </ReadOnlyRow>
+            <ReadOnlyRow label="Type">
+              <span className="role-inspector-meta">Quest</span>
+            </ReadOnlyRow>
+            <CopyableRow
+              label="Idea ID"
+              title={compactAddress(idea.id)}
+              copied={copiedField === "ideaId"}
+              onCopy={() => copy(idea.id, "ideaId")}
+            />
+            <div className="role-inspector-field-block">
+              <span className="role-inspector-row-label">Tags</span>
+              <div className="role-inspector-field-body">
+                <TagsEditor
+                  tags={idea.tags ?? []}
+                  typed={idea.tags ?? []}
+                  suggestions={tagSuggestions}
+                  onAdd={onTagAdd}
+                  onRemove={onTagRemove}
+                />
+              </div>
+            </div>
+            <div className="role-inspector-field-block">
+              <span className="role-inspector-row-label">References</span>
+              <div className="role-inspector-field-body">
+                <IdeaLinksPanel ideaId={idea.id} agentId={quest.agent_id ?? ""} />
+              </div>
+            </div>
+          </PropertyGroup>
+        )}
+
+        <PropertyGroup title="Quest" defaultOpen>
+          <ControlRow label="Status">
             <QuestStatusPopover
               status={status}
               onChange={onStatusChange}
               open={statusOpen}
               onOpenChange={onStatusOpenChange}
             />
-          </DetailRow>
-          <DetailRow label="Assignee">
+          </ControlRow>
+          <ControlRow label="Assignee">
             <AssigneePicker
               assignee={assignee}
               agents={agents}
@@ -170,115 +226,126 @@ export default function QuestDetailSummary({
                 </Button>
               )}
             />
-          </DetailRow>
-          <DetailRow label="Priority">
+          </ControlRow>
+          <ControlRow label="Priority">
             <QuestPriorityPopover
               priority={priority}
               onChange={onPriorityChange}
               open={priorityOpen}
               onOpenChange={onPriorityOpenChange}
             />
-          </DetailRow>
-          <DetailRow label="Due">
+          </ControlRow>
+          <ControlRow label="Due">
             <QuestDueDatePopover
               due_at={dueAt}
               onChange={onDueChange}
               open={dueOpen}
               onOpenChange={onDueOpenChange}
             />
-          </DetailRow>
+          </ControlRow>
           {childQuests.length > 0 && (
-            <DetailRow label="Progress">
-              {doneChildren}/{childQuests.length} done
-            </DetailRow>
+            <ReadOnlyRow label="Progress">
+              <span className="role-inspector-meta">
+                {doneChildren}/{childQuests.length} done
+              </span>
+            </ReadOnlyRow>
           )}
-        </dl>
-      </div>
+        </PropertyGroup>
 
-      <div className="quest-detail-context ideas-workspace-section ideas-workspace-scope">
-        <h2>Access</h2>
-        <div className="ideas-workspace-scope-options" role="radiogroup" aria-label="Quest access">
-          {SCOPE_PICKER_VALUES.map((value) => (
-            <button
-              key={value}
-              type="button"
-              role="radio"
-              aria-checked={scope === value}
-              title={SCOPE_HINT[value]}
-              className={`ideas-workspace-scope-option${scope === value ? " active" : ""}`}
-              onClick={() => onScopeChange(value)}
+        <PropertyGroup title="Access" defaultOpen>
+          <div className="quest-detail-scope-picker">
+            <div
+              className="ideas-workspace-scope-options"
+              role="radiogroup"
+              aria-label="Quest access"
             >
-              <span className={`scope-dot scope-dot--${value}`} aria-hidden />
-              <span>{SCOPE_LABEL[value]}</span>
-            </button>
-          ))}
-        </div>
-        <p>{accessDescription(scope)}</p>
+              {SCOPE_PICKER_VALUES.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={scope === value}
+                  title={SCOPE_HINT[value]}
+                  className={`ideas-workspace-scope-option${scope === value ? " active" : ""}`}
+                  onClick={() => onScopeChange(value)}
+                >
+                  <span className={`scope-dot scope-dot--${value}`} aria-hidden />
+                  <span>{SCOPE_LABEL[value]}</span>
+                </button>
+              ))}
+            </div>
+            <p>{accessDescription(scope)}</p>
+          </div>
+        </PropertyGroup>
+
+        <PropertyGroup title="Work">
+          <CopyableRow
+            label="Quest ID"
+            title={compactAddress(quest.id)}
+            copied={copiedField === "questId"}
+            onCopy={() => copy(quest.id, "questId")}
+          />
+          <ReadOnlyRow label="Status">
+            <span className="role-inspector-meta">
+              <StatusDot status={status} />
+              {STATUS_LABEL[status]}
+            </span>
+          </ReadOnlyRow>
+          <ReadOnlyRow label="Priority">
+            <span className="role-inspector-meta">
+              <PriorityIcon priority={priority} />
+              {PRIORITY_LABEL[priority]}
+            </span>
+          </ReadOnlyRow>
+          <ReadOnlyRow label="Due">
+            <span title={dueAt ? formatDateTime(dueAt) : undefined}>{due}</span>
+          </ReadOnlyRow>
+          <ReadOnlyRow label="Kind">
+            <span className="role-inspector-meta">{formatKind(quest.kind)}</span>
+          </ReadOnlyRow>
+          {quest.project && (
+            <ReadOnlyRow label="Project">
+              <span className="role-inspector-meta">{quest.project}</span>
+            </ReadOnlyRow>
+          )}
+          {sharedCount > 0 && (
+            <ReadOnlyRow label="Shared">
+              <span className="role-inspector-meta">{sharedCount + 1} quests</span>
+            </ReadOnlyRow>
+          )}
+          {quest.depends_on?.length ? (
+            <ReadOnlyRow label="Depends">
+              <span className="role-inspector-meta">{quest.depends_on.join(", ")}</span>
+            </ReadOnlyRow>
+          ) : null}
+          {quest.worktree_branch && (
+            <ReadOnlyRow label="Branch">
+              <span className="role-inspector-meta">{quest.worktree_branch}</span>
+            </ReadOnlyRow>
+          )}
+          {quest.outcome?.summary && (
+            <ReadOnlyRow label="Outcome">
+              <span className="role-inspector-meta">{quest.outcome.summary}</span>
+            </ReadOnlyRow>
+          )}
+          {quest.created_at && (
+            <ReadOnlyRow label="Created">
+              <span title={formatDateTime(quest.created_at)}>{timeAgo(quest.created_at)}</span>
+            </ReadOnlyRow>
+          )}
+          {quest.updated_at && (
+            <ReadOnlyRow label="Updated">
+              <span title={formatDateTime(quest.updated_at)}>{timeAgo(quest.updated_at)}</span>
+            </ReadOnlyRow>
+          )}
+        </PropertyGroup>
+
+        {idea && (
+          <PropertyGroup title="Activity">
+            <IdeaActivityFeed ideaId={idea.id} refreshKey={activityRefreshKey} limit={4} />
+          </PropertyGroup>
+        )}
       </div>
-
-      {idea && (
-        <>
-          <div className="quest-detail-context ideas-workspace-section ideas-workspace-tags">
-            <h2>Tags</h2>
-            <TagsEditor
-              tags={idea.tags ?? []}
-              typed={idea.tags ?? []}
-              suggestions={tagSuggestions}
-              onAdd={onTagAdd}
-              onRemove={onTagRemove}
-            />
-          </div>
-          <div className="quest-detail-context ideas-workspace-section ideas-workspace-refs">
-            <h2>References</h2>
-            <IdeaLinksPanel ideaId={idea.id} agentId={quest.agent_id ?? ""} />
-          </div>
-          <div className="quest-detail-context ideas-workspace-section ideas-workspace-activity">
-            <h2>Activity</h2>
-            <IdeaActivityFeed ideaId={idea.id} refreshKey={activityRefreshKey} limit={6} />
-          </div>
-        </>
-      )}
-
-      {(sharedCount > 0 || quest.depends_on?.length || quest.worktree_branch || quest.outcome) && (
-        <section className="quest-detail-context ideas-workspace-section">
-          <h2>Linked work</h2>
-          {sharedCount > 0 && <p>Shared spec with {sharedCount + 1} tracked quests.</p>}
-          {quest.depends_on?.length ? <p>Depends on {quest.depends_on.join(", ")}</p> : null}
-          {quest.worktree_branch && <p>Branch: {quest.worktree_branch}</p>}
-          {quest.outcome?.summary && <p>Outcome: {quest.outcome.summary}</p>}
-        </section>
-      )}
-
-      <dl className="quest-detail-meta ideas-workspace-meta">
-        <DetailRow label="ID">{quest.id}</DetailRow>
-        <DetailRow label="Status">
-          <span className="quest-detail-value">
-            <StatusDot status={status} />
-            {STATUS_LABEL[status]}
-          </span>
-        </DetailRow>
-        <DetailRow label="Priority">
-          <span className="quest-detail-value">
-            <PriorityIcon priority={priority} />
-            {PRIORITY_LABEL[priority]}
-          </span>
-        </DetailRow>
-        <DetailRow label="Due">
-          <span title={dueAt ? formatDateTime(dueAt) : undefined}>{due}</span>
-        </DetailRow>
-        <DetailRow label="Kind">{formatKind(quest.kind)}</DetailRow>
-        {quest.project && <DetailRow label="Project">{quest.project}</DetailRow>}
-        {quest.created_at && (
-          <DetailRow label="Created">
-            <span title={formatDateTime(quest.created_at)}>{timeAgo(quest.created_at)}</span>
-          </DetailRow>
-        )}
-        {quest.updated_at && (
-          <DetailRow label="Updated">
-            <span title={formatDateTime(quest.updated_at)}>{timeAgo(quest.updated_at)}</span>
-          </DetailRow>
-        )}
-      </dl>
     </aside>
   );
 }
