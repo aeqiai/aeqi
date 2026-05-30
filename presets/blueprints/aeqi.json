@@ -63,6 +63,9 @@
               "Working style",
               "Company shape",
               "Baseline package index",
+              "General operating intelligence",
+              "AEQI self-management package",
+              "Runtime event orchestration package",
               "Agent team design guide",
               "Chief of Staff brief",
               "Founder Associate brief",
@@ -73,7 +76,7 @@
         {
           "tool": "ideas.search",
           "args": {
-            "query": "director brief operating snapshot decisions active quests website brief operating rules company shape baseline packages agent team chief of staff founder associate",
+            "query": "director brief operating snapshot decisions active quests website brief operating rules company shape baseline packages runtime events self management agent team chief of staff founder associate",
             "top_k": 8,
             "tags": ["identity", "priorities", "decision", "evergreen"]
           }
@@ -123,6 +126,7 @@
               "Capture rule",
               "Operating loop",
               "Baseline package index",
+              "General operating intelligence",
               "Operating snapshot"
             ]
           }
@@ -130,7 +134,7 @@
         {
           "tool": "ideas.search",
           "args": {
-            "query": "current request related ideas quests roles agents events decisions baseline package team pattern",
+            "query": "current request related ideas quests roles agents events decisions baseline package runtime event self management team pattern",
             "top_k": 6,
             "tags": ["procedure", "decision", "priorities", "evergreen"]
           }
@@ -151,6 +155,7 @@
               "Operating snapshot",
               "Company shape",
               "Agent team design guide",
+              "Runtime event orchestration package",
               "Chief of Staff brief",
               "Operating loop"
             ]
@@ -159,7 +164,7 @@
         {
           "tool": "ideas.search",
           "args": {
-            "query": "quest context related decisions requirements constraints completion test role ownership package team topology",
+            "query": "quest context related decisions requirements constraints completion test role ownership package team topology runtime events self management",
             "top_k": 8,
             "tags": ["identity", "procedure", "decision", "priorities"]
           }
@@ -366,8 +371,26 @@
     {
       "owner": "default",
       "name": "Baseline package index",
-      "content": "Baseline packages are reusable starting points for recurring company work. Start with the Director's brief, then choose a package only when the work is likely to repeat or needs multiple specialist lenses. Current baseline package cards: Agent team design, Deep research, Software delivery, Content campaign, and Data operations. If none fits, keep the first quest custom and record what a future package should contain.",
+      "content": "Baseline packages are reusable starting points for recurring company work. Start with the Director's brief, then choose a package only when the work is likely to repeat or needs multiple specialist lenses. Current baseline package cards: AEQI self-management, Runtime event orchestration, Agent team design, UI orchestration, Deep research, Software delivery, Content campaign, and Data operations. If none fits, keep the first quest custom and record what a future package should contain.",
       "tags": ["procedure", "blueprint", "package", "agents", "evergreen"]
+    },
+    {
+      "owner": "default",
+      "name": "General operating intelligence",
+      "content": "Smart agents improve the operating state around the answer. Before expanding a plan, name the outcome, owner, constraints, and evidence of done. Use ideas for durable context, quests for follow-through, events for repeated context or rituals, roles for responsibility, and agents for recurring work. Prefer evidence over confidence: tests, screenshots, source links, logs, diffs, activity rows, and explicit acceptance checks. After useful work, ask what became reusable and store only what future agents can use.",
+      "tags": ["principle", "meta", "reasoning", "evergreen"]
+    },
+    {
+      "owner": "default",
+      "name": "AEQI self-management package",
+      "content": "Use this package when the company needs to get better at operating itself in aeqi. Default shape: Operating Lead, Memory Steward, Event Steward, Tool Steward, and Evidence Reviewer. Seed an operating snapshot, decision log, idea hygiene policy, quest completion standard, runtime event map, tool/grant policy, and review cadence. First quests: audit current primitives, update the snapshot, disable noisy events, set the first review cadence, and store the first reusable operating lesson.",
+      "tags": ["aeqi", "operations", "blueprint", "package", "ideas", "events", "evergreen"]
+    },
+    {
+      "owner": "default",
+      "name": "Runtime event orchestration package",
+      "content": "Use this package when context loading, review, recovery, or cadence should happen automatically. Good event shapes: `session:start` for identity and standing rules, `session:execution_start` for recent decisions and active work, `session:step_start` for tool procedures, `session:quest_start` for requirements, `session:quest_end` for reflection, `session:quest_result` for follow-up search, cron schedules for agreed reviews, and middleware signals for loops, guardrails, command failures, or context budget pressure. Prefer inspectable context-loading before side effects.",
+      "tags": ["events", "runtime", "blueprint", "package", "automation", "evergreen"]
     },
     {
       "owner": "default",
@@ -398,6 +421,12 @@
       "name": "Data operations package",
       "content": "Use this package when the company ingests, transforms, validates, or reports data repeatedly. Default shape: Data Lead, Schema Designer, Pipeline Builder, Validation Engineer, and Monitor Operator. Seed data contract, schema change policy, validation rubric, and incident log. First quests: define the data contract, build the first pipeline slice, add checks and monitor, run a dry run or backfill, and document the recovery path.",
       "tags": ["data", "operations", "blueprint", "package", "agents", "evergreen"]
+    },
+    {
+      "owner": "default",
+      "name": "UI orchestration package",
+      "content": "Use this package when the company repeatedly designs, audits, or ships UI. Default shape: Product Lead, Interaction Designer, Design-System Steward, Implementer, and Visual QA Reviewer. Seed a surface brief, component reuse map, visual QA checklist, copy policy, and evidence policy. First quests: write the surface brief, inventory existing patterns, implement the smallest complete workflow, run visual QA on key viewports, and store reusable decisions as ideas.",
+      "tags": ["ui", "product", "blueprint", "package", "agents", "evergreen"]
     },
     {
       "owner": "default",
@@ -459,8 +488,16 @@
       "key": "baseline_package",
       "parent": "setup_first_company",
       "subject": "Choose the first baseline package",
-      "description": "Map the Director's brief against the Baseline package index. If the work is recurring or needs multiple specialist lenses, pick a starting package such as Deep research, Software delivery, Content campaign, or Data operations, then record the choice and assumptions in the Operating snapshot. If no package fits, keep the first quest custom and note what package would be useful later.",
+      "description": "Map the Director's brief against the Baseline package index. If the work is recurring, needs multiple specialist lenses, or needs stronger self-management, pick a starting package such as AEQI self-management, Runtime event orchestration, UI orchestration, Deep research, Software delivery, Content campaign, or Data operations. Record the choice and assumptions in the Operating snapshot. If no package fits, keep the first quest custom and note what package would be useful later.",
       "labels": ["onboarding", "blueprint", "packages", "agents"]
+    },
+    {
+      "owner": "default",
+      "key": "self_management_loop",
+      "parent": "setup_first_company",
+      "subject": "Teach the company to manage itself",
+      "description": "Decide which ideas, quests, events, roles, and tool policies should keep the company coherent after the first setup. Update the Operating snapshot, store one durable self-management rule, and decide whether a runtime event should load context, run review, or stay disabled until the Director wants a cadence.",
+      "labels": ["onboarding", "ideas", "events", "operations"]
     },
     {
       "owner": "default",

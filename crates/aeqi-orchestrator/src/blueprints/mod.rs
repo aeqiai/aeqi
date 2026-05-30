@@ -273,8 +273,8 @@ mod tests {
         assert_eq!(default.seed_agents.len(), 1);
         assert!(default.agent_template_refs.is_empty());
         assert_eq!(default.seed_events.len(), 9);
-        assert_eq!(default.seed_ideas.len(), 19);
-        assert_eq!(default.seed_quests.len(), 9);
+        assert_eq!(default.seed_ideas.len(), 23);
+        assert_eq!(default.seed_quests.len(), 10);
     }
 
     #[test]
@@ -348,7 +348,11 @@ mod tests {
         }
         for idea_name in [
             "Baseline package index",
+            "General operating intelligence",
+            "AEQI self-management package",
+            "Runtime event orchestration package",
             "Agent team design guide",
+            "UI orchestration package",
             "Deep research package",
             "Software delivery package",
             "Content campaign package",
@@ -366,6 +370,14 @@ mod tests {
                 .any(|quest| quest.key.as_deref() == Some("baseline_package")
                     && quest.subject == "Choose the first baseline package"),
             "default blueprint should ask the Director to choose or skip a baseline package",
+        );
+        assert!(
+            default
+                .seed_quests
+                .iter()
+                .any(|quest| quest.key.as_deref() == Some("self_management_loop")
+                    && quest.subject == "Teach the company to manage itself"),
+            "default blueprint should include a self-management onboarding quest",
         );
         let public_website = default
             .seed_quests

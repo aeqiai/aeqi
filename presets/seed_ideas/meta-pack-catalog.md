@@ -22,7 +22,7 @@ Updated: 2026-05-30
 - `meta:consolidator-template` — per-tag threshold consolidation (exactly
   one item out per firing).
 
-## Skill (7)
+## Skill (9)
 
 - `create-idea` — store tagged knowledge.
 - `create-quest` — convert actionable work to a quest with a worktree.
@@ -32,6 +32,10 @@ Updated: 2026-05-30
 - `manage-tools` — allow/deny scope merging.
 - `design-agent-team` — choose an agent-team topology and translate it
   into roles, agents, ideas, quests, and events.
+- `manage-agent-self` — keep an agent's ideas, quests, events, identity,
+  and review loop coherent over time.
+- `orchestrate-runtime-events` — design lifecycle, schedule, middleware,
+  and review events without surprise automation.
 
 ## Ritual (2 markdown templates + runtime-seeded lifecycle events)
 
@@ -52,7 +56,7 @@ Runtime-seeded (by `seed_lifecycle_events`, not markdown — 8 lifecycle +
 - 2 memory-stack events: `on_reflect_after_quest`,
   `on_inject_recent_context`.
 
-## Principle (2)
+## Principle (3)
 
 - `meta:behavior-principles` — four decision heuristics (think first,
   minimum sufficient, surgical scope, define done). Karpathy-inspired,
@@ -62,6 +66,8 @@ Runtime-seeded (by `seed_lifecycle_events`, not markdown — 8 lifecycle +
   one per common drift (hidden assumptions, multiple interpretations,
   over-abstraction, speculative features, drive-by refactoring,
   reproduce-before-fix). Cite-able from reflections.
+- `meta:general-operating-intelligence` — outcome orientation, state
+  preservation, evidence, inspectable structure, and post-work learning.
 
 Outstanding candidate principle imports: Zettelkasten atomic-notes rule.
 
@@ -72,17 +78,21 @@ Outstanding candidate principle imports: Zettelkasten atomic-notes rule.
 
 ## Pack infrastructure (5, meta)
 
-- `meta:content-taxonomy` — 5 category map.
+- `meta:content-taxonomy` — 6 category map.
 - `meta:evaluation-criteria` — import checklist.
 - `meta:pack-catalog` — this file.
 - `meta:placeholder-providers` — TOML registry for custom idea assembly
   placeholders.
 - `meta:mcp-servers` — TOML registry for opt-in MCP server bootstrap.
 
-## Agent-team baseline packages (5)
+## Agent-team baseline packages (7)
 
 - `meta:pack:agent-team-baselines` — package index for harness-style
   team topologies translated into aeqi primitives.
+- `meta:pack:aeqi-operations` — coherent operation of ideas, quests,
+  roles, agents, tools, events, reviews, and evidence.
+- `meta:pack:ui-orchestration` — product/UI surface briefs, component
+  reuse, implementation, visual QA, and shipped evidence.
 - `meta:pack:deep-research` — fan-out/fan-in research lanes plus
   synthesis and evidence review.
 - `meta:pack:software-delivery` — implementation pipeline, targeted

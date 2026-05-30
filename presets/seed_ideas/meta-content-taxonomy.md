@@ -1,17 +1,17 @@
 ---
 name: meta:content-taxonomy
 tags: [meta, evergreen, pack-infrastructure]
-description: The five canonical categories for seeded ideas in aeqi. Every incoming idea (internal authored or external imported) maps to exactly one.
+description: The six canonical categories for seeded ideas in aeqi. Every incoming idea (internal authored or external imported) maps to exactly one.
 ---
 
 # Content Taxonomy
 
-Every seeded idea in aeqi's pack falls into exactly one of five categories.
+Every seeded idea in aeqi's pack falls into exactly one of six categories.
 When absorbing an external source, first map each piece of their content
 onto these categories. If something doesn't fit cleanly, it's a signal we
 need a new category — raise it, don't force-fit.
 
-## The five
+## The six
 
 ### 1. Identity — who the agent IS
 
@@ -53,6 +53,16 @@ Value statements that shape judgment in ambiguous cases. Tagged `meta`,
 Examples: [future] `meta:behavior-principles`, [future]
 `meta:reflection-principles`.
 
+### 6. Package — what the agent can INSTALL AS A STARTER KIT
+
+Reusable bundles of roles, agents, ideas, quests, events, rubrics, and
+evidence policies. Tagged `meta`, `pack-infrastructure`, and domain tags.
+Packages are not automatically installed everywhere; they are catalog cards
+that a blueprint, Director, or operating agent can choose from.
+
+Examples: `meta:pack:aeqi-operations`, `meta:pack:software-delivery`,
+`meta:pack:ui-orchestration`.
+
 ## Decision flow when importing
 
 For each chunk of external content:
@@ -64,7 +74,9 @@ For each chunk of external content:
 4. Does it describe something that should fire automatically? → **ritual**
    (event).
 5. Does it express a value/rule for judgment? → **principle**.
-6. Does it fit none cleanly? → stop, flag to operator, maybe new category.
+6. Does it describe a reusable starter kit with roles, agents, ideas,
+   quests, events, and evidence? → **package**.
+7. Does it fit none cleanly? → stop, flag to operator, maybe new category.
 
 ## Boundary cases that trip this
 
@@ -75,7 +87,9 @@ For each chunk of external content:
   → **identity** on a specialist agent, not a persona template.
 - A "ritual" that's really a one-off ("run this check before launch")
   → neither — it's a quest. Rituals repeat.
+- A "package" that's only a tool reference → **skill** or integration
+  pack documentation, not an agent-team package.
 
-When in doubt, the five-category test is a ranking, not a partition: if a
+When in doubt, the six-category test is a ranking, not a partition: if a
 piece of content feels half-skill half-principle, it's a principle with an
 example — author the principle, link the example, don't clone into both.

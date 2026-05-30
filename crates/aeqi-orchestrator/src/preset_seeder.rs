@@ -401,6 +401,8 @@ mod tests {
             "evolve-identity",
             "manage-tools",
             "design-agent-team",
+            "manage-agent-self",
+            "orchestrate-runtime-events",
         ];
         // Baseline packages that teach fresh installs how to translate
         // recurring workflows into aeqi-native role / agent / quest /
@@ -413,6 +415,8 @@ mod tests {
             "meta:pack:software-delivery",
             "meta:pack:content-campaign",
             "meta:pack:data-operations",
+            "meta:pack:aeqi-operations",
+            "meta:pack:ui-orchestration",
         ];
         // Pack-infrastructure meta-ideas — the rulebook for future
         // external imports. Added in β. Queried by future authors to
@@ -437,7 +441,11 @@ mod tests {
         // cite-able from reflections when an agent catches itself
         // drifting. If either goes missing, agents lose their
         // self-correction handle silently — this assertion catches it.
-        const REQUIRED_PRINCIPLES: &[&str] = &["meta:behavior-principles", "meta:coding-examples"];
+        const REQUIRED_PRINCIPLES: &[&str] = &[
+            "meta:behavior-principles",
+            "meta:coding-examples",
+            "meta:general-operating-intelligence",
+        ];
 
         let (_tmp, store) = setup_store().await;
 
