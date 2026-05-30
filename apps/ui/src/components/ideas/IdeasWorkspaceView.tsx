@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState, type CSSProperties } from "react";
-import { ChevronRight, FileText, Plus } from "lucide-react";
+import { ChevronRight, FileText, PanelRightClose, PanelRightOpen, Plus } from "lucide-react";
 import * as ideasApi from "@/api/ideas";
 import { ImportMenu } from "@/components/blueprints/ImportMenu";
 import { blockTreeToPlainText } from "@/components/editor/blockEditorContent";
@@ -8,7 +8,7 @@ import { useNav } from "@/hooks/useNav";
 import { asStringArray, parseFrontmatter } from "@/lib/frontmatter";
 import type { Idea, ScopeValue } from "@/lib/types";
 import { useAgentIdeasCache } from "@/queries/ideas";
-import { Badge, Button, Icon, Tooltip, Loading } from "../ui";
+import { Badge, Button, Icon, IconButton, Tooltip, Loading } from "../ui";
 import IdeaWorkspaceInspector from "./IdeaWorkspaceInspector";
 import IdeasToolbar from "./IdeasToolbar";
 import type { IdeasView } from "./IdeasViewPopover";
@@ -95,6 +95,7 @@ export default function IdeasWorkspaceView({
   const [canCommit, setCanCommit] = useState(false);
   const [inspectorBusy, setInspectorBusy] = useState(false);
   const [inspectorError, setInspectorError] = useState<string | null>(null);
+  const [detailsCollapsed, setDetailsCollapsed] = useState(false);
   const searchActive = filter.search.trim() !== "";
   const activeIdea = composing ? undefined : (selectedIdea ?? rootIdea ?? undefined);
   const activeParentId = composing ? composeParentId : (activeIdea?.id ?? rootIdea?.id ?? null);
@@ -307,7 +308,9 @@ export default function IdeasWorkspaceView({
   );
 
   return (
-    <div className="ideas-workspace">
+    <div
+      className={`ideas-workspace${detailsCollapsed ? " ideas-workspace--details-collapsed" : ""}`}
+    >
       <header className="ideas-workspace-head">
         <h1>Ideas</h1>
         <IdeasToolbar
@@ -348,9 +351,9 @@ export default function IdeasWorkspaceView({
         </div>
       )}
       <div className="ideas-workspace-layout">
-        <aside className="ideas-workspace-tree" aria-label={`${trustName} idea tree`}>
+        <aside className="ideas-workspace-tree" aria-label={`${trustName} idea explorer`}>
           <div className="ideas-workspace-tree-head">
-            <span>Workspace</span>
+            <span>Explorer</span>
             <small>{Math.max(0, ideas.length - (rootIdea ? 1 : 0))} ideas</small>
           </div>
           {wikiStructure && (
@@ -448,7 +451,7 @@ export default function IdeasWorkspaceView({
           )}
         </aside>
 
-        <main className="ideas-workspace-document" aria-label="Idea document">
+        <main className="ideas-workspace-document" aria-label="Idea">
           {preparingRoot ? (
             <div className="ideas-workspace-loading ideas-workspace-loading--document">
               <Loading size="md" />
@@ -466,9 +469,55 @@ export default function IdeasWorkspaceView({
               onPersisted={onSelect}
               embedded
               hideMetaStrip
+              contentHeaderSlot={
+                <div className="ideas-workspace-document-head">
+                  <div className="ideas-workspace-document-title">Idea</div>
+                  <div className="ideas-workspace-document-actions">
+                    {canvasDirty && (
+                      <>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={handleCancel}
+                          disabled={inspectorBusy}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="primary"
+                          size="sm"
+                          onClick={() => void handleSave()}
+                          disabled={!canCommit}
+                          loading={inspectorBusy}
+                        >
+                          Save
+                        </Button>
+                      </>
+                    )}
+                    <Tooltip content={detailsCollapsed ? "Show details" : "Hide details"} portal>
+                      <IconButton
+                        variant="bordered"
+                        size="md"
+                        className="ideas-workspace-document-toggle"
+                        aria-label={detailsCollapsed ? "Show details" : "Hide details"}
+                        onClick={() => setDetailsCollapsed((collapsed) => !collapsed)}
+                      >
+                        {detailsCollapsed ? (
+                          <PanelRightOpen size={13} strokeWidth={1.7} />
+                        ) : (
+                          <PanelRightClose size={13} strokeWidth={1.7} />
+                        )}
+                      </IconButton>
+                    </Tooltip>
+                  </div>
+                </div>
+              }
               composeScope={composeScope}
               onDirtyChange={setCanvasDirty}
               onCanCommitChange={setCanCommit}
+              conversationActivity="combined"
             />
           ) : (
             <div className="empty-state-hero muted">
@@ -479,57 +528,59 @@ export default function IdeasWorkspaceView({
           )}
         </main>
 
-        <aside className="ideas-workspace-inspector" aria-label="Idea details">
-          {activeIdea || composing ? (
-            <IdeaWorkspaceInspector
-              idea={activeIdea}
-              agentId={agentId}
-              scopedEntity={trustId}
-              composing={composing}
-              childCount={activeIdea ? descendantCount(activeIdea.id, ideas) : 0}
-              scope={activeScope}
-              tagSuggestions={tagSuggestions}
-              dirty={canvasDirty}
-              canCommit={canCommit}
-              busy={inspectorBusy}
-              error={inspectorError}
-              canTrack={Boolean(activeIdea && !rootSelected)}
-              canDelete={Boolean(activeIdea && activeIdea.id !== rootIdea?.id)}
-              scopeLocked={rootSelected}
-              importMenu={
-                <ImportMenu
-                  trustId={trustId}
-                  parts={["ideas"]}
-                  blueprintTitle="Import child ideas from a Blueprint"
-                  accept="*/*"
-                  fileLabel="From files"
-                  onMarkdownPicked={(files) => void handleFileImport(files)}
-                  onBlueprintSpawned={() => void invalidateIdeas()}
-                />
-              }
-              onScopeChange={(next) => void handleScopeChange(next)}
-              onTagAdd={(tag) => {
-                if (!activeIdea) return;
-                const key = tag.toLowerCase();
-                if ((activeIdea.tags ?? []).some((item) => item.toLowerCase() === key)) return;
-                void persistTags([...(activeIdea.tags ?? []), key]);
-              }}
-              onTagRemove={(tag) => {
-                if (!activeIdea) return;
-                void persistTags((activeIdea.tags ?? []).filter((item) => item !== tag));
-              }}
-              onTrackAsQuest={handleTrackAsQuest}
-              onDelete={() => void handleDelete()}
-              onSave={() => void handleSave()}
-              onCancel={handleCancel}
-            />
-          ) : (
-            <div className="ideas-workspace-inspector-empty">
-              <strong>{composing ? "New idea" : trustName}</strong>
-              <span>{composing ? "Save it to attach it to the tree." : "Select an idea."}</span>
-            </div>
-          )}
-        </aside>
+        {!detailsCollapsed && (
+          <aside className="ideas-workspace-inspector" aria-label="Details">
+            {activeIdea || composing ? (
+              <IdeaWorkspaceInspector
+                idea={activeIdea}
+                agentId={agentId}
+                scopedEntity={trustId}
+                composing={composing}
+                childCount={activeIdea ? descendantCount(activeIdea.id, ideas) : 0}
+                scope={activeScope}
+                tagSuggestions={tagSuggestions}
+                dirty={canvasDirty}
+                canCommit={canCommit}
+                busy={inspectorBusy}
+                error={inspectorError}
+                canTrack={Boolean(activeIdea && !rootSelected)}
+                canDelete={Boolean(activeIdea && activeIdea.id !== rootIdea?.id)}
+                scopeLocked={rootSelected}
+                importMenu={
+                  <ImportMenu
+                    trustId={trustId}
+                    parts={["ideas"]}
+                    blueprintTitle="Import child ideas from a Blueprint"
+                    accept="*/*"
+                    fileLabel="From files"
+                    onMarkdownPicked={(files) => void handleFileImport(files)}
+                    onBlueprintSpawned={() => void invalidateIdeas()}
+                  />
+                }
+                onScopeChange={(next) => void handleScopeChange(next)}
+                onTagAdd={(tag) => {
+                  if (!activeIdea) return;
+                  const key = tag.toLowerCase();
+                  if ((activeIdea.tags ?? []).some((item) => item.toLowerCase() === key)) return;
+                  void persistTags([...(activeIdea.tags ?? []), key]);
+                }}
+                onTagRemove={(tag) => {
+                  if (!activeIdea) return;
+                  void persistTags((activeIdea.tags ?? []).filter((item) => item !== tag));
+                }}
+                onTrackAsQuest={handleTrackAsQuest}
+                onDelete={() => void handleDelete()}
+                onSave={() => void handleSave()}
+                onCancel={handleCancel}
+              />
+            ) : (
+              <div className="ideas-workspace-inspector-empty">
+                <strong>{composing ? "New idea" : trustName}</strong>
+                <span>{composing ? "Save it to attach it to the tree." : "Select an idea."}</span>
+              </div>
+            )}
+          </aside>
+        )}
       </div>
     </div>
   );

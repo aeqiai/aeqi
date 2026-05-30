@@ -4938,12 +4938,16 @@
 
 .ideas-workspace-layout {
   display: grid;
-  grid-template-columns: 244px minmax(0, 1fr) 256px;
-  gap: 12px;
+  grid-template-columns: 280px minmax(0, 1fr) 320px;
+  gap: 0;
   flex: 1;
   min-height: 0;
   padding: 12px 20px 20px;
   overflow: hidden;
+}
+
+.ideas-workspace--details-collapsed .ideas-workspace-layout {
+  grid-template-columns: 280px minmax(0, 1fr);
 }
 
 .ideas-workspace-tree,
@@ -4953,9 +4957,17 @@
   min-height: 0;
   flex-direction: column;
   overflow: hidden;
-  background: var(--color-card-subtle, var(--bg-surface));
-  border: 1px solid var(--border-subtle, var(--border-faint));
-  border-radius: var(--radius-md);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+.ideas-workspace-tree {
+  border-right: 1px solid var(--border-subtle, var(--border-faint));
+}
+
+.ideas-workspace-inspector {
+  box-shadow: inset 1px 0 0 var(--border-subtle, var(--border-faint));
 }
 
 .ideas-workspace-tree-head,
@@ -4965,7 +4977,7 @@
   justify-content: space-between;
   gap: 10px;
   padding: 12px 12px 10px;
-  border-bottom: 1px solid var(--border-subtle, var(--border-faint));
+  border-bottom: 0;
   color: var(--color-text-primary);
   font-family: var(--font-sans);
   font-size: 12px;
@@ -4985,10 +4997,9 @@
 
 .ideas-workspace-structure {
   display: grid;
-  gap: 8px;
-  padding: 10px 10px 11px;
-  border-bottom: 1px solid var(--border-subtle, var(--border-faint));
-  background: var(--bg-row);
+  gap: 7px;
+  padding: 4px 10px 10px;
+  background: transparent;
 }
 
 .ideas-workspace-structure-status {
@@ -5012,12 +5023,12 @@
 .ideas-workspace-structure-metrics {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1px;
+  gap: 4px;
   margin: 0;
   overflow: hidden;
-  border: 1px solid var(--border-faint);
-  border-radius: var(--radius-sm);
-  background: var(--border-faint);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .ideas-workspace-structure-metrics div {
@@ -5025,7 +5036,9 @@
   min-width: 0;
   gap: 1px;
   padding: 6px 5px;
-  background: var(--color-card);
+  background: var(--bg-row);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-sm);
 }
 
 .ideas-workspace-structure-metrics dt,
@@ -5069,7 +5082,7 @@
   gap: 5px;
   padding: 0 8px;
   color: var(--color-text-secondary);
-  background: var(--color-card);
+  background: transparent;
   border: 1px solid var(--border-subtle, var(--border-faint));
   border-radius: 999px;
   cursor: pointer;
@@ -5177,8 +5190,8 @@
 .ideas-workspace-tree-item:focus-visible,
 .ideas-workspace-tree-row[aria-selected="true"] .ideas-workspace-tree-item {
   color: var(--color-text-primary);
-  background: var(--color-card);
-  border-color: var(--border-subtle, var(--border-faint));
+  background: var(--bg-row);
+  border-color: transparent;
   outline: none;
 }
 
@@ -5204,9 +5217,9 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background: var(--color-card);
-  border: 1px solid var(--border-subtle, var(--border-faint));
-  border-radius: var(--radius-md);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   box-shadow: none;
 }
 
@@ -5215,7 +5228,11 @@
 }
 
 .ideas-workspace-document .ideas-canvas-frame {
+  gap: 12px;
+  justify-content: space-between;
   margin: 0;
+  min-height: 100%;
+  padding-bottom: 16px;
 }
 
 .ideas-workspace-document .ideas-canvas-paper {
@@ -5227,15 +5244,124 @@
 }
 
 .ideas-workspace-document .ideas-canvas-content {
-  --ideas-canvas-editor-gutter: 42px;
-  --ideas-canvas-editor-gutter-end: 8px;
-  width: min(100%, 900px);
-  margin: 0 auto;
-  padding: 30px 30px 42px;
+  --ideas-canvas-editor-gutter: 36px;
+  --ideas-canvas-editor-gutter-end: 6px;
+  flex: 0 0 auto;
+  width: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 12px 0 16px;
+}
+
+.ideas-workspace-document-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  min-height: var(--detail-control-h, 32px);
+  margin: 0 0 8px;
+  padding: 0 24px;
+}
+
+.ideas-workspace-document-title {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ideas-workspace-document-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.ideas-workspace-document-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--toolbar-control-h, 32px);
+  height: var(--toolbar-control-h, 32px);
+  padding: 0;
+  color: var(--color-text-primary);
+  background: var(--input-bg, var(--bg-base));
+  border: 1px solid var(--input-border, var(--border));
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.ideas-workspace-document-toggle:hover,
+.ideas-workspace-document-toggle:focus-visible {
+  color: var(--color-text-title);
+  background: var(--bg-row);
+  border-color: var(--input-border-focus, var(--border-hover));
+  outline: none;
+}
+
+.ideas-workspace-document .ideas-canvas-title,
+.ideas-workspace-document .ideas-canvas-content > .ideas-canvas-body,
+.ideas-workspace-document .ideas-canvas-content > .ideas-canvas-body-rendered {
+  width: min(calc(100% - 48px), 868px);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.ideas-workspace-document .ideas-canvas-content > .ideas-canvas-body,
+.ideas-workspace-document .ideas-canvas-content > .ideas-canvas-body-rendered {
+  flex: 0 0 auto;
+  min-height: 150px;
 }
 
 .ideas-workspace-document .ideas-canvas-title {
-  font-size: 30px;
+  font-size: clamp(26px, 2vw, 31px);
+}
+
+.ideas-workspace-document .idea-convo-root {
+  padding: 0 24px 12px;
+}
+
+.ideas-workspace-document .idea-convo-card {
+  width: min(100%, 760px);
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 16px 0 16px;
+  border: 0;
+  border-top: 1px solid var(--border-subtle, var(--border-faint));
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.ideas-workspace-document .idea-convo-card--activity-combined {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ideas-workspace-document .idea-convo-card--activity-combined > .idea-convo-panel {
+  width: 100%;
+}
+
+.ideas-workspace-document .idea-convo-title {
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0;
+  line-height: 1.2;
+  text-transform: none;
+}
+
+.ideas-workspace-document .idea-convo-subscribe-btn {
+  height: 30px;
+  padding: 0 12px;
 }
 
 .ideas-workspace-inspector {
@@ -5381,7 +5507,7 @@
 
 @media (max-width: 1180px) {
   .ideas-workspace-layout {
-    grid-template-columns: 220px minmax(0, 1fr);
+    grid-template-columns: 260px minmax(0, 1fr);
     overflow-y: auto;
   }
 
@@ -5407,6 +5533,8 @@
   .ideas-workspace-tree {
     min-height: 260px;
     max-height: 260px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border-subtle, var(--border-faint));
   }
 
   .ideas-workspace-document {
