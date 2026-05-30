@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use serde_json::Value;
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -17,6 +18,7 @@ pub(crate) async fn cmd_work(config_path: &Option<PathBuf>, action: WorkAction) 
             no_worktree,
             no_claim,
             dry_run,
+            caller_user_id,
             top_k,
         } => {
             let opts = WorkStartOptions {
@@ -28,6 +30,7 @@ pub(crate) async fn cmd_work(config_path: &Option<PathBuf>, action: WorkAction) 
                 no_worktree,
                 no_claim,
                 dry_run,
+                caller_user_id,
                 top_k,
             };
             cmd_work_start(config_path, opts).await
@@ -44,6 +47,7 @@ struct WorkStartOptions {
     no_worktree: bool,
     no_claim: bool,
     dry_run: bool,
+    caller_user_id: Option<String>,
     top_k: usize,
 }
 
@@ -87,8 +91,18 @@ async fn cmd_work_start(config_path: &Option<PathBuf>, opts: WorkStartOptions) -
         .and_then(Value::as_str)
         .or_else(|| quest.get("body").and_then(Value::as_str))
         .unwrap_or("");
+    let caller_user_id = opts
+        .caller_user_id
+        .clone()
+        .or_else(|| std::env::var("AEQI_USER_ID").ok());
+    validate_claim_inputs(
+        quest,
+        opts.no_claim,
+        opts.dry_run,
+        caller_user_id.as_deref(),
+    )?;
     let idea_query = build_context_query(title, body);
-    let graph_query = title;
+    let graph_query = build_graph_query(title);
 
     println!("Work start: {}", opts.quest_id);
     println!("  title: {title}");
@@ -106,7 +120,7 @@ async fn cmd_work_start(config_path: &Option<PathBuf>, opts: WorkStartOptions) -
     println!();
 
     print_related_ideas(config_path, &idea_query, opts.top_k).await?;
-    print_graph_hints(&config, &opts.root, graph_query, opts.top_k)?;
+    print_graph_hints(&config, &opts.root, &graph_query, opts.top_k)?;
     print_worktree_step(
         &repo_path,
         &worktree_path,
@@ -122,6 +136,7 @@ async fn cmd_work_start(config_path: &Option<PathBuf>, opts: WorkStartOptions) -
         worktree_branch: &branch,
         worktree_path: &worktree_path,
         record_worktree: !opts.no_worktree,
+        caller_user_id: caller_user_id.as_deref(),
         no_claim: opts.no_claim,
         dry_run: opts.dry_run,
     };
@@ -292,6 +307,31 @@ fn build_context_query(title: &str, body: &str) -> String {
         .join(" ")
 }
 
+fn build_graph_query(title: &str) -> String {
+    const STOP_WORDS: &[&str] = &[
+        "a", "an", "and", "for", "from", "in", "into", "of", "on", "or", "the", "to", "with",
+        "workflow",
+    ];
+    let query = title
+        .split(|ch: char| !ch.is_ascii_alphanumeric() && ch != '_')
+        .filter_map(|part| {
+            let word = part.trim().trim_matches('-').to_ascii_lowercase();
+            if word.len() < 2 || STOP_WORDS.contains(&word.as_str()) {
+                None
+            } else {
+                Some(word)
+            }
+        })
+        .take(12)
+        .collect::<Vec<_>>()
+        .join(" ");
+    if query.is_empty() {
+        title.to_string()
+    } else {
+        query
+    }
+}
+
 fn select_worktree_path(
     quest_id: &str,
     explicit: Option<&Path>,
@@ -395,12 +435,13 @@ fn print_graph_hints(
     let nodes = store
         .search_nodes(query, top_k.saturating_mul(4).max(top_k))?
         .into_iter()
-        .filter(|node| !node.file_path.starts_with("tmp/"))
+        .filter(|node| is_repo_owned_graph_path(&node.file_path))
         .take(top_k)
         .collect::<Vec<_>>();
     if nodes.is_empty() {
         println!("  none");
     } else {
+        print_likely_files(&nodes);
         for node in nodes {
             println!(
                 "  - {} {} at {}:{}",
@@ -409,10 +450,65 @@ fn print_graph_hints(
                 node.file_path,
                 node.start_line
             );
+            if let Ok(context) = store.context(&node.id) {
+                println!(
+                    "    context: callers={} callees={} implementors={} edges in/out={}/{}",
+                    context.callers.len(),
+                    context.callees.len(),
+                    context.implementors.len(),
+                    context.incoming_count,
+                    context.outgoing_count
+                );
+            }
+            if let Ok(impact) = store.impact(&[node.id.as_str()], 2) {
+                let impacted = impact
+                    .iter()
+                    .filter(|entry| is_repo_owned_graph_path(&entry.node.file_path))
+                    .map(|entry| entry.node.file_path.as_str())
+                    .take(5)
+                    .collect::<Vec<_>>();
+                if !impacted.is_empty() {
+                    println!("    impact files: {}", impacted.join(", "));
+                }
+            }
         }
     }
     println!();
     Ok(())
+}
+
+fn print_likely_files(nodes: &[aeqi_graph::CodeNode]) {
+    let mut counts = BTreeMap::<&str, usize>::new();
+    for node in nodes {
+        *counts.entry(node.file_path.as_str()).or_default() += 1;
+    }
+    let mut ranked = counts.into_iter().collect::<Vec<_>>();
+    ranked.sort_by(|(left_file, left_count), (right_file, right_count)| {
+        right_count
+            .cmp(left_count)
+            .then_with(|| left_file.cmp(right_file))
+    });
+    let files = ranked
+        .into_iter()
+        .take(5)
+        .map(|(file, count)| {
+            if count > 1 {
+                format!("{file} ({count})")
+            } else {
+                file.to_string()
+            }
+        })
+        .collect::<Vec<_>>();
+    if !files.is_empty() {
+        println!("  likely files: {}", files.join(", "));
+    }
+}
+
+fn is_repo_owned_graph_path(file_path: &str) -> bool {
+    !file_path.starts_with("tmp/")
+        && !file_path.contains("/dist-storybook/")
+        && !file_path.contains("/node_modules/")
+        && !file_path.ends_with(".map")
 }
 
 fn print_worktree_step(
@@ -489,6 +585,7 @@ struct QuestClaim<'a> {
     worktree_branch: &'a str,
     worktree_path: &'a Path,
     record_worktree: bool,
+    caller_user_id: Option<&'a str>,
     no_claim: bool,
     dry_run: bool,
 }
@@ -533,6 +630,14 @@ async fn print_claim_step(config_path: &Option<PathBuf>, claim: QuestClaim<'_>) 
             Value::String(claim.worktree_path.to_string_lossy().into_owned()),
         );
     }
+    if let Some(caller_user_id) = claim.caller_user_id
+        && let Some(obj) = request.as_object_mut()
+    {
+        obj.insert(
+            "caller_user_id".to_string(),
+            Value::String(caller_user_id.to_string()),
+        );
+    }
 
     let response = daemon_ipc_request(config_path, &request)
         .await
@@ -540,6 +645,31 @@ async fn print_claim_step(config_path: &Option<PathBuf>, claim: QuestClaim<'_>) 
     ensure_ok(&response, "update_quest")?;
     println!("  marked in_progress");
     println!();
+    Ok(())
+}
+
+fn validate_claim_inputs(
+    quest: &Value,
+    no_claim: bool,
+    dry_run: bool,
+    caller_user_id: Option<&str>,
+) -> Result<()> {
+    if no_claim || dry_run {
+        return Ok(());
+    }
+    let status = string_field(quest, "status", "unknown");
+    if status == "done" || status == "cancelled" {
+        anyhow::bail!("cannot claim a {status} quest");
+    }
+    let has_assignee = quest
+        .get("assignee")
+        .and_then(Value::as_str)
+        .is_some_and(|value| !value.trim().is_empty());
+    if !has_assignee && caller_user_id.is_none() {
+        anyhow::bail!(
+            "claim requires --caller-user-id or AEQI_USER_ID when the quest has no assignee"
+        );
+    }
     Ok(())
 }
 
@@ -737,5 +867,27 @@ mod tests {
             query,
             "Quest title body with extra whitespace and enough words to keep this readable"
         );
+    }
+
+    #[test]
+    fn graph_query_drops_stop_words_and_keeps_domain_terms() {
+        assert_eq!(
+            build_graph_query("AEQI Workflow: quest-to-codegraph handoff"),
+            "aeqi quest codegraph handoff"
+        );
+    }
+
+    #[test]
+    fn claim_validation_requires_principal_for_unassigned_quest() {
+        let quest = serde_json::json!({
+            "status": "todo",
+            "assignee": null,
+        });
+
+        let err = validate_claim_inputs(&quest, false, false, None).unwrap_err();
+        assert!(err.to_string().contains("--caller-user-id"));
+        validate_claim_inputs(&quest, false, false, Some("user-1")).unwrap();
+        validate_claim_inputs(&quest, true, false, None).unwrap();
+        validate_claim_inputs(&quest, false, true, None).unwrap();
     }
 }

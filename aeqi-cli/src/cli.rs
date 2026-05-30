@@ -352,6 +352,9 @@ pub enum WorkAction {
         /// Print the plan without mutating quest state or git worktrees.
         #[arg(long)]
         dry_run: bool,
+        /// User id to bind as the caller when claiming the quest. Defaults to AEQI_USER_ID.
+        #[arg(long)]
+        caller_user_id: Option<String>,
         /// Number of related ideas and graph hits to print.
         #[arg(long, default_value_t = 5)]
         top_k: usize,
