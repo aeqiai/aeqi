@@ -128,6 +128,21 @@ fn catalog() -> Vec<IntegrationCatalogEntry> {
             per_agent: true,
             coming_soon: false,
         },
+        IntegrationCatalogEntry {
+            provider: "wecom",
+            name: "callback_app",
+            label: "WeCom",
+            description: "Enterprise WeChat messaging for trust-owned companies: encrypted callbacks, direct and group replies, media, and proactive sends through a self-built WeCom app.",
+            lifecycle_kind: "service_account_callback",
+            auth_url: None,
+            token_url: None,
+            revoke_url: None,
+            oauth_scopes: vec![],
+            client_id_env: None,
+            client_secret_env: None,
+            per_agent: false,
+            coming_soon: true,
+        },
     ]
 }
 
@@ -963,6 +978,18 @@ mod tests {
         let github = entries.iter().find(|e| e.provider == "github").unwrap();
         assert_eq!(github.name, "installation_token");
         assert!(!github.coming_soon);
+    }
+
+    #[test]
+    fn catalog_includes_wecom_as_planned_callback_pack() {
+        let entries = catalog();
+        let wecom = entries.iter().find(|e| e.provider == "wecom").unwrap();
+        assert_eq!(wecom.name, "callback_app");
+        assert_eq!(wecom.lifecycle_kind, "service_account_callback");
+        assert!(wecom.coming_soon);
+        assert!(!wecom.per_agent);
+        assert!(wecom.auth_url.is_none());
+        assert!(wecom.oauth_scopes.is_empty());
     }
 
     #[test]

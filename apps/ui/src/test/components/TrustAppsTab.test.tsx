@@ -32,6 +32,10 @@ describe("TrustAppsTab", () => {
       ok: true,
       connected: true,
     } as never);
+    vi.spyOn(integrationsApi, "getTrustEtsyStatus").mockResolvedValue({
+      ok: true,
+      connected: false,
+    } as never);
     vi.spyOn(api, "getTrustEmailMessages").mockResolvedValue({ ok: true, messages: [] } as never);
     vi.spyOn(api, "getTrustWebsiteAnalytics").mockResolvedValue({
       ok: true,
@@ -111,6 +115,11 @@ describe("TrustAppsTab", () => {
     expect(screen.getByRole("button", { name: "Reconnect" })).toBeInTheDocument();
     expect(screen.getByText("Gmail")).toBeInTheDocument();
     expect(screen.getByText("Calendar")).toBeInTheDocument();
+    expect(screen.getByText("WeCom")).toBeInTheDocument();
+    expect(
+      screen.getByText("Enterprise WeChat messaging for trust-owned company channels."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Planned")).toBeInTheDocument();
     expect(screen.getAllByText("Gateway").length).toBeGreaterThan(0);
     expect(screen.queryByText("Chats")).not.toBeInTheDocument();
   });

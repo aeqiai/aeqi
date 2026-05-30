@@ -40,6 +40,14 @@ export default function TrustIntegrationCreateModal({
           onClick={onEtsy}
         />
         <ProviderAction
+          icon={<MessageCircle size={18} strokeWidth={1.5} />}
+          title="WeCom"
+          subtitle="Enterprise WeChat callbacks for company-owned channels."
+          action="Planned"
+          disabled
+          onClick={() => undefined}
+        />
+        <ProviderAction
           icon={<CreditCard size={18} strokeWidth={1.5} />}
           title="Stripe"
           subtitle="Manage billing, checkout, and customer portal."
@@ -76,6 +84,7 @@ export default function TrustIntegrationCreateModal({
 
 function ProviderAction({
   action,
+  disabled,
   icon,
   loading,
   onClick,
@@ -83,6 +92,7 @@ function ProviderAction({
   title,
 }: {
   action: string;
+  disabled?: boolean;
   icon: ReactNode;
   loading?: boolean;
   onClick: () => void;
@@ -90,7 +100,11 @@ function ProviderAction({
   title: string;
 }) {
   return (
-    <CardTrigger className="trust-apps-provider-row" onClick={onClick} disabled={loading}>
+    <CardTrigger
+      className="trust-apps-provider-row"
+      onClick={onClick}
+      disabled={disabled || loading}
+    >
       <span className="trust-apps-provider-icon" aria-hidden>
         {icon}
       </span>

@@ -160,6 +160,7 @@ export default function TrustAppsTab({
   const etsyConnected = etsyStatus.data?.connected === true;
   const workspaceServices = GOOGLE_WORKSPACE_APPS.length;
   const commerceApps = 1;
+  const messagingApps = 1;
   const gatewaysPath = `${basePath}/gateways`;
   const channelApps = summaries.filter((summary) => summary.entry.category === "channel");
   const billingApps = summaries.filter((summary) => summary.entry.category === "billing");
@@ -253,6 +254,24 @@ export default function TrustAppsTab({
       onAction: () => void startEtsyIntegration("etsy-shop"),
       detail: ["Shop discovery", "Listings", "Orders", "Draft listings"],
     },
+    {
+      id: "wecom",
+      name: "WeCom",
+      category: "Messaging",
+      summary: "Enterprise WeChat messaging for trust-owned company channels.",
+      connected: false,
+      statusLabel: "Planned",
+      icon: <AppLogo kind="wecom" icon={<MessageCircle size={18} strokeWidth={1.5} />} />,
+      meta: [
+        { label: "Mode", value: "Callback" },
+        { label: "Scope", value: "Trust" },
+        { label: "Access", value: "Roles" },
+      ],
+      actionLabel: "Coming soon",
+      actionDisabled: true,
+      onAction: () => undefined,
+      detail: ["Self-built app", "Encrypted callbacks", "Direct and group replies", "Media"],
+    },
     ...billingApps.map(
       (summary): IntegrationItem => ({
         id: summary.entry.kind,
@@ -309,7 +328,11 @@ export default function TrustAppsTab({
         ? emailIdentities.length
         : surface === "websites"
           ? trustDomains.length
-          : workspaceServices + commerceApps + channelApps.length + billingApps.length;
+          : workspaceServices +
+            commerceApps +
+            messagingApps +
+            channelApps.length +
+            billingApps.length;
   const headerTitle = (
     <span className="trust-primitive-page-title">
       <span className="trust-primitive-page-title-text">{pageTitle}</span>
@@ -339,7 +362,7 @@ export default function TrustAppsTab({
             ? "Loading integration status"
             : `${formatInteger(workspaceServices)} workspace apps · ${formatInteger(
                 commerceApps,
-              )} commerce app · ${formatInteger(
+              )} commerce app · ${formatInteger(messagingApps)} messaging app · ${formatInteger(
                 installed.enabledChannels,
               )} gateway endpoints · ${formatInteger(
                 trustAgents.length,
@@ -520,7 +543,7 @@ export default function TrustAppsTab({
 type IntegrationItem = {
   id: string;
   name: string;
-  category: "Workspace" | "Commerce" | "Billing" | "Gateway";
+  category: "Workspace" | "Commerce" | "Messaging" | "Billing" | "Gateway";
   summary: string;
   connected: boolean;
   statusLabel: string;
@@ -528,6 +551,7 @@ type IntegrationItem = {
   meta: Array<{ label: string; value: string }>;
   actionLabel: string;
   onAction: () => void;
+  actionDisabled?: boolean;
   detail: string[];
 };
 
@@ -536,7 +560,7 @@ function AppLogo({
   kind,
 }: {
   icon: ReactNode;
-  kind: WorkspaceAppKind | TrustAppKind | "etsy";
+  kind: WorkspaceAppKind | TrustAppKind | "etsy" | "wecom";
 }) {
   return (
     <span className="trust-app-logo" data-app={kind} aria-hidden>
@@ -551,6 +575,8 @@ function IntegrationDetail({ connecting, item }: { connecting: boolean; item: In
       <CreditCard size={14} strokeWidth={1.5} />
     ) : item.category === "Gateway" ? (
       <Smartphone size={14} strokeWidth={1.5} />
+    ) : item.category === "Messaging" ? (
+      <MessageCircle size={14} strokeWidth={1.5} />
     ) : item.category === "Commerce" ? (
       <ShoppingBag size={14} strokeWidth={1.5} />
     ) : (
@@ -597,6 +623,7 @@ function IntegrationDetail({ connecting, item }: { connecting: boolean; item: In
           size="md"
           onClick={item.onAction}
           loading={connecting}
+          disabled={item.actionDisabled}
           leadingIcon={actionIcon}
         >
           {item.actionLabel}
