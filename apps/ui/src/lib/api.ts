@@ -6,6 +6,9 @@ import type {
   AgentEvent,
   AgentTemplate,
   Blueprint,
+  CapTableEntry,
+  EntityView,
+  EntityViewUpsert,
   EventInvocationRow,
   Idea,
   InferenceCallRow,
@@ -303,6 +306,28 @@ export const api = {
       edges: r.edges,
     };
   },
+
+  getCapTable: (trustId: string) =>
+    request<{ ok: boolean; trust_id: string; entries: CapTableEntry[] }>(
+      `/trusts/${encodeURIComponent(trustId)}/cap-table`,
+      { scopedEntity: trustId },
+    ),
+
+  getTrustViews: (trustId: string) =>
+    request<{ ok: boolean; trust_id: string; views: EntityView[] }>(
+      `/trusts/${encodeURIComponent(trustId)}/views`,
+      { scopedEntity: trustId },
+    ),
+
+  upsertTrustViews: (trustId: string, views: EntityViewUpsert[]) =>
+    request<{ ok: boolean; trust_id: string; views: EntityView[] }>(
+      `/trusts/${encodeURIComponent(trustId)}/views`,
+      {
+        method: "PUT",
+        scopedEntity: trustId,
+        body: JSON.stringify({ views }),
+      },
+    ),
 
   getRole: (roleId: string) =>
     request<{ ok: boolean; role: Role }>(`/roles/${encodeURIComponent(roleId)}`),

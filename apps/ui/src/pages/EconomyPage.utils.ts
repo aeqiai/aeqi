@@ -1,4 +1,4 @@
-import type { Role, RoleType, Trust } from "@/lib/types";
+import type { CapTableEntry, Role, RoleType, Trust } from "@/lib/types";
 
 export type EconomyTab = "overview" | "trusts" | "pools" | "funding" | "roles";
 
@@ -62,6 +62,20 @@ export interface EconomyPoolSearchRow {
 export interface EconomyRoleSearchRow {
   trust: Trust;
   role: Pick<Role, "id" | "title" | "role_type">;
+}
+
+export interface EconomyCapTableSearchRow {
+  trust: Trust;
+  entry: Pick<
+    CapTableEntry,
+    | "allocation_key"
+    | "holder_kind"
+    | "holder_id"
+    | "security_type"
+    | "basis_points"
+    | "vesting_months"
+    | "cliff_months"
+  >;
 }
 
 export const ECONOMY_TABS: Array<{ id: EconomyTab; label: string }> = [
@@ -128,6 +142,27 @@ export function matchesPoolQuery(row: EconomyPoolSearchRow, query: string): bool
       row.quoteMint,
       row.buyAmount,
       row.maxCost,
+    ],
+    query,
+  );
+}
+
+export function matchesCapTableQuery(row: EconomyCapTableSearchRow, query: string): boolean {
+  if (!query) return true;
+  return includesQuery(
+    [
+      row.trust.name,
+      row.trust.tagline,
+      row.trust.id,
+      row.trust.trust_id,
+      row.trust.trust_address,
+      row.entry.allocation_key,
+      row.entry.holder_kind,
+      row.entry.holder_id,
+      row.entry.security_type,
+      row.entry.basis_points,
+      row.entry.vesting_months,
+      row.entry.cliff_months,
     ],
     query,
   );

@@ -5,7 +5,7 @@ import { countBlueprintStructures } from "@/lib/blueprintStructures";
 import type { LaunchPlan, LaunchPlanId } from "@/lib/pricing";
 import { LAUNCH_PLANS } from "@/lib/pricing";
 import type { SingleBlueprint as Blueprint } from "@/lib/types";
-import { LaunchShell } from "./LaunchShell";
+import { LaunchShell, type LaunchPitchContent } from "./LaunchShell";
 
 type OperationsChoice = "free" | "paid" | "sandbox";
 
@@ -77,7 +77,7 @@ function NameSection({
   nameError,
   onTrustNameChange,
 }: Pick<TrustSetupFlowProps, "trustName" | "nameHint" | "nameError" | "onTrustNameChange">) {
-  const launchSteps = ["Name", "Blueprint", "Runtime"];
+  const launchSteps = ["Name", "Blueprint", "Operations"];
 
   return (
     <section className="launch-form-step launch-form-step--name" aria-labelledby="launch-title">
@@ -85,11 +85,11 @@ function NameSection({
         <div className="launch-form-step-head">
           <p className="launch-kicker">TRUST launch</p>
           <h1 id="launch-title" className="auth-heading">
-            Launch a working TRUST.
+            Launch your TRUST.
           </h1>
           <p className="auth-subheading">
-            Create the company container: identity, roles, agents, quests, memory, and runtime
-            capacity.
+            Name the workspace, confirm the blueprint, and choose whether to add hosted operations
+            now.
           </p>
           <ol className="launch-sequence" aria-label="Launch sequence">
             {launchSteps.map((step, index) => (
@@ -120,7 +120,10 @@ function NameSection({
 function BlueprintSection({
   blueprint,
   blueprintPath,
-}: Pick<TrustSetupFlowProps, "blueprint" | "blueprintPath">) {
+  operations,
+}: Pick<TrustSetupFlowProps, "blueprint" | "blueprintPath" | "operations">) {
+  const freeOperations = operations === "free";
+
   return (
     <section className="launch-form-step" aria-labelledby="launch-blueprint-title">
       <div className="launch-form-step-body">
@@ -139,7 +142,9 @@ function BlueprintSection({
             <span className="launch-blueprint-summary-meta">{blueprintStats(blueprint)}</span>
           </span>
           <span className="launch-blueprint-summary-copy">
-            Start with your first agent, roles, quests, memory, tools, and evidence.
+            {freeOperations
+              ? "Creates a free platform TRUST with a public profile and founding Director. Blueprint agents, quests, memory, tools, and evidence activate with hosted operations."
+              : "Includes the initial roles, agents, quests, memory, tools, and evidence structure."}
           </span>
         </div>
       </div>
@@ -171,9 +176,9 @@ function OperationsSection({
   }> = [
     {
       key: "none",
-      title: "Ownership only",
+      title: "Free TRUST",
       price: "Free",
-      copy: "Launch without hosted runtime.",
+      copy: "Create a free platform TRUST with a public profile and founding Director.",
       selected: operations === "free",
       onSelect: () => onOperationsChange("free"),
     },
@@ -183,7 +188,7 @@ function OperationsSection({
             key: "sandbox",
             title: "Admin sandbox",
             price: "Admin only",
-            copy: "Internal runtime for testing launches.",
+            copy: "Provision hosted operations without checkout.",
             detail: "No Stripe checkout",
             selected: operations === "sandbox",
             onSelect: () => onOperationsChange("sandbox"),
@@ -192,9 +197,9 @@ function OperationsSection({
       : []),
     {
       key: "starter",
-      title: "Operating",
+      title: standardPlan.name,
       price: `${standardPlan.dueToday}/mo`,
-      copy: "Standard runtime for agents and workflows.",
+      copy: "Hosted operations for focused agent work.",
       selected: operations === "paid" && plan === "starter",
       onSelect: () => {
         onPlanChange("starter");
@@ -203,11 +208,11 @@ function OperationsSection({
     },
     {
       key: "growth",
-      title: "Accelerated",
+      title: proPlan.name,
       price: `${proPlan.dueToday} today`,
       secondaryPrice: `then ${proPlan.price}${proPlan.cadence}`,
-      copy: "More capacity for serious execution.",
-      detail: "4x Operating capacity",
+      copy: "Higher capacity for heavier execution.",
+      detail: "4x Standard capacity",
       selected: operations === "paid" && plan === "growth",
       onSelect: () => {
         onPlanChange("growth");
@@ -223,7 +228,10 @@ function OperationsSection({
           <h2 id="launch-operations-title" className="launch-section-title">
             Operations
           </h2>
-          <p className="launch-section-copy">Choose where this mission runtime should run.</p>
+          <p className="launch-section-copy">
+            Free creates a platform TRUST and public profile. Standard and Pro add hosted agents,
+            quests, memory, tools, and runtime capacity.
+          </p>
         </div>
 
         <div
@@ -264,6 +272,20 @@ function OperationsSection({
       </div>
     </section>
   );
+}
+
+function launchPitchForOperations(operations: OperationsChoice): LaunchPitchContent | undefined {
+  if (operations !== "free") return undefined;
+  return {
+    eyebrow: "FREE TRUST",
+    lines: ["Public", "profile", "first."],
+    lead: "Create the TRUST profile and founding Director now. Hosted agents, quests, memory, tools, and proof activate when operations are added.",
+    ledger: [
+      { label: "Identity", value: "TRUST profile, name, founder" },
+      { label: "Director", value: "Founding owner ready" },
+      { label: "Operations", value: "Available with Standard or Pro" },
+    ],
+  };
 }
 
 export function TrustSetupFlow({
@@ -315,6 +337,7 @@ export function TrustSetupFlow({
       mobileActionLabel="Back"
       mobileActionOnClick={exitHref ? handleExit : undefined}
       topSlot={exitAction}
+      pitch={launchPitchForOperations(operations)}
     >
       {submitError && (
         <div className="launch-flow-error">
@@ -335,7 +358,11 @@ export function TrustSetupFlow({
           nameError={nameError}
           onTrustNameChange={onTrustNameChange}
         />
-        <BlueprintSection blueprint={blueprint} blueprintPath={blueprintPath} />
+        <BlueprintSection
+          blueprint={blueprint}
+          blueprintPath={blueprintPath}
+          operations={operations}
+        />
         <OperationsSection
           operations={operations}
           plan={plan}
@@ -358,14 +385,14 @@ export function TrustSetupFlow({
           trailingIcon={<ArrowRight size={16} strokeWidth={1.8} />}
         >
           {operations === "paid"
-            ? `Launch TRUST — ${
+            ? `Launch with ${selectedLaunchPlan.name} - ${
                 selectedLaunchPlan.id === "growth"
                   ? `${selectedLaunchPlan.dueToday} today`
                   : `${selectedLaunchPlan.dueToday}/mo`
               }`
             : operations === "sandbox"
               ? "Launch admin sandbox"
-              : "Launch TRUST"}
+              : "Create free TRUST"}
         </Button>
       </footer>
     </LaunchShell>

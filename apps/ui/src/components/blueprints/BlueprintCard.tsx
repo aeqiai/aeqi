@@ -9,6 +9,7 @@ import type { SingleBlueprint, BlueprintTemplate } from "@/lib/types";
 interface BlueprintCardProps {
   template: SingleBlueprint;
   importTargetSuffix?: string;
+  shippedLimit?: number;
 }
 
 /** On-chain TRUST modules included by template type. */
@@ -47,9 +48,14 @@ function formatRuntimeLine(t: SingleBlueprint): string {
  * No bespoke colors. No accents. Pure typography hierarchy via design-
  * system tokens. Card surface, hover, radius from the `Card` primitive.
  */
-function BlueprintCardImpl({ template, importTargetSuffix = "" }: BlueprintCardProps) {
+function BlueprintCardImpl({
+  template,
+  importTargetSuffix = "",
+  shippedLimit,
+}: BlueprintCardProps) {
   const id = blueprintId(template);
   const isDefault = id === DEFAULT_BLUEPRINT_SLUG;
+  const isV1Shipped = shippedLimit === 1 && isDefault;
   const onchainModules = template.template ? ONCHAIN_MODULES[template.template] : null;
   const runtimeLine = formatRuntimeLine(template);
 
@@ -61,6 +67,10 @@ function BlueprintCardImpl({ template, importTargetSuffix = "" }: BlueprintCardP
       aria-label={`${template.name} blueprint${template.tagline ? ` — ${template.tagline}` : ""}`}
     >
       <Card variant="default" padding="md" interactive className="bp-card">
+        <div className="bp-card-kind-row">
+          <span className="bp-card-kind">Company package</span>
+          {isV1Shipped && <span className="bp-card-shipped">v1 shipped</span>}
+        </div>
         <h3 className="bp-card-name">
           {template.name}
           {isDefault && <span className="bp-card-default-mark"> · Default</span>}

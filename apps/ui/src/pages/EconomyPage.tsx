@@ -1,48 +1,45 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Blocks, BriefcaseBusiness, Droplets, Search } from "lucide-react";
-import TrustAvatar from "@/components/TrustAvatar";
 import PageRail from "@/components/PageRail";
 import {
   Button,
   EmptyState,
   Input,
-  MetricCard,
-  MetricGrid,
   Page,
   PageBody,
   PageHeader,
   PageSection,
   PageToolbar,
   Table,
-  type TableColumn,
 } from "@/components/ui";
 import { api } from "@/lib/api";
 import { entityBasePath, entityPath } from "@/lib/entityPath";
-import { formatMediumDate } from "@/lib/i18n";
-import type { Role, RoleType, Trust } from "@/lib/types";
+import type { Role, RoleType } from "@/lib/types";
 import { useEntitiesQuery } from "@/queries/entities";
+import { BlueprintDiscoverySection } from "./EconomyPage.blueprints";
+import { CapTableSeedSection, type CapTableSeedRow } from "./EconomyPage.capTable";
+import { EconomyMetricGrid } from "./EconomyPage.metrics";
 import {
-  BlueprintDiscoverySection,
+  CapitalReadinessSection,
   makePoolColumns,
   makeRoleColumns,
-  MetricStatus,
+  makeTrustColumns,
   PoolKindChips,
   type PoolRow,
   RegistryCard,
   type RoleOpeningRow,
   RoleTypeChips,
-  TableStatus,
   TrustDirectory,
   TrustVisibilityChips,
 } from "./EconomyPage.parts";
 import {
-  compactAddress,
   ECONOMY_TABS,
   isEconomyTab,
   isPoolKind,
   isRoleType,
   isTrustVisibilityParam,
+  matchesCapTableQuery,
   matchesPoolQuery,
   matchesRoleQuery,
   matchesTrustQuery,
@@ -54,6 +51,7 @@ import {
 import styles from "./EconomyPage.module.css";
 
 type LaunchStatus = Awaited<ReturnType<typeof api.getLaunchStatus>>;
+type CapTableStatus = Awaited<ReturnType<typeof api.getCapTable>>;
 
 interface RoleLoadState {
   roles: Role[];
@@ -65,6 +63,11 @@ interface LaunchLoadState {
   loading: boolean;
 }
 
+interface CapTableLoadState {
+  entries: CapTableStatus["entries"];
+  loading: boolean;
+}
+
 export default function EconomyPage() {
   const navigate = useNavigate();
   const { tab } = useParams<{ tab?: string }>();
@@ -72,9 +75,6 @@ export default function EconomyPage() {
   const { data: entities = [], isLoading: entitiesLoading } = useEntitiesQuery();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Search query round-trips through `?q=` so a filtered Economy view is
-  // bookmarkable / shareable. Mirrors Blueprints' `?q=` convention. Empty
-  // string means no filter.
   const search = searchParams.get("q") ?? "";
   const setSearch = useCallback(
     (next: string) => {
@@ -86,8 +86,6 @@ export default function EconomyPage() {
     [searchParams, setSearchParams],
   );
 
-  // Pool kind chip selection round-trips through `?kind=genesis|amm` so a
-  // refresh keeps the operator's scope. Missing/invalid param = "all".
   const kindParam = searchParams.get("kind");
   const poolKindFilter: PoolKindFilter = isPoolKind(kindParam) ? kindParam : "all";
   const setPoolKindFilter = useCallback(
@@ -100,9 +98,6 @@ export default function EconomyPage() {
     [searchParams, setSearchParams],
   );
 
-  // Trusts-tab visibility chip round-trips through `?public=1` so the
-  // scoped slice is bookmarkable. Maps directly to the Public TableStatus
-  // column. Missing/invalid param = "all".
   const trustVisibilityFilter: TrustVisibilityFilter = isTrustVisibilityParam(
     searchParams.get("public"),
   )
@@ -118,10 +113,6 @@ export default function EconomyPage() {
     [searchParams, setSearchParams],
   );
 
-  // Roles-tab role-type chip selection round-trips through
-  // `?role_type=owner|director|operational|advisor` so a refresh keeps the
-  // operator's scope. Mirrors the `?kind=` multi-value pattern: missing or
-  // invalid param = "all".
   const roleTypeParam = searchParams.get("role_type");
   const roleTypeFilter: RoleTypeFilter = isRoleType(roleTypeParam) ? roleTypeParam : "all";
   const setRoleTypeFilter = useCallback(
@@ -135,11 +126,13 @@ export default function EconomyPage() {
   );
   const [roleState, setRoleState] = useState<Record<string, RoleLoadState>>({});
   const [launchState, setLaunchState] = useState<Record<string, LaunchLoadState>>({});
+  const [capTableState, setCapTableState] = useState<Record<string, CapTableLoadState>>({});
 
   useEffect(() => {
     if (entities.length === 0) {
       setRoleState({});
       setLaunchState({});
+      setCapTableState({});
       return;
     }
 
@@ -155,6 +148,13 @@ export default function EconomyPage() {
       const next = { ...current };
       for (const entity of entities) {
         if (!next[entity.id]) next[entity.id] = { status: null, loading: true };
+      }
+      return next;
+    });
+    setCapTableState((current) => {
+      const next = { ...current };
+      for (const entity of entities) {
+        if (!next[entity.id]) next[entity.id] = { entries: [], loading: true };
       }
       return next;
     });
@@ -174,6 +174,23 @@ export default function EconomyPage() {
           setRoleState((current) => ({
             ...current,
             [entity.id]: { roles: [], loading: false },
+          }));
+        });
+
+      void api
+        .getCapTable(entity.id)
+        .then((resp) => {
+          if (cancelled) return;
+          setCapTableState((current) => ({
+            ...current,
+            [entity.id]: { entries: resp.entries ?? [], loading: false },
+          }));
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setCapTableState((current) => ({
+            ...current,
+            [entity.id]: { entries: [], loading: false },
           }));
         });
 
@@ -205,9 +222,6 @@ export default function EconomyPage() {
     () => entities.filter((entity) => matchesTrustQuery(entity, normalizedSearch)),
     [entities, normalizedSearch],
   );
-  // The visibility chip is a trusts-tab-scoped narrow on top of the search.
-  // Overview cards and the search summary keep the search-only count so the
-  // chip never silently filters surfaces it isn't visible on.
   const visibleTrustsForTab = useMemo(
     () =>
       trustVisibilityFilter === "public"
@@ -228,6 +242,23 @@ export default function EconomyPage() {
           .map((role) => ({ id: `${trust.id}:${role.id}`, trust, role })),
       ),
     [entities, roleState],
+  );
+
+  const capTableRows = useMemo<CapTableSeedRow[]>(
+    () =>
+      entities.flatMap((trust) =>
+        (capTableState[trust.id]?.entries ?? []).map((entry) => ({
+          id: `${trust.id}:${entry.id}`,
+          trust,
+          entry,
+        })),
+      ),
+    [capTableState, entities],
+  );
+
+  const visibleCapTableRows = useMemo(
+    () => capTableRows.filter((row) => matchesCapTableQuery(row, normalizedSearch)),
+    [capTableRows, normalizedSearch],
   );
 
   const poolRows = useMemo<PoolRow[]>(
@@ -251,9 +282,6 @@ export default function EconomyPage() {
     [entities, launchState],
   );
 
-  // Kinds present in the indexed pool set, stable order. Chip strip renders
-  // only when >= 1 kind is present; today this is "All | Genesis" — a
-  // no-op selector that documents the axis and is ready for AMM rows.
   const poolKindsPresent = useMemo<PoolKind[]>(
     () => (["genesis", "amm"] as PoolKind[]).filter((k) => poolRows.some((r) => r.kind === k)),
     [poolRows],
@@ -268,10 +296,6 @@ export default function EconomyPage() {
       ),
     [poolRows, normalizedSearch, poolKindFilter],
   );
-  // Role types present in the visible openings set, stable order. Chip strip
-  // renders only when >= 2 types are present — with a single type the strip
-  // is a no-op "All | <type>" toggle and the Type column dot already carries
-  // the palette, so the row collapses to remove duplicated signal.
   const roleTypesPresent = useMemo<RoleType[]>(
     () =>
       (["owner", "director", "operational", "advisor"] as RoleType[]).filter((t) =>
@@ -292,77 +316,35 @@ export default function EconomyPage() {
 
   const publicTrusts = entities.filter((entity) => entity.public);
   const onChainTrusts = entities.filter((entity) => entity.trust_address);
+  const visibleOnChainTrusts = visibleTrusts.filter((entity) => entity.trust_address);
+  const liquiditySeedGaps = useMemo(
+    () =>
+      visibleTrusts.filter((trust) => {
+        if (!trust.trust_address) return false;
+        const launch = launchState[trust.id];
+        if (launch?.loading) return false;
+        return !launch?.status?.unifutures;
+      }),
+    [launchState, visibleTrusts],
+  );
   const hasNonPublicTrust = entities.some((entity) => !entity.public);
   const hasSearch = normalizedSearch.length > 0;
   const loadingSecondaryData =
     Object.values(roleState).some((state) => state.loading) ||
-    Object.values(launchState).some((state) => state.loading);
+    Object.values(launchState).some((state) => state.loading) ||
+    Object.values(capTableState).some((state) => state.loading);
 
-  const trustColumns = useMemo<Array<TableColumn<Trust>>>(
-    () => [
-      {
-        key: "trust",
-        header: "Trust",
-        cell: (trust) => (
-          <span className={styles.trustCell}>
-            <TrustAvatar name={trust.name} size={28} />
-            <span className={styles.trustCellText}>
-              <span className={styles.trustName}>{trust.name}</span>
-              <span className={styles.trustMeta}>
-                {trust.tagline || trust.plan || "Operating trust"}
-              </span>
-            </span>
-          </span>
-        ),
-        sortable: true,
-        sortAccessor: (trust) => trust.name,
-      },
-      {
-        key: "public",
-        header: "Public",
-        cell: (trust) => (
-          <TableStatus
-            state={trust.public ? "done" : "backlog"}
-            label={trust.public ? "Public" : "Private"}
-          />
-        ),
-        width: "96px",
-        sortable: true,
-        sortAccessor: (trust) => (trust.public ? 1 : 0),
-      },
-      {
-        key: "address",
-        header: "TRUST",
-        cell: (trust) => <span className={styles.mono}>{compactAddress(trust.trust_address)}</span>,
-        width: "150px",
-      },
-      {
-        key: "roles",
-        header: "Roles",
-        cell: (trust) => roleState[trust.id]?.roles.length ?? "—",
-        width: "90px",
-        align: "end",
-        sortable: true,
-        sortAccessor: (trust) => roleState[trust.id]?.roles.length ?? 0,
-      },
-      {
-        key: "created",
-        header: "Created",
-        cell: (trust) => formatMediumDate(trust.created_at, { fallback: "Unknown" }),
-        width: "140px",
-        sortable: true,
-        sortAccessor: (trust) => trust.created_at,
-      },
-    ],
+  const trustColumns = useMemo(
+    () => makeTrustColumns((trust) => roleState[trust.id]?.roles.length),
     [roleState],
   );
 
-  const poolColumns = useMemo<Array<TableColumn<PoolRow>>>(
+  const poolColumns = useMemo(
     () => makePoolColumns((row) => navigate(entityPath(row.trust, "shares"))),
     [navigate],
   );
 
-  const roleColumns = useMemo<Array<TableColumn<RoleOpeningRow>>>(
+  const roleColumns = useMemo(
     () =>
       makeRoleColumns((row) =>
         navigate(`${entityBasePath(row.trust)}/roles/${encodeURIComponent(row.role.id)}`),
@@ -432,75 +414,44 @@ export default function EconomyPage() {
             {hasSearch && (
               <span className={styles.searchSummary}>
                 {visibleTrusts.length} trusts / {visiblePoolRows.length} pools /{" "}
-                {visibleRoleOpenings.length} roles
+                {visibleCapTableRows.length} allocations / {visibleRoleOpenings.length} roles
               </span>
             )}
           </PageToolbar>
 
-          <MetricGrid columns={4}>
-            <MetricCard
-              label="Visible Trusts"
-              value={entitiesLoading ? "—" : entities.length}
-              detail={
-                hasSearch ? (
-                  <MetricStatus
-                    state={visibleTrusts.length > 0 ? "in_progress" : "backlog"}
-                    label={`${visibleTrusts.length} matching`}
-                  />
-                ) : publicTrusts.length > 0 ? (
-                  <MetricStatus state="done" label={`${publicTrusts.length} public`} />
-                ) : (
-                  <MetricStatus state="backlog" label="No public trusts" />
-                )
-              }
-            />
-            <MetricCard
-              label="On-Chain"
-              value={onChainTrusts.length}
-              detail={
-                onChainTrusts.length > 0 ? (
-                  <MetricStatus state="done" label="TRUST address present" />
-                ) : (
-                  <MetricStatus state="backlog" label="No TRUST address" />
-                )
-              }
-            />
-            <MetricCard
-              label="Liquidity Pools"
-              value={poolRows.length}
-              detail={
-                hasSearch ? (
-                  <MetricStatus state="in_progress" label={`${visiblePoolRows.length} matching`} />
-                ) : poolRows.length > 0 ? (
-                  <MetricStatus state="in_progress" label="Indexed genesis curves" />
-                ) : (
-                  <MetricStatus state="backlog" label="No indexed pools" />
-                )
-              }
-            />
-            <MetricCard
-              label="Open Roles"
-              value={roleOpenings.length}
-              detail={
-                hasSearch ? (
-                  <MetricStatus
-                    state={visibleRoleOpenings.length > 0 ? "in_progress" : "backlog"}
-                    label={`${visibleRoleOpenings.length} matching`}
-                  />
-                ) : roleOpenings.length > 0 ? (
-                  <MetricStatus state="in_review" label={`${allRoles.length} total roles`} />
-                ) : allRoles.length > 0 ? (
-                  <MetricStatus state="done" label="All roles filled" />
-                ) : (
-                  <MetricStatus state="backlog" label="No roles indexed" />
-                )
-              }
-            />
-          </MetricGrid>
+          <EconomyMetricGrid
+            allRoleCount={allRoles.length}
+            capTableRows={capTableRows}
+            entities={entities}
+            entitiesLoading={entitiesLoading}
+            hasSearch={hasSearch}
+            liquiditySeedGapCount={liquiditySeedGaps.length}
+            onChainTrusts={onChainTrusts}
+            publicTrusts={publicTrusts}
+            roleOpenings={roleOpenings}
+            visibleCapTableRows={visibleCapTableRows}
+            visibleRoleOpenings={visibleRoleOpenings}
+            visibleTrusts={visibleTrusts}
+          />
 
           <PageBody gap="6">
             {activeTab === "overview" && (
               <>
+                <CapitalReadinessSection
+                  loading={loadingSecondaryData}
+                  capTableRows={visibleCapTableRows}
+                  totalTrusts={visibleTrusts.length}
+                  onChainCount={visibleOnChainTrusts.length}
+                  poolCount={visiblePoolRows.length}
+                  riskTrusts={liquiditySeedGaps}
+                  onOpenPools={() => navigate("/economy/pools")}
+                  onOpenFunding={() => navigate("/economy/funding")}
+                />
+                <CapTableSeedSection
+                  hasSearch={hasSearch}
+                  loading={loadingSecondaryData}
+                  rows={visibleCapTableRows}
+                />
                 <BlueprintDiscoverySection onBrowse={() => navigate("/blueprints")} />
                 <TrustDirectory
                   trusts={visibleTrusts.slice(0, 6)}
@@ -562,7 +513,7 @@ export default function EconomyPage() {
             {activeTab === "pools" && (
               <PageSection
                 title="Liquidity pools"
-                description="Every indexed genesis curve attached to a visible trust."
+                description="Every indexed genesis curve attached to a visible trust. No row means Economy has no real seed surface to show."
               >
                 <Table
                   columns={poolColumns}
@@ -579,7 +530,7 @@ export default function EconomyPage() {
                       description={
                         hasSearch
                           ? "Try a trust name, pool address, asset mint, or quote mint."
-                          : "Pools appear here after launch status confirms a provisioned genesis curve."
+                          : "Pools appear here only after launch status confirms a provisioned genesis curve and asset mint. Until then, do not infer live liquidity or a seeded cap table from this page."
                       }
                     />
                   }
@@ -590,11 +541,11 @@ export default function EconomyPage() {
             {activeTab === "funding" && (
               <PageSection
                 title="Funding rounds"
-                description="Commitment sales, bonding curves, and exits from the funding module."
+                description="Commitment sales, bonding curves, and exits from the funding module once they are indexed."
               >
                 <EmptyState
                   title="No indexed funding rounds yet"
-                  description="The page is ready for funding-module rows; the live indexer endpoint still needs to expose funding requests."
+                  description="The live indexer endpoint still needs to expose funding requests. Economy is intentionally not making fundraising or on-chain round claims before those rows exist."
                 />
               </PageSection>
             )}

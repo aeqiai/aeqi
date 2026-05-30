@@ -12,6 +12,7 @@ import {
   type RawEvent,
   type StreamState,
   type TurnMeta,
+  type LiveParticipant,
 } from "./streamReducer";
 import type { AttachedFile } from "./useFileAttachments";
 
@@ -61,6 +62,7 @@ export function useWebSocketChat({
   const [liveSegments, setLiveSegments] = useState<MessageSegment[]>([]);
   const [thinkingStart, setThinkingStart] = useState<number | null>(null);
   const [liveStepOffset, setLiveStepOffset] = useState(0);
+  const [liveWorkers, setLiveWorkers] = useState<LiveParticipant[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const wsSessionRef = useRef<string | null>(null);
   const setSessionStreaming = useChatStore((s) => s.setSessionStreaming);
@@ -71,6 +73,7 @@ export function useWebSocketChat({
     setLiveSegments([]);
     setThinkingStart(null);
     setLiveStepOffset(0);
+    setLiveWorkers([]);
     if (wsSessionRef.current) setSessionStreaming(wsSessionRef.current, false);
     wsRef.current = null;
     wsSessionRef.current = null;
@@ -121,6 +124,7 @@ export function useWebSocketChat({
           setLiveSegments([]);
           setThinkingStart(state.thinkingStart);
           setLiveStepOffset(state.stepOffset);
+          setLiveWorkers([]);
           return;
         }
 
@@ -130,6 +134,7 @@ export function useWebSocketChat({
         const prevStart = state.thinkingStart;
         state = next;
         setLiveSegments(state.segments);
+        setLiveWorkers(state.activeParticipants);
         if (state.thinkingStart !== prevStart) setThinkingStart(state.thinkingStart);
         if (!streaming && (hasContent(state) || state.thinkingStart > 0)) {
           setStreaming(true);
@@ -223,6 +228,7 @@ export function useWebSocketChat({
       setLiveSegments([]);
       setThinkingStart(startTime);
       setLiveStepOffset(0);
+      setLiveWorkers([]);
       setSessionStreaming(sessionId, true);
 
       await ensureLiveAttached(sessionId, startTime);
@@ -280,6 +286,7 @@ export function useWebSocketChat({
 
       setStreaming(true);
       setLiveSegments([]);
+      setLiveWorkers([]);
       setSessionStreaming(sessionId, true);
       if (last?.role === "assistant" && last.draft) {
         setMessages((prev) => {
@@ -319,6 +326,7 @@ export function useWebSocketChat({
   const resetLiveSegments = useCallback(() => {
     setLiveSegments([]);
     setLiveStepOffset(0);
+    setLiveWorkers([]);
   }, []);
 
   const handleStop = useCallback((sessionIdRefCurrent: string | null) => {
@@ -332,6 +340,9 @@ export function useWebSocketChat({
   return {
     streaming,
     liveSegments,
+    liveParticipants: streaming
+      ? [{ id: agentId, name: agentName, kind: "agent" as const }, ...liveWorkers]
+      : [],
     thinkingStart,
     liveStepOffset,
     dispatchMessage,

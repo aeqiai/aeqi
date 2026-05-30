@@ -9,6 +9,7 @@ import TrustOperatingConsole from "./TrustOperatingConsole";
 import TrustActivityCard from "./TrustActivityCard";
 import TrustPublicRow from "./TrustPublicRow";
 import TrustWebsitePanel from "./TrustWebsitePanel";
+import TrustViewsWorkbench from "./TrustViewsWorkbench";
 import "@/styles/overview.css";
 
 /**
@@ -34,6 +35,7 @@ export default function TrustOverviewTab({ trustId }: { trustId: string }) {
         }
       />
       <TrustOperatingConsole trustId={trustId} basePath={basePath} />
+      <TrustViewsWorkbench trustId={trustId} />
       <TrustActivityCard trustAddress={trustAddress ?? trustId} />
       <TrustWebsitePanel trustId={trustId} />
       <div className="trust-cockpit-row">

@@ -36,10 +36,12 @@ export const CATEGORY_LABELS: Record<BlueprintCategory, string> = {
 };
 
 export const CATEGORY_DESCRIPTIONS: Record<BlueprintCategory, string> = {
-  company: "Launch an operating TRUST with roles, agents, and runtime memory.",
-  foundation: "Launch a public-good TRUST with grant and governance rails.",
-  fund: "Launch an investment TRUST with capital, holders, and governance.",
+  company: "Launch a canonical company package with roles, agents, and runtime memory.",
+  foundation: "Draft lane for public-good TRUST packages; not shipped in v1.",
+  fund: "Draft lane for investment TRUST packages; not shipped in v1.",
 };
 
 /** Set of valid category param values. */
 export const CATEGORY_VALUES = new Set<BlueprintCategory>(CATEGORY_ORDER);
+
+export const V1_SHIPPED_COMPANY_PACKAGE_COUNT = 1;

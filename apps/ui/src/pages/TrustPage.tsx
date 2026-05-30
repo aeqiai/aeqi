@@ -8,6 +8,7 @@ import TrustContextInspector from "@/components/trust/TrustContextInspector";
 import TrustContextOverview from "@/components/trust/TrustContextOverview";
 import TrustGraphZoomViewport from "@/components/trust/TrustGraphZoomViewport";
 import TrustMapEdgePath from "@/components/trust/TrustMapEdgePath";
+import TrustRegistryStrip from "@/components/trust/TrustRegistryStrip";
 import TrustRoleOptionCard from "@/components/trust/TrustRoleOptionCard";
 import {
   Button,
@@ -60,6 +61,12 @@ const ROLE_VIEW_OPTIONS: Array<{ id: TrustRoleView; label: string }> = [
   { id: "cards", label: "Cards" },
 ];
 
+function defaultTrustRoleView(): TrustRoleView {
+  if (typeof window === "undefined") return "map";
+  if (typeof window.matchMedia !== "function") return "map";
+  return window.matchMedia("(max-width: 760px)").matches ? "cards" : "map";
+}
+
 export default function TrustPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
@@ -71,7 +78,7 @@ export default function TrustPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [roleFilter, setRoleFilter] = useState<TrustRoleFilter>("all");
   const [sort, setSort] = useState<TrustRoleSort>("trust");
-  const [view, setView] = useState<TrustRoleView>("map");
+  const [view, setView] = useState<TrustRoleView>(defaultTrustRoleView);
   const controlledTrustIds = useMemo(
     () => Array.from(new Set([...(user?.roots ?? []), ...(user?.entities ?? [])])),
     [user?.entities, user?.roots],
@@ -134,6 +141,20 @@ export default function TrustPage() {
   const filterLabel =
     ROLE_FILTER_OPTIONS.find((option) => option.id === roleFilter)?.label ?? "All roles";
   const viewLabel = ROLE_VIEW_OPTIONS.find((option) => option.id === view)?.label ?? "Map";
+  const publicTrustCount = useMemo(() => trusts.filter((trust) => trust.public).length, [trusts]);
+  const unavailableTrustCount = useMemo(
+    () => bundles.filter((bundle) => bundle.unavailable).length,
+    [bundles],
+  );
+  const registryTrusts = useMemo(() => {
+    const activeId = selected?.trust.id ?? activeTrust?.id ?? null;
+    return [...trusts].sort((a, b) => {
+      if (a.id === activeId) return -1;
+      if (b.id === activeId) return 1;
+      if (a.public !== b.public) return a.public ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+  }, [activeTrust?.id, selected?.trust.id, trusts]);
 
   const handleEnter = (ctx: RoleContextOption) => {
     persistRoleContext(ctx, user?.id ?? null);
@@ -202,14 +223,38 @@ export default function TrustPage() {
 
       <TrustContextOverview
         selected={selected}
+        activeTrust={activeTrust}
         holder={selectedHolder}
         relation={selectedRelation}
         visibleCount={filteredContexts.length}
         totalCount={visibleRoleContexts.length}
+        trustCount={trusts.length}
+        publicTrustCount={publicTrustCount}
       />
 
       <main className="trust-context-workbench">
         <section className="trust-context-canvas" aria-label="TRUST role map">
+          <div className="trust-context-canvas-top">
+            <div className="trust-context-canvas-heading">
+              <span className="trust-context-canvas-kicker">Directory</span>
+              <h2>TRUSTs and role paths</h2>
+            </div>
+            <div className="trust-context-canvas-status" aria-label="TRUST directory status">
+              <span>{filteredContexts.length} visible roles</span>
+              <span>{unavailableTrustCount} unavailable</span>
+            </div>
+          </div>
+
+          <TrustRegistryStrip
+            trusts={registryTrusts}
+            activeTrustId={selected?.trust.id ?? activeTrust?.id ?? null}
+            roleContexts={roleContexts}
+            onOpen={(trust) => {
+              setActiveEntity(trust.id);
+              navigate(entityPath(trust));
+            }}
+          />
+
           {bundlesQuery.isLoading ? (
             <div className="trust-context-empty">
               <ShieldCheck size={20} strokeWidth={1.6} />

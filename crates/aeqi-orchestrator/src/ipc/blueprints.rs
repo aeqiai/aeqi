@@ -1309,6 +1309,14 @@ pub async fn handle_spawn_blueprint(
     .await
     {
         Ok(outcome) => {
+            if let Err(e) = ctx
+                .agent_registry
+                .seed_company_cap_table_defaults(&outcome.trust_id, creator_user_id.as_deref())
+                .await
+            {
+                return serde_json::json!({"ok": false, "error": e.to_string()});
+            }
+
             // Auto-create the founding Director role for the creator. Every
             // Company has exactly one founding Director (founder=1, all 6
             // grants, occupant_kind=human). This is system-invariant —

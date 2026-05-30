@@ -1,112 +1,8 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { StrictMode } from "react";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import StartPage from "@/pages/StartPage";
-import { useAgents } from "@/queries/agents";
-import { useEntities } from "@/queries/entities";
-import { useAuthStore } from "@/store/auth";
-import { useInboxStore } from "@/store/inbox";
-import { useUIStore } from "@/store/ui";
-import { api, type InboxItem } from "@/lib/api";
-import type { Agent, Role } from "@/lib/types";
-import type { Trust } from "@/lib/types";
-
-vi.mock("@/queries/agents", () => ({
-  useAgents: vi.fn(),
-}));
-
-vi.mock("@/queries/entities", () => ({
-  useEntities: vi.fn(),
-}));
-
-vi.mock("@/lib/api", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/api")>();
-  return {
-    ...actual,
-    api: {
-      ...actual.api,
-      getRoles: vi.fn(),
-    },
-  };
-});
-
-const USER = {
-  id: "user-1",
-  email: "ada@aeqi.ai",
-  name: "Ada Founder",
-  subscription_plan: "starter",
-};
-
-const ALPHA_TRUST: Trust = {
-  id: "alpha",
-  name: "Alpha Trust",
-  type: "trust",
-  status: "active",
-  created_at: "2026-05-01T00:00:00Z",
-  tagline: "Operating company",
-  public: true,
-};
-
-const BETA_TRUST: Trust = {
-  id: "beta",
-  name: "Beta Trust",
-  type: "trust",
-  status: "active",
-  created_at: "2026-05-02T00:00:00Z",
-  tagline: "Second company",
-  public: false,
-};
-
-const AWAITING_INBOX_ITEM: InboxItem = {
-  session_id: "session-review-1",
-  agent_id: "agent-1",
-  agent_name: "Janus",
-  trust_id: "alpha",
-  session_name: "Launch review",
-  awaiting_subject: "Review launch result",
-  awaiting_at: "2026-05-21T10:00:00Z",
-  last_agent_message: "The home page launch result is ready for review.",
-  last_active: "2026-05-21T10:05:00Z",
-};
-
-function makeOverflowInboxItem(index: number): InboxItem {
-  return {
-    ...AWAITING_INBOX_ITEM,
-    session_id: `session-review-${index}`,
-    session_name: `Launch review ${index}`,
-    awaiting_subject: `Review overflow ${index}`,
-    awaiting_at: `2026-05-21T10:0${index}:00Z`,
-    last_active: `2026-05-21T10:0${index}:30Z`,
-  };
-}
-
-const ALPHA_AGENT: Agent = {
-  id: "agent-alpha",
-  name: "Janus",
-  status: "running",
-  trust_id: "alpha",
-};
-
-const ALPHA_ROLE: Role = {
-  id: "role-alpha-director",
-  trust_id: "alpha",
-  title: "Director",
-  occupant_kind: "human",
-  occupant_id: "user-1",
-  occupant_name: "Ada Founder",
-  occupant_avatar_url: null,
-  description_idea_id: null,
-  role_type: "director",
-  founder: true,
-  grants: [],
-  created_at: "2026-05-01T00:00:00Z",
-  updated_at: null,
-};
-
-const initialAuthState = useAuthStore.getState();
-const initialInboxState = useInboxStore.getState();
-const initialUIState = useUIStore.getState();
 
 function LocationProbe() {
   const location = useLocation();
@@ -134,164 +30,54 @@ function renderStartPage() {
   );
 }
 
-function primeStartPage(trusts: Trust[], inboxItems: InboxItem[] = []) {
-  vi.mocked(useEntities).mockReturnValue(trusts);
-  vi.mocked(useAgents).mockReturnValue(trusts.length > 0 ? [ALPHA_AGENT] : []);
-  vi.mocked(api.getRoles).mockResolvedValue(
-    trusts.length > 0
-      ? { ok: true, roles: [ALPHA_ROLE], edges: [] }
-      : { ok: true, roles: [], edges: [] },
-  );
-  useAuthStore.setState({ user: USER } as never);
-  useUIStore.setState({ activeEntity: trusts[0]?.id ?? "" } as never);
-  useInboxStore.setState({
-    items: inboxItems,
-    loading: false,
-    error: null,
-    pendingDismissal: new Set(),
-    fetchInbox: vi.fn().mockResolvedValue(undefined),
-  });
-}
-
-function interactiveNames(container: HTMLElement) {
-  return Array.from(container.querySelectorAll<HTMLButtonElement | HTMLAnchorElement>("button, a"))
-    .map((el) => el.getAttribute("aria-label") || el.textContent || "")
-    .map((name) => name.replace(/\s+/g, " ").trim())
-    .filter(Boolean);
-}
-
-function expectNoVagueCtaLanguage(container: HTMLElement) {
-  const vagueCtas = interactiveNames(container).filter((name) =>
-    /\b(step in|step into|go|continue|manage)\b|^explore$|^view( all)?$/i.test(name),
-  );
-
-  expect(vagueCtas).toEqual([]);
-}
-
 describe("StartPage MVP surface", () => {
-  beforeEach(() => {
-    localStorage.clear();
-    vi.mocked(useEntities).mockReset();
-  });
-
   afterEach(() => {
     cleanup();
-    vi.clearAllMocks();
-    useAuthStore.setState(initialAuthState, true);
-    useInboxStore.setState(initialInboxState, true);
-    useUIStore.setState(initialUIState, true);
   });
 
-  it("supports the no-TRUST state with Launch TRUST primary and Browse Blueprints secondary", () => {
-    primeStartPage([]);
+  it("renders Home as a global product surface instead of a trust dashboard", () => {
+    renderStartPage();
 
-    const { container } = renderStartPage();
+    expect(screen.getByRole("heading", { level: 1, name: "aeqi" })).toBeInTheDocument();
+    expect(screen.getByText("Start something that can work without you.")).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /launch trust/i }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: /blueprints/i })).toBeInTheDocument();
 
-    const trustSection = screen.getByRole("region", { name: "Operating context" });
-    const primary = within(trustSection).getByRole("link", { name: /launch trust/i });
-    const secondary = within(trustSection).getByRole("link", { name: /browse blueprints/i });
+    expect(screen.queryByRole("region", { name: "Operating context" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Your TRUSTs" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "My sessions" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Active TRUST")).not.toBeInTheDocument();
+  });
 
-    expect(screen.getByRole("heading", { level: 1, name: "Welcome back" })).toBeInTheDocument();
-    expect(screen.getByText("Ada Founder")).toBeInTheDocument();
-    expect(screen.getByText("ada@aeqi.ai")).toBeInTheDocument();
+  it("keeps the two global rows focused on launch, promotion, economy, and learning", () => {
+    renderStartPage();
+
+    const startRow = screen.getByRole("region", { name: "Start with aeqi" });
+    expect(within(startRow).getByRole("heading", { name: "Launch a TRUST" })).toBeInTheDocument();
+    expect(within(startRow).getByRole("heading", { name: "First Company" })).toBeInTheDocument();
+    expect(within(startRow).getByRole("heading", { name: "Why aeqi pivoted" })).toBeInTheDocument();
+    expect(within(startRow).getByRole("link", { name: /read update/i })).toHaveAttribute(
+      "href",
+      "https://aeqi.ai/blog/why-aeqi-pivoted",
+    );
+
+    const publicRow = screen.getByRole("region", { name: "aeqi public surfaces" });
+    expect(within(publicRow).getByText("Public market surface")).toBeInTheDocument();
     expect(
-      screen.getByText(/Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday/),
+      within(publicRow).getByRole("heading", { name: "Invite the first operators" }),
     ).toBeInTheDocument();
-    expect(screen.queryByText("Operator shell")).not.toBeInTheDocument();
-    expect(screen.queryByText(/aeqi v0\.1/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /open account settings/i })).not.toBeInTheDocument();
-    expect(screen.getByText("No active TRUST")).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        /shared AI workspace for one mission: agents, quests, ideas, tools, and evidence/i,
-      ),
-    ).toBeInTheDocument();
-    expect(primary).toBeInTheDocument();
-    expect(secondary).toBeInTheDocument();
-    expect(
-      screen.getByText(/sessions that mention or include you will appear here/i),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Learn more")).toBeInTheDocument();
-    expectNoVagueCtaLanguage(container);
+    expect(within(publicRow).getByRole("link", { name: /invite someone/i })).toHaveAttribute(
+      "href",
+      expect.stringContaining("mailto:"),
+    );
+    expect(screen.getByRole("region", { name: "Learn aeqi" })).toBeInTheDocument();
+  });
 
-    fireEvent.click(primary);
+  it("routes the primary launch action to launch", () => {
+    renderStartPage();
+
+    fireEvent.click(screen.getAllByRole("link", { name: /launch trust/i })[0]);
+
     expect(screen.getByTestId("location")).toHaveTextContent("/launch");
-  });
-
-  it("shows the returning-user operating surface with active TRUST activity, user sessions, launch, and browse affordances", async () => {
-    primeStartPage([ALPHA_TRUST, BETA_TRUST], [AWAITING_INBOX_ITEM]);
-
-    const { container } = renderStartPage();
-    const trustSection = screen.getByRole("region", { name: "Operating context" });
-
-    expect(screen.getByRole("heading", { level: 1, name: "Welcome back" })).toBeInTheDocument();
-    expect(screen.queryByRole("status", { name: "Account snapshot" })).not.toBeInTheDocument();
-    expect(screen.getByText("Ada Founder")).toBeInTheDocument();
-    expect(screen.getByText("ada@aeqi.ai")).toBeInTheDocument();
-    expect(
-      screen.getByText(/Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday/),
-    ).toBeInTheDocument();
-    expect(screen.queryByText("Operator shell")).not.toBeInTheDocument();
-    expect(screen.queryByText(/aeqi v0\.1/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /open account settings/i })).not.toBeInTheDocument();
-
-    expect(
-      within(trustSection).getByRole("heading", { level: 2, name: "TRUST" }),
-    ).toBeInTheDocument();
-    expect(within(trustSection).getByText("Active TRUST")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 3, name: "Alpha Trust" })).toBeInTheDocument();
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: /Director .* Ada Founder/i })).toBeInTheDocument(),
-    );
-    expect(screen.queryByText("Quests")).not.toBeInTheDocument();
-    expect(screen.queryByText("Ideas")).not.toBeInTheDocument();
-    expect(screen.queryByText("Events")).not.toBeInTheDocument();
-    expect(screen.getByText("Agents")).toBeInTheDocument();
-    expect(screen.queryByText(/Latest activity:/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/Beta Trust/i)).toBeInTheDocument();
-
-    const yourTrusts = screen.getByRole("link", { name: /view all trusts/i });
-    const reviewSessions = screen.getByRole("link", { name: /view my sessions/i });
-    const launchTrust = screen.getByRole("link", { name: /^launch$/i });
-    const browseBlueprints = screen.getByRole("link", { name: /browse blueprints/i });
-
-    expect(yourTrusts).toBeInTheDocument();
-    expect(reviewSessions).toBeInTheDocument();
-    expect(launchTrust).toBeInTheDocument();
-    expect(browseBlueprints).toBeInTheDocument();
-    expect(reviewSessions).toHaveAttribute("href", "/trust/alpha/sessions?view=mine");
-    expect(yourTrusts).toHaveAttribute("href", "/trust");
-    expect(screen.getAllByText("View all")).toHaveLength(2);
-    expect(
-      screen.getByText(
-        /shared AI workspace for one mission: agents, quests, ideas, tools, and evidence/i,
-      ),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /open trust/i })).not.toBeInTheDocument();
-    expect(screen.getByText("Review launch result")).toBeInTheDocument();
-    expect(screen.getByText(/Awaiting reply · Janus · Alpha Trust/i)).toBeInTheDocument();
-    expect(screen.getByText("Economy")).toBeInTheDocument();
-    expect(screen.getByText(/Unlock the agent economy/i)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /explore economy/i })).toBeInTheDocument();
-    expect(screen.getByText(/Why aeqi pivoted/i)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /read docs/i })).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: /^show /i })).toHaveLength(8);
-    expectNoVagueCtaLanguage(container);
-
-    fireEvent.click(yourTrusts);
-    expect(screen.getByTestId("location")).toHaveTextContent("/trust");
-  });
-
-  it("caps the startpage inbox preview at four rows", () => {
-    primeStartPage(
-      [ALPHA_TRUST, BETA_TRUST],
-      [1, 2, 3, 4, 5].map((index) => makeOverflowInboxItem(index)),
-    );
-
-    const { container } = renderStartPage();
-
-    expect(container.querySelectorAll(".home-inbox-item")).toHaveLength(4);
-    expect(screen.getByText("Review overflow 4")).toBeInTheDocument();
-    expect(screen.queryByText("Review overflow 5")).not.toBeInTheDocument();
   });
 });

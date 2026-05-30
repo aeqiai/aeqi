@@ -333,17 +333,17 @@ export function countStepSegments(segments?: MessageSegment[]): number {
  * me check X:" that sit before another tool/step belong in the trail,
  * not below the thinking panel.
  *
- * We allow trailing `event_fire` segments to sit after the final text
- * (post-turn async events still route into the trail), but any tool,
- * step, status, file chip, or summarised-tool segment appearing after
- * a text block disqualifies that text as final.
+ * We allow trailing operational segments to sit after the final text
+ * (post-turn async events and persisted tool/file summaries still route
+ * into the trail), but a trailing step marker still disqualifies that
+ * text as final because it means the turn boundary is ambiguous.
  */
 export function splitTrailAndFinal(segments: MessageSegment[]): {
   trail: MessageSegment[];
   final: MessageSegment[];
 } {
   let end = segments.length;
-  while (end > 0 && segments[end - 1].kind === "event_fire") {
+  while (end > 0 && isTrailingOperationalSegment(segments[end - 1])) {
     end--;
   }
   // Walk backwards over the contiguous run of final content (text +
@@ -365,6 +365,16 @@ export function splitTrailAndFinal(segments: MessageSegment[]): {
   const trail = [...segments.slice(0, start), ...segments.slice(end)];
   const final = segments.slice(start, end);
   return { trail, final };
+}
+
+function isTrailingOperationalSegment(seg: MessageSegment): boolean {
+  return (
+    seg.kind === "event_fire" ||
+    seg.kind === "status" ||
+    seg.kind === "file_changed" ||
+    seg.kind === "file_deleted" ||
+    seg.kind === "tool_summarized"
+  );
 }
 
 export function trailHasFailure(segments: MessageSegment[]): boolean {

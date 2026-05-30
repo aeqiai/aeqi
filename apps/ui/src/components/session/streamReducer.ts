@@ -35,6 +35,12 @@ export interface TurnMeta {
   tokenUsage?: { prompt: number; completion: number };
 }
 
+export interface LiveParticipant {
+  id: string;
+  name: string;
+  kind: "agent" | "worker";
+}
+
 export type StreamStatus =
   | { kind: "streaming" }
   | { kind: "complete"; meta: TurnMeta }
@@ -59,6 +65,7 @@ export interface StreamState {
    */
   from_kind?: "user" | "agent" | "position" | "system" | null;
   from_id?: string | null;
+  activeParticipants: LiveParticipant[];
 }
 
 /**
@@ -86,6 +93,7 @@ export function initialStreamState(thinkingStart: number, stepOffset = 0): Strea
     stepOffset,
     from_kind: null,
     from_id: null,
+    activeParticipants: [],
   };
 }
 
@@ -127,13 +135,19 @@ export function reduceStreamEvent(state: StreamState, event: RawEvent): ReduceRe
     case "DelegateStart":
       return {
         kind: "next",
-        state: appendStatus(state, `Delegating to ${event.worker_name ?? "agent"}…`),
+        state: appendStatus(
+          upsertActiveParticipant(state, workerParticipant(event)),
+          `Delegating to ${event.worker_name ?? "agent"}…`,
+        ),
       };
     case "DelegateComplete":
       // Drop the raw `outcome` payload — it can be JSON / UUID dump.
       return {
         kind: "next",
-        state: appendStatus(state, `${event.worker_name ?? "Agent"} finished`),
+        state: appendStatus(
+          removeActiveParticipant(state, workerParticipant(event).id),
+          `${event.worker_name ?? "Agent"} finished`,
+        ),
       };
     case "FileChanged":
       return {
@@ -228,6 +242,27 @@ function appendSegment(state: StreamState, segment: MessageSegment): StreamState
 function appendStatus(state: StreamState, text: string): StreamState {
   if (isDebugStatus(text)) return state;
   return appendSegment(state, { kind: "status", text });
+}
+
+function workerParticipant(event: RawEvent): LiveParticipant {
+  const name = String(event.worker_name ?? "Agent");
+  const id = String(event.worker_id ?? event.agent_id ?? name);
+  return { id, name, kind: "worker" };
+}
+
+function upsertActiveParticipant(state: StreamState, participant: LiveParticipant): StreamState {
+  const activeParticipants = [
+    ...state.activeParticipants.filter((current) => current.id !== participant.id),
+    participant,
+  ];
+  return { ...state, activeParticipants };
+}
+
+function removeActiveParticipant(state: StreamState, participantId: string): StreamState {
+  return {
+    ...state,
+    activeParticipants: state.activeParticipants.filter((current) => current.id !== participantId),
+  };
 }
 
 /**

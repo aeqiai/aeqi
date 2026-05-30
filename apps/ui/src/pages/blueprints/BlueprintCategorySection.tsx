@@ -1,7 +1,12 @@
 import { blueprintId } from "@/lib/blueprintId";
 import type { BlueprintCategory, SingleBlueprint } from "@/lib/types";
 import { BlueprintCard } from "@/components/blueprints/BlueprintCard";
-import { CATEGORY_DESCRIPTIONS, CATEGORY_LABELS, type View } from "./constants";
+import {
+  CATEGORY_DESCRIPTIONS,
+  CATEGORY_LABELS,
+  V1_SHIPPED_COMPANY_PACKAGE_COUNT,
+  type View,
+} from "./constants";
 
 export interface BlueprintCategorySectionProps {
   category: BlueprintCategory;
@@ -47,7 +52,11 @@ export default function BlueprintCategorySection({
       </header>
 
       {isEmpty ? (
-        <div className="bp-category-empty">More archetypes coming soon.</div>
+        <div className="bp-category-empty">
+          {category === "company"
+            ? "No launchable company packages match the current filters."
+            : "Not shipped in v1. Draft archetypes stay hidden until audited."}
+        </div>
       ) : view === "list" ? (
         <ul className="bp-list" role="list">
           {blueprints.map((t) => (
@@ -64,7 +73,8 @@ export default function BlueprintCategorySection({
                 <span className="bp-list-row-name">{t.name}</span>
                 {t.tagline && <span className="bp-list-row-tagline">{t.tagline}</span>}
                 <span className="bp-list-row-counts">
-                  {t.template ?? "entity"} · {(t.seed_agents?.length ?? 0) + 1} agents
+                  Launch package · {t.template ?? "entity"} · {(t.seed_agents?.length ?? 0) + 1}{" "}
+                  agents
                 </span>
               </button>
             </li>
@@ -77,6 +87,7 @@ export default function BlueprintCategorySection({
               key={blueprintId(t)}
               template={t}
               importTargetSuffix={importTargetSuffix}
+              shippedLimit={V1_SHIPPED_COMPANY_PACKAGE_COUNT}
             />
           ))}
         </div>

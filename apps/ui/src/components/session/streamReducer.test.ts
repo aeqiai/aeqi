@@ -192,6 +192,34 @@ describe("reduceStreamEvent", () => {
     expect(result.state.thinkingStart).toBeGreaterThanOrEqual(now - 5000 - 50);
   });
 
+  it("captures sender identity from Subscribed events", () => {
+    const s = drive([
+      { type: "Subscribed", from_kind: "agent", from_id: "agent-2" },
+      { type: "TextDelta", text: "Working" },
+    ]);
+
+    expect(s.from_kind).toBe("agent");
+    expect(s.from_id).toBe("agent-2");
+    expect(s.fullText).toBe("Working");
+  });
+
+  it("tracks active delegate workers from delegate events", () => {
+    const during = drive([
+      { type: "DelegateStart", worker_name: "Researcher", worker_id: "worker-1" },
+    ]);
+
+    expect(during.activeParticipants).toEqual([
+      { id: "worker-1", name: "Researcher", kind: "worker" },
+    ]);
+
+    const after = drive([
+      { type: "DelegateStart", worker_name: "Researcher", worker_id: "worker-1" },
+      { type: "DelegateComplete", worker_name: "Researcher", worker_id: "worker-1" },
+    ]);
+
+    expect(after.activeParticipants).toEqual([]);
+  });
+
   it("transitions to complete with meta when Complete.done is true", () => {
     const s = drive([
       { type: "TextDelta", text: "hi" },

@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { ArrowUpRight, Blocks } from "lucide-react";
+import { AlertTriangle, ArrowUpRight } from "lucide-react";
 import TrustAvatar from "@/components/TrustAvatar";
 import { Button, EmptyState, Loading, PageSection, type TableColumn } from "@/components/ui";
 import { formatInteger, formatMediumDate } from "@/lib/i18n";
 import type { Role, RoleType, Trust } from "@/lib/types";
+import type { CapTableSeedRow } from "./EconomyPage.capTable";
 import {
   compactAddress,
   POOL_KIND_CHIP_LABEL,
@@ -17,28 +18,134 @@ import {
 } from "./EconomyPage.utils";
 import styles from "./EconomyPage.module.css";
 
-export function BlueprintDiscoverySection({ onBrowse }: { onBrowse: () => void }) {
+export function CapitalReadinessSection({
+  loading,
+  capTableRows,
+  onChainCount,
+  poolCount,
+  riskTrusts,
+  totalTrusts,
+  onOpenFunding,
+  onOpenPools,
+}: {
+  loading: boolean;
+  capTableRows: CapTableSeedRow[];
+  onChainCount: number;
+  poolCount: number;
+  riskTrusts: Trust[];
+  totalTrusts: number;
+  onOpenFunding: () => void;
+  onOpenPools: () => void;
+}) {
+  const riskCount = riskTrusts.length;
+  const hasRisk = !loading && riskCount > 0;
+  const trustNoun = totalTrusts === 1 ? "TRUST" : "TRUSTs";
+  const riskNoun = riskCount === 1 ? "TRUST" : "TRUSTs";
+  const riskVerb = riskCount === 1 ? "has" : "have";
+  const allocationNoun = capTableRows.length === 1 ? "allocation" : "allocations";
+
   return (
     <PageSection
-      title="Start from a Blueprint"
-      description="Blueprints supply the TRUST shell, seeded roles, agents, quests, ideas, and operating memory."
+      title="Capital readiness"
+      description="Economy reads current entities, orchestrator cap-table seed rows, and launch status. It separates intended allocations from on-chain pool and funding claims."
     >
-      <div className={styles.blueprintLane}>
-        <div className={styles.blueprintLaneMain}>
-          <span className={styles.blueprintLaneTitle}>Launch supply</span>
-          <span className={styles.blueprintLaneCopy}>
-            Choose a Blueprint before launching a new TRUST, or inspect existing TRUSTs below for
-            operating references.
+      <div className={styles.capitalReadiness}>
+        {hasRisk && (
+          <div className={styles.capitalRisk} role="alert">
+            <span className={styles.capitalRiskIcon} aria-hidden>
+              <AlertTriangle size={16} strokeWidth={1.7} />
+            </span>
+            <span className={styles.capitalRiskText}>
+              <span className={styles.capitalRiskTitle}>Liquidity seed not confirmed</span>
+              <span className={styles.capitalRiskCopy}>
+                {riskCount} on-chain {riskNoun} {riskVerb} no Unifutures seed surface in launch
+                status. Economy can show allocation templates, but it must stay quiet about live
+                liquidity and funding until real rows are indexed.
+              </span>
+            </span>
+          </div>
+        )}
+
+        <div className={styles.capitalSignalGrid} aria-label="Capital readiness signals">
+          <span className={styles.capitalSignal}>
+            <span className={styles.capitalSignalHead}>
+              <span className={styles.capitalSignalLabel}>TRUST identity</span>
+              <TableStatus
+                state={onChainCount > 0 ? "done" : loading ? "in_progress" : "backlog"}
+                label={
+                  loading
+                    ? "Checking"
+                    : onChainCount > 0
+                      ? `${onChainCount} on-chain`
+                      : "Not bridged"
+                }
+              />
+            </span>
+            <span className={styles.capitalSignalBody}>
+              {totalTrusts} visible {trustNoun}; TRUST addresses are shown only when the entity API
+              returns them.
+            </span>
+          </span>
+
+          <span className={styles.capitalSignal}>
+            <span className={styles.capitalSignalHead}>
+              <span className={styles.capitalSignalLabel}>Cap-table seed</span>
+              <TableStatus
+                state={
+                  loading
+                    ? "in_progress"
+                    : hasRisk
+                      ? "in_review"
+                      : capTableRows.length > 0
+                        ? "done"
+                        : "backlog"
+                }
+                label={
+                  loading
+                    ? "Checking"
+                    : capTableRows.length > 0
+                      ? `${capTableRows.length} ${allocationNoun}`
+                      : "No seed rows"
+                }
+              />
+            </span>
+            <span className={styles.capitalSignalBody}>
+              Seed rows prove the intended allocation model. On-chain vesting and mint status are
+              separate confirmations.
+              {poolCount > 0 ? ` ${poolCount} Unifutures seed surface indexed.` : ""}
+            </span>
+          </span>
+
+          <span className={styles.capitalSignal}>
+            <span className={styles.capitalSignalHead}>
+              <span className={styles.capitalSignalLabel}>Funding index</span>
+              <TableStatus state="backlog" label="Endpoint pending" />
+            </span>
+            <span className={styles.capitalSignalBody}>
+              Declared funding rounds are intentionally absent from Economy until the funding
+              indexer publishes them.
+            </span>
           </span>
         </div>
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={onBrowse}
-          leadingIcon={<Blocks size={13} strokeWidth={1.5} />}
-        >
-          Browse Blueprints
-        </Button>
+
+        <div className={styles.capitalActions}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={onOpenPools}
+            trailingIcon={<ArrowUpRight size={13} strokeWidth={1.5} />}
+          >
+            Pools
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={onOpenFunding}
+            trailingIcon={<ArrowUpRight size={13} strokeWidth={1.5} />}
+          >
+            Funding
+          </Button>
+        </div>
       </div>
     </PageSection>
   );
@@ -50,13 +157,64 @@ export interface RoleOpeningRow {
   role: Role;
 }
 
-/** Role-type → dot state mapping. The chip strip narrows the table by this
- * axis; the row reinforces it with the same dot grammar used by the other
- * Economy columns (TableStatus) so eye and filter agree:
- * - owner       → jade   (`done`)        — founder tier, verified ownership
- * - director    → indigo (`in_progress`) — active governance
- * - advisor     → amber  (`in_review`)   — pending / consultative
- * - operational → muted  (`backlog`)     — line execution, no special signal */
+export function makeTrustColumns(getRoleCount: (trust: Trust) => number | undefined) {
+  return [
+    {
+      key: "trust",
+      header: "Trust",
+      cell: (trust) => (
+        <span className={styles.trustCell}>
+          <TrustAvatar name={trust.name} size={28} />
+          <span className={styles.trustCellText}>
+            <span className={styles.trustName}>{trust.name}</span>
+            <span className={styles.trustMeta}>
+              {trust.tagline || trust.plan || "Operating trust"}
+            </span>
+          </span>
+        </span>
+      ),
+      sortable: true,
+      sortAccessor: (trust) => trust.name,
+    },
+    {
+      key: "public",
+      header: "Public",
+      cell: (trust) => (
+        <TableStatus
+          state={trust.public ? "done" : "backlog"}
+          label={trust.public ? "Public" : "Private"}
+        />
+      ),
+      width: "96px",
+      sortable: true,
+      sortAccessor: (trust) => (trust.public ? 1 : 0),
+    },
+    {
+      key: "address",
+      header: "TRUST",
+      cell: (trust) => <span className={styles.mono}>{compactAddress(trust.trust_address)}</span>,
+      width: "150px",
+    },
+    {
+      key: "roles",
+      header: "Roles",
+      cell: (trust) => getRoleCount(trust) ?? "-",
+      width: "90px",
+      align: "end",
+      sortable: true,
+      sortAccessor: (trust) => getRoleCount(trust) ?? 0,
+    },
+    {
+      key: "created",
+      header: "Created",
+      cell: (trust) => formatMediumDate(trust.created_at, { fallback: "Unknown" }),
+      width: "140px",
+      sortable: true,
+      sortAccessor: (trust) => trust.created_at,
+    },
+  ] satisfies Array<TableColumn<Trust>>;
+}
+
 const ROLE_TYPE_DOT_STATE: Record<RoleType, MetricStatusState> = {
   owner: "done",
   director: "in_progress",
@@ -64,8 +222,6 @@ const ROLE_TYPE_DOT_STATE: Record<RoleType, MetricStatusState> = {
   operational: "backlog",
 };
 
-/** Column factory for the open-roles table. Mirrors `makePoolColumns` so
- * the EconomyPage shell stays under the file-length cap. */
 export function makeRoleColumns(
   onApply: (row: RoleOpeningRow) => void,
 ): Array<TableColumn<RoleOpeningRow>> {
@@ -133,8 +289,6 @@ export interface PoolRow {
   maxCost: number;
 }
 
-/** Column factory for the indexed liquidity-pool table. Lives next to its
- * sibling parts so the EconomyPage shell stays under the file-length cap. */
 export function makePoolColumns(onOpen: (row: PoolRow) => void): Array<TableColumn<PoolRow>> {
   return [
     {
@@ -206,13 +360,6 @@ export function makePoolColumns(onOpen: (row: PoolRow) => void): Array<TableColu
   ];
 }
 
-/** Chrome-tier segmented chip group used by tab-scoped toolbar filters
- * (pool kind, trust visibility, …). One JSX chip literal kept here so
- * adding scoped filters doesn't grow the raw-button design-system
- * baseline. Resting trough uses `--color-card-subtle` (chrome inset);
- * active chip lifts to `--color-card-elevated` + graphite accent ring.
- * Raw element required for radiogroup semantics; Button primitive
- * doesn't expose role/aria-checked. */
 function FilterChips<T extends string>({
   ariaLabel,
   options,
@@ -245,9 +392,6 @@ function FilterChips<T extends string>({
   );
 }
 
-/** Pools toolbar — `All / Genesis / AMM`. Renders only the kinds present
- * in the indexed pool set so the strip stays a no-op when one kind
- * dominates (today: just Genesis). */
 export function PoolKindChips({
   kinds,
   value,
@@ -264,10 +408,6 @@ export function PoolKindChips({
   return <FilterChips ariaLabel="Pool kind" options={options} value={value} onChange={onChange} />;
 }
 
-/** Trusts toolbar — `All / Public only`. Maps directly to the Public
- * TableStatus column. Render only when at least one non-public trust
- * exists, so the strip stays a no-op when every visible trust is
- * already public. */
 export function TrustVisibilityChips({
   value,
   onChange,
@@ -284,11 +424,6 @@ export function TrustVisibilityChips({
   );
 }
 
-/** Roles toolbar — `All / Owner / Director / Operator / Advisor`. Renders
- * only role types present in the openings set so the strip stays calm
- * when one tier dominates. Founder vs operational openings read very
- * differently; the chip strip lets the operator narrow without typing
- * the role_type string into search. */
 export function RoleTypeChips({
   roleTypes,
   value,

@@ -32,8 +32,8 @@ interface ImportMenuProps {
 /**
  * `Import ▾` button + menu. Two paths:
  *   1. From markdown — opens a hidden `<input type=file multiple>`.
- *   2. From a blueprint — opens `BlueprintPickerModal` with `parts`
- *      so the spawn only seeds the named primitive.
+ *   2. From a blueprint — intentionally disabled for MVP launch until
+ *      primitive bundle imports stop materializing company-level side effects.
  *
  * Trigger styled as `<Button variant="secondary" size="sm">` — Import is
  * a secondary toolbar action; the primary slot belongs to `+ New <primitive>`.
@@ -83,7 +83,8 @@ export function ImportMenu({
           },
           {
             key: "blueprint",
-            label: "From a blueprint",
+            label: "Blueprint imports after primitive bundle audit",
+            disabled: true,
             onSelect: () => setPickerOpen(true),
           },
         ]}

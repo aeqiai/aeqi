@@ -1543,6 +1543,23 @@ impl Daemon {
                 "update_entity" => {
                     crate::ipc::entities::handle_update_entity(&ctx, &request, &allowed_roots).await
                 }
+                "list_cap_table_entries" => {
+                    crate::ipc::entities::handle_list_cap_table_entries(
+                        &ctx,
+                        &request,
+                        &allowed_roots,
+                    )
+                    .await
+                }
+                "list_views" => {
+                    crate::ipc::entities::handle_list_views(&ctx, &request, &allowed_roots).await
+                }
+                "upsert_views" => {
+                    crate::ipc::entities::handle_upsert_views(&ctx, &request, &allowed_roots).await
+                }
+                "delete_view" => {
+                    crate::ipc::entities::handle_delete_view(&ctx, &request, &allowed_roots).await
+                }
                 "delete_entity" => {
                     crate::ipc::entities::handle_delete_entity(&ctx, &request, &allowed_roots).await
                 }

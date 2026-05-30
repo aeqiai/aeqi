@@ -7,15 +7,23 @@ export interface LaunchPitchContent {
   eyebrow: string;
   lines: [string, string, string];
   lead: string;
+  ledger?: Array<{ label: string; value: string }>;
 }
 
 const DEFAULT_PITCH: LaunchPitchContent = {
-  eyebrow: "GENESIS RUNTIME",
-  lines: ["Launch", "the company", "that works."],
-  lead: "One launch binds identity, agents, quests, memory, and proof into a live operating surface.",
+  eyebrow: "TRUST LAUNCH",
+  lines: ["One", "workspace", "for execution."],
+  lead: "Identity, roles, agents, quests, memory, and proof come online together.",
+  ledger: [
+    { label: "Identity", value: "TRUST, roles, ownership" },
+    { label: "Runtime", value: "Agents, quests, tools" },
+    { label: "Memory", value: "Ideas, evidence, proof" },
+  ],
 };
 
 function LaunchPitch({ pitch = DEFAULT_PITCH }: { pitch?: LaunchPitchContent }) {
+  const ledger = pitch.ledger ?? DEFAULT_PITCH.ledger ?? [];
+
   return (
     <aside className="signup-pitch-side launch-pitch-side" aria-hidden="true">
       <div className="signup-pitch-scrim launch-pitch-scrim" />
@@ -28,18 +36,12 @@ function LaunchPitch({ pitch = DEFAULT_PITCH }: { pitch?: LaunchPitchContent }) 
         </h2>
         <p className="signup-lead">{pitch.lead}</p>
         <dl className="launch-pitch-ledger">
-          <div>
-            <dt>Identity</dt>
-            <dd>TRUST, roles, ownership</dd>
-          </div>
-          <div>
-            <dt>Runtime</dt>
-            <dd>Agents, quests, triggers</dd>
-          </div>
-          <div>
-            <dt>Memory</dt>
-            <dd>Ideas, evidence, proof</dd>
-          </div>
+          {ledger.map((item) => (
+            <div key={item.label}>
+              <dt>{item.label}</dt>
+              <dd>{item.value}</dd>
+            </div>
+          ))}
         </dl>
       </div>
     </aside>

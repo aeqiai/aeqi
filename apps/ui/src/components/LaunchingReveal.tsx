@@ -96,7 +96,9 @@ export function LaunchingReveal({
   const trustError = status?.trust_error ?? null;
   const runtimeError = status?.runtime_error ?? null;
   const displayName = status?.display_name || fallbackDisplayName || "Your TRUST";
-  const isReady = ["ready", "complete"].includes(status?.placement_status ?? "");
+  const runtimeReady = ["ready", "complete"].includes(status?.placement_status ?? "");
+  const chainReady = Boolean(trustAddress);
+  const isReady = runtimeReady && chainReady;
   const hasError = Boolean(trustError || runtimeError);
   const generatedWebsiteUrl =
     trustAddress !== null
@@ -114,7 +116,9 @@ export function LaunchingReveal({
       : null);
   const reachedSteps = STEPS.map((step) => {
     const milestone = milestones?.[step.key as MilestoneKey];
-    return isReady || (milestone?.reached ?? false);
+    if (step.key === "signing_on_solana")
+      return chainReady || Boolean(milestone?.reached && chainReady);
+    return runtimeReady || (milestone?.reached ?? false);
   });
   const firstPendingIndex = reachedSteps.findIndex((reached) => !reached);
   const failedStepIndex = hasError
@@ -165,7 +169,7 @@ export function LaunchingReveal({
           console.error("failed to publish website on launch", e);
         }
       } finally {
-        setActiveEntity(trustAddress);
+        setActiveEntity(trustId);
       }
     })();
   }, [fetchEntities, hasError, isReady, setActiveEntity, trustAddress, trustId]);
@@ -176,18 +180,24 @@ export function LaunchingReveal({
       ariaLive="polite"
       ariaBusy={busy}
       pitch={{
-        eyebrow: "LAUNCH A TRUST",
-        lines: ["One", "mission", "runtime."],
-        lead: "A TRUST keeps people, agents, roles, quests, memory, tools, and evidence together so the mission can run and be audited.",
+        eyebrow: "TRUST LAUNCH",
+        lines: ["Your", "workspace", "is forming."],
+        lead: "Identity, roles, agents, quests, memory, tools, and evidence are coming online together.",
       }}
     >
       <h1 className="auth-heading">
-        {isReady ? `${displayName} is ready.` : `Launching ${displayName}.`}
+        {isReady
+          ? `${displayName} is ready.`
+          : runtimeReady
+            ? `${displayName} runtime is ready.`
+            : `Launching ${displayName}.`}
       </h1>
       <p className="auth-subheading">
         {isReady
           ? "The TRUST exists and the public website shell is live."
-          : "Payment confirmed. aeqi is creating the mission workspace, registering the TRUST on Solana, and starting its runtime."}
+          : runtimeReady
+            ? "The workspace is live. On-chain TRUST identity is still confirming before we expose website and explorer handoff."
+            : "aeqi is creating the workspace, registering the TRUST on Solana, and starting its runtime."}
       </p>
 
       <ProgressList steps={progressSteps} className="launching-reveal__steps" />
@@ -233,7 +243,7 @@ export function LaunchingReveal({
           <div className="launching-reveal__actions">
             {trustToolsPath && (
               <Link className="launching-reveal__cta" to={trustToolsPath}>
-                Trust tools
+                TRUST tools
               </Link>
             )}
             {launchWebsiteUrl && (
@@ -243,7 +253,7 @@ export function LaunchingReveal({
                 target="_self"
                 rel="noreferrer"
               >
-                Open Website
+                Open website
               </a>
             )}
           </div>
@@ -265,7 +275,7 @@ export function LaunchingReveal({
           className="launching-reveal__secondary"
           to={`/trust/${encodeURIComponent(trustAddress)}`}
         >
-          Enter Trust
+          Enter TRUST
         </Link>
       )}
       {!trustError && !runtimeError && pollError && !status && (

@@ -90,6 +90,63 @@ pub enum InferenceCapabilityError {
     },
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CapTableEntry {
+    pub id: String,
+    pub trust_id: String,
+    pub allocation_key: String,
+    pub holder_kind: String,
+    pub holder_id: Option<String>,
+    pub security_type: String,
+    pub basis_points: i64,
+    pub vesting_months: Option<i64>,
+    pub cliff_months: Option<i64>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EntityView {
+    pub id: String,
+    pub trust_id: String,
+    pub owner_user_id: Option<String>,
+    pub key: String,
+    pub label: String,
+    pub kind: String,
+    pub scope: String,
+    pub path: Option<String>,
+    pub search: Option<String>,
+    pub layout_json: Option<serde_json::Value>,
+    pub pinned: bool,
+    pub sort_order: i64,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EntityViewUpsert {
+    pub id: Option<String>,
+    pub key: String,
+    pub label: String,
+    pub kind: String,
+    pub scope: String,
+    pub path: Option<String>,
+    pub search: Option<String>,
+    pub layout_json: Option<serde_json::Value>,
+    pub pinned: bool,
+    pub sort_order: i64,
+}
+
+struct CapTableSeed<'a> {
+    trust_id: &'a str,
+    allocation_key: &'a str,
+    holder_kind: &'a str,
+    holder_id: Option<&'a str>,
+    security_type: &'a str,
+    basis_points: i64,
+    vesting_months: Option<i64>,
+    cliff_months: Option<i64>,
+}
+
 /// A persistent agent identity — one record = one node in the agent tree.
 ///
 /// Identity, personality, and capabilities are expressed through ideas
@@ -181,6 +238,106 @@ pub struct Agent {
 
 fn default_max_concurrent() -> u32 {
     1
+}
+
+fn bootstrap_cap_table_tables(conn: &Connection) -> rusqlite::Result<()> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS cap_table_entries (
+             id TEXT PRIMARY KEY,
+             trust_id TEXT NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
+             allocation_key TEXT NOT NULL,
+             holder_kind TEXT NOT NULL CHECK (holder_kind IN ('creator', 'unassigned')),
+             holder_id TEXT,
+             security_type TEXT NOT NULL CHECK (
+                 security_type IN ('common', 'vesting_common', 'option_pool')
+             ),
+             basis_points INTEGER NOT NULL CHECK (basis_points BETWEEN 1 AND 10000),
+             vesting_months INTEGER CHECK (vesting_months IS NULL OR vesting_months >= 0),
+             cliff_months INTEGER CHECK (cliff_months IS NULL OR cliff_months >= 0),
+             created_at TEXT NOT NULL,
+             UNIQUE(trust_id, allocation_key),
+             CHECK (holder_kind != 'unassigned' OR holder_id IS NULL)
+         );
+         CREATE INDEX IF NOT EXISTS idx_cap_table_entries_trust
+             ON cap_table_entries(trust_id);",
+    )
+}
+
+fn bootstrap_entity_view_tables(conn: &Connection) -> rusqlite::Result<()> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS entity_views (
+             id TEXT PRIMARY KEY,
+             trust_id TEXT NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
+             owner_user_id TEXT NOT NULL DEFAULT '',
+             key TEXT NOT NULL,
+             label TEXT NOT NULL,
+             kind TEXT NOT NULL CHECK (kind IN ('route', 'dashboard')),
+             scope TEXT NOT NULL CHECK (scope IN ('private', 'public')),
+             path TEXT,
+             search TEXT,
+             layout_json TEXT,
+             pinned INTEGER NOT NULL DEFAULT 0 CHECK (pinned IN (0, 1)),
+             sort_order INTEGER NOT NULL DEFAULT 0,
+             created_at TEXT NOT NULL,
+             updated_at TEXT NOT NULL,
+             UNIQUE(trust_id, owner_user_id, key)
+         );
+         CREATE INDEX IF NOT EXISTS idx_entity_views_trust
+             ON entity_views(trust_id);
+         CREATE INDEX IF NOT EXISTS idx_entity_views_owner
+             ON entity_views(trust_id, owner_user_id);",
+    )
+}
+
+fn normalize_entity_view_owner(owner_user_id: Option<&str>) -> String {
+    owner_user_id
+        .map(str::trim)
+        .filter(|owner| !owner.is_empty())
+        .unwrap_or("")
+        .to_string()
+}
+
+fn validate_entity_view(view: &EntityViewUpsert) -> Result<()> {
+    if view.key.trim().is_empty() {
+        anyhow::bail!("view key is required");
+    }
+    if view.label.trim().is_empty() {
+        anyhow::bail!("view label is required");
+    }
+    match view.kind.as_str() {
+        "route" | "dashboard" => {}
+        _ => anyhow::bail!("view kind must be route or dashboard"),
+    }
+    match view.scope.as_str() {
+        "private" | "public" => {}
+        _ => anyhow::bail!("view scope must be private or public"),
+    }
+    Ok(())
+}
+
+fn entity_view_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<EntityView> {
+    let owner_user_id: String = row.get(2)?;
+    let layout_raw: Option<String> = row.get(9)?;
+    Ok(EntityView {
+        id: row.get(0)?,
+        trust_id: row.get(1)?,
+        owner_user_id: if owner_user_id.is_empty() {
+            None
+        } else {
+            Some(owner_user_id)
+        },
+        key: row.get(3)?,
+        label: row.get(4)?,
+        kind: row.get(5)?,
+        scope: row.get(6)?,
+        path: row.get(7)?,
+        search: row.get(8)?,
+        layout_json: layout_raw.and_then(|raw| serde_json::from_str(&raw).ok()),
+        pinned: row.get::<_, i64>(10)? != 0,
+        sort_order: row.get(11)?,
+        created_at: row.get(12)?,
+        updated_at: row.get(13)?,
+    })
 }
 
 /// Embedded migration 0002 — drops the legacy event columns
@@ -1577,6 +1734,15 @@ impl AgentRegistry {
         //     treasury_config. Idempotent. See `budget_registry.rs` and
         //     `architecture_role_budget_canonical.md`.
         crate::budget_registry::bootstrap_budget_tables(&conn)?;
+
+        // 3e. Cap-table primitive — authoritative launch defaults for newly
+        //     minted TRUSTs. Idempotent so upgraded installs learn the table
+        //     without a separate migration runner.
+        bootstrap_cap_table_tables(&conn)?;
+
+        // 3f. Views primitive — durable TRUST-local route/dashboard layouts
+        //     that agents and the UI can share instead of localStorage only.
+        bootstrap_entity_view_tables(&conn)?;
 
         // 4. Legacy carryover — only fires while `agents.parent_id` still
         //    exists on disk. Backfills entities, agents.trust_id,
@@ -4262,6 +4428,216 @@ impl AgentRegistry {
         })?;
         rows.collect::<std::result::Result<Vec<_>, _>>()
             .map_err(Into::into)
+    }
+
+    pub async fn seed_personal_cap_table_defaults(
+        &self,
+        trust_id: &str,
+        creator_user_id: Option<&str>,
+    ) -> Result<()> {
+        self.upsert_cap_table_entry(CapTableSeed {
+            trust_id,
+            allocation_key: "creator_common",
+            holder_kind: "creator",
+            holder_id: creator_user_id,
+            security_type: "common",
+            basis_points: 10_000,
+            vesting_months: None,
+            cliff_months: None,
+        })
+        .await
+    }
+
+    pub async fn seed_company_cap_table_defaults(
+        &self,
+        trust_id: &str,
+        creator_user_id: Option<&str>,
+    ) -> Result<()> {
+        self.upsert_cap_table_entry(CapTableSeed {
+            trust_id,
+            allocation_key: "founder_vesting_common",
+            holder_kind: "creator",
+            holder_id: creator_user_id,
+            security_type: "vesting_common",
+            basis_points: 8_000,
+            vesting_months: Some(48),
+            cliff_months: Some(12),
+        })
+        .await?;
+        self.upsert_cap_table_entry(CapTableSeed {
+            trust_id,
+            allocation_key: "option_pool",
+            holder_kind: "unassigned",
+            holder_id: None,
+            security_type: "option_pool",
+            basis_points: 2_000,
+            vesting_months: None,
+            cliff_months: None,
+        })
+        .await
+    }
+
+    async fn upsert_cap_table_entry(&self, seed: CapTableSeed<'_>) -> Result<()> {
+        let now = Utc::now().to_rfc3339();
+        let db = self.db.lock().await;
+        db.execute(
+            "INSERT INTO cap_table_entries (
+                 id, trust_id, allocation_key, holder_kind, holder_id,
+                 security_type, basis_points, vesting_months, cliff_months, created_at
+             )
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+             ON CONFLICT(trust_id, allocation_key) DO UPDATE SET
+                 holder_kind = excluded.holder_kind,
+                 holder_id = COALESCE(excluded.holder_id, cap_table_entries.holder_id),
+                 security_type = excluded.security_type,
+                 basis_points = excluded.basis_points,
+                 vesting_months = excluded.vesting_months,
+                 cliff_months = excluded.cliff_months",
+            params![
+                uuid::Uuid::new_v4().to_string(),
+                seed.trust_id,
+                seed.allocation_key,
+                seed.holder_kind,
+                seed.holder_id,
+                seed.security_type,
+                seed.basis_points,
+                seed.vesting_months,
+                seed.cliff_months,
+                now,
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub async fn list_cap_table_entries(&self, trust_id: &str) -> Result<Vec<CapTableEntry>> {
+        let db = self.db.lock().await;
+        let mut stmt = db.prepare(
+            "SELECT id, trust_id, allocation_key, holder_kind, holder_id,
+                    security_type, basis_points, vesting_months, cliff_months, created_at
+             FROM cap_table_entries
+             WHERE trust_id = ?1
+             ORDER BY allocation_key ASC",
+        )?;
+        let rows = stmt.query_map(params![trust_id], |row| {
+            Ok(CapTableEntry {
+                id: row.get(0)?,
+                trust_id: row.get(1)?,
+                allocation_key: row.get(2)?,
+                holder_kind: row.get(3)?,
+                holder_id: row.get(4)?,
+                security_type: row.get(5)?,
+                basis_points: row.get(6)?,
+                vesting_months: row.get(7)?,
+                cliff_months: row.get(8)?,
+                created_at: row.get(9)?,
+            })
+        })?;
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(Into::into)
+    }
+
+    pub async fn list_entity_views(
+        &self,
+        trust_id: &str,
+        owner_user_id: Option<&str>,
+    ) -> Result<Vec<EntityView>> {
+        let owner = normalize_entity_view_owner(owner_user_id);
+        let db = self.db.lock().await;
+        let mut stmt = db.prepare(
+            "SELECT id, trust_id, owner_user_id, key, label, kind, scope, path, search,
+                    layout_json, pinned, sort_order, created_at, updated_at
+             FROM entity_views
+             WHERE trust_id = ?1
+               AND (owner_user_id = '' OR owner_user_id = ?2)
+             ORDER BY pinned DESC, sort_order ASC, label ASC, key ASC",
+        )?;
+        let rows = stmt.query_map(params![trust_id, owner], entity_view_from_row)?;
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(Into::into)
+    }
+
+    pub async fn upsert_entity_views(
+        &self,
+        trust_id: &str,
+        owner_user_id: Option<&str>,
+        views: Vec<EntityViewUpsert>,
+    ) -> Result<Vec<EntityView>> {
+        let now = Utc::now().to_rfc3339();
+        let db = self.db.lock().await;
+        for view in views {
+            validate_entity_view(&view)?;
+            let owner = if view.scope == "public" {
+                String::new()
+            } else {
+                normalize_entity_view_owner(owner_user_id)
+            };
+            let layout_json = view
+                .layout_json
+                .as_ref()
+                .map(serde_json::to_string)
+                .transpose()?;
+            db.execute(
+                "INSERT INTO entity_views (
+                     id, trust_id, owner_user_id, key, label, kind, scope, path, search,
+                     layout_json, pinned, sort_order, created_at, updated_at
+                 )
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
+                 ON CONFLICT(trust_id, owner_user_id, key) DO UPDATE SET
+                     label = excluded.label,
+                     kind = excluded.kind,
+                     scope = excluded.scope,
+                     path = excluded.path,
+                     search = excluded.search,
+                     layout_json = excluded.layout_json,
+                     pinned = excluded.pinned,
+                     sort_order = excluded.sort_order,
+                     updated_at = excluded.updated_at",
+                params![
+                    view.id
+                        .filter(|id| !id.trim().is_empty())
+                        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
+                    trust_id,
+                    owner,
+                    view.key.trim(),
+                    view.label.trim(),
+                    view.kind,
+                    view.scope,
+                    view.path
+                        .as_deref()
+                        .map(str::trim)
+                        .filter(|path| !path.is_empty()),
+                    view.search
+                        .as_deref()
+                        .map(str::trim)
+                        .filter(|search| !search.is_empty()),
+                    layout_json,
+                    if view.pinned { 1_i64 } else { 0_i64 },
+                    view.sort_order,
+                    now,
+                    now,
+                ],
+            )?;
+        }
+        drop(db);
+        self.list_entity_views(trust_id, owner_user_id).await
+    }
+
+    pub async fn delete_entity_view(
+        &self,
+        trust_id: &str,
+        owner_user_id: Option<&str>,
+        id_or_key: &str,
+    ) -> Result<usize> {
+        let owner = normalize_entity_view_owner(owner_user_id);
+        let db = self.db.lock().await;
+        let changed = db.execute(
+            "DELETE FROM entity_views
+             WHERE trust_id = ?1
+               AND owner_user_id = ?2
+               AND (id = ?3 OR key = ?3)",
+            params![trust_id, owner, id_or_key],
+        )?;
+        Ok(changed)
     }
 
     /// Expose the template connection pool (aeqi.db: agents, events, ideas, quest_sequences).

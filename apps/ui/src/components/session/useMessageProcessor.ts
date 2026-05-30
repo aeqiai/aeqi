@@ -190,7 +190,7 @@ export function processRawSessionMessages(rawMessages: Array<Record<string, unkn
         taskId: quest.id ?? questIdFromMeta(meta) ?? questIdFromText(String(m.content || "")),
         quest,
       });
-    } else if (m.role === "assistant") {
+    } else if (m.role === "assistant" && m.from_kind !== "system") {
       const text = String(m.content || "");
       const rawSource = typeof m.source === "string" ? m.source : null;
       const legacy =
@@ -289,6 +289,27 @@ export function processRawSessionMessages(rawMessages: Array<Record<string, unkn
           eventFire: fire,
         });
       }
+    } else if (m.role === "system" || m.from_kind === "system") {
+      if (pendingTools.length > 0 && currentAgent) {
+        currentAgent.segments!.push(...pendingTools);
+        pendingTools = [];
+      }
+      flushAgent();
+      stepCount = 0;
+      sawStoredStepMarkers = false;
+      processed.push({
+        role: "system",
+        from_kind: "system",
+        from_id: m.from_id != null ? String(m.from_id) : undefined,
+        sender:
+          m.sender && typeof m.sender === "object" && !Array.isArray(m.sender)
+            ? (m.sender as Message["sender"])
+            : undefined,
+        transport: typeof m.transport === "string" ? m.transport : undefined,
+        content: String(m.content || ""),
+        timestamp: ts,
+        messageId: typeof m.id === "number" ? m.id : undefined,
+      });
     } else if (m.role === "user" || m.role === "User") {
       if (pendingTools.length > 0 && currentAgent) {
         currentAgent.segments!.push(...pendingTools);

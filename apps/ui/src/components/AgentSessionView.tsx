@@ -144,7 +144,14 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
     handleFork,
   } = sessionManager;
 
-  const { streaming, liveSegments, thinkingStart, liveStepOffset, dispatchMessage } = wsChat;
+  const {
+    streaming,
+    liveSegments,
+    liveParticipants,
+    thinkingStart,
+    liveStepOffset,
+    dispatchMessage,
+  } = wsChat;
 
   // Keeps polling paused while streaming.
   streamingRef.current = streaming;
@@ -394,6 +401,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
       <StreamingMessage
         agentName={agentName}
         liveSegments={liveSegments}
+        liveParticipants={liveParticipants}
         thinkingStart={thinkingStart}
         streaming={streaming}
         stepOffset={liveStepOffset}

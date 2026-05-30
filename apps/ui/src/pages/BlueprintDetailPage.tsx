@@ -232,6 +232,9 @@ export default function BlueprintDetailPage() {
             {single.category && (
               <span className="bp-detail-breadcrumb">{CATEGORY_LABELS[single.category]}</span>
             )}
+            <span className="bp-detail-template-badge" title="Blueprint action">
+              Company package
+            </span>
             <h1 className="bp-detail-toolbar-title">{single.name}</h1>
             {single.template && (
               <span className="bp-detail-template-badge" title="On-chain TRUST template">
@@ -249,7 +252,7 @@ export default function BlueprintDetailPage() {
                   if (isImportMode) e.preventDefault();
                 }}
               >
-                {isImportMode ? "Coming soon" : "Use this Blueprint →"}
+                {isImportMode ? "Launch only" : "Launch TRUST"}
               </Button>
             </Link>
           </div>
@@ -260,9 +263,9 @@ export default function BlueprintDetailPage() {
             <div className="bp-import-banner" role="status">
               <span className="bp-import-banner-eyebrow">Import mode</span>
               <p className="bp-import-banner-line">
-                Picking this Blueprint will merge its seed agents, views, ideas, events, and quests
-                into <strong>{importTarget?.name || "the selected agent"}</strong>&rsquo;s tree once
-                the server merge endpoint lands.
+                This is a company package for launching a new TRUST. Import mode is for primitive
+                bundles; v1 does not merge full company packages into{" "}
+                <strong>{importTarget?.name || "the selected agent"}</strong>&rsquo;s tree.
               </p>
             </div>
           )}
@@ -272,6 +275,14 @@ export default function BlueprintDetailPage() {
               {error} — showing the bundled copy.
             </div>
           )}
+
+          <div className="bp-detail-mode-note" role="note">
+            <span className="bp-detail-mode-note-label">Launch scope</span>
+            <p>
+              Company Blueprints launch new TRUSTs with their seed roles, agents, views, events,
+              quests, and ideas. Primitive bundles are the import path for existing TRUSTs.
+            </p>
+          </div>
 
           {activeSection === "overview" && <OverviewSection template={single} />}
           {activeSection === "roles" && <RolesSection seeds={blueprintAgents(single)} />}

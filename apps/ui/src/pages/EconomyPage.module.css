@@ -148,6 +148,110 @@
   line-height: 1.5;
 }
 
+.capitalReadiness {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4);
+  background: color-mix(in srgb, var(--color-card-subtle) 78%, var(--color-card) 22%);
+  border-radius: var(--radius-md);
+}
+
+.capitalRisk {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3);
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-warning-bg) 64%, var(--color-card) 36%);
+  border-radius: var(--radius-sm);
+}
+
+.capitalRiskIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  color: var(--color-warning);
+  background: var(--color-card-elevated);
+  border-radius: 999px;
+}
+
+.capitalRiskText {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.capitalRiskTitle {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.35;
+}
+
+.capitalRiskCopy {
+  max-width: 82ch;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.capitalSignalGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.capitalSignal {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--color-card);
+  border-radius: var(--radius-sm);
+}
+
+.capitalSignalHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.capitalSignalLabel {
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.capitalSignalBody {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+}
+
+.capitalActions {
+  display: inline-flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
 .registryCard,
 .trustCard {
   display: flex;
@@ -346,5 +450,31 @@
     padding: var(--space-3);
     border-right: 0;
     border-bottom: 1px solid var(--border-faint);
+  }
+
+  .capitalReadiness {
+    grid-template-columns: 1fr;
+  }
+
+  .capitalSignalGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .capitalActions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 560px) {
+  .blueprintLane,
+  .capitalRisk,
+  .capitalSignalHead,
+  .trustCardFoot {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .capitalActions {
+    flex-wrap: wrap;
   }
 }

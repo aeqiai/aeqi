@@ -492,6 +492,10 @@ const MessageItem = memo(function MessageItem({
       ? splitTrailAndFinal(msg.segments)
       : null;
   const useSplit = splitAssistant != null && trailHasMeaningfulContent(splitAssistant.trail);
+  const renderFinalOnly =
+    splitAssistant != null &&
+    splitAssistant.final.length > 0 &&
+    !trailHasMeaningfulContent(splitAssistant.trail);
 
   // Director-ask treatment: agent fired `question.ask` — drape an ink panel
   // around the bubble so the user reads it as a formal ask, not a chat reply.
@@ -548,6 +552,10 @@ const MessageItem = memo(function MessageItem({
               stepCount={countStepSegments(splitAssistant.trail)}
               failed={trailHasFailure(splitAssistant.trail)}
             />
+            <SegmentRenderer segments={splitAssistant.final} />
+          </div>
+        ) : renderFinalOnly && splitAssistant ? (
+          <div className="asv-msg-card">
             <SegmentRenderer segments={splitAssistant.final} />
           </div>
         ) : isAssistantRole ? (

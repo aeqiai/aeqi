@@ -27,6 +27,7 @@ import {
   SORT_LABELS,
   SORT_ORDER,
   SORT_VALUES,
+  V1_SHIPPED_COMPANY_PACKAGE_COUNT,
   VIEW_LABELS,
   VIEW_ORDER,
   VIEW_VALUES,
@@ -37,6 +38,19 @@ import {
 import BlueprintCategorySection from "./blueprints/BlueprintCategorySection";
 import { ToolbarRadioPopover } from "@/components/ui";
 import BlueprintsFilterPopover from "./blueprints/BlueprintsFilterPopover";
+
+const KIND_DESCRIPTIONS: Record<Kind, string> = {
+  companies:
+    "Canonical company Blueprints launch a new TRUST. v1 ships the first company package; draft Foundation and Fund packages stay hidden until audited.",
+  agents:
+    "Primitive bundles import into an existing TRUST. Agent bundles are reusable operating roles, not standalone launch packages.",
+  events:
+    "Event bundles are importable runtime triggers for an existing TRUST. Standalone event bundles are not shipped in v1.",
+  quests:
+    "Quest bundles import work into an existing TRUST. Standalone quest bundles are not shipped in v1.",
+  ideas:
+    "Idea bundles import reusable memory into an existing TRUST. Standalone idea bundles are not shipped in v1.",
+};
 
 /**
  * `/blueprints` — top-level catalog with a vertical PageRail (Companies /
@@ -168,7 +182,10 @@ export default function BlueprintsPage() {
   );
 
   const singleBlueprints = useMemo(
-    () => blueprints.filter(isSingleBlueprint) as SingleBlueprint[],
+    () =>
+      (blueprints.filter(isSingleBlueprint) as SingleBlueprint[]).filter(
+        (blueprint) => (blueprint.category ?? "company") === "company",
+      ),
     [blueprints],
   );
 
@@ -271,6 +288,7 @@ export default function BlueprintsPage() {
   const importTargetSuffix = isImportMode ? `?import_into=${importIntoId}` : "";
   const filtersActive = query.trim() !== "" || selectedTags.length > 0 || !!activeCategory;
   const totalFiltered = filtered.length;
+  const primitiveBundleCount = agentTemplates.length;
   const totalRuntimeSeeds = useMemo(
     () =>
       singleBlueprints.reduce(
@@ -290,9 +308,9 @@ export default function BlueprintsPage() {
     () => singleBlueprints.reduce((sum, t) => sum + countBlueprintStructures(t), 0),
     [singleBlueprints],
   );
-  const activeLaunchLanes = useMemo(
-    () => CATEGORY_ORDER.filter((cat) => singleBlueprints.some((t) => t.category === cat)).length,
-    [singleBlueprints],
+  const shippedCompanyPackageCount = Math.min(
+    V1_SHIPPED_COMPANY_PACKAGE_COUNT,
+    singleBlueprints.length,
   );
 
   // "/" focuses search; Esc clears or blurs.
@@ -374,10 +392,7 @@ export default function BlueprintsPage() {
               ) : undefined
             }
           />
-          <p className="bp-page-description">
-            Launch a TRUST with roles, agents, quests, ideas, tools, and runtime triggers already
-            wired.
-          </p>
+          <p className="bp-page-description">{KIND_DESCRIPTIONS[activeKind]}</p>
         </div>
 
         <div className="bp-catalog-body">
@@ -385,9 +400,8 @@ export default function BlueprintsPage() {
             <div className="bp-import-banner" role="status">
               <span className="bp-import-banner-eyebrow">Import mode</span>
               <p className="bp-import-banner-line">
-                Browse the catalog. Picking a Blueprint here will merge its seed agents, ideas,
-                events, and quests into the selected agent&rsquo;s tree once the server merge
-                endpoint lands.
+                Import mode is for primitive bundles. Company Blueprints stay launch-only in v1; use
+                Agents for reusable role bundles, with Events, Quests, and Ideas landing later.
               </p>
             </div>
           )}
@@ -401,19 +415,19 @@ export default function BlueprintsPage() {
           {activeKind === "companies" && (
             <MetricGrid columns={3} className="bp-supply-metrics">
               <MetricCard
-                label="TRUST shells"
+                label="Company packages"
                 value={singleBlueprints.length}
-                detail="launchable blueprints"
+                detail={`${shippedCompanyPackageCount} shipped in v1`}
               />
               <MetricCard
-                label="Operating seeds"
+                label="Launch action"
                 value={totalRuntimeSeeds}
-                detail="agents, events, ideas, quests"
+                detail="seeded roles, agents, memory"
               />
               <MetricCard
-                label="Launch lanes"
-                value={activeLaunchLanes || CATEGORY_ORDER.length}
-                detail={`${totalStructures} seeded structures`}
+                label="Primitive bundles"
+                value={primitiveBundleCount}
+                detail={`${totalStructures} company structures stay launch-scoped`}
               />
             </MetricGrid>
           )}
@@ -425,8 +439,8 @@ export default function BlueprintsPage() {
           ) : activeKind === "agents" ? (
             filteredAgentTemplates.length === 0 ? (
               <EmptyState
-                title={query ? `No match for "${query}".` : "No agent templates yet."}
-                description="Reusable agents appear here when they are available to include in Company blueprints."
+                title={query ? `No match for "${query}".` : "No agent bundles yet."}
+                description="Agent bundles import roles and seed context into an existing TRUST. v1 exposes the bundled Steward template as part of the shipped company package."
               />
             ) : view === "list" ? (
               <ul className="bp-list" role="list">
@@ -445,9 +459,9 @@ export default function BlueprintsPage() {
             )
           ) : activeKind !== "companies" ? (
             <EmptyState
-              title={`No standalone ${KIND_TABS.find((t) => t.id === activeKind)?.label.toLowerCase()} yet.`}
-              description="v1 ships Companies — full org bundles with agents, ideas, events, and quests pre-threaded. Standalone primitive bundles land next."
-              action={<Link to="/blueprints/companies">Open Companies →</Link>}
+              title={`No importable ${KIND_TABS.find((t) => t.id === activeKind)?.label.toLowerCase()} bundles yet.`}
+              description="v1 ships the first company package for launch. Standalone primitive bundles import into existing TRUSTs once they are audited and exposed."
+              action={<Link to="/blueprints/companies">Open Companies</Link>}
             />
           ) : totalFiltered === 0 && filtersActive ? (
             <div className="ideas-list-filter-indicator">
@@ -495,7 +509,7 @@ function agentTemplateComplexity(template: AgentTemplate): number {
 }
 
 function agentTemplateRuntimeLine(template: AgentTemplate): string {
-  const parts = ["Agent template"];
+  const parts = ["Import bundle"];
   const events = template.seed_events?.length ?? 0;
   const ideas = template.seed_ideas?.length ?? 0;
   const quests = template.seed_quests?.length ?? 0;
@@ -524,6 +538,10 @@ function AgentTemplateCard({ template }: { template: AgentTemplate }) {
       aria-label={`${template.name} agent template`}
     >
       <Card variant="default" padding="md" interactive className="bp-card">
+        <div className="bp-card-kind-row">
+          <span className="bp-card-kind">Primitive bundle</span>
+          <span className="bp-card-shipped">imports</span>
+        </div>
         <h3 className="bp-card-name">{template.name}</h3>
         {template.tagline && <p className="bp-card-tagline">{template.tagline}</p>}
         <div className="bp-card-inclusions">
@@ -534,7 +552,7 @@ function AgentTemplateCard({ template }: { template: AgentTemplate }) {
             </div>
           )}
           <div className="bp-card-inclusion-row">
-            <span className="bp-card-inclusion-label">Bundle</span>
+            <span className="bp-card-inclusion-label">Imports</span>
             <span className="bp-card-inclusion-value">{agentTemplateRuntimeLine(template)}</span>
           </div>
         </div>

@@ -85,7 +85,7 @@ export function launchNameCandidates(
 
 function unavailableNameHint(name: string): string {
   const base = name.trim() || "Your TRUST";
-  return `Already taken. Try ${base} Labs, ${base} One, or ${base} Trust.`;
+  return `Already taken. Try ${base} Labs, ${base} One, or ${base} TRUST.`;
 }
 
 export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchEntry } = {}) {
@@ -115,7 +115,7 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
   const [trustName, setTrustName] = useState("");
   const [trustNameTouched, setTrustNameTouched] = useState(false);
   const [operations, setOperations] = useState<OperationsChoice>("paid");
-  const [operationsTouched, setOperationsTouched] = useState(false);
+  const [, setOperationsTouched] = useState(false);
   const [plan, setPlan] = useState<LaunchPlanId>(DEFAULT_LAUNCH_PLAN);
   const [nameCheck, setNameCheck] = useState<NameCheckState>({ status: "idle" });
 
@@ -229,14 +229,10 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
   }, [blueprint, trustNameTouched, user]);
 
   useEffect(() => {
-    if (isAdmin && !operationsTouched) {
-      setOperations("sandbox");
-      return;
-    }
     if (!isAdmin && operations === "sandbox") {
       setOperations("paid");
     }
-  }, [isAdmin, operations, operationsTouched]);
+  }, [isAdmin, operations]);
 
   const selectedLaunchPlan = useMemo(
     () => LAUNCH_PLANS.find((p) => p.id === plan) ?? LAUNCH_PLANS[0],
@@ -269,7 +265,7 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
         return unavailableNameHint(trustName);
       case "idle":
       default:
-        return "Choose a name for this TRUST.";
+        return "This becomes the TRUST name, public site name, and operating surface.";
     }
   }, [nameCheck, trustName]);
 

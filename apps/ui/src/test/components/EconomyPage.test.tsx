@@ -14,6 +14,7 @@ vi.mock("@/queries/entities", () => ({
 vi.mock("@/lib/api", () => ({
   api: {
     getRoles: vi.fn(),
+    getCapTable: vi.fn(),
     getLaunchStatus: vi.fn(),
   },
 }));
@@ -65,6 +66,33 @@ const FILLED_ROLE: Role = {
   created_at: "2026-05-02T00:00:00Z",
 };
 
+const ALPHA_CAP_TABLE = [
+  {
+    id: "cap-founder",
+    trust_id: "alpha",
+    allocation_key: "founder_vesting_common",
+    holder_kind: "creator",
+    holder_id: "user-founder",
+    security_type: "vesting_common",
+    basis_points: 8000,
+    vesting_months: 48,
+    cliff_months: 12,
+    created_at: "2026-05-04T00:00:00Z",
+  },
+  {
+    id: "cap-option-pool",
+    trust_id: "alpha",
+    allocation_key: "option_pool",
+    holder_kind: "unassigned",
+    holder_id: null,
+    security_type: "option_pool",
+    basis_points: 2000,
+    vesting_months: null,
+    cliff_months: null,
+    created_at: "2026-05-04T00:00:00Z",
+  },
+];
+
 function renderEconomy(entry = "/economy") {
   return render(
     <StrictMode>
@@ -88,6 +116,11 @@ describe("EconomyPage", () => {
       ok: true,
       roles: trustId === "alpha" ? [OPEN_ROLE, FILLED_ROLE] : [],
       edges: [],
+    }));
+    vi.mocked(api.getCapTable).mockImplementation(async (trustId: string) => ({
+      ok: true,
+      trust_id: trustId,
+      entries: trustId === "alpha" ? ALPHA_CAP_TABLE : [],
     }));
     vi.mocked(api.getLaunchStatus).mockImplementation(async (trustId: string) => ({
       ok: true,
@@ -130,6 +163,8 @@ describe("EconomyPage", () => {
     renderEconomy();
 
     expect(screen.getByRole("heading", { level: 1, name: "Economy" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Capital readiness" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Cap-table seed rows" })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Browse Blueprints" }).length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: "Start from a Blueprint" })).toBeInTheDocument();
     expect(screen.getByText("Alpha Trust")).toBeInTheDocument();
@@ -138,8 +173,36 @@ describe("EconomyPage", () => {
     await waitFor(() => {
       expect(screen.getByText("Open roles")).toBeInTheDocument();
     });
+    expect(screen.getByText("Founder vesting")).toBeInTheDocument();
+    expect(screen.getAllByText("Option pool").length).toBeGreaterThan(0);
+    expect(screen.getByText("80.00%")).toBeInTheDocument();
+    expect(screen.getByText("20.00%")).toBeInTheDocument();
     expect(api.getRoles).toHaveBeenCalledWith("alpha");
+    expect(api.getCapTable).toHaveBeenCalledWith("alpha");
     expect(api.getLaunchStatus).toHaveBeenCalledWith("alpha");
+  });
+
+  it("flags on-chain trusts when launch status has no liquidity seed surface", async () => {
+    vi.mocked(useEntitiesQuery).mockReturnValue({
+      data: [
+        TRUSTS[0],
+        {
+          ...TRUSTS[1],
+          trust_address: "9BetaTrust111111111111111111111111111111111",
+        },
+      ],
+      isLoading: false,
+    } as never);
+
+    renderEconomy();
+
+    expect(await screen.findByText("Liquidity seed not confirmed")).toBeInTheDocument();
+    expect(
+      screen.getByText(/1 on-chain TRUST has no Unifutures seed surface/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/must stay quiet about live liquidity and funding/i),
+    ).toBeInTheDocument();
   });
 
   it("shows indexed genesis curves on the pools tab", async () => {
@@ -160,13 +223,27 @@ describe("EconomyPage", () => {
     });
 
     expect(screen.getByText("Genesis curve")).toBeInTheDocument();
-    expect(screen.getByText("0 trusts / 1 pools / 0 roles")).toBeInTheDocument();
+    expect(screen.getByText("0 trusts / 1 pools / 0 allocations / 0 roles")).toBeInTheDocument();
 
     fireEvent.change(screen.getByRole("textbox", { name: "Search trusts" }), {
       target: { value: "Beta" },
     });
 
     expect(screen.getByText("No matching pools")).toBeInTheDocument();
+  });
+
+  it("filters cap-table seed rows by allocation and security fields", async () => {
+    renderEconomy();
+
+    expect(await screen.findByText("Founder vesting")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Search trusts" }), {
+      target: { value: "option_pool" },
+    });
+
+    expect(screen.getAllByText("Option pool").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Founder vesting")).not.toBeInTheDocument();
+    expect(screen.getByText("0 trusts / 0 pools / 1 allocations / 0 roles")).toBeInTheDocument();
   });
 
   it("shows vacant trust roles on the roles tab", async () => {
@@ -188,7 +265,7 @@ describe("EconomyPage", () => {
     });
 
     expect(screen.getByText("CFO")).toBeInTheDocument();
-    expect(screen.getByText("0 trusts / 0 pools / 1 roles")).toBeInTheDocument();
+    expect(screen.getByText("0 trusts / 0 pools / 0 allocations / 1 roles")).toBeInTheDocument();
 
     fireEvent.change(screen.getByRole("textbox", { name: "Search trusts" }), {
       target: { value: "Beta" },

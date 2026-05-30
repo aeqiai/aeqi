@@ -335,7 +335,14 @@
 }
 
 .trust-sessions-composer-wrap {
+  flex: 0 0 auto;
   width: min(820px, 100%);
+  max-height: 220px;
+}
+
+.trust-sessions-composer-wrap .asv-textarea {
+  min-height: 40px;
+  max-height: 128px;
 }
 
 .trust-sessions-composer-error {

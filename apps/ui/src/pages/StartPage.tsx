@@ -1,264 +1,54 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, BookOpen, Globe, Plus, Rocket, Users } from "lucide-react";
-import OperatingContextCard from "@/components/trust/OperatingContextCard";
-import InboxEmptyCanvas from "@/components/inbox/InboxEmptyCanvas";
-import { useAgents } from "@/queries/agents";
-import { useEntities } from "@/queries/entities";
-import { makeRailRow, SessionRailRowContent } from "@/components/sessions/SessionRail";
-import UserAvatar from "@/components/UserAvatar";
-import { api } from "@/lib/api";
-import { entityPath } from "@/lib/entityPath";
-import { timeShort } from "@/lib/format";
-import { formatHeroClock } from "@/lib/i18n";
-import { getInboxSignal, visibleInboxSignalLabel } from "@/lib/inboxState";
-import type { InboxItem } from "@/lib/api";
-import type { Role, Trust } from "@/lib/types";
-import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
-import { userSessionsPath } from "@/lib/sessionViews";
-import { useAuthStore } from "@/store/auth";
-import { useInboxStore } from "@/store/inbox";
-import { useUIStore } from "@/store/ui";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { ArrowRight, BookOpen, Globe, PlayCircle, Plus, Rocket, Share2, Users } from "lucide-react";
 import { LEARN_POSTS } from "./startPageLearnPosts";
-import { pickFeaturedRole } from "./startPageUtils";
 import "@/styles/roles.css";
 
-const INBOX_PREVIEW_LIMIT = 4;
-
 export default function StartPage() {
-  const navigate = useNavigate();
-  const user = useAuthStore((s) => s.user);
-  const activeEntityId = useUIStore((s) => s.activeEntity);
-  const entities = useEntities();
-  const agents = useAgents();
-  const inboxItems = useInboxStore((s) => s.items);
-  const fetchInbox = useInboxStore((s) => s.fetchInbox);
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [rolesLoading, setRolesLoading] = useState(false);
-  const [heroClock, setHeroClock] = useState(() => new Date());
-
-  useEffect(() => {
-    fetchInbox().catch(() => {
-      // The inbox store owns error presentation; Home keeps the preview quiet.
-    });
-  }, [fetchInbox]);
-
-  useEffect(() => {
-    const interval = window.setInterval(() => setHeroClock(new Date()), 30_000);
-    return () => window.clearInterval(interval);
-  }, []);
-
-  const activeTrust = useMemo(() => {
-    if (activeEntityId) {
-      const selected = entities.find((entity) => entity.id === activeEntityId);
-      if (selected) return selected;
-    }
-    return entities[0] ?? null;
-  }, [activeEntityId, entities]);
-
-  useEffect(() => {
-    if (!activeTrust) {
-      setRoles([]);
-      setRolesLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    setRolesLoading(true);
-    api
-      .getRoles(activeTrust.id)
-      .then((resp) => {
-        if (!cancelled) setRoles(resp.roles ?? []);
-      })
-      .catch(() => {
-        if (!cancelled) setRoles([]);
-      })
-      .finally(() => {
-        if (!cancelled) setRolesLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [activeTrust]);
-
-  const actorName = useMemo(
-    () => user?.name?.trim() || user?.email?.split("@")[0] || "Operator",
-    [user],
-  );
-  const actorEmail = user?.email?.trim() || "Personal command surface";
-  const heroClockLine = useMemo(() => formatHeroClock(heroClock), [heroClock]);
-
-  const trustNameById = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const entity of entities) map.set(entity.id, entity.name);
-    return map;
-  }, [entities]);
-
-  const currentAgents = useMemo(() => {
-    if (!activeTrust) return [];
-    return agents.filter((agent) => !agent.trust_id || agent.trust_id === activeTrust.id);
-  }, [activeTrust, agents]);
-
-  const agentCountByTrustId = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const agent of agents) {
-      if (!agent.trust_id) continue;
-      map.set(agent.trust_id, (map.get(agent.trust_id) ?? 0) + 1);
-    }
-    return map;
-  }, [agents]);
-
-  const agentNames = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const agent of currentAgents) map.set(agent.id, agent.name);
-    return map;
-  }, [currentAgents]);
-
-  const activeRole = useMemo(() => pickFeaturedRole(roles, user?.id), [roles, user?.id]);
-  const handleSelectRole = useCallback(
-    (role: Role) => {
-      if (!activeTrust) return;
-      navigate(entityPath(activeTrust, "roles", encodeURIComponent(role.id)));
-    },
-    [activeTrust, navigate],
-  );
-
-  const inboxPreview = inboxItems.slice(0, INBOX_PREVIEW_LIMIT);
-
   return (
     <div className="home-page">
-      <header className="home-hero">
-        <img src="/welcome/start-hero.png" alt="" className="home-hero-image" aria-hidden="true" />
-        <div className="home-hero-overlay">
-          <div className="home-hero-identity">
-            <div className="home-hero-text">
-              <p className="home-hero-eyebrow">{heroClockLine}</p>
-              <h1 className="home-hero-title">Welcome back</h1>
-              <div className="home-hero-profile">
-                <span className="home-hero-avatar" aria-hidden="true">
-                  <UserAvatar name={actorName} size={46} src={user?.avatar_url} />
+      <header className="home-hero home-hero--global" aria-label="aeqi home">
+        <div className="home-hero-identity">
+          <div className="home-hero-text">
+            <p className="home-hero-eyebrow">The company OS</p>
+            <h1 className="home-hero-title">aeqi</h1>
+            <div className="home-hero-profile">
+              <span className="home-hero-profile-copy">
+                <span className="home-hero-subtitle">
+                  Start something that can work without you.
                 </span>
-                <span className="home-hero-profile-copy">
-                  <span className="home-hero-subtitle">{actorName}</span>
-                  <span className="home-hero-email">{actorEmail}</span>
+                <span className="home-hero-email">
+                  Launch a TRUST, bring agents into the loop, and keep proof in one place.
                 </span>
-              </div>
+              </span>
             </div>
           </div>
         </div>
+        <nav className="home-hero-actions" aria-label="Home actions">
+          <Link to="/blueprints" className="home-hero-action home-hero-action--secondary">
+            Blueprints
+            <ArrowRight size={14} strokeWidth={1.8} />
+          </Link>
+          <Link to="/launch" className="home-hero-action">
+            <Plus size={14} strokeWidth={1.8} />
+            Launch TRUST
+          </Link>
+        </nav>
       </header>
 
-      <section className="home-row-trusts" aria-label="Operating context">
-        <OperatingContextCard
-          activeTrust={activeTrust}
-          activeRole={activeRole}
-          rolesLoading={rolesLoading}
-          metrics={[
-            { label: "Roles", value: rolesLoading ? "…" : roles.length },
-            { label: "Agents", value: currentAgents.length },
-            { label: "Status", value: activeTrust?.status ?? "—" },
-          ]}
-          agentNames={agentNames}
-          onSelectRole={handleSelectRole}
-          ctaLabel={null}
-          className="home-card--recessed"
-        />
-        <YourTrustsCard
-          trusts={entities}
-          activeTrust={activeTrust}
-          agentCountByTrustId={agentCountByTrustId}
-          activeRoleCount={rolesLoading ? null : roles.length}
-        />
+      <section className="home-row-promos" aria-label="Start with aeqi">
         <LaunchTrustCard />
+        <BlueprintPromoCard />
+        <FounderUpdateCard />
       </section>
 
-      <section className="home-row-two" aria-label="My sessions and economy">
-        <InboxPreviewCard
-          entities={entities}
-          inboxItems={inboxPreview}
-          trustNameById={trustNameById}
-          activeTrust={activeTrust}
-        />
+      <section className="home-row-two" aria-label="aeqi public surfaces">
         <EconomyCard />
+        <ReferralCard />
       </section>
 
       <LearnAeqiSection />
     </div>
-  );
-}
-
-function YourTrustsCard({
-  trusts,
-  activeTrust,
-  agentCountByTrustId,
-  activeRoleCount,
-}: {
-  trusts: ReadonlyArray<Trust>;
-  activeTrust: Trust | null;
-  agentCountByTrustId: ReadonlyMap<string, number>;
-  activeRoleCount: number | null;
-}) {
-  const preview = trusts.slice(0, 4);
-
-  return (
-    <article className="home-card home-card--trust-list home-card--recessed">
-      <header className="home-trust-list-head">
-        <h2 className="home-trust-list-title">Your TRUSTs</h2>
-        <Link to="/trust" className="home-trust-list-cta" aria-label="View all TRUSTs">
-          View all
-          <ArrowRight size={14} strokeWidth={1.8} aria-hidden="true" />
-        </Link>
-      </header>
-      {preview.length > 0 ? (
-        <ul className="home-trust-list" aria-label="TRUST preview">
-          {preview.map((trust) => {
-            const isActive = activeTrust?.id === trust.id;
-            const agentsInTrust = agentCountByTrustId.get(trust.id) ?? 0;
-            const roleCount = isActive && activeRoleCount !== null ? activeRoleCount : null;
-            return (
-              <li key={trust.id}>
-                <Link
-                  to={entityPath(trust)}
-                  className={isActive ? "home-trust-row is-active" : "home-trust-row"}
-                  aria-current={isActive ? "page" : undefined}
-                >
-                  <TrustMiniMark name={trust.name} active={isActive} />
-                  <span className="home-trust-row-copy">
-                    <span className="home-trust-row-name">{trust.name}</span>
-                    <span className="home-trust-row-meta">
-                      {[
-                        isActive ? "Active" : trust.status,
-                        roleCount !== null
-                          ? `${roleCount} ${roleCount === 1 ? "role" : "roles"}`
-                          : null,
-                        `${agentsInTrust} ${agentsInTrust === 1 ? "agent" : "agents"}`,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </span>
-                  </span>
-                  <ArrowRight size={14} strokeWidth={1.8} aria-hidden="true" />
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      ) : (
-        <div className="home-trust-list-empty">
-          <span>No TRUSTs yet</span>
-          <Link to="/launch">Launch first</Link>
-        </div>
-      )}
-    </article>
-  );
-}
-
-function TrustMiniMark({ name, active }: { name: string; active: boolean }) {
-  return (
-    <span className={active ? "home-trust-mini-mark is-active" : "home-trust-mini-mark"}>
-      {name.slice(0, 1).toUpperCase()}
-    </span>
   );
 }
 
@@ -270,117 +60,90 @@ function LaunchTrustCard() {
         Launch
       </span>
       <div className="home-launch-body">
-        <h3 className="home-launch-title">Launch a TRUST</h3>
+        <h2 className="home-launch-title">Launch a TRUST</h2>
         <p className="home-launch-hint">
-          Create a shared AI workspace for one mission: agents, quests, ideas, tools, and evidence.
+          Name the workspace, choose the First Company blueprint, and create the first operating
+          context.
+        </p>
+      </div>
+      <div className="home-launch-actions">
+        <Link to="/launch" className="home-primary-action">
+          <Plus size={16} strokeWidth={1.8} />
+          Launch TRUST
+        </Link>
+      </div>
+    </article>
+  );
+}
+
+function BlueprintPromoCard() {
+  return (
+    <article className="home-card home-card--launch">
+      <span className="home-launch-kicker">
+        <BookOpen size={15} strokeWidth={1.7} aria-hidden="true" />
+        Blueprint
+      </span>
+      <div className="home-launch-body">
+        <h2 className="home-launch-title">First Company</h2>
+        <p className="home-launch-hint">
+          The v1 package for a founder, a Chief of Staff, and the first execution loop.
         </p>
       </div>
       <div className="home-launch-actions">
         <Link to="/blueprints" className="home-primary-action home-primary-action--secondary">
-          Browse Blueprints
+          View blueprint
           <ArrowRight size={16} strokeWidth={1.8} />
-        </Link>
-        <Link to="/launch" className="home-primary-action">
-          <Plus size={16} strokeWidth={1.8} />
-          Launch
         </Link>
       </div>
     </article>
   );
 }
 
-interface InboxPreviewCardProps {
-  entities: ReadonlyArray<Trust>;
-  inboxItems: ReadonlyArray<InboxItem>;
-  trustNameById: ReadonlyMap<string, string>;
-  activeTrust: Trust | null;
-}
+function FounderUpdateCard() {
+  const update = LEARN_POSTS[0];
 
-function InboxPreviewCard({
-  entities,
-  inboxItems,
-  trustNameById,
-  activeTrust,
-}: InboxPreviewCardProps) {
-  const sessionsHref = activeTrust ? userSessionsPath(entityPath(activeTrust)) : "/trust";
   return (
-    <article className="home-card home-card--inbox home-card--recessed">
-      <header className="home-inbox-head">
-        <h2 className="home-inbox-title">My sessions</h2>
-        <Link to={sessionsHref} className="home-inbox-cta" aria-label="View my sessions">
-          View all
-          <ArrowRight size={14} strokeWidth={1.8} aria-hidden="true" />
-        </Link>
-      </header>
-      {inboxItems.length > 0 ? (
-        <ul className="home-inbox-list">
-          {inboxItems.map((item) => (
-            <InboxPreviewRow
-              key={item.session_id}
-              item={item}
-              entities={entities}
-              trustNameById={trustNameById}
-            />
-          ))}
-        </ul>
-      ) : (
-        <InboxEmptyCanvas
-          title="Nothing waiting"
-          hint="Sessions that mention or include you will appear here."
-          kind="empty"
-          className="home-inbox-empty-canvas"
-        />
-      )}
-    </article>
+    <a className="home-card home-card--video" href={update.href} target="_blank" rel="noreferrer">
+      <span className="home-launch-kicker">
+        <PlayCircle size={15} strokeWidth={1.7} aria-hidden="true" />
+        Founder update
+      </span>
+      <img src={update.image} alt="" className="home-video-image" aria-hidden="true" />
+      <div className="home-launch-body">
+        <h2 className="home-launch-title">{update.title}</h2>
+        <p className="home-launch-hint">{update.summary}</p>
+      </div>
+      <span className="home-primary-action home-primary-action--secondary">
+        Read update
+        <ArrowRight size={16} strokeWidth={1.8} />
+      </span>
+    </a>
   );
 }
 
-function InboxPreviewRow({
-  item,
-  entities,
-  trustNameById,
-}: {
-  item: InboxItem;
-  entities: ReadonlyArray<Trust>;
-  trustNameById: ReadonlyMap<string, string>;
-}) {
-  const subject =
-    item.awaiting_subject ||
-    item.session_name ||
-    item.last_agent_message?.slice(0, 80) ||
-    "Untitled session";
-  const subjectFromMessage =
-    !item.awaiting_subject && !item.session_name && !!item.last_agent_message;
-  const preview = subjectFromMessage
-    ? ""
-    : item.last_agent_message?.replace(/\s+/g, " ").trim() || "";
-  const from = item.agent_name || "Agent";
-  const time = timeShort(item.awaiting_at || item.last_active);
-  const trustLabel = item.trust_id ? trustNameById.get(item.trust_id) || "TRUST" : "Global scope";
-  const signal = getInboxSignal({ awaiting: !!item.awaiting_at });
-  const signalLabel = visibleInboxSignalLabel(signal);
-  const contextLine = [signalLabel, from, trustLabel, preview].filter(Boolean).join(" · ");
-  const row = makeRailRow({
-    id: item.session_id,
-    primary: subject,
-    secondary: contextLine,
-    time,
-    status: signal.rowStatus,
-    awaiting: signal.awaiting,
-    isoTimestamp: item.awaiting_at || item.last_active,
-    wrapPrimary: true,
-  });
-
+function ReferralCard() {
   return (
-    <li className="home-inbox-item">
-      <Link
-        className="home-inbox-link sessions-rail-row sessions-rail-row--multi"
-        to={sessionDeepUrlFromId(entities, item.trust_id, item.agent_id, item.session_id)}
-        aria-label={`${signal.label}: ${subject}`}
-      >
-        <SessionRailRowContent item={row} />
-      </Link>
-    </li>
+    <article className="home-card home-card--referral">
+      <span className="home-launch-kicker">
+        <Share2 size={15} strokeWidth={1.7} aria-hidden="true" />
+        Referrals
+      </span>
+      <div className="home-launch-body">
+        <h2 className="home-launch-title">Invite the first operators</h2>
+        <p className="home-launch-hint">
+          Keep the global home ready for referral loops, cohort updates, and public launch calls.
+        </p>
+      </div>
+      <div className="home-launch-actions">
+        <a
+          href="mailto:?subject=Build%20with%20aeqi&body=https%3A%2F%2Fapp.aeqi.ai%2Flaunch"
+          className="home-primary-action home-primary-action--secondary"
+        >
+          Invite someone
+          <ArrowRight size={16} strokeWidth={1.8} />
+        </a>
+      </div>
+    </article>
   );
 }
 
@@ -403,16 +166,16 @@ function EconomyCard() {
       </div>
       <div className="home-economy-content">
         <div className="home-economy-body">
-          <p className="home-economy-lede">Unlock the agent economy.</p>
+          <p className="home-economy-lede">Public market surface</p>
           <p className="home-economy-aside">
-            TRUST listings, open roles, blueprints, and funding opportunities live here.
+            Discover TRUST listings, open roles, blueprints, and launch-ready funding surfaces.
           </p>
         </div>
         <Link
           to="/economy"
           className="home-primary-action home-primary-action--secondary home-economy-cta"
         >
-          Explore Economy
+          Open Economy
           <ArrowRight size={16} strokeWidth={1.8} />
         </Link>
       </div>

@@ -1,11 +1,12 @@
 //! Entity IPC handlers.
 //!
-//! Four commands: `entities`, `create_entity`, `update_entity`, `delete_entity`.
+//! Entity commands plus read-only entity-scoped registries such as cap-table seeds.
 //!
 //! Wire shape for `handle_entities` returns `{"ok": true, "roots": [...]}`.
 //! The `roots` key name is preserved here for the platform proxy that
 //! reshapes it into the `{ entities: [...] }` HTTP response the UI expects.
 
+use crate::agent_registry::EntityViewUpsert;
 use crate::entity_registry::EntityType;
 
 use super::tenancy::is_allowed;
@@ -165,6 +166,14 @@ pub async fn handle_create_entity(
             return serde_json::json!({"ok": false, "error": e.to_string()});
         }
 
+        if let Err(e) = ctx
+            .agent_registry
+            .seed_personal_cap_table_defaults(&entity.id, caller_user_id.as_deref())
+            .await
+        {
+            return serde_json::json!({"ok": false, "error": e.to_string()});
+        }
+
         if let Some(ref uid) = caller_user_id
             && let Err(e) = ctx
                 .role_registry
@@ -198,6 +207,9 @@ pub async fn handle_create_entity(
     // counts work immediately. The spawn path mints a fresh entity UUID
     // alongside the agent UUID; the entity is the canonical identifier
     // exposed on the wire.
+    let creator_user_id = super::request_field(request, "creator_user_id")
+        .or_else(|| super::request_field(request, "caller_user_id"))
+        .map(str::to_string);
     let trust_id = match ctx.agent_registry.spawn(name, None, None).await {
         Ok(agent) => match agent.trust_id {
             Some(eid) => eid,
@@ -210,6 +222,14 @@ pub async fn handle_create_entity(
         },
         Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
     };
+
+    if let Err(e) = ctx
+        .agent_registry
+        .seed_company_cap_table_defaults(&trust_id, creator_user_id.as_deref())
+        .await
+    {
+        return serde_json::json!({"ok": false, "error": e.to_string()});
+    }
 
     // Ensure the project directory exists (mirrors
     // `handle_create_default_agent` behaviour).
@@ -346,6 +366,196 @@ pub async fn handle_update_entity(
     }
 
     serde_json::json!({"ok": true})
+}
+
+pub async fn handle_list_cap_table_entries(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let trust_id = match super::request_field(request, "trust_id") {
+        Some(value) => value,
+        None => {
+            return serde_json::json!({"ok": false, "code": "bad_request", "error": "trust_id is required"});
+        }
+    };
+
+    if allowed.is_some() && !is_allowed(allowed, trust_id) {
+        return serde_json::json!({"ok": false, "code": "forbidden", "error": "access denied"});
+    }
+
+    match ctx.agent_registry.list_cap_table_entries(trust_id).await {
+        Ok(entries) => serde_json::json!({
+            "ok": true,
+            "trust_id": trust_id,
+            "entries": entries,
+        }),
+        Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+    }
+}
+
+pub async fn handle_list_views(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let trust_id = match super::request_field(request, "trust_id") {
+        Some(value) => value,
+        None => {
+            return serde_json::json!({"ok": false, "code": "bad_request", "error": "trust_id is required"});
+        }
+    };
+
+    if allowed.is_some() && !is_allowed(allowed, trust_id) {
+        return serde_json::json!({"ok": false, "code": "forbidden", "error": "access denied"});
+    }
+
+    let owner_user_id = super::request_field(request, "owner_user_id")
+        .or_else(|| super::request_field(request, "caller_user_id"));
+    match ctx
+        .agent_registry
+        .list_entity_views(trust_id, owner_user_id)
+        .await
+    {
+        Ok(views) => serde_json::json!({
+            "ok": true,
+            "trust_id": trust_id,
+            "views": views,
+        }),
+        Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+    }
+}
+
+pub async fn handle_upsert_views(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let trust_id = match super::request_field(request, "trust_id") {
+        Some(value) => value,
+        None => {
+            return serde_json::json!({"ok": false, "code": "bad_request", "error": "trust_id is required"});
+        }
+    };
+
+    if allowed.is_some() && !is_allowed(allowed, trust_id) {
+        return serde_json::json!({"ok": false, "code": "forbidden", "error": "access denied"});
+    }
+
+    let owner_user_id = super::request_field(request, "owner_user_id")
+        .or_else(|| super::request_field(request, "caller_user_id"));
+    let views = match parse_entity_view_upserts(request) {
+        Ok(views) => views,
+        Err(e) => {
+            return serde_json::json!({"ok": false, "code": "bad_request", "error": e.to_string()});
+        }
+    };
+
+    match ctx
+        .agent_registry
+        .upsert_entity_views(trust_id, owner_user_id, views)
+        .await
+    {
+        Ok(views) => serde_json::json!({
+            "ok": true,
+            "trust_id": trust_id,
+            "views": views,
+        }),
+        Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+    }
+}
+
+pub async fn handle_delete_view(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let trust_id = match super::request_field(request, "trust_id") {
+        Some(value) => value,
+        None => {
+            return serde_json::json!({"ok": false, "code": "bad_request", "error": "trust_id is required"});
+        }
+    };
+    let id_or_key = match super::request_field(request, "view_id")
+        .or_else(|| super::request_field(request, "id"))
+        .or_else(|| super::request_field(request, "key"))
+    {
+        Some(value) => value,
+        None => {
+            return serde_json::json!({"ok": false, "code": "bad_request", "error": "view_id or key is required"});
+        }
+    };
+
+    if allowed.is_some() && !is_allowed(allowed, trust_id) {
+        return serde_json::json!({"ok": false, "code": "forbidden", "error": "access denied"});
+    }
+
+    let owner_user_id = super::request_field(request, "owner_user_id")
+        .or_else(|| super::request_field(request, "caller_user_id"));
+    match ctx
+        .agent_registry
+        .delete_entity_view(trust_id, owner_user_id, id_or_key)
+        .await
+    {
+        Ok(deleted) => serde_json::json!({
+            "ok": true,
+            "trust_id": trust_id,
+            "deleted": deleted,
+        }),
+        Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+    }
+}
+
+fn parse_entity_view_upserts(request: &serde_json::Value) -> anyhow::Result<Vec<EntityViewUpsert>> {
+    let raw_views = if let Some(views) = request.get("views").and_then(|value| value.as_array()) {
+        views.clone()
+    } else if let Some(view) = request.get("view") {
+        vec![view.clone()]
+    } else {
+        anyhow::bail!("views or view is required");
+    };
+
+    if raw_views.is_empty() {
+        anyhow::bail!("at least one view is required");
+    }
+
+    raw_views
+        .into_iter()
+        .map(|view| {
+            let key = super::request_field(&view, "key")
+                .map(str::to_string)
+                .ok_or_else(|| anyhow::anyhow!("view key is required"))?;
+            let label = super::request_field(&view, "label")
+                .or_else(|| super::request_field(&view, "title"))
+                .map(str::to_string)
+                .ok_or_else(|| anyhow::anyhow!("view label is required"))?;
+            Ok(EntityViewUpsert {
+                id: super::request_field(&view, "id").map(str::to_string),
+                key,
+                label,
+                kind: super::request_field(&view, "kind")
+                    .unwrap_or("dashboard")
+                    .to_string(),
+                scope: super::request_field(&view, "scope")
+                    .unwrap_or("private")
+                    .to_string(),
+                path: super::request_field(&view, "path").map(str::to_string),
+                search: super::request_field(&view, "search").map(str::to_string),
+                layout_json: view
+                    .get("layout_json")
+                    .or_else(|| view.get("layout"))
+                    .cloned(),
+                pinned: view
+                    .get("pinned")
+                    .and_then(|value| value.as_bool())
+                    .unwrap_or(false),
+                sort_order: view
+                    .get("sort_order")
+                    .and_then(|value| value.as_i64())
+                    .unwrap_or(0),
+            })
+        })
+        .collect()
 }
 
 pub async fn handle_delete_entity(

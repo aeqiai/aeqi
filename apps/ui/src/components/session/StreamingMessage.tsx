@@ -1,6 +1,7 @@
 import { useId, useState, useEffect } from "react";
 import { ThinkingDot } from "@/components/ui";
 import { SegmentRenderer } from "./SegmentRenderer";
+import type { LiveParticipant } from "./streamReducer";
 import {
   type MessageSegment,
   formatDuration,
@@ -27,6 +28,24 @@ function ElapsedText({ start }: { start: number }) {
     return () => clearInterval(interval);
   }, [start]);
   return <>{formatDuration(start, start + elapsed)}</>;
+}
+
+function ProcessingParticipants({ participants }: { participants: LiveParticipant[] }) {
+  if (participants.length === 0) return null;
+  const root = participants[0];
+  const delegates = participants.slice(1);
+  return (
+    <div className="asv-processing-row" aria-label="Active session processing">
+      <span className="asv-processing-pulse" aria-hidden />
+      <span className="asv-processing-label">Processing</span>
+      <span className="asv-processing-chip">{root.name}</span>
+      {delegates.map((participant) => (
+        <span key={`${participant.kind}:${participant.id}`} className="asv-processing-chip">
+          {participant.name}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 /**
@@ -96,6 +115,7 @@ interface StreamingMessageProps {
   liveSegments: MessageSegment[];
   thinkingStart: number | null;
   streaming: boolean;
+  liveParticipants?: LiveParticipant[];
   /** Step offset carried forward from a UserInjected split. When > 0, the
    * LiveTrail label reads "Continuing from step N" instead of the elapsed
    * thinking timer. */
@@ -103,14 +123,19 @@ interface StreamingMessageProps {
 }
 
 export default function StreamingMessage({
-  agentName: _agentName,
+  agentName,
   liveSegments,
+  liveParticipants,
   thinkingStart,
   streaming,
   stepOffset = 0,
 }: StreamingMessageProps) {
   if (!streaming) return null;
 
+  const participants =
+    liveParticipants && liveParticipants.length > 0
+      ? liveParticipants
+      : [{ id: agentName, name: agentName, kind: "agent" as const }];
   const runningToolName = currentRunningToolName(liveSegments);
   const liveStepCount = countStepSegments(liveSegments);
   // Always show the "thinking" pulse during the live phase. Whether the
@@ -127,6 +152,7 @@ export default function StreamingMessage({
     <div className="asv-msg asv-msg-assistant asv-msg-streaming asv-msg-has-trail">
       <div className="asv-msg-body">
         <div className="asv-msg-card">
+          <ProcessingParticipants participants={participants} />
           <LiveTrail
             trail={liveSegments}
             thinkingStart={thinkingStart}

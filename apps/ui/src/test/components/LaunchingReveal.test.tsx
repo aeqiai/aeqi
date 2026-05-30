@@ -52,19 +52,47 @@ describe("LaunchingReveal", () => {
     expect(screen.getByText("Website")).toBeInTheDocument();
     expect(screen.getByText("Email")).toBeInTheDocument();
     expect(screen.getByText("hello@janus-trust.aeqi.ai")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open Website" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Open website" })).toHaveAttribute(
       "href",
       "https://janus-trust.aeqi.ai/",
     );
-    expect(screen.getByRole("link", { name: "Trust tools" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "TRUST tools" })).toHaveAttribute(
       "href",
       "/trust/9AlphaTrust111111111111111111111111111111111",
     );
-    await waitFor(() =>
-      expect(useUIStore.getState().activeEntity).toBe(
-        "9AlphaTrust111111111111111111111111111111111",
-      ),
-    );
+    await waitFor(() => expect(useUIStore.getState().activeEntity).toBe("ent_123"));
     expect(getLaunchStatus).toHaveBeenCalledWith("ent_123");
+  });
+
+  it("does not claim website or Solana completion until the trust address exists", async () => {
+    getLaunchStatus.mockResolvedValue({
+      placement_status: "ready",
+      display_name: "Janus TRUST",
+      email_address: null,
+      trust_address: null,
+      milestones: {
+        creating_trust: { reached: true },
+        loading_roles: { reached: true },
+        spawning_agent: { reached: true },
+      },
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/launch?launch=ent_123"]}>
+        <Routes>
+          <Route
+            path="/launch"
+            element={<LaunchingReveal trustId="ent_123" fallbackDisplayName="Janus TRUST" />}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Janus TRUST runtime is ready.")).toBeInTheDocument();
+    expect(screen.getByText(/On-chain TRUST identity is still confirming/i)).toBeInTheDocument();
+    expect(screen.queryByText("The TRUST exists and the public website shell is live.")).toBeNull();
+    expect(screen.queryByText("Website")).toBeNull();
+    expect(screen.queryByRole("link", { name: "Open website" })).toBeNull();
+    expect(useUIStore.getState().activeEntity).toBe("");
   });
 });

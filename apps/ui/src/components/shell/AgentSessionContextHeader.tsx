@@ -88,7 +88,11 @@ export default function AgentSessionContextHeader() {
       {(itemId || agentId) && (
         <div className="session-detail-header-extras agent-session-context-header-extras">
           <MobileSessionsSwitcher currentTitle={title} />
-          <ParticipantStrip sessionId={itemId ?? null} trustId={resolvedTrustId || undefined} />
+          <ParticipantStrip
+            sessionId={itemId ?? null}
+            trustId={resolvedTrustId || undefined}
+            activeParticipantIds={isStreaming && agentId ? [agentId] : []}
+          />
         </div>
       )}
     </div>

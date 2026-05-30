@@ -44,7 +44,15 @@ function normalize(raw: RawParticipant): Participant {
   return { id, name, kind, avatar_url: raw.avatar_url ?? null };
 }
 
-function ParticipantAvatar({ p, trustId }: { p: Participant; trustId?: string }) {
+function ParticipantAvatar({
+  p,
+  trustId,
+  active,
+}: {
+  p: Participant;
+  trustId?: string;
+  active: boolean;
+}) {
   // Resolve a navigation target so clicking the avatar jumps to that
   // identity's surface. Agent → /<entityBase>/agents/<id>; position
   // → /<entityBase>/roles/<id>; user / external are unlinked (no public
@@ -64,6 +72,7 @@ function ParticipantAvatar({ p, trustId }: { p: Participant; trustId?: string })
   const photoBorderRadius = shape === "circle" ? "999px" : "var(--radius-sm)";
 
   if (p.avatar_url) {
+    const className = `block-avatar-link asv-participant-avatar${active ? " is-processing" : ""}`;
     const img = (
       <img
         src={p.avatar_url}
@@ -83,8 +92,8 @@ function ParticipantAvatar({ p, trustId }: { p: Participant; trustId?: string })
       return (
         <Link
           to={href}
-          className="block-avatar-link asv-participant-avatar"
-          aria-label={p.name}
+          className={className}
+          aria-label={active ? `${p.name} is processing` : p.name}
           title={p.name}
           onClick={(e) => e.stopPropagation()}
         >
@@ -93,13 +102,21 @@ function ParticipantAvatar({ p, trustId }: { p: Participant; trustId?: string })
       );
     }
     return (
-      <div className="asv-participant-avatar" title={p.name}>
+      <div
+        className={`asv-participant-avatar${active ? " is-processing" : ""}`}
+        title={p.name}
+        aria-label={active ? `${p.name} is processing` : p.name}
+      >
         {img}
       </div>
     );
   }
   return (
-    <div className="asv-participant-avatar" title={p.name}>
+    <div
+      className={`asv-participant-avatar${active ? " is-processing" : ""}`}
+      title={p.name}
+      aria-label={active ? `${p.name} is processing` : p.name}
+    >
       <BlockAvatar name={p.name || "?"} size={24} href={href} ariaLabel={p.name} shape={shape} />
     </div>
   );
@@ -108,12 +125,14 @@ function ParticipantAvatar({ p, trustId }: { p: Participant; trustId?: string })
 export default function ParticipantStrip({
   sessionId,
   trustId,
+  activeParticipantIds = [],
 }: {
   sessionId: string | null;
   /** Optional entity scope override — needed when the host route doesn't
    *  resolve an entity via `useNav` (e.g. when the inbox surface is
    *  mounted in a context without a matching :trustId/:trustAddress). */
   trustId?: string;
+  activeParticipantIds?: string[];
 }) {
   const [participants, setParticipants] = useState<Participant[] | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -183,13 +202,19 @@ export default function ParticipantStrip({
 
   const inline = enriched.slice(0, MAX_PARTICIPANTS_INLINE);
   const overflow = enriched.length - inline.length;
+  const activeSet = new Set(activeParticipantIds);
 
   return (
     <>
       <div className="asv-participant-strip">
         <div className="asv-participant-strip-avatars">
           {inline.map((p) => (
-            <ParticipantAvatar key={`${p.kind}:${p.id}`} p={p} trustId={trustId} />
+            <ParticipantAvatar
+              key={`${p.kind}:${p.id}`}
+              p={p}
+              trustId={trustId}
+              active={activeSet.has(p.id)}
+            />
           ))}
           {overflow > 0 && (
             <div

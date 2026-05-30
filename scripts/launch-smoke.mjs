@@ -93,7 +93,7 @@ function visualRouteArgs(check, opts) {
     "--url",
     check.url,
     "--viewport",
-    opts.viewport,
+    check.viewport ?? opts.viewport,
     "--wait-ms",
     opts.waitMs,
     "--out",
@@ -129,7 +129,7 @@ function checksFor(opts) {
       name: "home-auth",
       url: "/",
       auth: true,
-      expectText: ["Inbox"],
+      expectText: ["Start something that can work without you."],
     },
     {
       name: "launch-auth",
@@ -142,6 +142,19 @@ function checksFor(opts) {
       url: "/blueprints",
       auth: true,
       expectText: ["Blueprints"],
+    },
+    {
+      name: "economy-auth",
+      url: "/economy",
+      auth: true,
+      expectText: ["Economy", "Cap-table seed rows"],
+    },
+    {
+      name: "economy-mobile-auth",
+      url: "/economy",
+      auth: true,
+      viewport: "390x844",
+      expectText: ["Economy", "Cap-table seed rows"],
     },
   );
 

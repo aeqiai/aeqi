@@ -42,9 +42,9 @@ describe("TrustSetupFlow", () => {
 
     expect(backButton.closest(".launch-flow-card")).toBeNull();
     expect(screen.getAllByRole("button", { name: "Back" })).toHaveLength(2);
-    expect(screen.getByText(/One launch binds identity, agents, quests/i)).toBeInTheDocument();
+    expect(screen.getByText(/Identity, roles, agents, quests/i)).toBeInTheDocument();
     expect(screen.getByRole("list", { name: "Launch sequence" })).toBeInTheDocument();
-    expect(screen.getByText(/Create the company container/i)).toBeInTheDocument();
+    expect(screen.getByText(/choose whether to add hosted operations now/i)).toBeInTheDocument();
   });
 
   it("falls back to the TRUST path when opened without app history", async () => {
@@ -121,5 +121,28 @@ describe("TrustSetupFlow", () => {
     expect(screen.getByRole("radio", { name: /Admin sandbox/i })).toBeChecked();
     expect(screen.getByText("No Stripe checkout")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Launch admin sandbox/i })).toBeInTheDocument();
+  });
+
+  it("describes free launch without promising hosted blueprint runtime", () => {
+    render(
+      <MemoryRouter>
+        <TrustSetupFlow {...baseProps} operations="free" exitHref={null} />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByText(
+        /Creates a free platform TRUST with a public profile and founding Director/i,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/activate with hosted operations/i)).toBeInTheDocument();
+    expect(screen.getByText("FREE TRUST")).toBeInTheDocument();
+    expect(screen.getByText("Public")).toBeInTheDocument();
+    expect(screen.getByText("profile")).toBeInTheDocument();
+    expect(screen.getByText("first.")).toBeInTheDocument();
+    expect(screen.getAllByText("Operations").length).toBeGreaterThan(1);
+    expect(screen.getByText("Available with Standard or Pro")).toBeInTheDocument();
+    expect(screen.queryByText("Agents, quests, tools")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create free TRUST" })).toBeInTheDocument();
   });
 });

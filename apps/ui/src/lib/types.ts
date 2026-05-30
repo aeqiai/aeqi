@@ -47,6 +47,67 @@ export interface Trust {
   launch_error?: string;
 }
 
+export interface CapTableEntry {
+  id: string;
+  trust_id: string;
+  allocation_key: string;
+  holder_kind: string;
+  holder_id?: string | null;
+  security_type: string;
+  basis_points: number;
+  vesting_months?: number | null;
+  cliff_months?: number | null;
+  created_at: string;
+}
+
+export type EntityViewKind = "route" | "dashboard";
+export type EntityViewScope = "private" | "public";
+export type EntityViewWidgetKind =
+  | "identity"
+  | "sessions"
+  | "agents"
+  | "quests"
+  | "ideas"
+  | "apps"
+  | "events"
+  | "economy"
+  | "website";
+
+export interface EntityViewLayout {
+  widgets?: EntityViewWidgetKind[];
+  [key: string]: unknown;
+}
+
+export interface EntityView {
+  id: string;
+  trust_id: string;
+  owner_user_id?: string | null;
+  key: string;
+  label: string;
+  kind: EntityViewKind;
+  scope: EntityViewScope;
+  path?: string | null;
+  search?: string | null;
+  layout_json?: EntityViewLayout | null;
+  pinned: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EntityViewUpsert {
+  id?: string;
+  key: string;
+  label: string;
+  kind?: EntityViewKind;
+  scope?: EntityViewScope;
+  path?: string | null;
+  search?: string | null;
+  layout_json?: EntityViewLayout | null;
+  pinned?: boolean;
+  sort_order?: number;
+}
+
 export interface Agent {
   id: string;
   name: string;

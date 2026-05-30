@@ -358,6 +358,7 @@ async fn call_tool(
         })),
         "ideas" => call_ideas(state, ctx, args).await,
         "quests" => call_quests(state, ctx, args).await,
+        "views" => call_views(state, ctx, args).await,
         "agents" => call_agents(state, ctx, args).await,
         "events" => call_events(state, ctx, args).await,
         "code" => call_code(state, ctx, args).await,
@@ -929,6 +930,56 @@ async fn call_quests(
         }
         _ => anyhow::bail!("unknown quests action: {action}"),
     }
+}
+
+async fn call_views(
+    state: &AppState,
+    ctx: &McpHttpContext,
+    args: serde_json::Value,
+) -> anyhow::Result<serde_json::Value> {
+    let action = args
+        .get("action")
+        .and_then(|v| v.as_str())
+        .unwrap_or("list");
+    let trust_id = mcp_trust_id(ctx, &args)?;
+    match action {
+        "list" => {
+            let mut req = serde_json::json!({
+                "cmd": "list_views",
+                "trust_id": trust_id,
+            });
+            copy_fields(&args, &mut req, &["owner_user_id"]);
+            ipc(state, ctx, req).await
+        }
+        "upsert" => {
+            let mut req = serde_json::json!({
+                "cmd": "upsert_views",
+                "trust_id": trust_id,
+            });
+            copy_fields(&args, &mut req, &["view", "views", "owner_user_id"]);
+            ipc(state, ctx, req).await
+        }
+        "delete" => {
+            let mut req = serde_json::json!({
+                "cmd": "delete_view",
+                "trust_id": trust_id,
+            });
+            copy_fields(&args, &mut req, &["view_id", "id", "key", "owner_user_id"]);
+            ipc(state, ctx, req).await
+        }
+        _ => anyhow::bail!("unknown views action: {action}"),
+    }
+}
+
+fn mcp_trust_id(ctx: &McpHttpContext, args: &serde_json::Value) -> anyhow::Result<String> {
+    args.get("trust_id")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .or_else(|| ctx.actor.trust_id.clone())
+        .or_else(|| ctx.allowed_roots.first().cloned())
+        .ok_or_else(|| anyhow::anyhow!("trust_id is required"))
 }
 
 async fn call_agents(
@@ -2264,6 +2315,32 @@ fn tool_defs() -> serde_json::Value {
             }
         },
         {
+            "name": "views",
+            "title": "AEQI Views",
+            "description": "Durable TRUST-scoped route and dashboard views. Use this to list, upsert, or delete saved views that the UI and agents can share for launch dashboards, operating consoles, and public-ready overview curation.",
+            "annotations": {
+                "title": "AEQI Views",
+                "readOnlyHint": false,
+                "destructiveHint": true,
+                "idempotentHint": false,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["list", "upsert", "delete"], "description": "list returns saved views; upsert creates or updates one or more views; delete removes one private view by id or key."},
+                    "trust_id": {"type": "string", "description": "TRUST/entity id. Defaults to the MCP actor's TRUST when available."},
+                    "owner_user_id": {"type": "string", "description": "Optional owner override for private views. Omit to use the authenticated caller."},
+                    "view": {"type": "object", "description": "Single view upsert payload with key, label, kind, scope, path/search, layout_json, pinned, and sort_order."},
+                    "views": {"type": "array", "items": {"type": "object"}, "description": "Batch upsert payload."},
+                    "view_id": {"type": "string", "description": "Backend view id for delete."},
+                    "id": {"type": "string", "description": "Alias for view_id on delete, or backend id on upsert."},
+                    "key": {"type": "string", "description": "Stable view key; accepted for delete when view_id is not supplied."}
+                },
+                "required": ["action"]
+            }
+        },
+        {
             "name": "agents",
             "title": "AEQI Agents",
             "description": "Optional AEQI runtime workers and project registry. Use this to inspect available agents/projects, get an agent profile/context, hire a new agent, or retire one. You do not need an AEQI agent to use ideas, quests, or code graph as the authenticated user.",
@@ -2859,6 +2936,26 @@ mod tests {
                 .unwrap()
                 .contains("Omit for user/entity global quests")
         );
+
+        let views = by_name("views");
+        assert_eq!(views["title"], "AEQI Views");
+        assert!(
+            views["description"]
+                .as_str()
+                .unwrap()
+                .contains("Durable TRUST-scoped")
+        );
+        let view_actions = views["inputSchema"]["properties"]["action"]["enum"]
+            .as_array()
+            .cloned()
+            .unwrap();
+        assert!(
+            view_actions
+                .iter()
+                .any(|action| action.as_str() == Some("upsert"))
+        );
+        assert!(views["inputSchema"]["properties"].get("trust_id").is_some());
+        assert!(views["inputSchema"]["properties"].get("views").is_some());
 
         let ideas = by_name("ideas");
         assert!(
