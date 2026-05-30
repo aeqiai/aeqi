@@ -40,6 +40,12 @@ interface DaemonState {
   setWsConnected: (connected: boolean) => void;
 }
 
+const RECENT_FETCH_ALL_MS = 2_000;
+let fetchAllInFlight: Promise<void> | null = null;
+let fetchAllInFlightKey = "";
+let lastFetchAllKey = "";
+let lastFetchAllSettledAt = 0;
+
 // Hydrate cached trusts and agents from localStorage so the
 // LeftSidebar / agent tree paint the real shape on
 // hard refresh instead of flashing the empty-list state for the
@@ -168,28 +174,50 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
   },
 
   fetchAll: async () => {
-    const s = get();
-    // fetchEntities is user-scoped (no X-Trust required) and produces the
-    // trusts the user owns. Run it first so that on first ever load we
-    // don't fire the entity-scoped proxy fetches against an empty scope —
-    // the proxy 400s with "X-Trust required" and the dashboard ends up
-    // with five red entries before fetchEntities has resolved.
-    await s.fetchEntities();
-    if (!getScopedEntity()) {
-      // No active entity yet — the user just landed at `/` with zero
-      // trusts, or hasn't picked one. Skip the proxied fetches; they
-      // require entity scope and there's nothing to render against them.
-      set({ initialLoaded: true });
+    const scopedEntity = getScopedEntity() ?? "";
+    const now = Date.now();
+    if (fetchAllInFlight && fetchAllInFlightKey === scopedEntity) return fetchAllInFlight;
+    if (scopedEntity === lastFetchAllKey && now - lastFetchAllSettledAt < RECENT_FETCH_ALL_MS) {
       return;
     }
-    await Promise.all([
-      s.fetchStatus(),
-      s.fetchAgents(),
-      s.fetchQuests(),
-      s.fetchEvents(),
-      s.fetchCost(),
-    ]);
-    set({ initialLoaded: true });
+
+    const s = get();
+    const run = (async () => {
+      // fetchEntities is user-scoped (no X-Trust required) and produces the
+      // trusts the user owns. Run it first so that on first ever load we
+      // don't fire the entity-scoped proxy fetches against an empty scope —
+      // the proxy 400s with "X-Trust required" and the dashboard ends up
+      // with five red entries before fetchEntities has resolved.
+      await s.fetchEntities();
+      if (!getScopedEntity()) {
+        // No active entity yet — the user just landed at `/` with zero
+        // trusts, or hasn't picked one. Skip the proxied fetches; they
+        // require entity scope and there's nothing to render against them.
+        set({ initialLoaded: true });
+        return;
+      }
+      await Promise.all([
+        s.fetchStatus(),
+        s.fetchAgents(),
+        s.fetchQuests(),
+        s.fetchEvents(),
+        s.fetchCost(),
+      ]);
+      set({ initialLoaded: true });
+    })();
+
+    fetchAllInFlight = run;
+    fetchAllInFlightKey = scopedEntity;
+    try {
+      await run;
+    } finally {
+      if (fetchAllInFlight === run) {
+        lastFetchAllKey = scopedEntity;
+        lastFetchAllSettledAt = Date.now();
+        fetchAllInFlight = null;
+        fetchAllInFlightKey = "";
+      }
+    }
   },
 
   pushWorkerEvent: (event: WorkerEvent) => {

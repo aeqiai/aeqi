@@ -139,6 +139,7 @@ export default function QuestBoard({
   // noise; collapsed by default keeps the active board scannable.
   const [collapsedCols, setCollapsedCols] = useState<Record<string, boolean>>({
     backlog: true,
+    done: true,
     cancelled: true,
   });
   const toggleColumn = useCallback((status: QuestStatus) => {

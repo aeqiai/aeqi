@@ -70,4 +70,4 @@ export default function QuestColumnEmptyState({
  * Statuses whose column body collapses to header-only by default
  * (chevron toggle in the header expands them in place).
  */
-export const COLLAPSIBLE_STATUSES = new Set<QuestStatus>(["backlog", "cancelled"]);
+export const COLLAPSIBLE_STATUSES = new Set<QuestStatus>(["backlog", "done", "cancelled"]);

@@ -127,4 +127,22 @@ describe("quest toolbar", () => {
     expect(screen.queryByText("Role quest")).not.toBeInTheDocument();
     expect(screen.getByText("TRUST quest")).toBeInTheDocument();
   });
+
+  it("keeps completed quests collapsed until requested", async () => {
+    useDaemonStore.setState({
+      quests: [
+        questFixture("67-todo", "Open work", "todo"),
+        questFixture("67-done", "Completed archive item", "done"),
+      ] as never,
+    });
+
+    renderQuests();
+
+    expect(screen.getByText("Open work")).toBeInTheDocument();
+    expect(screen.queryByText("Completed archive item")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Expand column" })[1]);
+
+    expect(screen.getByText("Completed archive item")).toBeInTheDocument();
+  });
 });
