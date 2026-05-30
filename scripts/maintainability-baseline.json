@@ -1,0 +1,414 @@
+{
+  "version": 1,
+  "generatedBy": "scripts/maintainability-ratchet.mjs",
+  "metrics": {
+    "apps/ui/src/lib/api.ts": {
+      "label": "apps/ui/src/lib/api.ts",
+      "count": 2131,
+      "topFiles": [
+        {
+          "file": "apps/ui/src/lib/api.ts",
+          "count": 2131
+        }
+      ]
+    },
+    "apps/ui/src/styles/layout.css": {
+      "label": "apps/ui/src/styles/layout.css",
+      "count": 13768,
+      "topFiles": [
+        {
+          "file": "apps/ui/src/styles/layout.css",
+          "count": 13768
+        }
+      ]
+    },
+    "apps/ui/src/styles/pages.css": {
+      "label": "apps/ui/src/styles/pages.css",
+      "count": 5124,
+      "topFiles": [
+        {
+          "file": "apps/ui/src/styles/pages.css",
+          "count": 5124
+        }
+      ]
+    },
+    "apps/ui/src/styles/overview.css": {
+      "label": "apps/ui/src/styles/overview.css",
+      "count": 3030,
+      "topFiles": [
+        {
+          "file": "apps/ui/src/styles/overview.css",
+          "count": 3030
+        }
+      ]
+    },
+    "apps/ui/src/styles/roles.css": {
+      "label": "apps/ui/src/styles/roles.css",
+      "count": 2449,
+      "topFiles": [
+        {
+          "file": "apps/ui/src/styles/roles.css",
+          "count": 2449
+        }
+      ]
+    },
+    "ui.megafilesOver600": {
+      "label": "UI files >= 600 lines",
+      "count": 39,
+      "topFiles": [
+        {
+          "file": "apps/ui/src/styles/layout.css",
+          "count": 13768
+        },
+        {
+          "file": "apps/ui/src/styles/pages.css",
+          "count": 5124
+        },
+        {
+          "file": "apps/ui/src/styles/overview.css",
+          "count": 3030
+        },
+        {
+          "file": "apps/ui/src/styles/roles.css",
+          "count": 2449
+        },
+        {
+          "file": "apps/ui/src/lib/api.ts",
+          "count": 2131
+        },
+        {
+          "file": "apps/ui/src/styles/chat.css",
+          "count": 2106
+        },
+        {
+          "file": "apps/ui/src/pages/QuorumPage.module.css",
+          "count": 1719
+        },
+        {
+          "file": "apps/ui/src/styles/events.css",
+          "count": 1702
+        },
+        {
+          "file": "apps/ui/src/styles/blueprint-launch-picker.css",
+          "count": 1264
+        },
+        {
+          "file": "apps/ui/src/pages/AssetsPage.module.css",
+          "count": 1228
+        },
+        {
+          "file": "apps/ui/src/styles/components.css",
+          "count": 1176
+        },
+        {
+          "file": "apps/ui/src/pages/AdminPage.tsx",
+          "count": 1106
+        }
+      ]
+    },
+    "rawButton": {
+      "label": "raw <button>",
+      "count": 168,
+      "topFiles": [
+        {
+          "file": "apps/ui/src/components/events/EventCanvasEditor.tsx",
+          "count": 9
+        },
+        {
+          "file": "apps/ui/src/components/events/EventsFilterPopover.tsx",
+          "count": 5
+        },
+        {
+          "file": "apps/ui/src/components/ideas/IdeasListFilterChips.tsx",
+          "count": 5
+        },
+        {
+          "file": "apps/ui/src/pages/blueprints/BlueprintsFilterPopover.tsx",
+          "count": 5
+        },
+        {
+          "file": "apps/ui/src/components/AgentOverviewTab.tsx",
+          "count": 4
+        },
+        {
+          "file": "apps/ui/src/components/ideas/IdeasFilterPopover.tsx",
+          "count": 4
+        },
+        {
+          "file": "apps/ui/src/components/quests/QuestList.tsx",
+          "count": 4
+        },
+        {
+          "file": "apps/ui/src/components/session/SegmentRenderer.tsx",
+          "count": 4
+        }
+      ]
+    },
+    "rawInput": {
+      "label": "raw <input>",
+      "count": 43,
+      "topFiles": [
+        {
+          "file": "apps/ui/src/components/AgentEventsTab.tsx",
+          "count": 4
+        },
+        {
+          "file": "apps/ui/src/components/events/EventCanvasEditor.tsx",
+          "count": 3
+        },
+        {
+          "file": "apps/ui/src/components/quests/QuestDueDatePopover.tsx",
+          "count": 3
+        },
+        {
+          "file": "apps/ui/src/components/TestTriggerPanel.tsx",
+          "count": 3
+        },
+        {
+          "file": "apps/ui/src/components/blueprints/ImportMenu.tsx",
+          "count": 2
+        },
+        {
+          "file": "apps/ui/src/components/events/EventDetail.tsx",
+          "count": 2
+        },
+        {
+          "file": "apps/ui/src/components/ModelPicker.tsx",
+          "count": 2
+        },
+        {
+          "file": "apps/ui/src/components/roles/NewRoleModal.tsx",
+          "count": 2
+        }
+      ]
+    },
+    "inlineStyle": {
+      "label": "inline style object",
+      "count": 210,
+      "topFiles": [
+        {
+          "file": "apps/ui/src/pages/InvitationAcceptPage.tsx",
+          "count": 26
+        },
+        {
+          "file": "apps/ui/src/components/TestTriggerPanel.tsx",
+          "count": 24
+        },
+        {
+          "file": "apps/ui/src/pages/PublicProfilePage.tsx",
+          "count": 24
+        },
+        {
+          "file": "apps/ui/src/pages/RoleInvitePage.tsx",
+          "count": 23
+        },
+        {
+          "file": "apps/ui/src/components/QuestPreflightPanel.tsx",
+          "count": 16
+        },
+        {
+          "file": "apps/ui/src/pages/IncorporationPage.tsx",
+          "count": 10
+        },
+        {
+          "file": "apps/ui/src/pages/EquityPage.tsx",
+          "count": 9
+        },
+        {
+          "file": "apps/ui/src/pages/QuorumPage.parts.tsx",
+          "count": 8
+        }
+      ]
+    },
+    "literalHex": {
+      "label": "literal hex color",
+      "count": 59,
+      "topFiles": [
+        {
+          "file": "apps/ui/src/styles/layout.css",
+          "count": 17
+        },
+        {
+          "file": "apps/ui/src/styles/events.css",
+          "count": 14
+        },
+        {
+          "file": "apps/ui/src/styles/pages.css",
+          "count": 9
+        },
+        {
+          "file": "apps/ui/src/styles/chat.css",
+          "count": 6
+        },
+        {
+          "file": "apps/ui/src/styles/components.css",
+          "count": 4
+        },
+        {
+          "file": "apps/ui/src/components/IdeaGraph.tsx",
+          "count": 3
+        },
+        {
+          "file": "apps/ui/src/components/roles/RolesChart.tsx",
+          "count": 2
+        },
+        {
+          "file": "apps/ui/src/components/editor/blockEditor.theme.css",
+          "count": 1
+        }
+      ]
+    },
+    "literalRgb": {
+      "label": "literal rgb/rgba color",
+      "count": 109,
+      "topFiles": [
+        {
+          "file": "apps/ui/src/styles/layout.css",
+          "count": 28
+        },
+        {
+          "file": "apps/ui/src/styles/chat.css",
+          "count": 23
+        },
+        {
+          "file": "apps/ui/src/styles/pages.css",
+          "count": 17
+        },
+        {
+          "file": "apps/ui/src/styles/events.css",
+          "count": 9
+        },
+        {
+          "file": "apps/ui/src/styles/inbox.css",
+          "count": 6
+        },
+        {
+          "file": "apps/ui/src/styles/components.css",
+          "count": 5
+        },
+        {
+          "file": "apps/ui/src/components/IdeaGraph.tsx",
+          "count": 4
+        },
+        {
+          "file": "apps/ui/src/styles/members.css",
+          "count": 3
+        }
+      ]
+    },
+    "directSqliteLocks": {
+      "label": "direct SQLite locks",
+      "count": 34,
+      "topFiles": [
+        {
+          "file": "crates/aeqi-wallets/src/wallet.rs",
+          "count": 10
+        },
+        {
+          "file": "crates/aeqi-wallets/src/solana_wallet.rs",
+          "count": 7
+        },
+        {
+          "file": "crates/aeqi-web/src/routes/auth/passkey.rs",
+          "count": 3
+        },
+        {
+          "file": "crates/aeqi-core/src/credentials/store.rs",
+          "count": 2
+        },
+        {
+          "file": "crates/aeqi-gates/src/suppression.rs",
+          "count": 2
+        },
+        {
+          "file": "crates/aeqi-ideas/src/sqlite/mod.rs",
+          "count": 2
+        },
+        {
+          "file": "crates/aeqi-ideas/src/vector.rs",
+          "count": 2
+        },
+        {
+          "file": "crates/aeqi-orchestrator/src/agent_registry.rs",
+          "count": 2
+        }
+      ]
+    },
+    "rawErrorSerialization": {
+      "label": "raw error serialization",
+      "count": 280,
+      "topFiles": [
+        {
+          "file": "crates/aeqi-orchestrator/src/ipc/roles.rs",
+          "count": 32
+        },
+        {
+          "file": "crates/aeqi-orchestrator/src/ipc/ideas.rs",
+          "count": 30
+        },
+        {
+          "file": "crates/aeqi-orchestrator/src/ipc/events.rs",
+          "count": 17
+        },
+        {
+          "file": "crates/aeqi-orchestrator/src/ipc/quests.rs",
+          "count": 17
+        },
+        {
+          "file": "crates/aeqi-orchestrator/src/ipc/channels.rs",
+          "count": 16
+        },
+        {
+          "file": "crates/aeqi-orchestrator/src/ipc/messages.rs",
+          "count": 16
+        },
+        {
+          "file": "crates/aeqi-orchestrator/src/ipc/agents.rs",
+          "count": 15
+        },
+        {
+          "file": "crates/aeqi-web/src/routes/hosting.rs",
+          "count": 14
+        }
+      ]
+    },
+    "routeParsingDuplication": {
+      "label": "route parsing duplication",
+      "count": 57,
+      "topFiles": [
+        {
+          "file": "apps/ui/src/lib/api.ts",
+          "count": 8
+        },
+        {
+          "file": "apps/ui/src/components/AgentQuestsTab.tsx",
+          "count": 5
+        },
+        {
+          "file": "apps/ui/src/pages/WelcomePage.tsx",
+          "count": 5
+        },
+        {
+          "file": "apps/ui/src/pages/EconomyPage.tsx",
+          "count": 4
+        },
+        {
+          "file": "apps/ui/src/api/ideas.ts",
+          "count": 3
+        },
+        {
+          "file": "apps/ui/src/components/AgentEventsTab.tsx",
+          "count": 3
+        },
+        {
+          "file": "apps/ui/src/components/TrustRolesTab.tsx",
+          "count": 3
+        },
+        {
+          "file": "apps/ui/src/components/AgentIdeasTab.tsx",
+          "count": 2
+        }
+      ]
+    }
+  }
+}

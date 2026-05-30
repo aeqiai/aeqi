@@ -40,6 +40,7 @@ case "$mode" in
       "blocking": true,
       "commands": [
         "scripts/public-surface-scan.sh",
+        "node scripts/maintainability-ratchet.mjs",
         "cargo fmt --all --check",
         "cargo clippy --workspace --all-targets --all-features -- -D warnings",
         "cargo +nightly udeps --workspace --all-targets",
@@ -95,6 +96,10 @@ run() {
 
 # 1. Public surface guard — this is cheap and blocks in CI.
 run scripts/public-surface-scan.sh
+
+# 1b. Maintainability ratchet — cheap static metrics that keep known debt
+# from silently growing between focused cleanup sprints.
+run node scripts/maintainability-ratchet.mjs
 
 # 2. Fast Rust gates — what GitHub's quality-gates job blocks on.
 run cargo fmt --all --check
