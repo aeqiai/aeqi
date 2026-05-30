@@ -8053,6 +8053,11 @@
   border-radius: 0;
 }
 
+.quest-detail-rail .ideas-workspace-tree-head {
+  min-height: var(--shell-top-rail-h, 40px);
+  margin: 0 0 8px;
+}
+
 .quest-detail-rail-list {
   display: flex;
   flex: 1;
@@ -8192,7 +8197,7 @@
   width: 100%;
   min-height: 0;
   margin: 0;
-  padding: var(--roles-section-inset) 0 16px;
+  padding: 0 0 16px;
 }
 
 .quest-detail-surface-header {
@@ -8200,7 +8205,7 @@
   align-items: center;
   justify-content: space-between;
   min-width: 0;
-  min-height: var(--detail-control-h, 32px);
+  min-height: var(--shell-top-rail-h, 40px);
   flex-shrink: 0;
   margin: 0 0 8px;
   padding: 0 var(--roles-section-inset);
@@ -8281,7 +8286,7 @@
   height: 100%;
   max-height: 100%;
   overflow-y: auto;
-  padding: var(--roles-section-inset);
+  padding: 0 var(--roles-section-inset) var(--roles-section-inset);
   background: transparent;
   border: 0;
   border-radius: 0;
@@ -8289,7 +8294,7 @@
 }
 
 .quest-detail-summary .ideas-workspace-inspector-head {
-  min-height: var(--detail-control-h);
+  min-height: var(--shell-top-rail-h, 40px);
   margin: 0 0 8px;
   padding: 0 2px;
   border-bottom: 0;
@@ -8442,7 +8447,15 @@
   }
 
   .quest-detail-rail {
-    max-height: 260px;
+    min-height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .quest-detail-rail-list {
+    flex: 0 0 auto;
+    min-height: auto;
+    overflow: visible;
   }
 
   .quest-detail-document {
