@@ -1425,13 +1425,15 @@
 }
 
 .trust-role-detail-surface-header {
+  --detail-title-top-inset: calc(var(--roles-section-inset) - 4px);
+
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   min-width: 0;
-  min-height: var(--detail-control-h);
+  min-height: calc(var(--detail-title-top-inset) + var(--detail-control-h));
   margin: 0 0 8px;
-  padding: 0 var(--roles-section-inset);
+  padding: var(--detail-title-top-inset) var(--roles-section-inset) 0;
 }
 
 .trust-role-detail-surface-title {
@@ -1601,6 +1603,7 @@
 
 .role-inspector--page .role-inspector-topbar {
   padding: 0 2px;
+  align-items: flex-start;
 }
 
 .role-inspector--page .role-inspector-body {
