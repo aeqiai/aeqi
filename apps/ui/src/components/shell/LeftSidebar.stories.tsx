@@ -125,7 +125,7 @@ const meta: Meta<typeof LeftSidebar> = {
     docs: {
       description: {
         component:
-          "Authenticated app sidebar with normal pinned rows, independently open trust groups, compact trust rows, and design-system icons. Use these stories for the 640px shell review before shipping navigation changes.",
+          "Authenticated app sidebar with normal pinned rows, independently open trust groups, unified row rhythm, and design-system icons. Use these stories for the 640px shell review before shipping navigation changes.",
       },
     },
   },
