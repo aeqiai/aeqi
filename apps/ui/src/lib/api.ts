@@ -670,7 +670,7 @@ export const api = {
       "/blueprints",
     ),
 
-  // Full Template including seed_agents/events/ideas/quests arrays. The
+  // Full Template including seed_views/agents/events/ideas/quests arrays. The
   // list endpoint returns counts only to keep the catalog payload small;
   // the detail endpoint is what the store calls when a card is selected.
   getBlueprint: (blueprintId: string) =>

@@ -156,7 +156,9 @@ export const useUIStore = create<UIState>((set, get) => ({
     const search = normalizePinnedSearch(input.search);
     const trustId = input.trustId || undefined;
     const label = normalizePinnedLabel(input.label);
-    const existing = get().pinnedViews.find((view) => view.path === path && view.search === search);
+    const existing = get().pinnedViews.find(
+      (view) => view.path === path && view.search === search && view.trustId === trustId,
+    );
     const savedView: PinnedView = {
       id: existing?.id ?? createPinnedViewId(),
       label,

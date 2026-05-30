@@ -5,6 +5,15 @@
   "name": "First Company",
   "tagline": "Start with one Chief of Staff, one Founder Associate, and one clear next move.",
   "description": "First Company is the default aeqi package: a neutral company workspace that turns the Director's first sentence into a brief, operating snapshot, first quest, and next decision. It starts light and stays inspectable: Director, Chief of Staff, Founder Associate, durable memory, clear quests, role map, review cadence, and a website brief when a public surface is useful.",
+  "seed_views": [
+    {
+      "key": "my-sessions",
+      "label": "My sessions",
+      "path": "sessions",
+      "search": "?view=mine",
+      "pinned": true
+    }
+  ],
   "root": {
     "name": "Chief of Staff",
     "model": "deepseek/deepseek-v4-flash",

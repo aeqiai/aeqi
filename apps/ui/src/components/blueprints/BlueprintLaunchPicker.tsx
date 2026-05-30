@@ -243,8 +243,10 @@ function formatSeedMeta(t: Blueprint): string {
   const i = t.seed_ideas?.length ?? 0;
   const e = t.seed_events?.length ?? 0;
   const q = t.seed_quests?.length ?? 0;
+  const v = t.seed_views?.length ?? 0;
   const totalAgents = 1 + a;
   parts.push(`${totalAgents} ${totalAgents === 1 ? "agent" : "agents"}`);
+  if (v > 0) parts.push(`${v} ${v === 1 ? "view" : "views"}`);
   if (i > 0) parts.push(`${i} ${i === 1 ? "idea" : "ideas"}`);
   if (e > 0) parts.push(`${e} ${e === 1 ? "event" : "events"}`);
   if (q > 0) parts.push(`${q} ${q === 1 ? "quest" : "quests"}`);

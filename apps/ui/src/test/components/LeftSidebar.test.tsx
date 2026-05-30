@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import { describe, expect, it, beforeEach } from "vitest";
-import { fireEvent, render } from "@testing-library/react";
+import { fireEvent, render, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
@@ -46,7 +46,7 @@ describe("LeftSidebar trust navigation", () => {
     });
   });
 
-  it("shows My sessions as a pinned row and allows multiple trust groups open", () => {
+  it("shows My sessions as a pinned row and allows multiple trust groups open", async () => {
     useUIStore.setState({
       pinnedViews: [
         {
@@ -67,7 +67,7 @@ describe("LeftSidebar trust navigation", () => {
       ],
     });
 
-    const { getByRole, getByText, queryByRole, queryByText } = render(
+    const { findByRole, getByRole, getByText, queryByRole, queryByText } = render(
       withQueryClient(
         <StrictMode>
           <MemoryRouter initialEntries={["/trust/root-1"]}>
@@ -82,9 +82,22 @@ describe("LeftSidebar trust navigation", () => {
       ),
     );
 
-    const pinnedView = getByRole("link", { name: "My sessions" });
+    const pinnedView = await findByRole("link", { name: "My sessions" });
     expect(pinnedView).toBeInTheDocument();
     expect(pinnedView).toHaveAttribute("href", "/trust/root-1/sessions?view=mine");
+    await waitFor(() => {
+      expect(
+        useUIStore
+          .getState()
+          .pinnedViews.some(
+            (view) =>
+              view.label === "My sessions" &&
+              view.path === "/trust/root-1/sessions" &&
+              view.search === "?view=mine" &&
+              view.trustId === "root-1",
+          ),
+      ).toBe(true);
+    });
     expect(getByRole("button", { name: "Unpin My sessions" })).toBeInTheDocument();
     expect(getByRole("link", { name: "Open quests" })).toHaveAttribute(
       "href",
@@ -109,6 +122,7 @@ describe("LeftSidebar trust navigation", () => {
 
     fireEvent.click(getByRole("button", { name: "Unpin My sessions" }));
     expect(queryByRole("link", { name: "My sessions" })).not.toBeInTheDocument();
+    expect(window.localStorage.getItem("aeqi_sidebar_pinned_my_sessions")).toBe("false");
 
     fireEvent.click(getByRole("button", { name: "Unpin Open quests" }));
     expect(queryByRole("link", { name: "Open quests" })).not.toBeInTheDocument();

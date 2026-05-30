@@ -188,7 +188,8 @@ export default function BlueprintsPage() {
       (t.seed_agents?.length ?? 0) +
       (t.seed_events?.length ?? 0) +
       (t.seed_ideas?.length ?? 0) +
-      (t.seed_quests?.length ?? 0),
+      (t.seed_quests?.length ?? 0) +
+      (t.seed_views?.length ?? 0),
     [],
   );
 
@@ -279,7 +280,8 @@ export default function BlueprintsPage() {
           (t.seed_agents?.length ?? 0) +
           (t.seed_events?.length ?? 0) +
           (t.seed_ideas?.length ?? 0) +
-          (t.seed_quests?.length ?? 0),
+          (t.seed_quests?.length ?? 0) +
+          (t.seed_views?.length ?? 0),
         0,
       ),
     [singleBlueprints],

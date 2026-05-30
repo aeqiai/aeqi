@@ -406,6 +406,17 @@ export interface BlueprintSeedQuest {
   labels?: string[];
 }
 
+export interface BlueprintSeedView {
+  key: string;
+  label: string;
+  /** Absolute route or entity-relative path, e.g. "sessions". */
+  path: string;
+  /** Optional query string. May include the leading "?". */
+  search?: string;
+  /** When true, the shell should install the view into the pinned set. */
+  pinned?: boolean;
+}
+
 export interface AgentTemplate {
   id: string;
   name: string;
@@ -483,6 +494,7 @@ export interface SingleBlueprint {
     name?: string;
     role?: string;
   }>;
+  seed_views?: BlueprintSeedView[];
   seed_agents?: BlueprintSeedAgent[];
   seed_events?: BlueprintSeedEvent[];
   seed_ideas?: BlueprintSeedIdea[];

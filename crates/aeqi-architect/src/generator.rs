@@ -142,6 +142,15 @@ fn build_foundation_blueprint(brief: &str) -> serde_json::Value {
             ),
             "proactive_greeting": "Hi — your Architect drafted this Foundation from your brief. Open the kickoff quest to see the first three moves I'd take, or tell me what's actually on your mind and I'll re-cut it."
         },
+        "seed_views": [
+            {
+                "key": "my-sessions",
+                "label": "My sessions",
+                "path": "sessions",
+                "search": "?view=mine",
+                "pinned": true
+            }
+        ],
         "seed_agents": [],
         "seed_events": [
             {
@@ -238,6 +247,9 @@ mod tests {
         assert_eq!(bp["slug"], STUB_SLUG);
         assert_eq!(bp["template"], STUB_TEMPLATE);
         assert_eq!(bp["category"], "company");
+        let views = bp["seed_views"].as_array().expect("seed_views present");
+        assert_eq!(views[0]["key"], "my-sessions");
+        assert_eq!(views[0]["pinned"], true);
         // Brief is interpolated into the root agent's identity idea.
         let ideas = bp["seed_ideas"].as_array().expect("seed_ideas present");
         assert_eq!(ideas.len(), 1);

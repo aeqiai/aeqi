@@ -37,11 +37,17 @@ import { useUIStore, type PinnedView } from "@/store/ui";
 import { useDaemonStore } from "@/store/daemon";
 import { useRuntimeStatus } from "@/hooks/useRuntimeStatus";
 import { entityBasePath } from "@/lib/entityPath";
+import { sessionsViewFromSearch, USER_SESSIONS_VIEW_ID } from "@/lib/sessionViews";
 import {
-  sessionsViewFromSearch,
-  userSessionsPath,
-  USER_SESSIONS_VIEW_LABEL,
-} from "@/lib/sessionViews";
+  isUserSessionsPinnedViewForPath,
+  PINNED_USER_SESSIONS_STORAGE_KEY,
+  useSeedUserSessionsPinnedView,
+} from "@/components/shell/useSeedUserSessionsPinnedView";
+import {
+  TRUST_NAV_MATCHES,
+  type TrustNavGroupId,
+  type TrustNavGroupState,
+} from "@/components/shell/sidebarNavModel";
 
 interface LeftSidebarProps {
   /** Canonical entity (organization) id. Sidebar tabs are org-scoped, not child-agent scoped. */
@@ -91,35 +97,6 @@ const ExpandSidebarIcon = () => <Icon icon={PanelLeftOpen} size="sm" />;
 const GroupChevronIcon = () => <Icon icon={ChevronDown} size="sm" />;
 const UnpinIcon = () => <Icon icon={PinOff} size="sm" />;
 
-type TrustNavGroupId = "operations" | "ownership" | "infrastructure";
-type TrustNavGroupState = Record<TrustNavGroupId, boolean>;
-const PINNED_USER_SESSIONS_STORAGE_KEY = "aeqi_sidebar_pinned_my_sessions";
-
-const TRUST_NAV_MATCHES: Record<TrustNavGroupId, string[]> = {
-  operations: [
-    "agents",
-    "sessions",
-    "quests",
-    "ideas",
-    "apps",
-    "mails",
-    "websites",
-    "campaigns",
-    "events",
-  ],
-  ownership: [
-    "roles",
-    "members",
-    "shares",
-    "equity",
-    "rounds",
-    "budgets",
-    "assets",
-    "transactions",
-  ],
-  infrastructure: ["integrations", "gateways", "channels", "tools", "settings"],
-};
-
 export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -128,13 +105,10 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
   const sidebarWidth = useUIStore((s) => s.sidebarWidth);
   const setSidebarWidth = useUIStore((s) => s.setSidebarWidth);
   const pinnedViews = useUIStore((s) => s.pinnedViews);
+  const savePinnedView = useUIStore((s) => s.savePinnedView);
   const removePinnedView = useUIStore((s) => s.removePinnedView);
   const [isMobileShell, setIsMobileShell] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [pinnedUserSessionsVisible, setPinnedUserSessionsVisible] = useState(() => {
-    if (typeof window === "undefined") return true;
-    return window.localStorage.getItem(PINNED_USER_SESSIONS_STORAGE_KEY) !== "false";
-  });
   const isMac =
     typeof navigator !== "undefined" && /mac|iphone|ipad|ipod/i.test(navigator.userAgent);
   const commandKey = isMac ? "⌘" : "Ctrl";
@@ -202,6 +176,10 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
   const hasCompany = !!trustId;
   const globalPinnedViews = pinnedViews.filter((view) => !view.trustId);
   const trustPinnedViews = pinnedViews.filter((view) => view.trustId === trustId);
+  const userSessionsPinnedPath = base ? `${base}/sessions` : "";
+  const isUserSessionsPinnedView = (view: PinnedView) =>
+    isUserSessionsPinnedViewForPath(view, userSessionsPinnedPath);
+  useSeedUserSessionsPinnedView({ trustId, userSessionsPinnedPath, pinnedViews, savePinnedView });
 
   // Runtime gate cue — when the TRUST has no runtime attached, the
   // execution-tab rows (Agents/Events/Quests/Ideas) read as locked
@@ -223,7 +201,9 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
   };
   const isCompanyOverview = !!base && (path === base || path === "/trust");
   const activeUserSessionsView =
-    !!base && isActiveTab("sessions") && sessionsViewFromSearch(location.search) === "mine";
+    !!base &&
+    isActiveTab("sessions") &&
+    sessionsViewFromSearch(location.search) === USER_SESSIONS_VIEW_ID;
   const isActiveGroupTab = (id: string) =>
     id === "sessions" && activeUserSessionsView ? false : isActiveTab(id);
   const isActiveWithin = (ids: string[]) => ids.some((id) => isActiveGroupTab(id));
@@ -331,6 +311,16 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
   const pinnedViewItem = (view: PinnedView) => {
     const href = `${view.path}${view.search}`;
     const active = path === view.path && location.search === view.search;
+    const isUserSessionsView = isUserSessionsPinnedView(view);
+    const removeView = () => {
+      if (isUserSessionsView && typeof window !== "undefined") {
+        window.localStorage.setItem(PINNED_USER_SESSIONS_STORAGE_KEY, "false");
+      }
+      removePinnedView(view.id);
+      if (isUserSessionsView && activeUserSessionsView) {
+        navigate(`${base}/sessions`);
+      }
+    };
 
     return (
       <div key={view.id} className="sidebar-nav-row">
@@ -344,10 +334,10 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
             navigate(href);
           }}
         >
-          <ViewsIcon />
+          {isUserSessionsView ? <SessionsIcon /> : <ViewsIcon />}
           <span className="sidebar-nav-label">{view.label}</span>
         </a>
-        {rowAction(`Unpin ${view.label}`, <UnpinIcon />, () => removePinnedView(view.id))}
+        {rowAction(`Unpin ${view.label}`, <UnpinIcon />, removeView)}
       </div>
     );
   };
@@ -372,16 +362,6 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
         {open && <div className="sidebar-group-items">{items}</div>}
       </section>
     );
-  };
-
-  const unpinUserSessionsView = () => {
-    setPinnedUserSessionsVisible(false);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(PINNED_USER_SESSIONS_STORAGE_KEY, "false");
-    }
-    if (activeUserSessionsView) {
-      navigate(`${base}/sessions`);
-    }
   };
 
   const collapsedBrandButton = (ariaLabel: string) => (
@@ -491,28 +471,6 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
                 Trust
               </div>
               <ActingAsSelector />
-              {pinnedUserSessionsVisible && (
-                <div key="my-sessions" className="sidebar-nav-row">
-                  <a
-                    className={`sidebar-nav-item ${activeUserSessionsView ? "active" : ""}`}
-                    href={userSessionsPath(base)}
-                    title={USER_SESSIONS_VIEW_LABEL}
-                    aria-current={activeUserSessionsView ? "page" : undefined}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      navigate(userSessionsPath(base));
-                    }}
-                  >
-                    <SessionsIcon />
-                    <span className="sidebar-nav-label">{USER_SESSIONS_VIEW_LABEL}</span>
-                  </a>
-                  {rowAction(
-                    `Unpin ${USER_SESSIONS_VIEW_LABEL}`,
-                    <UnpinIcon />,
-                    unpinUserSessionsView,
-                  )}
-                </div>
-              )}
               {trustPinnedViews.map(pinnedViewItem)}
               <div key="views" className="sidebar-nav-row">
                 <a

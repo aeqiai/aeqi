@@ -3,6 +3,7 @@ import type { SingleBlueprint as Blueprint } from "@/lib/types";
 interface BlueprintSeedSamplesProps {
   template: Blueprint;
   /** How many of each kind to show. Defaults match the previous side-pane density. */
+  viewLimit?: number;
   eventLimit?: number;
   ideaLimit?: number;
   questLimit?: number;
@@ -10,16 +11,32 @@ interface BlueprintSeedSamplesProps {
 
 export function BlueprintSeedSamples({
   template,
+  viewLimit = 2,
   eventLimit = 3,
   ideaLimit = 3,
   questLimit = 2,
 }: BlueprintSeedSamplesProps) {
+  const views = (template.seed_views ?? []).slice(0, viewLimit);
   const events = (template.seed_events ?? []).slice(0, eventLimit);
   const ideas = (template.seed_ideas ?? []).slice(0, ideaLimit);
   const quests = (template.seed_quests ?? []).slice(0, questLimit);
-  if (events.length === 0 && ideas.length === 0 && quests.length === 0) return null;
+  if (views.length === 0 && events.length === 0 && ideas.length === 0 && quests.length === 0) {
+    return null;
+  }
   return (
     <div className="bp-detail-samples">
+      {views.length > 0 && (
+        <section className="bp-detail-sample-block">
+          <h3 className="bp-detail-sample-title">Views pinned</h3>
+          <ul className="bp-detail-sample-list">
+            {views.map((view) => (
+              <li key={view.key}>
+                <span className="bp-detail-sample-name">{view.label}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       {events.length > 0 && (
         <section className="bp-detail-sample-block">
           <h3 className="bp-detail-sample-title">Events that fire</h3>

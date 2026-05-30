@@ -11,15 +11,20 @@ import type {
   SingleBlueprint,
 } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
-import { Button, Loading } from "@/components/ui";
-import { EmptyState } from "@/components/ui/EmptyState";
+import { Button, EmptyState, Loading } from "@/components/ui";
 import PageRail from "@/components/PageRail";
 import { BlueprintTreePreview } from "@/components/blueprints/BlueprintTreePreview";
 import { BlueprintSeedCounts } from "@/components/blueprints/BlueprintSeedCounts";
+import { BlueprintViewsSection } from "@/components/blueprints/BlueprintViewsSection";
+import {
+  EmptyKind,
+  NoMatch,
+  SeedSearch,
+} from "@/components/blueprints/BlueprintSeedListPrimitives";
 import "@/styles/templates.css";
 import "@/styles/blueprints-store.css";
 
-type Section = "overview" | "roles" | "agents" | "events" | "quests" | "ideas";
+type Section = "overview" | "roles" | "agents" | "views" | "events" | "quests" | "ideas";
 
 const CATEGORY_LABELS: Record<BlueprintCategory, string> = {
   company: "Company",
@@ -31,6 +36,7 @@ const SECTION_TABS: { id: Section; label: string }[] = [
   { id: "overview", label: "Overview" },
   { id: "roles", label: "Roles" },
   { id: "agents", label: "Agents" },
+  { id: "views", label: "Views" },
   { id: "events", label: "Events" },
   { id: "quests", label: "Quests" },
   { id: "ideas", label: "Ideas" },
@@ -254,9 +260,9 @@ export default function BlueprintDetailPage() {
             <div className="bp-import-banner" role="status">
               <span className="bp-import-banner-eyebrow">Import mode</span>
               <p className="bp-import-banner-line">
-                Picking this Blueprint will merge its seed agents, ideas, events, and quests into{" "}
-                <strong>{importTarget?.name || "the selected agent"}</strong>&rsquo;s tree once the
-                server merge endpoint lands.
+                Picking this Blueprint will merge its seed agents, views, ideas, events, and quests
+                into <strong>{importTarget?.name || "the selected agent"}</strong>&rsquo;s tree once
+                the server merge endpoint lands.
               </p>
             </div>
           )}
@@ -270,6 +276,7 @@ export default function BlueprintDetailPage() {
           {activeSection === "overview" && <OverviewSection template={single} />}
           {activeSection === "roles" && <RolesSection seeds={blueprintAgents(single)} />}
           {activeSection === "agents" && <AgentsSection seeds={blueprintAgents(single)} />}
+          {activeSection === "views" && <BlueprintViewsSection seeds={single.seed_views} />}
           {activeSection === "events" && <EventsSection seeds={single.seed_events} />}
           {activeSection === "quests" && <QuestsSection seeds={single.seed_quests} />}
           {activeSection === "ideas" && <IdeasSection seeds={single.seed_ideas} />}
@@ -294,7 +301,7 @@ function OverviewSection({ template }: { template: SingleBlueprint }) {
       {/* Stats sit directly under the hero — immediate information
           scent before the user digs into the org chart. Counts answer
           "what's in this Blueprint" at a glance: roles, agents,
-          ideas, events, quests. */}
+          views, ideas, events, quests. */}
       <BlueprintSeedCounts template={template} />
 
       <section className="bp-detail-section">
@@ -302,70 +309,6 @@ function OverviewSection({ template }: { template: SingleBlueprint }) {
       </section>
     </>
   );
-}
-
-/* ── Searchable seed list (one shape, four kinds) ────── */
-
-function SeedSearch({
-  query,
-  onChange,
-  placeholder,
-}: {
-  query: string;
-  onChange: (next: string) => void;
-  placeholder: string;
-}) {
-  return (
-    <div className="ideas-toolbar">
-      <span className="ideas-list-search-field">
-        <svg
-          className="ideas-list-search-glyph"
-          width="12"
-          height="12"
-          viewBox="0 0 12 12"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.3"
-          strokeLinecap="round"
-          aria-hidden
-        >
-          <circle cx="5.2" cy="5.2" r="3.2" />
-          <path d="M7.6 7.6 L10 10" />
-        </svg>
-        <input
-          className="ideas-list-search"
-          type="search"
-          placeholder={placeholder}
-          aria-label={placeholder}
-          value={query}
-          onChange={(e) => onChange(e.target.value)}
-        />
-        {query && (
-          <button
-            type="button"
-            className="ideas-list-search-clear"
-            onClick={() => onChange("")}
-            aria-label="Clear search"
-          >
-            ×
-          </button>
-        )}
-      </span>
-    </div>
-  );
-}
-
-function EmptyKind({ label }: { label: string }) {
-  return (
-    <EmptyState
-      title={`No ${label} in this Blueprint.`}
-      description="v1 blueprints ship sparse — not every Blueprint seeds every primitive."
-    />
-  );
-}
-
-function NoMatch({ query }: { query: string }) {
-  return <EmptyState title={`No match for "${query}".`} />;
 }
 
 /**

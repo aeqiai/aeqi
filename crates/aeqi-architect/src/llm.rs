@@ -673,6 +673,9 @@ Output STRICTLY this JSON shape, no prose, no code fences:
       "system_prompt": "<persona for the founder's primary agent: 3-5 sentences, references the brief>",
       "proactive_greeting": "<one-line greeting the agent posts in the founder's inbox>"
     },
+    "seed_views": [
+      { "key": "my-sessions", "label": "My sessions", "path": "sessions", "search": "?view=mine", "pinned": true }
+    ],
     "seed_agents": [
       { "owner": "root", "name": "<lowercase_name>", "system_prompt": "<3-4 sentences>", "proactive_greeting": "<one-line>" }
     ],
@@ -852,6 +855,7 @@ fn normalize_blueprint(mut bp: Value, brief: &str) -> Value {
 
         // Default arrays.
         for key in [
+            "seed_views",
             "seed_agents",
             "seed_events",
             "seed_ideas",
@@ -969,6 +973,7 @@ mod tests {
     fn parse_response_back_fills_missing_arrays() {
         let raw = r#"{"blueprint":{"slug":"x","name":"X","template":"foundation","root":{"name":"founder"}}}"#;
         let out = parse_llm_response(raw, "irrelevant").unwrap();
+        assert!(out.blueprint["seed_views"].is_array());
         assert!(out.blueprint["seed_ideas"].is_array());
         assert!(out.blueprint["seed_roles"].is_array());
         assert!(out.blueprint["seed_quests"].is_array());

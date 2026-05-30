@@ -348,8 +348,8 @@ export default function AppLayout() {
     return <Navigate to="/" replace />;
   }
 
-  // Legacy top-level inbox route — the user-filtered queue is now a pinned
-  // Sessions view under the active TRUST.
+  // Legacy top-level inbox route — the user-filtered queue is now the
+  // blueprint-seeded "My sessions" pinned view under the active TRUST.
   if (isInbox) {
     if (!trustId) {
       return <Navigate to="/trust" replace />;

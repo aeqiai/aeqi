@@ -61,10 +61,12 @@ function blueprintStats(blueprint: Blueprint): string {
   const totalAgents = (blueprint.seed_agents?.length ?? 0) + 1;
   const structures = countBlueprintStructures(blueprint);
   const roles = declaredRoles > 0 ? declaredRoles : totalAgents;
+  const views = blueprint.seed_views?.length ?? 0;
   const parts = [
     structures > 1 ? `${structures} structures` : null,
     `${roles} roles`,
     `${totalAgents} agents`,
+    views > 0 ? `${views} ${views === 1 ? "view" : "views"}` : null,
   ].filter(Boolean);
   return parts.join(" · ");
 }

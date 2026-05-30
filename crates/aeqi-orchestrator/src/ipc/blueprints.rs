@@ -1,7 +1,7 @@
 //! Company blueprint IPC handlers.
 //!
 //! A "blueprint" here is a pre-threaded starter kit for a company: seed
-//! agents plus seed roles, events, hierarchical ideas, and quests. The shipped
+//! views, agents, roles, events, hierarchical ideas, and quests. The shipped
 //! catalog is embedded at compile time (see [`crate::blueprints`]) so the
 //! runtime is self-contained regardless of the cwd it launches from. The
 //! on-disk `presets/blueprints/*.json` files remain the source of truth
@@ -175,6 +175,24 @@ pub struct SeedQuestSpec {
     pub labels: Vec<String>,
 }
 
+/// Seed view. Views are saved operating surfaces that can be pinned into
+/// the shell. Paths without a leading slash are entity-relative.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SeedViewSpec {
+    /// Stable blueprint-local key for this view.
+    pub key: String,
+    /// User-facing label shown in the pinned Views list.
+    pub label: String,
+    /// Absolute app route or entity-relative route, e.g. `sessions`.
+    pub path: String,
+    /// Optional query string. May include the leading `?`.
+    #[serde(default)]
+    pub search: String,
+    /// Whether the view should appear in the default pinned set.
+    #[serde(default)]
+    pub pinned: bool,
+}
+
 /// Reusable catalog asset for hiring or including an agent in a company
 /// Blueprint. Template-owned ideas/events/quests expand with the template
 /// agent as their owner, so preview and spawn install the same bundle.
@@ -295,6 +313,8 @@ pub struct Blueprint {
     #[serde(default)]
     pub template: String,
     pub root: DefaultAgentSpec,
+    #[serde(default)]
+    pub seed_views: Vec<SeedViewSpec>,
     #[serde(default)]
     pub seed_agents: Vec<SeedAgentSpec>,
     #[serde(default)]
@@ -1496,6 +1516,7 @@ mod tests {
                 },
             ],
             agent_template_refs: Vec::new(),
+            seed_views: Vec::new(),
             seed_events: vec![
                 SeedEventSpec {
                     owner: "root".to_string(),
@@ -1966,6 +1987,7 @@ mod tests {
                 seed_messages: Vec::new(),
             }],
             agent_template_refs: Vec::new(),
+            seed_views: Vec::new(),
             seed_events: Vec::new(),
             seed_ideas: Vec::new(),
             seed_quests: Vec::new(),

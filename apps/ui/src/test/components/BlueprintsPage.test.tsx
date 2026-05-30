@@ -22,6 +22,15 @@ const SOLO: SingleBlueprint = {
     color: "#0a0a0b",
   },
   seed_agents: [{ name: "Operator", tagline: "The founder's right hand.", role: "Company root." }],
+  seed_views: [
+    {
+      key: "my-sessions",
+      label: "My sessions",
+      path: "sessions",
+      search: "?view=mine",
+      pinned: true,
+    },
+  ],
   seed_events: [{ pattern: "session:start", name: "Daily stand-in" }],
   seed_ideas: [{ name: "how-to-create-a-quest", tags: ["skill"] }],
   seed_quests: [{ subject: "Write the one-liner", priority: "high" }],
@@ -163,8 +172,15 @@ describe("BlueprintDetailPage", () => {
     await screen.findByRole("heading", { level: 1, name: "Solo Founder" });
     expect(screen.getByRole("tab", { name: /overview/i })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /agents/i })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /views/i })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /events/i })).toBeInTheDocument();
     overview.unmount();
+
+    const viewsRender = renderApp("/blueprints/solo-founder/views");
+    await waitFor(() => {
+      expect(screen.getByText("My sessions")).toBeInTheDocument();
+    });
+    viewsRender.unmount();
 
     // Events sub-route renders the event patterns from the seeds.
     const eventsRender = renderApp("/blueprints/solo-founder/events");

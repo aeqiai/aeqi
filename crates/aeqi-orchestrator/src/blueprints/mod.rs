@@ -1,6 +1,6 @@
 //! Compile-time-embedded company templates.
 //!
-//! A template is a pre-threaded starter kit: seed agents plus seed roles,
+//! A template is a pre-threaded starter kit: seed views, agents, roles,
 //! events, hierarchical ideas, and quests. Shipped catalog lives under
 //! `presets/blueprints/*.json` and is `include_str!`'d so the runtime is
 //! self-contained regardless of where it launches from.
@@ -283,6 +283,7 @@ mod tests {
         assert_eq!(default.seed_events.len(), 9);
         assert_eq!(default.seed_ideas.len(), 23);
         assert_eq!(default.seed_quests.len(), 10);
+        assert_eq!(default.seed_views.len(), 1);
     }
 
     #[test]
@@ -348,6 +349,15 @@ mod tests {
                 .any(|idea| idea.name == "First Company operating guide"),
             "default lifecycle events should assemble a top-level operating guide",
         );
+        let my_sessions = default
+            .seed_views
+            .iter()
+            .find(|view| view.key == "my-sessions")
+            .expect("default blueprint should seed the My sessions view");
+        assert_eq!(my_sessions.label, "My sessions");
+        assert_eq!(my_sessions.path, "sessions");
+        assert_eq!(my_sessions.search, "?view=mine");
+        assert!(my_sessions.pinned);
         let guide = default
             .seed_ideas
             .iter()

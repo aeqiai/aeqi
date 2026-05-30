@@ -18,10 +18,12 @@ export function BlueprintSeedCounts({ template }: BlueprintSeedCountsProps) {
   const declaredRoles = template.seed_roles?.length ?? 0;
   const totalAgents = (template.seed_agents?.length ?? 0) + 1;
   const structureCount = countBlueprintStructures(template);
+  const seedViews = template.seed_views?.length ?? 0;
   const pills: Array<[label: string, value: number]> = [
     ...(structureCount > 1 ? ([["Structures", structureCount]] as Array<[string, number]>) : []),
     ["Roles", declaredRoles > 0 ? declaredRoles : totalAgents],
     ["Agents", totalAgents],
+    ...(seedViews > 0 ? ([["Views", seedViews]] as Array<[string, number]>) : []),
     ["Quests", template.seed_quests?.length ?? 0],
     ["Ideas", template.seed_ideas?.length ?? 0],
     ["Events", template.seed_events?.length ?? 0],
