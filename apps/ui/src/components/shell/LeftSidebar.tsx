@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
+  AppWindow,
+  Box,
+  ChevronDown,
+  CircleDollarSign,
   Inbox,
   House,
   LayoutDashboard,
@@ -20,9 +24,8 @@ import {
   Wrench,
   Users,
   Settings,
-  Mail,
-  Megaphone,
   ReceiptText,
+  ScrollText,
   WalletCards,
 } from "lucide-react";
 import ActingAsSelector from "@/components/shell/ActingAsSelector";
@@ -58,11 +61,12 @@ const IdeasIcon = () => <Lightbulb />;
 const SessionsIcon = () => <MessagesSquare />;
 const GatewaysIcon = () => <Waypoints />;
 const ToolsIcon = () => <Wrench />;
-const MailIcon = () => <Mail />;
-const WebsitesIcon = () => <Globe />;
-const CampaignsIcon = () => <Megaphone />;
+const AppsIcon = () => <AppWindow />;
 const BudgetsIcon = () => <WalletCards />;
 const TransactionsIcon = () => <ReceiptText />;
+const SharesIcon = () => <ScrollText />;
+const RoundsIcon = () => <CircleDollarSign />;
+const AssetsIcon = () => <Box />;
 // Roles — its own peer slot under Trust. The org-chart authority graph owns
 // hierarchy, selection, creation, and inline property edits in one workspace.
 const RolesIcon = () => <Workflow />;
@@ -81,6 +85,35 @@ const SearchIcon = () => <Search />;
 // in both directions.
 const CollapseSidebarIcon = () => <PanelLeftClose />;
 const ExpandSidebarIcon = () => <PanelLeftOpen />;
+const GroupChevronIcon = () => <ChevronDown size={14} strokeWidth={1.6} />;
+
+type TrustNavGroupId = "operations" | "ownership" | "infrastructure";
+
+const TRUST_NAV_MATCHES: Record<TrustNavGroupId, string[]> = {
+  operations: [
+    "agents",
+    "sessions",
+    "inbox",
+    "quests",
+    "ideas",
+    "apps",
+    "mails",
+    "websites",
+    "campaigns",
+    "events",
+  ],
+  ownership: [
+    "roles",
+    "members",
+    "shares",
+    "equity",
+    "rounds",
+    "budgets",
+    "assets",
+    "transactions",
+  ],
+  infrastructure: ["integrations", "gateways", "channels", "tools", "settings"],
+};
 
 export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
   const navigate = useNavigate();
@@ -174,7 +207,19 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
     if (!base) return false;
     return path === `${base}/${id}` || path.startsWith(`${base}/${id}/`);
   };
+  const isActiveWithin = (ids: string[]) => ids.some((id) => isActiveTab(id));
   const isCompanyOverview = !!base && path === base;
+  const activeTrustGroup =
+    (Object.entries(TRUST_NAV_MATCHES) as Array<[TrustNavGroupId, string[]]>).find(([, ids]) =>
+      isActiveWithin(ids),
+    )?.[0] ?? null;
+  const [openTrustGroup, setOpenTrustGroup] = useState<TrustNavGroupId>(
+    activeTrustGroup ?? "operations",
+  );
+
+  useEffect(() => {
+    setOpenTrustGroup(activeTrustGroup ?? "operations");
+  }, [activeTrustGroup]);
 
   // Top-level public rows.
   const isEconomy = path === "/economy" || path.startsWith("/economy/");
@@ -260,6 +305,28 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
     </div>
   );
 
+  const trustNavGroup = (id: TrustNavGroupId, label: string, items: React.ReactNode) => {
+    const open = openTrustGroup === id;
+    const active = activeTrustGroup === id;
+
+    return (
+      <section key={id} className={`sidebar-group ${open ? "" : "collapsed"}`} aria-label={label}>
+        <button
+          type="button"
+          className={`sidebar-group-title${active ? " active" : ""}`}
+          aria-expanded={open}
+          onClick={() => setOpenTrustGroup(id)}
+        >
+          <span className="sidebar-group-label">{label}</span>
+          <span className="sidebar-group-chevron" aria-hidden>
+            <GroupChevronIcon />
+          </span>
+        </button>
+        {open && <div className="sidebar-group-items">{items}</div>}
+      </section>
+    );
+  };
+
   return (
     <div
       className={`left-sidebar${sidebarCollapsed ? " collapsed" : ""}${mobileMenuOpen ? " mobile-open" : ""}`}
@@ -342,18 +409,16 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
           {topLevelItem("/", "Home", <HomeIcon />, isStart, {
             action: rowAction("Search", <SearchIcon />, openPalette, `${isMac ? "⌘" : "Ctrl"}K`),
           })}
-          {hasCompany &&
-            topLevelItem(navHref("inbox"), "Your Inbox", <InboxIcon />, isActiveTab("inbox"))}
           {topLevelItem("/economy", "Economy", <EconomyIcon />, isEconomy)}
           {topLevelItem("/blueprints", "Blueprints", <BlueprintsIcon />, isBlueprints)}
         </nav>
 
-        {/* ── Trust group — one continuous trust surface. Order follows the
-            mental model: state, authority, humans, agents, conversations,
-            owned communication/surfaces, then capabilities and work. ── */}
+        {/* ── Trust group — primitive registries only. Pinned Views are
+            intentionally omitted until the user pins real saved views;
+            no fake defaults occupy the top of the rail. ── */}
         {hasCompany && (
           <>
-            <nav className="sidebar-surface-nav sidebar-zone" aria-label="Trust">
+            <nav className="sidebar-surface-nav sidebar-zone sidebar-trust-nav" aria-label="Trust">
               <div className="sidebar-section-label">Trust</div>
               <ActingAsSelector />
               <div key="views" className="sidebar-nav-row">
@@ -371,45 +436,64 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
                   <span className="sidebar-nav-label">Views</span>
                 </a>
               </div>
-              {/* Roles — the org-chart / authority graph. Sits inside the
-                  Trust group alongside Views; both describe what the
-                  Trust IS rather than what it owns or what it does. */}
-              {navItem("roles", "Roles", <RolesIcon />)}
-              {/* Members — humans with trust access or pending invites. Kept
-                  separate from Roles so unassigned humans are visible. */}
-              {navItem("members", "Members", <MembersIcon />)}
-              {navItem("agents", "Agents", <AgentsIcon />, {
-                locked: runtimeLocked,
-              })}
-              {navItem("sessions", "Sessions", <SessionsIcon />, {
-                locked: runtimeLocked,
-              })}
-              {navItem("mails", "Mails", <MailIcon />)}
-              {navItem("websites", "Websites", <WebsitesIcon />)}
-              {navItem("campaigns", "Campaigns", <CampaignsIcon />, {
-                locked: runtimeLocked,
-              })}
-              {navItem("budgets", "Budgets", <BudgetsIcon />)}
-              {navItem("transactions", "Transactions", <TransactionsIcon />)}
-              {navItem("gateways", "Gateways", <GatewaysIcon />, {
-                locked: runtimeLocked,
-              })}
-              {navItem("integrations", "Integrations", <IntegrationsIcon />, {
-                locked: runtimeLocked,
-              })}
-              {navItem("tools", "Tools", <ToolsIcon />, {
-                locked: runtimeLocked,
-              })}
-              {navItem("events", "Events", <EventsIcon />, {
-                locked: runtimeLocked,
-              })}
-              {navItem("quests", "Quests", <QuestsIcon />, {
-                locked: runtimeLocked,
-              })}
-              {navItem("ideas", "Ideas", <IdeasIcon />, {
-                locked: runtimeLocked,
-              })}
-              {navItem("settings", "Settings", <SettingsIcon />)}
+              {trustNavGroup(
+                "operations",
+                "Operations",
+                <>
+                  {navItem("agents", "Agents", <AgentsIcon />, {
+                    locked: runtimeLocked,
+                  })}
+                  {navItem("sessions", "Sessions", <SessionsIcon />, {
+                    locked: runtimeLocked,
+                  })}
+                  {navItem("inbox", "Inbox", <InboxIcon />, {
+                    locked: runtimeLocked,
+                  })}
+                  {navItem("quests", "Quests", <QuestsIcon />, {
+                    locked: runtimeLocked,
+                  })}
+                  {navItem("ideas", "Ideas", <IdeasIcon />, {
+                    locked: runtimeLocked,
+                  })}
+                  {navItem("apps", "Apps", <AppsIcon />, {
+                    active: isActiveWithin(["apps", "mails", "websites", "campaigns"]),
+                  })}
+                  {navItem("events", "Events", <EventsIcon />, {
+                    locked: runtimeLocked,
+                  })}
+                </>,
+              )}
+              {trustNavGroup(
+                "ownership",
+                "Ownership",
+                <>
+                  {navItem("roles", "Roles", <RolesIcon />)}
+                  {navItem("members", "Members", <MembersIcon />)}
+                  {navItem("shares", "Shares", <SharesIcon />, {
+                    active: isActiveWithin(["shares", "equity"]),
+                  })}
+                  {navItem("rounds", "Rounds", <RoundsIcon />)}
+                  {navItem("budgets", "Budgets", <BudgetsIcon />)}
+                  {navItem("assets", "Assets", <AssetsIcon />)}
+                  {navItem("transactions", "Transactions", <TransactionsIcon />)}
+                </>,
+              )}
+              {trustNavGroup(
+                "infrastructure",
+                "Infrastructure",
+                <>
+                  {navItem("integrations", "Integrations", <IntegrationsIcon />, {
+                    locked: runtimeLocked,
+                  })}
+                  {navItem("gateways", "Gateways", <GatewaysIcon />, {
+                    locked: runtimeLocked,
+                  })}
+                  {navItem("tools", "Tools", <ToolsIcon />, {
+                    locked: runtimeLocked,
+                  })}
+                  {navItem("settings", "Settings", <SettingsIcon />)}
+                </>,
+              )}
             </nav>
           </>
         )}

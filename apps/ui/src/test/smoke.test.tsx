@@ -422,25 +422,6 @@ describe("shell components smoke", () => {
     expect(errors.find(isLoopError)).toBeUndefined();
   });
 
-  it("LeftSidebar exposes Your Inbox and trust-owned primitives", () => {
-    const { getAllByRole, queryByText } = render(
-      withQueryClient(
-        <StrictMode>
-          <MemoryRouter initialEntries={["/trust/root-1"]}>
-            <Routes>
-              <Route
-                path="/trust/:trustId/*"
-                element={<LeftSidebar trustId="root-1" path="/trust/root-1" />}
-              />
-            </Routes>
-          </MemoryRouter>
-        </StrictMode>,
-      ),
-    );
-    expect(getAllByRole("link", { name: "Your Inbox" })).toHaveLength(1);
-    expect(queryByText(/^(Operations|Ownership)$/)).not.toBeInTheDocument();
-  });
-
   it("LeftSidebar renders with a drilled-in child agent", () => {
     const errors = captureRenderErrors(
       withQueryClient(

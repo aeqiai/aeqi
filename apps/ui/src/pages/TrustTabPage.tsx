@@ -28,6 +28,8 @@ const TrustToolsTab = lazy(() => import("@/components/TrustToolsTab"));
 const TrustMembersTab = lazy(() => import("@/components/TrustMembersTab"));
 const TrustRolesTab = lazy(() => import("@/components/TrustRolesTab"));
 const TrustRoleDetailPage = lazy(() => import("@/components/roles/TrustRoleDetailPage"));
+const EquityPage = lazy(() => import("@/pages/EquityPage"));
+const AssetsPage = lazy(() => import("@/pages/AssetsPage"));
 const AgentEventsTab = lazy(() => import("@/components/AgentEventsTab"));
 const AgentQuestsTab = lazy(() => import("@/components/AgentQuestsTab"));
 const AgentIdeasTab = lazy(() => import("@/components/AgentIdeasTab"));
@@ -55,10 +57,14 @@ interface TrustTabPageProps {
  *   /trust/:trustAddress/agents        → TrustAgentsTab (LIST)
  *   /trust/:trustAddress/sessions      → TrustSessionsTab (all trust sessions)
  *   /trust/:trustAddress/inbox         → MeInboxPage
+ *   /trust/:trustAddress/apps          → TrustAppsTab(app registry)
  *   /trust/:trustAddress/mails         → TrustAppsTab(mails surface)
  *   /trust/:trustAddress/websites      → TrustAppsTab(websites surface)
  *   /trust/:trustAddress/campaigns     → TrustCampaignsTab
+ *   /trust/:trustAddress/shares        → EquityPage(cap table)
+ *   /trust/:trustAddress/rounds        → EquityPage(funding rounds)
  *   /trust/:trustAddress/budgets       → TrustBudgetsTab
+ *   /trust/:trustAddress/assets        → AssetsPage
  *   /trust/:trustAddress/transactions  → TrustTransactionsTab
  *   /trust/:trustAddress/gateways      → AgentGatewaysTab(default/root agent lens)
  *   /trust/:trustAddress/integrations  → TrustAppsTab (external connections)
@@ -68,7 +74,7 @@ interface TrustTabPageProps {
  *   /trust/:trustAddress/ideas         → AgentIdeasTab(entity scope)
  *   /trust/:trustAddress/settings      → TrustSettingsTab
  *   /trust/:trustAddress/health        → 308 redirect to bare cockpit (legacy URL)
- *   /trust/:trustAddress/apps          → redirect to Integrations (legacy apps tab)
+ *   /trust/:trustAddress/equity        → redirect to Shares (legacy URL)
  *   /trust/:trustAddress/channels      → redirect to Gateways (legacy channels tab)
  *   /trust/:trustAddress/mail          → redirect to Mails (legacy singular)
  *   /trust/:trustAddress/website       → redirect to Websites (legacy website tab)
@@ -80,7 +86,6 @@ interface TrustTabPageProps {
 const RUNTIME_GATED_TABS: Record<string, UpsellSurface> = {
   agents: "agents",
   integrations: "apps",
-  apps: "apps",
   campaigns: "campaigns",
   sessions: "sessions",
   gateways: "gateways",
@@ -138,8 +143,8 @@ export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTab
 
   // Canonicalize legacy aliases before the runtime gate so stale links
   // still land on the current route names even when the trust has no runtime.
-  if (tab === "apps") {
-    const target = location.pathname.replace(/\/apps(?=\/|$)/, "/integrations") + location.search;
+  if (tab === "equity") {
+    const target = location.pathname.replace(/\/equity(?=\/|$)/, "/shares") + location.search;
     return <Navigate to={target} replace />;
   }
   if (tab === "channels") {
@@ -211,6 +216,13 @@ export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTab
       </Suspense>
     );
   }
+  if (tab === "apps") {
+    return (
+      <Suspense>
+        <TrustAppsTab trustId={trustId} surface="apps" />
+      </Suspense>
+    );
+  }
   if (tab === "integrations") {
     return (
       <Suspense>
@@ -239,10 +251,31 @@ export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTab
       </Suspense>
     );
   }
+  if (tab === "shares") {
+    return (
+      <Suspense>
+        <EquityPage trustId={trustId} />
+      </Suspense>
+    );
+  }
+  if (tab === "rounds") {
+    return (
+      <Suspense>
+        <EquityPage trustId={trustId} />
+      </Suspense>
+    );
+  }
   if (tab === "budgets") {
     return (
       <Suspense>
         <TrustBudgetsTab />
+      </Suspense>
+    );
+  }
+  if (tab === "assets") {
+    return (
+      <Suspense>
+        <AssetsPage trustId={trustId} />
       </Suspense>
     );
   }

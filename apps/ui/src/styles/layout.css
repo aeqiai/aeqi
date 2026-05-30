@@ -921,6 +921,9 @@
   color: var(--color-text-secondary);
   background: var(--state-hover);
 }
+.sidebar-group-title.active {
+  color: var(--color-text-primary);
+}
 .sidebar-group-chevron {
   margin-left: auto;
   display: inline-flex;
@@ -996,6 +999,43 @@
 .left-sidebar.collapsed .sidebar-group-items {
   padding: 0;
   gap: 2px;
+}
+
+.sidebar-trust-nav {
+  --sidebar-row-h: 28px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-top: 4px;
+  padding-bottom: 6px;
+  scrollbar-width: thin;
+}
+.sidebar-trust-nav .sidebar-section-label {
+  margin: 5px 8px 3px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+.sidebar-trust-nav .acting-as-trigger {
+  margin-bottom: 4px;
+  padding: 8px 10px;
+}
+.sidebar-trust-nav .sidebar-nav-item {
+  gap: 8px;
+  padding-inline: 7px;
+}
+.sidebar-trust-nav .sidebar-group + .sidebar-group {
+  margin-top: 2px;
+}
+.sidebar-trust-nav .sidebar-group-title {
+  margin-inline: 4px;
+  min-height: 26px;
+  padding-inline: 7px;
+  font-size: 10px;
+  letter-spacing: 0.045em;
+}
+.sidebar-trust-nav .sidebar-group-items {
+  gap: 0;
+  padding-inline: 4px;
 }
 
 .sidebar-nav-action {
@@ -4635,6 +4675,14 @@
     padding: 0 10px;
     justify-content: flex-start;
     white-space: nowrap;
+  }
+
+  .left-sidebar.mobile-open .sidebar-trust-nav .sidebar-nav-item {
+    min-height: 30px;
+  }
+
+  .left-sidebar.mobile-open .sidebar-trust-nav .sidebar-group-title {
+    min-height: 28px;
   }
 
   .left-sidebar.mobile-open .sidebar-nav-label {

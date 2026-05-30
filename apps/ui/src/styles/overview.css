@@ -1109,6 +1109,8 @@
   grid-template-columns: minmax(0, 1fr) 86px 116px;
 }
 
+.trust-apps-table-head--app,
+.trust-apps-register-row--app,
 .trust-apps-table-head--integration,
 .trust-apps-register-row--integration {
   grid-template-columns: minmax(0, 1fr) 96px 100px;
@@ -2873,6 +2875,7 @@
 
   .trust-apps-register-row--mail,
   .trust-apps-register-row--website,
+  .trust-apps-register-row--app,
   .trust-apps-register-row--integration {
     grid-template-columns: minmax(0, 1fr);
     align-items: start;

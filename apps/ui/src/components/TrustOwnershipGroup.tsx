@@ -91,7 +91,7 @@ export default function TrustOwnershipGroup({ trustAddress, basePath }: TrustOwn
           provisioning={assetsProvisioning}
         />
         <OwnershipPrimitiveCard
-          to={`${basePath}/equity`}
+          to={`${basePath}/shares`}
           icon={<PieChart size={16} strokeWidth={1.5} />}
           label="Equity"
           value={holdersCount === null ? "—" : formatInteger(holdersCount)}

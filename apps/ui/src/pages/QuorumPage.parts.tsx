@@ -432,7 +432,7 @@ export function NoGovernanceSetup({ trustId }: { trustId: string }) {
             <li>
               <strong>Token-weighted</strong> — every equity-share holder votes by balance. Default
               for cap-table-driven companies. Register from the{" "}
-              <Link to={`/trust/${trustId}/equity`}>Equity</Link> surface.
+              <Link to={`/trust/${trustId}/shares`}>Shares</Link> surface.
             </li>
             <li>
               <strong>Role-mode</strong> — multisig per role (e.g. Founders, Board, Ops). Register

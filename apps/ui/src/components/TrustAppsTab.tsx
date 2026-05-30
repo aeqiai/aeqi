@@ -28,7 +28,9 @@ import { publicWebsiteDomain, publicWebsiteUrl } from "@/lib/publicWebsite";
 import { trustEmailAddress, trustEmailDomain } from "@/lib/trustEmail";
 import type { TrustAppKind } from "@/lib/trustApps";
 import { useDaemonStore } from "@/store/daemon";
-import { Button, CardTrigger, Modal, PrimitivePageHeader } from "./ui";
+import { Button, CardTrigger, PrimitivePageHeader } from "./ui";
+import { AppRegistryPage, buildOperatingAppItems } from "./TrustAppsRegistry";
+import TrustIntegrationCreateModal from "./TrustIntegrationCreateModal";
 import {
   MailPrimitivePage,
   WebsitesPrimitivePage,
@@ -43,7 +45,7 @@ const APP_ICONS: Record<TrustAppKind, ReactNode> = {
   stripe: <AppLogo kind="stripe" icon={<CreditCard size={18} strokeWidth={1.5} />} />,
 };
 
-export type TrustAppsSurface = "integrations" | "mail" | "websites";
+export type TrustAppsSurface = "apps" | "integrations" | "mail" | "websites";
 
 type WorkspaceAppKind = "gmail" | "calendar" | "drive" | "docs" | "sheets" | "slides" | "meet";
 
@@ -116,6 +118,7 @@ export default function TrustAppsTab({
   const [mailCreatorOpen, setMailCreatorOpen] = useState(false);
   const [websiteCreatorOpen, setWebsiteCreatorOpen] = useState(false);
   const [integrationCreatorOpen, setIntegrationCreatorOpen] = useState(false);
+  const [selectedAppId, setSelectedAppId] = useState("mails");
   const [selectedIntegrationId, setSelectedIntegrationId] = useState("google-workspace");
   const [connectingIntegration, setConnectingIntegration] = useState<string | null>(null);
   const entities = useDaemonStore((s) => s.entities);
@@ -143,7 +146,7 @@ export default function TrustAppsTab({
   const hostingDomains = useQuery({
     queryKey: ["hosting-domains", trustId],
     queryFn: () => api.listHostingDomains(),
-    enabled: surface === "websites" && Boolean(entity),
+    enabled: (surface === "websites" || surface === "apps") && Boolean(entity),
     staleTime: 20_000,
   });
   const googleConnected = googleStatus.data?.connected === true;
@@ -169,6 +172,18 @@ export default function TrustAppsTab({
     : websiteAnalytics.isLoading
       ? "Checking"
       : "Ready";
+  const appItems = buildOperatingAppItems({
+    basePath,
+    emailCount,
+    emailIdentities: emailIdentities.length,
+    emailLoading: emailStatus.isLoading,
+    externalDomainCount,
+    navigate,
+    outboundReady: emailStatus.data?.outbound_status === "ready",
+    trustDomainCount: trustDomains.length,
+    websiteLoading: websiteAnalytics.isLoading || hostingDomains.isLoading,
+    websiteViews,
+  });
 
   async function startGoogleIntegration(source = "google-workspace") {
     setConnectingIntegration(source);
@@ -244,13 +259,21 @@ export default function TrustAppsTab({
   const selectedIntegration =
     integrationItems.find((item) => item.id === selectedIntegrationId) ?? integrationItems[0];
   const pageTitle =
-    surface === "mail" ? "Mails" : surface === "websites" ? "Websites" : "Integrations";
+    surface === "apps"
+      ? "Apps"
+      : surface === "mail"
+        ? "Mails"
+        : surface === "websites"
+          ? "Websites"
+          : "Integrations";
   const primitiveCount =
-    surface === "mail"
-      ? emailIdentities.length
-      : surface === "websites"
-        ? trustDomains.length
-        : workspaceServices + channelApps.length + billingApps.length;
+    surface === "apps"
+      ? appItems.length
+      : surface === "mail"
+        ? emailIdentities.length
+        : surface === "websites"
+          ? trustDomains.length
+          : workspaceServices + channelApps.length + billingApps.length;
   const headerTitle = (
     <span className="trust-primitive-page-title">
       <span className="trust-primitive-page-title-text">{pageTitle}</span>
@@ -260,25 +283,29 @@ export default function TrustAppsTab({
     </span>
   );
   const toolbarSummary =
-    surface === "mail"
-      ? emailStatus.isLoading
-        ? "Checking mailbox"
-        : `${formatInteger(emailIdentities.length)} mailboxes · ${formatInteger(
-            emailCount,
-          )} messages · outbound ${
-            emailStatus.data?.outbound_status === "ready" ? "ready" : "setup"
-          }`
-      : surface === "websites"
-        ? websiteAnalytics.isLoading
-          ? "Checking website status"
-          : `${primaryWebsiteDomain} · ${formatInteger(externalDomainCount)} external domains · ${websiteViews} today`
-        : isLoading
-          ? "Loading integration status"
-          : `${formatInteger(workspaceServices)} workspace apps · ${formatInteger(
-              installed.enabledChannels,
-            )} gateway endpoints · ${formatInteger(
-              trustAgents.length,
-            )} agents${billingReady ? " · billing ready" : ""}`;
+    surface === "apps"
+      ? `${formatInteger(appItems.length)} operating surfaces · ${formatInteger(
+          emailIdentities.length,
+        )} mailboxes · ${formatInteger(trustDomains.length)} websites`
+      : surface === "mail"
+        ? emailStatus.isLoading
+          ? "Checking mailbox"
+          : `${formatInteger(emailIdentities.length)} mailboxes · ${formatInteger(
+              emailCount,
+            )} messages · outbound ${
+              emailStatus.data?.outbound_status === "ready" ? "ready" : "setup"
+            }`
+        : surface === "websites"
+          ? websiteAnalytics.isLoading
+            ? "Checking website status"
+            : `${primaryWebsiteDomain} · ${formatInteger(externalDomainCount)} external domains · ${websiteViews} today`
+          : isLoading
+            ? "Loading integration status"
+            : `${formatInteger(workspaceServices)} workspace apps · ${formatInteger(
+                installed.enabledChannels,
+              )} gateway endpoints · ${formatInteger(
+                trustAgents.length,
+              )} agents${billingReady ? " · billing ready" : ""}`;
   const headerActions =
     surface === "mail" ? (
       <Button
@@ -308,6 +335,18 @@ export default function TrustAppsTab({
         New Integration
       </Button>
     ) : undefined;
+
+  if (surface === "apps") {
+    return (
+      <AppRegistryPage
+        headerTitle={headerTitle}
+        items={appItems}
+        onSelectApp={setSelectedAppId}
+        selectedAppId={selectedAppId}
+        toolbarSummary={toolbarSummary}
+      />
+    );
+  }
 
   if (surface === "mail" || surface === "websites") {
     return (
@@ -424,7 +463,7 @@ export default function TrustAppsTab({
               />
             )}
 
-            <IntegrationCreateModal
+            <TrustIntegrationCreateModal
               connecting={connectingIntegration}
               onClose={() => setIntegrationCreatorOpen(false)}
               onGateway={openGatewayCreate}
@@ -517,95 +556,5 @@ function IntegrationDetail({ connecting, item }: { connecting: boolean; item: In
         </Button>
       </div>
     </aside>
-  );
-}
-
-function IntegrationCreateModal({
-  connecting,
-  onClose,
-  onGateway,
-  onGoogle,
-  onStripe,
-  open,
-}: {
-  connecting: string | null;
-  onClose: () => void;
-  onGateway: (kind: "telegram" | "whatsapp" | "whatsapp-baileys") => void;
-  onGoogle: () => void;
-  onStripe: () => void;
-  open: boolean;
-}) {
-  return (
-    <Modal open={open} onClose={onClose} title="New Integration">
-      <div className="trust-apps-provider-list">
-        <ProviderAction
-          icon={<Cloud size={18} strokeWidth={1.5} />}
-          title="Google Workspace"
-          subtitle="Connect one Google account for workspace tools."
-          action="Connect"
-          loading={connecting === "modal-google"}
-          onClick={onGoogle}
-        />
-        <ProviderAction
-          icon={<CreditCard size={18} strokeWidth={1.5} />}
-          title="Stripe"
-          subtitle="Manage billing, checkout, and customer portal."
-          action="Open"
-          onClick={() => {
-            onClose();
-            onStripe();
-          }}
-        />
-        <ProviderAction
-          icon={<Send size={18} strokeWidth={1.5} />}
-          title="Telegram"
-          subtitle="Add a bot gateway for external sessions."
-          action="Add"
-          onClick={() => {
-            onClose();
-            onGateway("telegram");
-          }}
-        />
-        <ProviderAction
-          icon={<MessageCircle size={18} strokeWidth={1.5} />}
-          title="WhatsApp"
-          subtitle="Pair a WhatsApp gateway with QR."
-          action="Add"
-          onClick={() => {
-            onClose();
-            onGateway("whatsapp-baileys");
-          }}
-        />
-      </div>
-    </Modal>
-  );
-}
-
-function ProviderAction({
-  action,
-  icon,
-  loading,
-  onClick,
-  subtitle,
-  title,
-}: {
-  action: string;
-  icon: ReactNode;
-  loading?: boolean;
-  onClick: () => void;
-  subtitle: string;
-  title: string;
-}) {
-  return (
-    <CardTrigger className="trust-apps-provider-row" onClick={onClick} disabled={loading}>
-      <span className="trust-apps-provider-icon" aria-hidden>
-        {icon}
-      </span>
-      <span className="trust-apps-provider-copy">
-        <span className="trust-apps-provider-title">{title}</span>
-        <span className="trust-apps-provider-subtitle">{subtitle}</span>
-      </span>
-      <span className="trust-apps-provider-action">{loading ? "Connecting" : action}</span>
-    </CardTrigger>
   );
 }

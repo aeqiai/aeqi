@@ -54,12 +54,10 @@ const RELOCATED_AGENT_TABS = new Set(["overview", "quests", "events", "ideas", "
 const BLUEPRINT_KINDS = new Set(["companies", "agents", "events", "quests", "ideas"]);
 
 // Tabs that route through TrustTabPage. TrustTabPage is a thin per-tab
-// dispatcher for entity-scoped surfaces. Your Inbox keeps the entity route for
-// context, but the sidebar presents it as a personal attention surface above
-// Trust. Views is the composable trust landing; Roles, Members, Agents,
-// Sessions, Mails, Websites, Campaigns, Budgets, Transactions, Gateways,
-// Integrations, Tools, Events, Quests, and Ideas sit together as one continuous
-// trust surface.
+// dispatcher for entity-scoped surfaces. The sidebar presents primitive
+// registries grouped as Operations, Ownership, and Infrastructure; concrete
+// apps like Mails/Websites/Campaigns stay deep-linked but roll up under Apps.
+// Views is the composable trust landing at the bare entity URL.
 //
 // The runtime primitive tabs (agents/events/quests/ideas) ALSO route through
 // TrustTabPage at the entity scope. Without this, `/trust/<addr>/agents`
@@ -81,15 +79,19 @@ const COMPANY_PAGE_TABS = new Set([
   "mail",
   "websites",
   "campaigns",
+  "shares",
+  // Legacy alias: Equity is canonicalized to Shares.
+  "equity",
+  "rounds",
   "budgets",
+  "assets",
   "transactions",
   "gateways",
   // Legacy alias: Channels was renamed to Gateways. TrustTabPage redirects
   // `/trust/<addr>/channels` to `/trust/<addr>/gateways`.
   "channels",
   "integrations",
-  // Legacy alias: Apps was renamed to Integrations. TrustTabPage redirects
-  // `/trust/<addr>/apps` to `/trust/<addr>/integrations`.
+  // Apps is now the operating-surface registry (Mails, Websites, Campaigns).
   "apps",
   "tools",
   "events",

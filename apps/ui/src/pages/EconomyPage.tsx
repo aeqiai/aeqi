@@ -358,7 +358,7 @@ export default function EconomyPage() {
   );
 
   const poolColumns = useMemo<Array<TableColumn<PoolRow>>>(
-    () => makePoolColumns((row) => navigate(entityPath(row.trust, "equity"))),
+    () => makePoolColumns((row) => navigate(entityPath(row.trust, "shares"))),
     [navigate],
   );
 
@@ -568,7 +568,7 @@ export default function EconomyPage() {
                   columns={poolColumns}
                   data={visiblePoolRows}
                   rowKey={(row) => row.id}
-                  onRowClick={(row) => navigate(entityPath(row.trust, "equity"))}
+                  onRowClick={(row) => navigate(entityPath(row.trust, "shares"))}
                   loading={loadingSecondaryData && visiblePoolRows.length === 0}
                   skeletonRows={3}
                   scrollWidth="lg"
