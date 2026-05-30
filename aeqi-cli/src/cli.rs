@@ -239,6 +239,12 @@ pub enum Commands {
         action: GraphAction,
     },
 
+    /// Start or resume quest work with context, graph hints, and worktree setup.
+    Work {
+        #[command(subcommand)]
+        action: WorkAction,
+    },
+
     /// Interactive streaming chat with a AEQI agent (TUI).
     Chat {
         /// Persistent agent to chat with (default: auto-select based on root).
@@ -316,6 +322,39 @@ pub enum GraphAction {
         /// Emit JSON instead of a human-readable report.
         #[arg(long)]
         json: bool,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum WorkAction {
+    /// Prepare the local workspace for a quest.
+    Start {
+        /// Quest id to start, for example ch-116.10.
+        quest_id: String,
+        /// Configured project/root name used for repo and graph lookup.
+        #[arg(short = 'r', long = "root", default_value = "aeqi")]
+        root: String,
+        /// Override the repository path instead of using the configured project repo.
+        #[arg(long)]
+        repo: Option<PathBuf>,
+        /// Override the worktree path.
+        #[arg(long)]
+        worktree: Option<PathBuf>,
+        /// Git base ref for a new worktree.
+        #[arg(long, default_value = "origin/main")]
+        base: String,
+        /// Skip git worktree creation and only print context.
+        #[arg(long = "no-worktree")]
+        no_worktree: bool,
+        /// Skip marking the quest in progress.
+        #[arg(long = "no-claim")]
+        no_claim: bool,
+        /// Print the plan without mutating quest state or git worktrees.
+        #[arg(long)]
+        dry_run: bool,
+        /// Number of related ideas and graph hits to print.
+        #[arg(long, default_value_t = 5)]
+        top_k: usize,
     },
 }
 

@@ -666,6 +666,8 @@ pub async fn handle_get_quest(
                     "runtime": quest.runtime(),
                     "depends_on": quest.depends_on.iter().map(|d| &d.0).collect::<Vec<_>>(),
                     "sibling_quest_ids": sibling_quests,
+                    "worktree_branch": quest.worktree_branch,
+                    "worktree_path": quest.worktree_path,
                 },
                 "idea": inline_idea.as_ref().map(idea_to_json),
             })
@@ -710,6 +712,8 @@ pub async fn handle_update_quest(
     let status_str = request.get("status").and_then(|v| v.as_str());
     let priority_str = request.get("priority").and_then(|v| v.as_str());
     let agent_id = request.get("agent_id").and_then(|v| v.as_str());
+    let worktree_branch = request.get("worktree_branch").and_then(|v| v.as_str());
+    let worktree_path = request.get("worktree_path").and_then(|v| v.as_str());
     let scope = request
         .get("scope")
         .and_then(|v| v.as_str())
@@ -834,6 +838,12 @@ pub async fn handle_update_quest(
             if let Some(agent_id) = agent_id {
                 quest.agent_id = Some(agent_id.to_string());
             }
+            if let Some(worktree_branch) = worktree_branch {
+                quest.worktree_branch = Some(worktree_branch.to_string());
+            }
+            if let Some(worktree_path) = worktree_path {
+                quest.worktree_path = Some(worktree_path.to_string());
+            }
             if let Some(scope) = scope {
                 quest.scope = scope;
             }
@@ -876,6 +886,8 @@ pub async fn handle_update_quest(
                     "assignee": quest.assignee,
                     "scope": quest.scope.as_str(),
                     "due_at": quest.due_at.map(|t| t.to_rfc3339()),
+                    "worktree_branch": quest.worktree_branch,
+                    "worktree_path": quest.worktree_path,
                 },
                 "idea": idea.as_ref().map(idea_to_json),
             })
@@ -1880,6 +1892,42 @@ mod tests {
         let stored = registry.get_task(&quest.id.0).await.unwrap().unwrap();
         assert_eq!(stored.status, aeqi_quests::QuestStatus::InProgress);
         assert_eq!(stored.assignee.as_deref(), Some(expected.as_str()));
+    }
+
+    #[tokio::test]
+    async fn update_quest_records_worktree_location() {
+        let (ctx, registry, _session_store, _idea_store, _dir) = quest_update_ctx().await;
+        let agent = registry.spawn("Quest Tester", None, None).await.unwrap();
+        let quest = registry
+            .create_task(&agent.id, "Track lifecycle", "body", &[], &[])
+            .await
+            .unwrap();
+
+        let resp = handle_update_quest(
+            &ctx,
+            &serde_json::json!({
+                "id": quest.id.0,
+                "status": "in_progress",
+                "caller_user_id": uuid::Uuid::new_v4().to_string(),
+                "worktree_branch": "quest/ch-116.10",
+                "worktree_path": "/workspace/.aeqi/worktrees/ch-116.10",
+            }),
+            &None,
+        )
+        .await;
+
+        assert_eq!(resp["ok"], true, "update response: {resp}");
+        assert_eq!(resp["quest"]["worktree_branch"], "quest/ch-116.10");
+        assert_eq!(
+            resp["quest"]["worktree_path"],
+            "/workspace/.aeqi/worktrees/ch-116.10"
+        );
+        let stored = registry.get_task(&quest.id.0).await.unwrap().unwrap();
+        assert_eq!(stored.worktree_branch.as_deref(), Some("quest/ch-116.10"));
+        assert_eq!(
+            stored.worktree_path.as_deref(),
+            Some("/workspace/.aeqi/worktrees/ch-116.10")
+        );
     }
 
     #[tokio::test]

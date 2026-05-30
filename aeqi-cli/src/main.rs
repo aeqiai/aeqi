@@ -146,6 +146,7 @@ async fn main() -> Result<()> {
         }
         Some(Commands::Web { action }) => cmd::web::cmd_web(&cli.config, action).await,
         Some(Commands::Graph { action }) => cmd::graph::cmd_graph(&cli.config, action).await,
+        Some(Commands::Work { action }) => cmd::work::cmd_work(&cli.config, action).await,
         Some(Commands::Chat {
             agent,
             root,

@@ -29,3 +29,4 @@ pub(crate) mod status;
 pub(crate) mod team;
 pub(crate) mod trust;
 pub(crate) mod web;
+pub(crate) mod work;

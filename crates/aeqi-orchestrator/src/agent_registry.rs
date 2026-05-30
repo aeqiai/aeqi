@@ -4018,8 +4018,8 @@ impl AgentRegistry {
                 retry_count = ?7, checkpoints = ?8, metadata = ?9,
                 depends_on = ?10,
                 updated_at = ?11, closed_at = ?12, outcome = ?13,
-                due_at = ?14
-             WHERE id = ?15",
+                due_at = ?14, worktree_branch = ?15, worktree_path = ?16
+             WHERE id = ?17",
             params![
                 quest.idea_id,
                 quest.status.to_string(),
@@ -4035,6 +4035,8 @@ impl AgentRegistry {
                 quest.closed_at.map(|d| d.to_rfc3339()),
                 outcome_json,
                 quest.due_at.map(|d| d.timestamp()),
+                quest.worktree_branch,
+                quest.worktree_path,
                 quest.id.0,
             ],
         )?;
