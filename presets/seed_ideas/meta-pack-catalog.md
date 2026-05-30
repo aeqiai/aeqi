@@ -104,6 +104,13 @@ Outstanding candidate principle imports: Zettelkasten atomic-notes rule.
   at 200 results; `ok=false` envelope translated to clean
   `slack_error`. Crate `aeqi-pack-slack`, default-on feature `slack`
   on `aeqi-orchestrator`.
+- `meta:pack:etsy` — five native seller tools across shops /
+  listings / orders / draft-listing creation backed by T1.9's `oauth2`
+  lifecycle. TRUST-scoped storefront credential (`ScopeHint::Trust`);
+  refresh-on-401 retry; Etsy `x-api-key` sourced from credential
+  metadata; write surface is draft-only in V1 so agents can prepare
+  commerce work without publishing products. Crate `aeqi-pack-etsy`,
+  registered by the MCP Apps proxy integration catalog.
 
 ## Known gaps (things we should NOT re-import if encountered)
 

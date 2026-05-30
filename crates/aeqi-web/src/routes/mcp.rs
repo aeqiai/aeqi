@@ -657,6 +657,19 @@ async fn call_apps(
         .and_then(|v| v.as_str())
         .unwrap_or("list_tools");
     match action {
+        "catalog" | "list_apps" => {
+            let provider = args
+                .get("provider")
+                .and_then(|v| v.as_str())
+                .map(str::trim)
+                .filter(|s| !s.is_empty());
+            let catalog = integration_catalog(provider);
+            Ok(serde_json::json!({
+                "ok": true,
+                "count": catalog.len(),
+                "apps": catalog,
+            }))
+        }
         "list_tools" => {
             let provider = args
                 .get("provider")
@@ -1507,6 +1520,102 @@ struct AppRoleAuth {
     grants: Vec<String>,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct IntegrationPack {
+    provider: &'static str,
+    title: &'static str,
+    category: &'static str,
+    description: &'static str,
+    auth_model: &'static str,
+    credential_name: &'static str,
+    default_scope_kind: &'static str,
+    credential_scope_note: &'static str,
+    tool_prefixes: &'static [&'static str],
+    capabilities: &'static [&'static str],
+}
+
+impl IntegrationPack {
+    fn matches_tool(&self, tool_name: &str) -> bool {
+        self.tool_prefixes.iter().any(|prefix| {
+            tool_name == *prefix
+                || tool_name
+                    .strip_prefix(prefix)
+                    .map(|rest| rest.starts_with('.') || rest.starts_with('_'))
+                    .unwrap_or(false)
+        })
+    }
+}
+
+const INTEGRATION_PACKS: &[IntegrationPack] = &[
+    IntegrationPack {
+        provider: "google",
+        title: "Google Workspace",
+        category: "productivity",
+        description: "Gmail, Calendar, Meet, and Drive tools for operator and agent workflows.",
+        auth_model: "oauth2",
+        credential_name: "oauth_token",
+        default_scope_kind: "agent",
+        credential_scope_note: "Per-agent OAuth by default, with TRUST/global fallback through the credential resolver.",
+        tool_prefixes: &["google", "gmail", "calendar", "meet", "drive"],
+        capabilities: &["email", "calendar", "meetings", "documents", "files"],
+    },
+    IntegrationPack {
+        provider: "github",
+        title: "GitHub",
+        category: "engineering",
+        description: "Repository, issue, pull request, release, file, and code-search operations.",
+        auth_model: "github_app_or_oauth2",
+        credential_name: "installation_token",
+        default_scope_kind: "installation",
+        credential_scope_note: "Prefer GitHub App installation credentials; OAuth/PAT-shaped rows are fallback.",
+        tool_prefixes: &["github"],
+        capabilities: &[
+            "issues",
+            "pull_requests",
+            "repositories",
+            "files",
+            "releases",
+            "search",
+        ],
+    },
+    IntegrationPack {
+        provider: "notion",
+        title: "Notion",
+        category: "knowledge",
+        description: "Workspace pages, blocks, databases, users, and structured knowledge capture.",
+        auth_model: "oauth2",
+        credential_name: "oauth_token",
+        default_scope_kind: "agent",
+        credential_scope_note: "Per-agent Notion OAuth by default; can be elevated to TRUST scope when the workspace is company-owned.",
+        tool_prefixes: &["notion"],
+        capabilities: &["pages", "blocks", "databases", "users"],
+    },
+    IntegrationPack {
+        provider: "slack",
+        title: "Slack",
+        category: "messaging",
+        description: "Workspace channels, messages, reactions, users, and search.",
+        auth_model: "oauth2_bot",
+        credential_name: "bot_token",
+        default_scope_kind: "user",
+        credential_scope_note: "One bot token per Slack workspace, stored on the workspace/user scope.",
+        tool_prefixes: &["slack"],
+        capabilities: &["channels", "messages", "reactions", "users", "search"],
+    },
+    IntegrationPack {
+        provider: "etsy",
+        title: "Etsy",
+        category: "commerce",
+        description: "Seller shop, listing, order, and draft-listing tools for TRUST-owned storefronts.",
+        auth_model: "oauth2",
+        credential_name: "oauth_token",
+        default_scope_kind: "trust",
+        credential_scope_note: "TRUST-scoped OAuth: one connected seller account powers permitted humans and agents.",
+        tool_prefixes: &["etsy"],
+        capabilities: &["shops", "listings", "orders", "draft_listings"],
+    },
+];
+
 fn integration_tools() -> Vec<Arc<dyn Tool>> {
     let mut tools = Vec::new();
     tools.extend(aeqi_pack_google_workspace::all_tools());
@@ -1518,14 +1627,66 @@ fn integration_tools() -> Vec<Arc<dyn Tool>> {
 }
 
 fn provider_for_integration_tool(tool_name: &str) -> Option<&'static str> {
-    match tool_name.split('.').next().unwrap_or_default() {
-        "google" | "gmail" | "calendar" | "meet" | "drive" => Some("google"),
-        "github" => Some("github"),
-        "notion" => Some("notion"),
-        "slack" => Some("slack"),
-        name if name.starts_with("etsy_") => Some("etsy"),
-        _ => None,
-    }
+    INTEGRATION_PACKS
+        .iter()
+        .find(|pack| pack.matches_tool(tool_name))
+        .map(|pack| pack.provider)
+}
+
+fn integration_catalog(provider: Option<&str>) -> Vec<serde_json::Value> {
+    let tools = integration_tools();
+    INTEGRATION_PACKS
+        .iter()
+        .filter(|pack| provider.is_none_or(|requested| requested == pack.provider))
+        .map(|pack| {
+            let pack_tools = tools
+                .iter()
+                .filter_map(|tool| {
+                    let spec = tool.spec();
+                    if provider_for_integration_tool(&spec.name) != Some(pack.provider) {
+                        return None;
+                    }
+                    Some(serde_json::json!({
+                        "name": spec.name,
+                        "description": spec.description,
+                        "read_only": !tool.is_destructive(&serde_json::json!({})),
+                        "destructive": tool.is_destructive(&serde_json::json!({})),
+                        "credential_needs": tool.required_credentials().into_iter().map(|need| {
+                            serde_json::json!({
+                                "provider": need.provider,
+                                "name": need.name,
+                                "scope_hint": need.scope_hint,
+                                "required": !need.optional,
+                                "scopes": need.oauth_scopes,
+                            })
+                        }).collect::<Vec<_>>(),
+                    }))
+                })
+                .collect::<Vec<_>>();
+
+            serde_json::json!({
+                "provider": pack.provider,
+                "title": pack.title,
+                "category": pack.category,
+                "status": "available",
+                "description": pack.description,
+                "auth_model": pack.auth_model,
+                "credential": {
+                    "provider": pack.provider,
+                    "name": pack.credential_name,
+                    "default_scope_kind": pack.default_scope_kind,
+                    "scope_note": pack.credential_scope_note,
+                },
+                "capabilities": pack.capabilities,
+                "tool_count": pack_tools.len(),
+                "tools": pack_tools,
+                "grant_examples": [
+                    "apps.use",
+                    format!("apps.{}.use", pack.provider),
+                ],
+            })
+        })
+        .collect()
 }
 
 fn open_mcp_credential_store(state: &AppState) -> anyhow::Result<CredentialStore> {
@@ -2096,7 +2257,7 @@ fn tool_defs() -> serde_json::Value {
         {
             "name": "apps",
             "title": "AEQI Apps Proxy",
-            "description": "Universal TRUST-role proxy for connected apps. Use list_tools to inspect app capabilities, then call any app tool through the credential substrate. Scoped calls require the acting role to occupy the TRUST and hold an app grant such as apps.google.use or apps.use.",
+            "description": "Universal TRUST-role proxy for connected apps. Use catalog to discover available app packs, credential scope, capabilities, and safe/destructive tools; use list_tools for raw function schemas; use call to dispatch through the credential substrate. Scoped calls require the acting role to occupy the TRUST and hold an app grant such as apps.google.use or apps.use.",
             "annotations": {
                 "title": "AEQI Apps Proxy",
                 "readOnlyHint": false,
@@ -2107,8 +2268,8 @@ fn tool_defs() -> serde_json::Value {
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "action": {"type": "string", "enum": ["list_tools", "call"], "description": "list_tools returns callable app/provider-pack tool specs; call dispatches one tool through role authorization and credential resolution."},
-                    "provider": {"type": "string", "description": "App/provider key, for example google, github, notion, or slack. Required when the provider cannot be inferred from the tool name."},
+                    "action": {"type": "string", "enum": ["catalog", "list_apps", "list_tools", "call"], "description": "catalog/list_apps returns app-pack metadata and capability summaries; list_tools returns callable app/provider-pack tool specs; call dispatches one tool through role authorization and credential resolution."},
+                    "provider": {"type": "string", "description": "App/provider key, for example google, github, notion, slack, or etsy. Required when the provider cannot be inferred from the tool name."},
                     "tool": {"type": "string", "description": "App tool name for call, for example google.request, drive.list_files, or gmail.search."},
                     "arguments": {"type": "object", "description": "Arguments passed unchanged to the app tool."},
                     "trust_id": {"type": "string", "description": "TRUST/entity id to authorize against. Defaults to the MCP allowed root."},
@@ -2122,7 +2283,7 @@ fn tool_defs() -> serde_json::Value {
         {
             "name": "integrations",
             "title": "AEQI Integration Proxy",
-            "description": "Compatibility alias for AEQI Apps. Prefer apps for new clients. Existing integration grants still work, and apps.* grants are also accepted.",
+            "description": "Compatibility alias for AEQI Apps. Prefer apps for new clients. Existing integration grants still work, and apps.* grants are also accepted. Supports the same catalog, list_tools, and call actions.",
             "annotations": {
                 "title": "AEQI Integration Proxy",
                 "readOnlyHint": false,
@@ -2133,8 +2294,8 @@ fn tool_defs() -> serde_json::Value {
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "action": {"type": "string", "enum": ["list_tools", "call"], "description": "list_tools returns callable app/provider-pack tool specs; call dispatches one tool through role authorization and credential resolution."},
-                    "provider": {"type": "string", "description": "Integration provider key, for example google, github, notion, or slack. Required when the provider cannot be inferred from the tool name."},
+                    "action": {"type": "string", "enum": ["catalog", "list_apps", "list_tools", "call"], "description": "catalog/list_apps returns app-pack metadata and capability summaries; list_tools returns callable app/provider-pack tool specs; call dispatches one tool through role authorization and credential resolution."},
+                    "provider": {"type": "string", "description": "Integration provider key, for example google, github, notion, slack, or etsy. Required when the provider cannot be inferred from the tool name."},
                     "tool": {"type": "string", "description": "App tool name for call, for example google.request, drive.list_files, or gmail.search."},
                     "arguments": {"type": "object", "description": "Arguments passed unchanged to the app tool."},
                     "trust_id": {"type": "string", "description": "TRUST/entity id to authorize against. Defaults to the MCP allowed root."},
@@ -2632,6 +2793,15 @@ mod tests {
                 .get("credential_scope_kind")
                 .is_some()
         );
+        let app_actions = apps["inputSchema"]["properties"]["action"]["enum"]
+            .as_array()
+            .cloned()
+            .unwrap();
+        assert!(
+            app_actions
+                .iter()
+                .any(|action| action.as_str() == Some("catalog"))
+        );
 
         let integrations = by_name("integrations");
         assert_eq!(integrations["title"], "AEQI Integration Proxy");
@@ -2650,6 +2820,42 @@ mod tests {
             provider_for_integration_tool("google.request"),
             Some("google")
         );
+        assert_eq!(
+            provider_for_integration_tool("etsy_draft_listing_create"),
+            Some("etsy")
+        );
+    }
+
+    #[test]
+    fn integration_catalog_describes_available_packs() {
+        let catalog = integration_catalog(None);
+        let providers = catalog
+            .iter()
+            .filter_map(|entry| entry["provider"].as_str())
+            .collect::<Vec<_>>();
+
+        for provider in ["google", "github", "notion", "slack", "etsy"] {
+            assert!(providers.contains(&provider), "missing provider {provider}");
+        }
+
+        let etsy = catalog
+            .iter()
+            .find(|entry| entry["provider"] == "etsy")
+            .expect("etsy catalog entry");
+        assert_eq!(etsy["credential"]["default_scope_kind"], "trust");
+        assert_eq!(etsy["auth_model"], "oauth2");
+        assert!(etsy["tool_count"].as_u64().unwrap_or_default() >= 5);
+        assert!(
+            etsy["capabilities"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|cap| cap.as_str() == Some("draft_listings"))
+        );
+
+        let google_only = integration_catalog(Some("google"));
+        assert_eq!(google_only.len(), 1);
+        assert_eq!(google_only[0]["provider"], "google");
     }
 
     #[test]

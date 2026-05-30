@@ -630,3 +630,63 @@ impl Tool for EtsyDraftListingCreateTool {
         Ok(ToolResult::success("etsy draft listing created").with_data(data))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aeqi_core::credentials::ScopeHint;
+
+    #[test]
+    fn all_tools_have_stable_provider_and_underscore_names() {
+        let names = all_tools()
+            .into_iter()
+            .map(|tool| tool.name().to_string())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            names,
+            vec![
+                "etsy_shops_list",
+                "etsy_shop_get",
+                "etsy_listings_list",
+                "etsy_orders_list",
+                "etsy_draft_listing_create",
+            ]
+        );
+        assert!(names.iter().all(|name| {
+            name.chars()
+                .all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
+        }));
+    }
+
+    #[test]
+    fn tools_declare_trust_scoped_oauth_credentials() {
+        for tool in all_tools() {
+            let needs = tool.required_credentials();
+            assert_eq!(needs.len(), 1, "{} credential count", tool.name());
+            let need = &needs[0];
+            assert_eq!(need.provider, PROVIDER);
+            assert_eq!(need.name, CREDENTIAL_NAME);
+            assert_eq!(need.scope_hint, ScopeHint::Trust);
+            assert!(!need.optional);
+            assert!(
+                !need.oauth_scopes.is_empty(),
+                "{} must declare narrow Etsy scopes",
+                tool.name()
+            );
+        }
+    }
+
+    #[test]
+    fn only_draft_listing_create_is_destructive() {
+        for tool in all_tools() {
+            let destructive = tool.is_destructive(&json!({}));
+            assert_eq!(
+                destructive,
+                tool.name() == "etsy_draft_listing_create",
+                "{} destructive boundary drifted",
+                tool.name()
+            );
+        }
+    }
+}
