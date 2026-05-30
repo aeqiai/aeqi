@@ -5308,7 +5308,8 @@
   height: 100%;
   max-height: 100%;
   overflow-y: auto;
-  padding: var(--roles-section-inset);
+  padding: calc(var(--roles-section-inset) - 4px) var(--roles-section-inset)
+    var(--roles-section-inset);
   background: transparent;
 }
 
@@ -8186,6 +8187,8 @@
 }
 
 .quest-detail-document .ideas-canvas-frame {
+  display: flex;
+  flex-direction: column;
   margin: 0;
   min-height: 100%;
   padding-bottom: 16px;
@@ -8255,6 +8258,7 @@
 }
 
 .quest-detail-document .idea-convo-root {
+  margin-top: auto;
   padding: 0 24px 12px;
 }
 
@@ -8282,7 +8286,8 @@
 
 .quest-detail-summary.role-inspector {
   gap: 10px;
-  padding: var(--roles-section-inset);
+  padding: calc(var(--roles-section-inset) - 4px) var(--roles-section-inset)
+    var(--roles-section-inset);
   box-shadow: inset 1px 0 0 var(--border-subtle, var(--border-faint));
 }
 
@@ -8311,6 +8316,32 @@
 .quest-detail-control .quest-detail-field-btn {
   width: 100%;
   justify-content: space-between;
+}
+
+.quest-detail-multiline-row {
+  align-items: flex-start;
+}
+
+.quest-detail-multiline-row .role-inspector-row-label {
+  padding-top: 8px;
+}
+
+.quest-detail-multiline-row .role-inspector-row-value {
+  align-items: flex-start;
+  min-height: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+}
+
+.quest-detail-outcome {
+  display: -webkit-box;
+  width: 100%;
+  min-width: 0;
+  line-height: 1.35;
+  overflow: hidden;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
 }
 
 .quest-detail-scope-picker {

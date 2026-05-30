@@ -607,9 +607,10 @@ function ViewCanvas({
             onDirtyChange={setBodyDirty}
             embedded
             hideMetaStrip
+            conversationActivity="combined"
             contentHeaderSlot={
               <div className="quest-detail-surface-header">
-                <div className="quest-detail-surface-title">Quest</div>
+                <div className="quest-detail-surface-title">Quest idea</div>
               </div>
             }
           />
@@ -625,7 +626,6 @@ function ViewCanvas({
           users={assigneeUsers}
           tagSuggestions={tagSuggestions}
           childQuests={childQuests}
-          activityRefreshKey={activityRefreshSeq}
           onStatusChange={handleStatusChange}
           onPriorityChange={handlePriorityChange}
           onAssigneeChange={handleAssigneeChange}

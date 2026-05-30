@@ -1,21 +1,16 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { dueLabel, timeAgo } from "@/lib/format";
+import { timeAgo } from "@/lib/format";
 import { formatDateTime } from "@/lib/i18n";
 import { parseAssignee, resolveAssigneeDisplay, type AssigneeDisplay } from "@/lib/assignee";
 import type { Quest, QuestPriority, QuestStatus, ScopeValue, User } from "@/lib/types";
-import IdeaLinksPanel from "../IdeaLinksPanel";
-import TagsEditor from "../TagsEditor";
-import IdeaActivityFeed from "../ideas/IdeaActivityFeed";
-import { type IdeasFilter, SCOPE_HINT, SCOPE_LABEL, SCOPE_PICKER_VALUES } from "../ideas/types";
+import IdeaInspectorGroup from "../ideas/IdeaInspectorGroup";
 import { Button } from "../ui";
 import AssigneeAvatar from "./AssigneeAvatar";
 import AssigneePicker from "./AssigneePicker";
-import PriorityIcon from "./PriorityIcon";
 import QuestDueDatePopover from "./QuestDueDatePopover";
 import QuestPriorityPopover from "./QuestPriorityPopover";
 import QuestStatusPopover from "./QuestStatusPopover";
-import StatusDot from "./StatusDot";
 import {
   CopyableRow,
   PropertyGroup,
@@ -23,22 +18,6 @@ import {
   compactAddress,
 } from "../roles/RoleInspectorPrimitives";
 import "@/styles/roles.css";
-
-const STATUS_LABEL: Record<QuestStatus, string> = {
-  backlog: "Backlog",
-  todo: "Todo",
-  in_progress: "In progress",
-  in_review: "In review",
-  done: "Done",
-  cancelled: "Cancelled",
-};
-
-const PRIORITY_LABEL: Record<QuestPriority, string> = {
-  critical: "Critical",
-  high: "High",
-  normal: "Normal",
-  low: "Low",
-};
 
 function formatKind(kind: string | undefined): string {
   if (!kind || kind === "task") return "Task";
@@ -56,6 +35,15 @@ function ControlRow({ label, children }: { label: string; children: ReactNode })
   );
 }
 
+function MultilineReadOnlyRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="role-inspector-row role-inspector-row--readonly quest-detail-multiline-row">
+      <span className="role-inspector-row-label">{label}</span>
+      <div className="role-inspector-row-value">{children}</div>
+    </div>
+  );
+}
+
 function assigneeDisplay(
   assignee: string | null | undefined,
   agents: { id: string; name: string }[],
@@ -63,14 +51,6 @@ function assigneeDisplay(
 ): AssigneeDisplay | null {
   const parsed = parseAssignee(assignee);
   return parsed ? resolveAssigneeDisplay(parsed, agents, users) : null;
-}
-
-function dueValue(dueAt: string | null): string {
-  return dueAt ? dueLabel(dueAt) : "No due date";
-}
-
-function accessDescription(scope: ScopeValue): string {
-  return SCOPE_HINT[scope as IdeasFilter] ?? "Visible according to this quest's scope.";
 }
 
 export default function QuestDetailSummary({
@@ -84,7 +64,6 @@ export default function QuestDetailSummary({
   users,
   tagSuggestions,
   childQuests,
-  activityRefreshKey,
   onStatusChange,
   onPriorityChange,
   onAssigneeChange,
@@ -111,7 +90,6 @@ export default function QuestDetailSummary({
   users: Pick<User, "id" | "name" | "email" | "avatar_url">[];
   tagSuggestions: string[];
   childQuests: Quest[];
-  activityRefreshKey?: unknown;
   onStatusChange: (next: QuestStatus) => void;
   onPriorityChange: (next: QuestPriority) => void;
   onAssigneeChange: (next: string | null) => void;
@@ -132,7 +110,6 @@ export default function QuestDetailSummary({
   const display = assigneeDisplay(assignee, agents, users);
   const sharedCount = quest.sibling_quest_ids?.length ?? 0;
   const doneChildren = childQuests.filter((q) => q.status === "done").length;
-  const due = dueValue(dueAt);
   const idea = quest.idea;
 
   async function copy(value: string, field: string) {
@@ -158,42 +135,25 @@ export default function QuestDetailSummary({
       </header>
 
       <div className="role-inspector-body">
-        {idea && (
-          <PropertyGroup title="Idea" defaultOpen>
-            <ReadOnlyRow label="Scope">
-              <span className="role-inspector-meta">{SCOPE_LABEL[scope] ?? scope}</span>
-            </ReadOnlyRow>
-            <ReadOnlyRow label="Type">
-              <span className="role-inspector-meta">Quest</span>
-            </ReadOnlyRow>
-            <CopyableRow
-              label="Idea ID"
-              title={compactAddress(idea.id)}
-              copied={copiedField === "ideaId"}
-              onCopy={() => copy(idea.id, "ideaId")}
-            />
-            <div className="role-inspector-field-block">
-              <span className="role-inspector-row-label">Tags</span>
-              <div className="role-inspector-field-body">
-                <TagsEditor
-                  tags={idea.tags ?? []}
-                  typed={idea.tags ?? []}
-                  suggestions={tagSuggestions}
-                  onAdd={onTagAdd}
-                  onRemove={onTagRemove}
-                />
-              </div>
-            </div>
-            <div className="role-inspector-field-block">
-              <span className="role-inspector-row-label">References</span>
-              <div className="role-inspector-field-body">
-                <IdeaLinksPanel ideaId={idea.id} agentId={quest.agent_id ?? ""} />
-              </div>
-            </div>
-          </PropertyGroup>
-        )}
+        <IdeaInspectorGroup
+          idea={idea}
+          agentId={quest.agent_id ?? ""}
+          scope={scope}
+          typeLabel="Quest idea"
+          tagSuggestions={tagSuggestions}
+          emptyStatus="No canonical idea linked"
+          onScopeChange={onScopeChange}
+          onTagAdd={onTagAdd}
+          onTagRemove={onTagRemove}
+        />
 
         <PropertyGroup title="Quest" defaultOpen>
+          <CopyableRow
+            label="Quest ID"
+            title={compactAddress(quest.id)}
+            copied={copiedField === "questId"}
+            onCopy={() => copy(quest.id, "questId")}
+          />
           <ControlRow label="Status">
             <QuestStatusPopover
               status={status}
@@ -250,56 +210,6 @@ export default function QuestDetailSummary({
               </span>
             </ReadOnlyRow>
           )}
-        </PropertyGroup>
-
-        <PropertyGroup title="Access" defaultOpen>
-          <div className="quest-detail-scope-picker">
-            <div
-              className="ideas-workspace-scope-options"
-              role="radiogroup"
-              aria-label="Quest access"
-            >
-              {SCOPE_PICKER_VALUES.map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  role="radio"
-                  aria-checked={scope === value}
-                  title={SCOPE_HINT[value]}
-                  className={`ideas-workspace-scope-option${scope === value ? " active" : ""}`}
-                  onClick={() => onScopeChange(value)}
-                >
-                  <span className={`scope-dot scope-dot--${value}`} aria-hidden />
-                  <span>{SCOPE_LABEL[value]}</span>
-                </button>
-              ))}
-            </div>
-            <p>{accessDescription(scope)}</p>
-          </div>
-        </PropertyGroup>
-
-        <PropertyGroup title="Work">
-          <CopyableRow
-            label="Quest ID"
-            title={compactAddress(quest.id)}
-            copied={copiedField === "questId"}
-            onCopy={() => copy(quest.id, "questId")}
-          />
-          <ReadOnlyRow label="Status">
-            <span className="role-inspector-meta">
-              <StatusDot status={status} />
-              {STATUS_LABEL[status]}
-            </span>
-          </ReadOnlyRow>
-          <ReadOnlyRow label="Priority">
-            <span className="role-inspector-meta">
-              <PriorityIcon priority={priority} />
-              {PRIORITY_LABEL[priority]}
-            </span>
-          </ReadOnlyRow>
-          <ReadOnlyRow label="Due">
-            <span title={dueAt ? formatDateTime(dueAt) : undefined}>{due}</span>
-          </ReadOnlyRow>
           <ReadOnlyRow label="Kind">
             <span className="role-inspector-meta">{formatKind(quest.kind)}</span>
           </ReadOnlyRow>
@@ -324,9 +234,14 @@ export default function QuestDetailSummary({
             </ReadOnlyRow>
           )}
           {quest.outcome?.summary && (
-            <ReadOnlyRow label="Outcome">
-              <span className="role-inspector-meta">{quest.outcome.summary}</span>
-            </ReadOnlyRow>
+            <MultilineReadOnlyRow label="Outcome">
+              <span
+                className="role-inspector-meta quest-detail-outcome"
+                title={quest.outcome.summary}
+              >
+                {quest.outcome.summary}
+              </span>
+            </MultilineReadOnlyRow>
           )}
           {quest.created_at && (
             <ReadOnlyRow label="Created">
@@ -339,12 +254,6 @@ export default function QuestDetailSummary({
             </ReadOnlyRow>
           )}
         </PropertyGroup>
-
-        {idea && (
-          <PropertyGroup title="Activity">
-            <IdeaActivityFeed ideaId={idea.id} refreshKey={activityRefreshKey} limit={4} />
-          </PropertyGroup>
-        )}
       </div>
     </aside>
   );

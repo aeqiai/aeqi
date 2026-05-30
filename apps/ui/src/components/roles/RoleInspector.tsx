@@ -5,8 +5,7 @@ import { useDaemonStore } from "@/store/daemon";
 import { api } from "@/lib/api";
 import * as ideasApi from "@/api/ideas";
 import { formatMediumDate } from "@/lib/i18n";
-import IdeaLinksPanel from "../IdeaLinksPanel";
-import TagsEditor from "../TagsEditor";
+import IdeaInspectorGroup from "../ideas/IdeaInspectorGroup";
 import {
   CopyableRow,
   PropertyGroup,
@@ -265,49 +264,19 @@ export default function RoleInspector({
       </header>
 
       <div className="role-inspector-body">
-        <PropertyGroup title="Idea" defaultOpen>
-          {idea ? (
-            <>
-              <ReadOnlyRow label="Scope">
-                <span className="role-inspector-meta">{formatIdeaScope(idea)}</span>
-              </ReadOnlyRow>
-              <ReadOnlyRow label="Type">
-                <span className="role-inspector-meta">Role</span>
-              </ReadOnlyRow>
-              <CopyableRow
-                label="Idea ID"
-                title={compactAddress(idea.id)}
-                copied={copiedField === "ideaId"}
-                onCopy={() => copy(idea.id, "ideaId")}
-              />
-              <div className="role-inspector-field-block">
-                <span className="role-inspector-row-label">Tags</span>
-                <div className="role-inspector-field-body">
-                  <TagsEditor
-                    tags={idea.tags ?? []}
-                    typed={idea.tags ?? []}
-                    suggestions={ideaTagSuggestions}
-                    onAdd={(tag) => void updateIdeaTags([...(idea.tags ?? []), tag])}
-                    onRemove={(tag) =>
-                      void updateIdeaTags((idea.tags ?? []).filter((item) => item !== tag))
-                    }
-                  />
-                  {ideaTagError && <span className="role-inspector-error">{ideaTagError}</span>}
-                </div>
-              </div>
-              <div className="role-inspector-field-block">
-                <span className="role-inspector-row-label">References</span>
-                <div className="role-inspector-field-body">
-                  <IdeaLinksPanel ideaId={idea.id} agentId={idea.agent_id ?? trustId} />
-                </div>
-              </div>
-            </>
-          ) : (
-            <ReadOnlyRow label="Status">
-              <span className="role-inspector-meta">No canonical idea linked</span>
-            </ReadOnlyRow>
-          )}
-        </PropertyGroup>
+        <IdeaInspectorGroup
+          idea={idea}
+          agentId={trustId}
+          scope={idea?.scope ?? (idea?.agent_id == null ? "global" : "self")}
+          typeLabel="Role idea"
+          tagSuggestions={ideaTagSuggestions}
+          scopeLocked
+          tagError={ideaTagError}
+          onTagAdd={(tag) => void updateIdeaTags([...(idea?.tags ?? []), tag])}
+          onTagRemove={(tag) =>
+            void updateIdeaTags((idea?.tags ?? []).filter((item) => item !== tag))
+          }
+        />
 
         <PropertyGroup title="Role" defaultOpen>
           <PropertyRow label="Type" title={roleTypeLabel} onClick={() => openEditor("type")} />
@@ -432,12 +401,4 @@ export default function RoleInspector({
       />
     </aside>
   );
-}
-
-function formatIdeaScope(idea: Idea): string {
-  if (idea.scope === "global" || (!idea.scope && !idea.agent_id)) return "Global";
-  if (idea.scope === "siblings") return "Siblings";
-  if (idea.scope === "children") return "Children";
-  if (idea.scope === "branch") return "Branch";
-  return "Self";
 }

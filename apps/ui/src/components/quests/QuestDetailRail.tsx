@@ -38,7 +38,7 @@ export default function QuestDetailRail({
   return (
     <aside className="quest-detail-rail" aria-label="Quest relationships">
       <header className="ideas-workspace-tree-head">
-        <span>Quest map</span>
+        <span>Explorer</span>
         <small>{childQuests.length} child</small>
       </header>
       <div className="quest-detail-rail-list">
