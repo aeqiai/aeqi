@@ -16,6 +16,7 @@ import { asStringArray, parseFrontmatter } from "@/lib/frontmatter";
 import type { Idea, ScopeValue } from "@/lib/types";
 import { useAgentIdeasCache } from "@/queries/ideas";
 import { Button, Icon, IconButton, PrimitivePageHeader, Tooltip, Loading } from "../ui";
+import TrackIdeaAsQuestModal from "../quests/TrackIdeaAsQuestModal";
 import IdeaWorkspaceInspector from "./IdeaWorkspaceInspector";
 import IdeasToolbar from "./IdeasToolbar";
 import type { IdeasView } from "./IdeasViewPopover";
@@ -94,6 +95,7 @@ export default function IdeasWorkspaceView({
   const [inspectorBusy, setInspectorBusy] = useState(false);
   const [inspectorError, setInspectorError] = useState<string | null>(null);
   const [detailsCollapsed, setDetailsCollapsed] = useState(false);
+  const [trackIdea, setTrackIdea] = useState<Idea | null>(null);
   const searchActive = filter.search.trim() !== "";
   const activeIdea = composing ? undefined : (selectedIdea ?? rootIdea ?? undefined);
   const activeParentId = composing ? composeParentId : (activeIdea?.id ?? rootIdea?.id ?? null);
@@ -213,11 +215,16 @@ export default function IdeasWorkspaceView({
 
   const handleTrackAsQuest = useCallback(() => {
     if (!activeIdea) return;
-    goEntity(trustId, "quests", "new", {
-      replace: false,
-      search: { fromIdea: activeIdea.id },
-    });
-  }, [activeIdea, goEntity, trustId]);
+    setTrackIdea(activeIdea);
+  }, [activeIdea]);
+
+  const handleTrackedQuestCreated = useCallback(
+    async (quest: { id: string }) => {
+      setTrackIdea(null);
+      goEntity(trustId, "quests", quest.id);
+    },
+    [goEntity, trustId],
+  );
 
   const handleDelete = useCallback(async () => {
     if (!activeIdea || activeIdea.id === rootIdea?.id) return;
@@ -542,6 +549,14 @@ export default function IdeasWorkspaceView({
           </aside>
         )}
       </div>
+      <TrackIdeaAsQuestModal
+        open={Boolean(trackIdea)}
+        idea={trackIdea}
+        agentId={agentId}
+        trustId={trustId}
+        onClose={() => setTrackIdea(null)}
+        onCreated={handleTrackedQuestCreated}
+      />
     </div>
   );
 }

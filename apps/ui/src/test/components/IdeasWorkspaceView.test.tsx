@@ -17,6 +17,7 @@ vi.mock("@/hooks/useNav", () => ({
 
 vi.mock("@/queries/ideas", () => ({
   useAgentIdeas: () => ({ data: [], isLoading: false }),
+  useVisibleIdeas: () => ({ data: [], isLoading: false }),
   useAgentIdeasCache: () => ({
     patchIdea: vi.fn(),
     removeIdea: vi.fn(),
@@ -215,5 +216,17 @@ describe("IdeasWorkspaceView", () => {
     await user.click(within(explorer).getByRole("button", { name: "Operating Notes" }));
 
     expect(onSelect).toHaveBeenCalledWith("idea-child");
+  });
+
+  it("opens Track as quest in a modal from the Details pane", async () => {
+    const user = userEvent.setup();
+    renderWorkspace({ selectedIdea: childIdea });
+
+    await user.click(screen.getByRole("button", { name: "Track as quest" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Track as quest" });
+    expect(dialog).toBeInTheDocument();
+    expect(within(dialog).getByText("Operating Notes")).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Create quest" })).toBeInTheDocument();
   });
 });

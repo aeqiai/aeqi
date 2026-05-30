@@ -68,6 +68,7 @@ export interface IdeaCanvasProps {
   parentIdeaId?: string | null;
   onBack: () => void;
   onNew: () => void;
+  onTrackAsQuest?: (idea: Idea) => void;
   /**
    * Hide the canvas's own toolbar (Back / New / Scope / Delete / Save). The
    * embedding surface (e.g. the quest detail header) is expected to provide
@@ -128,6 +129,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
     parentIdeaId,
     onBack,
     onNew,
+    onTrackAsQuest,
     embedded = false,
     hideMetaStrip = false,
     composeScope: controlledComposeScope,
@@ -642,13 +644,17 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
             setDeleteArmed={setDeleteArmed}
             onBack={onBack}
             onNew={onNew}
-            onTrackAsQuest={() =>
-              idea &&
+            onTrackAsQuest={() => {
+              if (!idea) return;
+              if (onTrackAsQuest) {
+                onTrackAsQuest(idea);
+                return;
+              }
               goEntity(trustId, "quests", "new", {
                 replace: false,
                 search: { fromIdea: idea.id },
-              })
-            }
+              });
+            }}
             onDeleteClick={handleDeleteClick}
             onCancel={handleCancel}
             onSave={isEdit ? flushSave : handleCreate}

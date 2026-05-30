@@ -1,5 +1,8 @@
 import IdeaCanvas from "../IdeaCanvas";
+import { useCallback, useState } from "react";
 import type { Idea } from "@/lib/types";
+import { useNav } from "@/hooks/useNav";
+import TrackIdeaAsQuestModal from "../quests/TrackIdeaAsQuestModal";
 
 export interface IdeasCanvasViewProps {
   agentId: string;
@@ -18,6 +21,16 @@ export default function IdeasCanvasView({
   onBack,
   onNew,
 }: IdeasCanvasViewProps) {
+  const { goEntity, trustId } = useNav();
+  const [trackIdea, setTrackIdea] = useState<Idea | null>(null);
+  const handleTrackedQuestCreated = useCallback(
+    async (quest: { id: string }) => {
+      setTrackIdea(null);
+      goEntity(trustId, "quests", quest.id);
+    },
+    [goEntity, trustId],
+  );
+
   return (
     <div className="ideas-detail-wrap">
       {/* Keying on the id resets internal canvas state when switching ideas —
@@ -32,6 +45,15 @@ export default function IdeasCanvasView({
         parentIdeaId={parentIdeaId}
         onBack={onBack}
         onNew={onNew}
+        onTrackAsQuest={setTrackIdea}
+      />
+      <TrackIdeaAsQuestModal
+        open={Boolean(trackIdea)}
+        idea={trackIdea}
+        agentId={agentId}
+        trustId={trustId}
+        onClose={() => setTrackIdea(null)}
+        onCreated={handleTrackedQuestCreated}
       />
     </div>
   );

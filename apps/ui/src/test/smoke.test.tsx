@@ -8,7 +8,7 @@ import AppLayout, { resolveDefaultAgent } from "@/components/AppLayout";
 import LeftSidebar from "@/components/shell/LeftSidebar";
 import ComposerRow from "@/components/shell/ComposerRow";
 import BootLoader from "@/components/shell/BootLoader";
-import { agentKeys, entityKeys, runtimeKeys } from "@/queries/keys";
+import { agentKeys, entityKeys, ideaKeys, runtimeKeys } from "@/queries/keys";
 import type { Quest, QuestStatus, ScopeValue } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
 import { useUIStore } from "@/store/ui";
@@ -35,6 +35,17 @@ function withQueryClient(ui: React.ReactElement) {
   queryClient.setQueryData(entityKeys.all, daemonState.entities);
   queryClient.setQueryData(agentKeys.directory(), daemonState.agents);
   queryClient.setQueryData(agentKeys.directory("root-1"), daemonState.agents);
+  const trackIdeaFixture = [
+    {
+      id: "idea-track",
+      name: "Trackable idea",
+      content: "Turn this operating note into durable work.",
+      tags: ["ops"],
+      scope: "global",
+    },
+  ];
+  queryClient.setQueryData(ideaKeys.visible("root-1"), trackIdeaFixture);
+  queryClient.setQueryData(ideaKeys.visible(""), trackIdeaFixture);
   queryClient.setQueryData(runtimeKeys.cost, daemonState.cost);
   return <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>;
 }
@@ -139,6 +150,27 @@ describe("AgentQuestsTab smoke", () => {
     // it; visible label is just "New") which opens NewQuestModal.
     const trigger = container.querySelector('button[title^="New quest"]');
     expect(trigger).not.toBeNull();
+  });
+
+  it("renders from-idea quest creation as a modal instead of the compose canvas", () => {
+    render(
+      withQueryClient(
+        <StrictMode>
+          <MemoryRouter initialEntries={["/trust/root-1/quests/new?fromIdea=idea-track"]}>
+            <Routes>
+              <Route
+                path="trust/:trustAddress/:tab/:itemId"
+                element={<AgentQuestsTab agentId="root-1" scope="entity" />}
+              />
+            </Routes>
+          </MemoryRouter>
+        </StrictMode>,
+      ),
+    );
+
+    expect(screen.getByRole("dialog", { name: "Track as quest" })).toBeInTheDocument();
+    expect(screen.getByText("Trackable idea")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create quest" })).toBeInTheDocument();
   });
 
   it("entity scope keeps sibling-agent quests visible", () => {

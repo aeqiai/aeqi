@@ -10,6 +10,7 @@ import type { Quest, QuestStatus, User } from "@/lib/types";
 import type { QuestsView } from "./quests/questView";
 import type { QuestSort } from "./quests/QuestsSortPopover";
 import QuestBoard from "./quests/QuestBoard";
+import TrackIdeaAsQuestModal from "./quests/TrackIdeaAsQuestModal";
 import {
   childCountsByParent,
   isDirectChildOf,
@@ -19,6 +20,19 @@ import {
   questAncestors,
   questParentId,
 } from "./quests/agentQuestsHelpers";
+
+const QUEST_STATUS_VALUES: QuestStatus[] = [
+  "backlog",
+  "todo",
+  "in_progress",
+  "in_review",
+  "done",
+  "cancelled",
+];
+
+function parseQuestStatus(raw: string | null): QuestStatus | null {
+  return raw && QUEST_STATUS_VALUES.includes(raw as QuestStatus) ? (raw as QuestStatus) : null;
+}
 
 export default function AgentQuestsTab({
   agentId,
@@ -44,6 +58,10 @@ export default function AgentQuestsTab({
   const query = searchParams.get("q") ?? "";
   const questFilter = parseQuestFilter(searchParams.get("visibility"));
   const boardScopeId = searchParams.get("scope") || null;
+  const fromIdeaId = searchParams.get("fromIdea");
+  const composingFromIdea = composing && Boolean(fromIdeaId);
+  const presetStatus = parseQuestStatus(searchParams.get("status"));
+  const parentQuestId = searchParams.get("parent") ?? null;
 
   const openCompose = useCallback(
     (opts?: { fromIdea?: string; status?: QuestStatus; parent?: string }) => {
@@ -171,6 +189,26 @@ export default function AgentQuestsTab({
 
   const quest = questDetail ?? listQuest;
 
+  const closeTrackModal = useCallback(() => {
+    const preserved: Record<string, string> = {};
+    for (const key of ["view", "sort", "q", "visibility", "scope"]) {
+      const value = searchParams.get(key);
+      if (value) preserved[key] = value;
+    }
+    goEntity(trustId, "quests", undefined, {
+      replace: true,
+      search: Object.keys(preserved).length > 0 ? preserved : undefined,
+    });
+  }, [goEntity, searchParams, trustId]);
+
+  const handleTrackedQuestCreated = useCallback(
+    async (created: Quest) => {
+      await fetchQuests();
+      goEntity(trustId, "quests", created.id, { replace: true });
+    },
+    [fetchQuests, goEntity, trustId],
+  );
+
   // Rail's create button → navigate to the dedicated compose page.
   useEffect(() => {
     const handler = () => openCompose();
@@ -178,11 +216,10 @@ export default function AgentQuestsTab({
     return () => window.removeEventListener("aeqi:create", handler);
   }, [openCompose]);
 
-  // Compose and view land on the same `<QuestCanvas>` — same toolbar,
-  // same affordances, the only difference is whether Save mints a new
-  // quest or persists changes to the linked idea / lifecycle fields.
-  // Idea-detail "+ Track as quest" pre-pins Flow B via `?fromIdea=<id>`.
-  if (composing) {
+  // Compose and view land on the same `<QuestCanvas>` unless the route
+  // carries `?fromIdea=<id>`. That flow wraps an existing idea, so it uses
+  // the compact modal instead of the full idea editor.
+  if (composing && !composingFromIdea) {
     return <QuestCanvas kind="compose" agentId={agentId} resolvedAgentId={agent?.id || agentId} />;
   }
 
@@ -266,7 +303,23 @@ export default function AgentQuestsTab({
         splitLayout={scope === "entity"}
       />
     );
-    return scope === "entity" ? <div className="trust-quests">{board}</div> : board;
+    const content = scope === "entity" ? <div className="trust-quests">{board}</div> : board;
+    if (!composingFromIdea) return content;
+    return (
+      <>
+        {content}
+        <TrackIdeaAsQuestModal
+          open
+          ideaId={fromIdeaId}
+          agentId={agent?.id || agentId}
+          trustId={trustId}
+          initialStatus={presetStatus ?? "todo"}
+          parentQuestId={parentQuestId}
+          onClose={closeTrackModal}
+          onCreated={handleTrackedQuestCreated}
+        />
+      </>
+    );
   }
 
   return (
