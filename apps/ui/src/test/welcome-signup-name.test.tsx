@@ -45,6 +45,9 @@ describe("WelcomePage signup name capture", () => {
   it("lets OAuth start without a signup name", () => {
     renderSignup();
 
+    fireEvent.change(screen.getByLabelText("Email address"), {
+      target: { value: "ada@example.com" },
+    });
     const google = screen.getByRole("button", { name: "Google" });
     expect(google).not.toBeDisabled();
     fireEvent.click(google);
@@ -55,6 +58,22 @@ describe("WelcomePage signup name capture", () => {
     const url = new URL(goExternal.mock.calls[0][0], "https://app.aeqi.ai");
     expect(url.searchParams.get("invite_code")).toBe("INVITE-1");
     expect(url.searchParams.get("name")).toBeNull();
+    expect(localStorage.getItem("aeqi_pending_oauth_waitlist_email")).toBe("ada@example.com");
+  });
+
+  it("routes closed-beta OAuth state failures into the waitlist flow", async () => {
+    localStorage.setItem("aeqi_pending_oauth_waitlist_email", "ada@example.com");
+    render(
+      <MemoryRouter initialEntries={["/signup?oauth_error=invalid%20or%20expired%20state"]}>
+        <WelcomePage mode="signup" />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("heading", { name: /aeqi is in closed beta/i })).toBeVisible();
+    expect(screen.queryByText(/That didn't work/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/ada@example.com/i)).toBeVisible();
+    expect(screen.getByRole("button", { name: /Add me to the waitlist/i })).not.toBeDisabled();
+    expect(localStorage.getItem("aeqi_pending_oauth_waitlist_email")).toBeNull();
   });
 
   it("accepts invite_code as a referral-code alias", () => {

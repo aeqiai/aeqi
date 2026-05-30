@@ -31,6 +31,11 @@ import WelcomeAccountShell from "./welcome/WelcomeAccountShell";
 export type { WelcomeMode } from "./welcome/types";
 
 const PENDING_SIGNUP_NAME_KEY = "aeqi_pending_signup_name";
+const PENDING_OAUTH_WAITLIST_EMAIL_KEY = "aeqi_pending_oauth_waitlist_email";
+
+function isClosedBetaOAuthError(message: string): boolean {
+  return /invalid or expired state|invite|waitlist|closed beta/i.test(message);
+}
 
 // Combined sign-in / sign-up entry point backed by `/api/auth/welcome/*`.
 export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode } = {}) {
@@ -127,15 +132,31 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
 
   /** OAuth error landing: ?oauth_error=<msg> from the callback. */
   useEffect(() => {
+    if (!authModeLoaded) return;
     const err = searchParams.get("oauth_error");
     if (!err) return;
     const next = new URLSearchParams(searchParams);
     next.delete("oauth_error");
+    const waitlistEmail =
+      next.get("waitlist_email") ??
+      next.get("email") ??
+      localStorage.getItem(PENDING_OAUTH_WAITLIST_EMAIL_KEY) ??
+      email;
+    next.delete("waitlist_email");
+    next.delete("email");
     setSearchParams(next, { replace: true });
+    if (waitlistMode && isClosedBetaOAuthError(err)) {
+      if (waitlistEmail.trim()) setEmail(waitlistEmail.trim().toLowerCase());
+      localStorage.removeItem(PENDING_OAUTH_WAITLIST_EMAIL_KEY);
+      setPicked("email");
+      setErrorMsg(null);
+      setStage("waitlist");
+      return;
+    }
     setErrorMsg(`OAuth: ${err}`);
     setStage("error");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [authModeLoaded, waitlistMode]);
 
   // Magic-link landing path for `/welcome?token=<hex>`.
   useEffect(() => {
@@ -499,6 +520,9 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
   function startOAuth(provider: "google" | "github") {
     const inviteCode = getReferralCode();
     const invitationToken = getInvitationToken();
+    const emailForWaitlist = email.trim().toLowerCase();
+    if (emailForWaitlist) localStorage.setItem(PENDING_OAUTH_WAITLIST_EMAIL_KEY, emailForWaitlist);
+    else localStorage.removeItem(PENDING_OAUTH_WAITLIST_EMAIL_KEY);
     const qs = new URLSearchParams();
     if (inviteCode) qs.set("invite_code", inviteCode);
     if (invitationToken) qs.set("invitation", invitationToken);

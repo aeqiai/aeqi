@@ -1,6 +1,6 @@
 import type React from "react";
 import { useState } from "react";
-import { Button, ProgressList, type ProgressStep } from "@/components/ui";
+import { Button, Input, ProgressList, type ProgressStep } from "@/components/ui";
 import type { AccountSessionResponse, Door, SpawnStep } from "./types";
 
 // Smaller status / outcome views grouped together. Each is a thin
@@ -65,10 +65,12 @@ export function ErrorView({ message, onBack }: { message: string; onBack: () => 
  */
 export function WaitlistView({
   email,
+  setEmail,
   onSubmit,
   onBack,
 }: {
   email: string;
+  setEmail: (email: string) => void;
   onSubmit: (email: string) => Promise<void>;
   onBack: () => void;
 }) {
@@ -91,7 +93,13 @@ export function WaitlistView({
     <>
       <h1 className="auth-heading">aeqi is in closed beta.</h1>
       <p className="auth-subheading">
-        We'll add <strong>{email}</strong> to the waitlist and email you when it's your turn.
+        {email.trim() ? (
+          <>
+            We'll add <strong>{email}</strong> to the waitlist and email you when it's your turn.
+          </>
+        ) : (
+          "Add your email to the waitlist and we'll email you when it's your turn."
+        )}
       </p>
       <form className="auth-form waitlist-form" onSubmit={handleSubmit} autoComplete="off">
         {/* Honeypot — hidden from humans, bots fill it. */}
@@ -103,6 +111,19 @@ export function WaitlistView({
           style={{ position: "absolute", left: "-9999px", width: 1, height: 1 }}
           aria-hidden="true"
         />
+        {!email.trim() && (
+          <Input
+            size="lg"
+            type="email"
+            name="email"
+            autoComplete="email"
+            placeholder="Email address"
+            aria-label="Email address"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoFocus
+          />
+        )}
         {error && <p className="auth-error">{error}</p>}
         <Button
           className="waitlist-primary"
@@ -110,7 +131,7 @@ export function WaitlistView({
           size="lg"
           type="submit"
           fullWidth
-          disabled={submitting}
+          disabled={submitting || !email.trim()}
         >
           {submitting ? "Adding…" : "Add me to the waitlist"}
         </Button>

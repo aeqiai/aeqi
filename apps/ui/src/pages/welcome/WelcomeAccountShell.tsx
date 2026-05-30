@@ -158,7 +158,12 @@ export default function WelcomeAccountShell({
           )}
 
           {stage === "waitlist" && (
-            <WaitlistView email={email} onSubmit={onWaitlistSubmit} onBack={onBack} />
+            <WaitlistView
+              email={email}
+              setEmail={setEmail}
+              onSubmit={onWaitlistSubmit}
+              onBack={onBack}
+            />
           )}
 
           {stage === "waitlist-sent" && <WaitlistSentView email={email} onBack={onBack} />}
