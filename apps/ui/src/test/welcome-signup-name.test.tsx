@@ -76,6 +76,22 @@ describe("WelcomePage signup name capture", () => {
     expect(localStorage.getItem("aeqi_pending_oauth_waitlist_email")).toBeNull();
   });
 
+  it("shows waitlist confirmation when OAuth supplied the provider email", async () => {
+    localStorage.setItem("aeqi_pending_oauth_waitlist_email", "stale@example.com");
+    render(
+      <MemoryRouter
+        initialEntries={["/signup?oauth_waitlisted=1&waitlist_email=ada%2Boauth%40example.com"]}
+      >
+        <WelcomePage mode="signup" />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("heading", { name: /You're on the list/i })).toBeVisible();
+    expect(screen.queryByText(/Add me to the waitlist/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/ada\+oauth@example.com/i)).toBeVisible();
+    expect(localStorage.getItem("aeqi_pending_oauth_waitlist_email")).toBeNull();
+  });
+
   it("accepts invite_code as a referral-code alias", () => {
     render(
       <MemoryRouter initialEntries={["/signup?invite_code=INVITE-2"]}>

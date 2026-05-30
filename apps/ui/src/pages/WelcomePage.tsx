@@ -133,6 +133,25 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
   /** OAuth error landing: ?oauth_error=<msg> from the callback. */
   useEffect(() => {
     if (!authModeLoaded) return;
+    const oauthWaitlisted = searchParams.get("oauth_waitlisted") === "1";
+    if (oauthWaitlisted) {
+      const next = new URLSearchParams(searchParams);
+      const waitlistEmail =
+        next.get("waitlist_email") ??
+        next.get("email") ??
+        localStorage.getItem(PENDING_OAUTH_WAITLIST_EMAIL_KEY) ??
+        email;
+      next.delete("oauth_waitlisted");
+      next.delete("waitlist_email");
+      next.delete("email");
+      setSearchParams(next, { replace: true });
+      if (waitlistEmail.trim()) setEmail(waitlistEmail.trim().toLowerCase());
+      localStorage.removeItem(PENDING_OAUTH_WAITLIST_EMAIL_KEY);
+      setPicked("email");
+      setErrorMsg(null);
+      setStage(waitlistEmail.trim() ? "waitlist-sent" : "waitlist");
+      return;
+    }
     const err = searchParams.get("oauth_error");
     if (!err) return;
     const next = new URLSearchParams(searchParams);
