@@ -8137,8 +8137,8 @@
   box-shadow: var(--card-elevation);
 }
 
-.quest-detail-layout--no-rail {
-  grid-template-columns: minmax(0, 1fr) 280px;
+.quest-detail-layout--details-collapsed {
+  grid-template-columns: 236px minmax(0, 1fr);
 }
 
 .quest-detail-rail {
@@ -8325,6 +8325,26 @@
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.quest-detail-surface-action {
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
+  inline-size: 28px;
+  block-size: 28px;
+  flex: 0 0 28px;
+  color: var(--color-text-primary);
+  background: var(--input-bg, var(--bg-base));
+  border-color: var(--input-border, var(--border));
+}
+
+.quest-detail-surface-action:hover,
+.quest-detail-surface-action:focus-visible {
+  color: var(--color-text-title);
+  background: var(--bg-row);
+  border-color: var(--input-border-focus, var(--border-hover));
 }
 
 .quest-detail-document .ideas-canvas-title,

@@ -1411,7 +1411,7 @@
 
 .trust-role-detail-canvas {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-columns: 236px minmax(0, 1fr) 320px;
   gap: 0;
   flex: 1;
   min-width: 0;
@@ -1421,7 +1421,61 @@
 }
 
 .trust-role-detail-page--details-collapsed .trust-role-detail-canvas {
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: 236px minmax(0, 1fr);
+}
+
+.trust-role-detail-explorer .ideas-workspace-tree-head {
+  min-height: calc(var(--detail-title-top-inset) + var(--detail-control-h, 32px));
+  margin: 0 0 8px;
+}
+
+.role-detail-explorer-row {
+  position: relative;
+}
+
+.role-detail-explorer-row--depth-1 {
+  padding-left: 22px;
+}
+
+.role-detail-explorer-row--depth-2 {
+  padding-left: 36px;
+}
+
+.role-detail-explorer-row--depth-3 {
+  padding-left: 50px;
+}
+
+.role-detail-explorer-row--depth-4 {
+  padding-left: 64px;
+}
+
+.role-detail-explorer-row--depth-5 {
+  padding-left: 78px;
+}
+
+.role-detail-explorer-row--depth-6 {
+  padding-left: 92px;
+}
+
+.role-detail-explorer-row.is-current {
+  background: var(--bg-row);
+}
+
+.role-detail-explorer-dot {
+  grid-row: 1 / -1;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--color-text-muted);
+}
+
+.role-detail-explorer-dot--director,
+.role-detail-explorer-dot--owner {
+  background: var(--accent);
+}
+
+.role-detail-explorer-dot--advisor {
+  background: var(--color-text-secondary);
 }
 
 .trust-role-detail-surface-header {
@@ -1579,7 +1633,7 @@
     .ideas-canvas-content
     > .ideas-canvas-body-rendered,
   .trust-role-detail-page--details-collapsed .trust-role-detail-document .idea-convo-card {
-    transform: translateX(-160px);
+    transform: none;
   }
 }
 

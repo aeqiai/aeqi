@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { PanelRightClose, PanelRightOpen } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import * as ideasApi from "@/api/ideas";
@@ -15,6 +16,7 @@ import QuestDetailRail from "./quests/QuestDetailRail";
 import QuestToolbar from "./quests/QuestToolbar";
 import LinkedIdeaPicker from "./quests/LinkedIdeaPicker";
 import { isDirectChildOf, questParentId } from "./quests/agentQuestsHelpers";
+import { Tooltip } from "./ui";
 
 const QUEST_STATUS_VALUES: QuestStatus[] = [
   "backlog",
@@ -292,6 +294,7 @@ function ViewCanvas({
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [bodyDirty, setBodyDirty] = useState(false);
   const [activityRefreshSeq, setActivityRefreshSeq] = useState(0);
+  const [detailsCollapsed, setDetailsCollapsed] = useState(false);
   const defaultAssignee = useMemo(
     () =>
       currentUser?.id
@@ -525,7 +528,6 @@ function ViewCanvas({
       q.id !== quest.id &&
       (siblingIds.has(q.id) || (quest.idea_id != null && q.idea_id === quest.idea_id)),
   );
-  const showQuestRail = Boolean(parentQuest || childQuests.length > 0 || siblingQuests.length > 0);
   const displayQuest: Quest = quest.idea
     ? {
         ...quest,
@@ -586,16 +588,18 @@ function ViewCanvas({
           }
         />
       </div>
-      <div className={`quest-detail-layout${showQuestRail ? "" : " quest-detail-layout--no-rail"}`}>
-        {showQuestRail && (
-          <QuestDetailRail
-            quest={displayQuest}
-            parentQuest={parentQuest}
-            childQuests={childQuests}
-            siblingQuests={siblingQuests}
-            onOpenQuest={openQuest}
-          />
-        )}
+      <div
+        className={`quest-detail-layout${
+          detailsCollapsed ? " quest-detail-layout--details-collapsed" : ""
+        }`}
+      >
+        <QuestDetailRail
+          quest={displayQuest}
+          parentQuest={parentQuest}
+          childQuests={childQuests}
+          siblingQuests={siblingQuests}
+          onOpenQuest={openQuest}
+        />
         <main className="quest-detail-document">
           <IdeaCanvas
             ref={canvasRef}
@@ -611,37 +615,55 @@ function ViewCanvas({
             contentHeaderSlot={
               <div className="quest-detail-surface-header">
                 <div className="quest-detail-surface-title">Quest idea</div>
+                <Tooltip content={detailsCollapsed ? "Show details" : "Hide details"} portal>
+                  <button
+                    type="button"
+                    className="role-inspector-icon-action quest-detail-surface-action"
+                    aria-label={detailsCollapsed ? "Show quest details" : "Hide quest details"}
+                    title={detailsCollapsed ? "Show details" : "Hide details"}
+                    onClick={() => setDetailsCollapsed((collapsed) => !collapsed)}
+                    data-pill-allowed=""
+                  >
+                    {detailsCollapsed ? (
+                      <PanelRightOpen size={13} strokeWidth={1.7} />
+                    ) : (
+                      <PanelRightClose size={13} strokeWidth={1.7} />
+                    )}
+                  </button>
+                </Tooltip>
               </div>
             }
           />
         </main>
-        <QuestDetailSummary
-          quest={displayQuest}
-          status={status}
-          priority={priority}
-          assignee={assignee}
-          scope={scope}
-          dueAt={dueAt}
-          agents={agents}
-          users={assigneeUsers}
-          tagSuggestions={tagSuggestions}
-          childQuests={childQuests}
-          onStatusChange={handleStatusChange}
-          onPriorityChange={handlePriorityChange}
-          onAssigneeChange={handleAssigneeChange}
-          onScopeChange={handleScopeChange}
-          onDueChange={handleDueChange}
-          onTagAdd={handleTagAdd}
-          onTagRemove={handleTagRemove}
-          statusOpen={statusOpen}
-          onStatusOpenChange={setStatusOpen}
-          priorityOpen={priorityOpen}
-          onPriorityOpenChange={setPriorityOpen}
-          assigneeOpen={assigneeOpen}
-          onAssigneeOpenChange={setAssigneeOpen}
-          dueOpen={dueOpen}
-          onDueOpenChange={setDueOpen}
-        />
+        {!detailsCollapsed && (
+          <QuestDetailSummary
+            quest={displayQuest}
+            status={status}
+            priority={priority}
+            assignee={assignee}
+            scope={scope}
+            dueAt={dueAt}
+            agents={agents}
+            users={assigneeUsers}
+            tagSuggestions={tagSuggestions}
+            childQuests={childQuests}
+            onStatusChange={handleStatusChange}
+            onPriorityChange={handlePriorityChange}
+            onAssigneeChange={handleAssigneeChange}
+            onScopeChange={handleScopeChange}
+            onDueChange={handleDueChange}
+            onTagAdd={handleTagAdd}
+            onTagRemove={handleTagRemove}
+            statusOpen={statusOpen}
+            onStatusOpenChange={setStatusOpen}
+            priorityOpen={priorityOpen}
+            onPriorityOpenChange={setPriorityOpen}
+            assigneeOpen={assigneeOpen}
+            onAssigneeOpenChange={setAssigneeOpen}
+            dueOpen={dueOpen}
+            onDueOpenChange={setDueOpen}
+          />
+        )}
       </div>
     </div>
   );

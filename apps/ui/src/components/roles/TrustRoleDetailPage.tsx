@@ -17,6 +17,7 @@ import {
   Tooltip,
 } from "../ui";
 import IdeaCanvas, { type IdeaCanvasHandle } from "../IdeaCanvas";
+import RoleDetailExplorer from "./RoleDetailExplorer";
 import RoleInspector from "./RoleInspector";
 import "@/styles/roles.css";
 
@@ -193,6 +194,15 @@ export default function TrustRoleDetailPage({
     void copy(`${window.location.origin}${basePath}/roles/${encodeURIComponent(role.id)}`);
   }, [basePath, copy, role]);
 
+  const openRole = useCallback(
+    (nextRoleId: string) => {
+      navigate(`${basePath}/roles/${encodeURIComponent(nextRoleId)}`, {
+        state: { rolesReturnTo: rolesPath },
+      });
+    },
+    [basePath, navigate, rolesPath],
+  );
+
   return (
     <div
       className={`trust-roles trust-role-detail-page${
@@ -280,6 +290,12 @@ export default function TrustRoleDetailPage({
               )}
               {!loading && !error && role && (
                 <>
+                  <RoleDetailExplorer
+                    roles={roles}
+                    edges={edges}
+                    activeRoleId={role.id}
+                    onOpenRole={openRole}
+                  />
                   <main className="trust-role-detail-document" aria-label="Role idea">
                     {ideaLoading && (
                       <div className="trust-roles-state">
