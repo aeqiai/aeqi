@@ -2,7 +2,6 @@ import { type FormEvent, useMemo, useState } from "react";
 import { Pin } from "lucide-react";
 import { Button } from "../Button";
 import { Icon } from "../Icon";
-import { IconButton } from "../IconButton";
 import { Input } from "../Input";
 import { Modal } from "../Modal";
 import { Tooltip } from "../Tooltip";
@@ -119,14 +118,16 @@ export default function PinCurrentViewButton({ defaultLabel }: PinCurrentViewBut
   return (
     <>
       <Tooltip content={isPinned ? "Edit pinned view" : "Pin current view"}>
-        <IconButton
+        <Button
+          type="button"
           aria-label={isPinned ? "Edit pinned view" : "Pin current view"}
-          className={styles.pinButton}
-          data-pinned={isPinned ? "true" : undefined}
+          variant="secondary"
+          size="md"
           onClick={openModal}
+          leadingIcon={<Icon icon={Pin} size="sm" />}
         >
-          <Icon icon={Pin} size="sm" />
-        </IconButton>
+          {isPinned ? "Pinned" : "Pin"}
+        </Button>
       </Tooltip>
       <Modal
         open={Boolean(draftRoute)}
