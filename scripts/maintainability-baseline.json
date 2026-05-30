@@ -4,21 +4,21 @@
   "metrics": {
     "apps/ui/src/lib/api.ts": {
       "label": "apps/ui/src/lib/api.ts",
-      "count": 2131,
+      "count": 2156,
       "topFiles": [
         {
           "file": "apps/ui/src/lib/api.ts",
-          "count": 2131
+          "count": 2156
         }
       ]
     },
     "apps/ui/src/styles/layout.css": {
       "label": "apps/ui/src/styles/layout.css",
-      "count": 13768,
+      "count": 14484,
       "topFiles": [
         {
           "file": "apps/ui/src/styles/layout.css",
-          "count": 13768
+          "count": 14484
         }
       ]
     },
@@ -34,11 +34,11 @@
     },
     "apps/ui/src/styles/overview.css": {
       "label": "apps/ui/src/styles/overview.css",
-      "count": 3030,
+      "count": 3428,
       "topFiles": [
         {
           "file": "apps/ui/src/styles/overview.css",
-          "count": 3030
+          "count": 3428
         }
       ]
     },
@@ -58,7 +58,7 @@
       "topFiles": [
         {
           "file": "apps/ui/src/styles/layout.css",
-          "count": 13768
+          "count": 14484
         },
         {
           "file": "apps/ui/src/styles/pages.css",
@@ -66,19 +66,19 @@
         },
         {
           "file": "apps/ui/src/styles/overview.css",
-          "count": 3030
+          "count": 3428
         },
         {
           "file": "apps/ui/src/styles/roles.css",
           "count": 2449
         },
         {
-          "file": "apps/ui/src/lib/api.ts",
-          "count": 2131
+          "file": "apps/ui/src/styles/chat.css",
+          "count": 2161
         },
         {
-          "file": "apps/ui/src/styles/chat.css",
-          "count": 2106
+          "file": "apps/ui/src/lib/api.ts",
+          "count": 2156
         },
         {
           "file": "apps/ui/src/pages/QuorumPage.module.css",
@@ -90,7 +90,7 @@
         },
         {
           "file": "apps/ui/src/styles/blueprint-launch-picker.css",
-          "count": 1264
+          "count": 1262
         },
         {
           "file": "apps/ui/src/pages/AssetsPage.module.css",
@@ -108,7 +108,7 @@
     },
     "rawButton": {
       "label": "raw <button>",
-      "count": 168,
+      "count": 173,
       "topFiles": [
         {
           "file": "apps/ui/src/components/events/EventCanvasEditor.tsx",
@@ -336,7 +336,7 @@
     },
     "rawErrorSerialization": {
       "label": "raw error serialization",
-      "count": 280,
+      "count": 288,
       "topFiles": [
         {
           "file": "crates/aeqi-orchestrator/src/ipc/roles.rs",
@@ -345,6 +345,10 @@
         {
           "file": "crates/aeqi-orchestrator/src/ipc/ideas.rs",
           "count": 30
+        },
+        {
+          "file": "crates/aeqi-orchestrator/src/ipc/entities.rs",
+          "count": 19
         },
         {
           "file": "crates/aeqi-orchestrator/src/ipc/events.rs",
@@ -365,16 +369,12 @@
         {
           "file": "crates/aeqi-orchestrator/src/ipc/agents.rs",
           "count": 15
-        },
-        {
-          "file": "crates/aeqi-web/src/routes/hosting.rs",
-          "count": 14
         }
       ]
     },
     "routeParsingDuplication": {
       "label": "route parsing duplication",
-      "count": 57,
+      "count": 59,
       "topFiles": [
         {
           "file": "apps/ui/src/lib/api.ts",
