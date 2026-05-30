@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { MessagesSquare } from "lucide-react";
 import Composer from "@/components/composer/Composer";
 import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
@@ -13,6 +14,13 @@ interface ComposerRowProps {
   base: string;
   /** True iff AgentSessionView is mounted and listening for send events. */
   sessionsMounted: boolean;
+  /** Visual placement. "floating" is the chat footer; "dock" is the ambient below-card strip. */
+  mode?: "floating" | "dock";
+  /** Destination for pending ambient messages when no chat view is mounted. */
+  composeHref?: string;
+  /** Link to the session this ambient dock is currently connected to. */
+  sessionHref?: string | null;
+  sessionLinkLabel?: string;
   /**
    * Active session id if the URL points at one (agent-scope or user-
    * scope inbox). When provided, supersedes the params-derived itemId
@@ -40,6 +48,10 @@ export default function ComposerRow({
   agentId,
   base,
   sessionsMounted,
+  mode = "floating",
+  composeHref,
+  sessionHref,
+  sessionLinkLabel = "Session",
   sessionId: explicitSessionId,
 }: ComposerRowProps) {
   const navigate = useNavigate();
@@ -89,14 +101,25 @@ export default function ComposerRow({
       window.dispatchEvent(new CustomEvent("aeqi:send-message", { detail }));
     } else {
       if (agentId) setPendingMessage(agentId, detail);
-      navigate(`${base}/inbox`);
+      navigate(composeHref || `${base}/inbox`);
     }
     setInput("");
     setFiles([]);
     setIdeas([]);
     setTask(null);
     requestAnimationFrame(() => inputRef.current?.focus());
-  }, [input, files, ideas, task, sessionsMounted, setPendingMessage, navigate, base, agentId]);
+  }, [
+    input,
+    files,
+    ideas,
+    task,
+    sessionsMounted,
+    setPendingMessage,
+    navigate,
+    composeHref,
+    base,
+    agentId,
+  ]);
 
   const handleStop = useCallback(() => {
     window.dispatchEvent(new CustomEvent("aeqi:stop-streaming"));
@@ -241,8 +264,27 @@ export default function ComposerRow({
   }, [input, ideas.length, task, files.length]);
 
   return (
-    <div className="composer-row" ref={rowRef}>
+    <div
+      className={mode === "dock" ? "composer-row composer-row--dock" : "composer-row"}
+      ref={rowRef}
+      aria-label={mode === "dock" ? "Agent dock" : undefined}
+    >
       <div className="composer-wrap">
+        {mode === "dock" && (
+          <div className="agent-dock-header">
+            <span className="agent-dock-kicker">{agentDisplayName || "Agent"}</span>
+            {sessionHref && (
+              <Link
+                className="agent-dock-session-link"
+                to={sessionHref}
+                aria-label={`Open connected session for ${agentDisplayName || "agent"}`}
+              >
+                <MessagesSquare size={14} strokeWidth={1.8} aria-hidden />
+                <span>{sessionLinkLabel}</span>
+              </Link>
+            )}
+          </div>
+        )}
         <div className="persistent-composer">
           <Composer
             variant="shell"

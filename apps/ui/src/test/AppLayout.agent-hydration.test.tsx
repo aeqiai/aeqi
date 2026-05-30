@@ -183,6 +183,69 @@ describe("AppLayout drilled-agent hydration", () => {
     );
   });
 
+  it("mounts the ambient agent dock below the content card on entity pages", async () => {
+    useDaemonStore.setState({
+      agents: [
+        {
+          id: "agent-1",
+          name: "Chief of Staff",
+          status: "active",
+          trust_id: "root-1",
+        },
+      ] as never,
+      agentsLoaded: true,
+    });
+    useChatStore.setState({
+      sessionsByAgent: {
+        "agent-1": [
+          {
+            id: "session-1",
+            agent_id: "agent-1",
+            agent_name: "Chief of Staff",
+            name: "First session",
+            status: "active",
+            created_at: "2026-05-28T08:00:00Z",
+            last_active: "2026-05-28T08:02:00Z",
+            message_count: 2,
+          },
+          {
+            id: "session-2",
+            agent_id: "agent-1",
+            agent_name: "Chief of Staff",
+            name: "Second session",
+            status: "active",
+            created_at: "2026-05-28T07:00:00Z",
+            last_active: "2026-05-28T08:03:00Z",
+            message_count: 4,
+          },
+        ],
+      },
+    });
+
+    const { container } = render(
+      withQueryClient(
+        <StrictMode>
+          <MemoryRouter
+            initialEntries={["/trust/F9s1sSJRm2CobSLkd1BN1Vj4UigRo9zpZhb6raXsQzPq/roles"]}
+          >
+            <Routes>
+              <Route path="/trust/:trustAddress/:tab" element={<AppLayout />} />
+            </Routes>
+          </MemoryRouter>
+        </StrictMode>,
+      ),
+    );
+
+    const dock = await screen.findByLabelText("Agent dock");
+    expect(container.querySelector(".content-card")?.nextElementSibling).toBe(dock);
+
+    expect(within(dock).getByText("Chief of Staff")).toBeInTheDocument();
+    expect(within(dock).getByRole("link", { name: /open connected session/i })).toHaveAttribute(
+      "href",
+      "/trust/F9s1sSJRm2CobSLkd1BN1Vj4UigRo9zpZhb6raXsQzPq/agents/agent-1/inbox/session-2",
+    );
+  });
+
   it("renders active session identity and gateway metadata in the context header", () => {
     useDaemonStore.setState({
       agents: [

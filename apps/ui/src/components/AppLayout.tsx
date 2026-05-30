@@ -8,6 +8,7 @@ import { useDaemonStore } from "@/store/daemon";
 import { activityKeys, agentKeys, entityKeys, questKeys, runtimeKeys } from "@/queries/keys";
 import { useUIStore } from "@/store/ui";
 import { useAuthStore } from "@/store/auth";
+import { useChatStore } from "@/store/chat";
 import { useDaemonSocket } from "@/hooks/useDaemonSocket";
 import { useShellSurface } from "@/hooks/useShellSurface";
 import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
@@ -16,6 +17,8 @@ import RateLimitBanner from "./shell/RateLimitBanner";
 import { useCurrentTrust } from "@/hooks/useCurrentTrust";
 import type { Agent, Trust } from "@/lib/types";
 import { entityPathFromId } from "@/lib/entityPath";
+import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
+import { sessionLabel } from "@/components/session/types";
 
 const CommandPalette = lazy(() => import("./CommandPalette"));
 const AgentPage = lazy(() => import("./AgentPage"));
@@ -37,6 +40,8 @@ const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
 const RoleInvitePage = lazy(() => import("@/pages/RoleInvitePage"));
 const AgentHealthPage = lazy(() => import("@/pages/AgentHealthPage"));
 const AgentSettingsPage = lazy(() => import("@/pages/AgentSettingsPage"));
+
+const NO_AGENT_SESSIONS: ReturnType<typeof useChatStore.getState>["sessionsByAgent"][string] = [];
 
 // Legacy drilled-agent segments. MVP agent detail exposes only Sessions
 // and Settings; stale deep links collapse to Settings rather than
@@ -225,6 +230,15 @@ export default function AppLayout() {
   const initialLoaded = useDaemonStore((s) => s.initialLoaded);
   const agentsLoaded = useDaemonStore((s) => s.agentsLoaded);
   const appMode = useAuthStore((s) => s.appMode);
+  // The agent surface mounts on either the entity's default agent (company
+  // tabs: /trust/<addr>/quests, /trust/<addr>/events, …) or the drilled
+  // agent (per-agent tab: /trust/<addr>/agents/<agent>/…). The active id
+  // is the agent record's id — what AgentPage and the sub-tabs expect.
+  const activeAgent = drilledAgent ?? defaultAgent;
+  const activeAgentId = activeAgent?.id ?? "";
+  const activeAgentSessions = useChatStore((s) =>
+    activeAgentId ? (s.sessionsByAgent[activeAgentId] ?? NO_AGENT_SESSIONS) : NO_AGENT_SESSIONS,
+  );
 
   const {
     isHome,
@@ -289,13 +303,6 @@ export default function AppLayout() {
     // entity exists in the list — fall through and render the shell,
     // even when defaultAgent is null (no runtime provisioned yet).
   }
-
-  // The agent surface mounts on either the entity's default agent (company
-  // tabs: /trust/<addr>/quests, /trust/<addr>/events, …) or the drilled
-  // agent (per-agent tab: /trust/<addr>/agents/<agent>/…). The active id
-  // is the agent record's id — what AgentPage and the sub-tabs expect.
-  const activeAgent = drilledAgent ?? defaultAgent;
-  const activeAgentId = activeAgent?.id ?? "";
 
   // Base path for the current entity. Everything is trust-scoped now.
   const base = (() => {
@@ -501,6 +508,36 @@ export default function AppLayout() {
     isAgentChatDefault;
   const showComposer = sessionsMounted;
   const showSessionsRail = sessionsMounted && !!isEntityRoute;
+  const ambientDockAllowed =
+    !showComposer &&
+    !isNotFound &&
+    !isHome &&
+    !isAccount &&
+    !isAdmin &&
+    !isLaunch &&
+    !isBlueprints &&
+    !isEconomy &&
+    !isStart &&
+    !isTrustsPicker &&
+    isEntityRoute &&
+    !drilledAgent &&
+    !!activeAgentId &&
+    tab !== "inbox" &&
+    tab !== "sessions";
+  const dockSession = activeAgentSessions
+    .filter((s) => s.session_type !== "task")
+    .slice()
+    .sort((a, b) => {
+      const aTs = Date.parse(a.last_active || a.created_at || "") || 0;
+      const bTs = Date.parse(b.last_active || b.created_at || "") || 0;
+      return bTs - aTs;
+    })[0];
+  const dockComposeHref = activeAgentId
+    ? `${base}/agents/${encodeURIComponent(activeAgentId)}/inbox`
+    : `${base}/inbox`;
+  const dockSessionHref = dockSession
+    ? sessionDeepUrlFromId(entities, trustId, activeAgentId, dockSession.id)
+    : dockComposeHref;
 
   const contentBody = (
     <div className="content-body-row">
@@ -556,6 +593,19 @@ export default function AppLayout() {
               )}
             </div>
           </div>
+          {ambientDockAllowed && (
+            <Suspense fallback={null}>
+              <ComposerRow
+                agentId={activeAgentId || null}
+                base={base}
+                sessionsMounted={false}
+                mode="dock"
+                composeHref={dockComposeHref}
+                sessionHref={dockSessionHref}
+                sessionLinkLabel={dockSession ? sessionLabel(dockSession) : "Session"}
+              />
+            </Suspense>
+          )}
           <RateLimitBanner />
         </div>
       </div>

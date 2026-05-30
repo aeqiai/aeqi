@@ -2470,6 +2470,95 @@
   display: none;
 }
 
+/* Ambient Agent Dock — below-card composer affordance for non-chat
+   app pages. It collapses to a tight ink strip, expands on hover/focus,
+   and uses the same Composer primitive + dark token cascade as chat. */
+.composer-row--dock {
+  position: relative;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  z-index: 1;
+  flex-shrink: 0;
+  display: flex;
+  padding: var(--space-2) 0 0;
+  background: transparent;
+  pointer-events: auto;
+}
+.composer-row--dock .composer-wrap {
+  max-width: none;
+  min-height: 18px;
+  max-height: 18px;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-2);
+  transition:
+    max-height 0.22s ease,
+    padding 0.22s ease,
+    border-radius 0.22s ease,
+    box-shadow 0.22s ease;
+}
+.composer-row--dock:is(:hover, :focus-within) .composer-wrap {
+  max-height: 220px;
+  border-radius: var(--radius-md);
+  padding: var(--space-2);
+}
+.agent-dock-header {
+  min-height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.agent-dock-kicker {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--composer-text-muted);
+  font-size: var(--font-size-2xs);
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agent-dock-session-link {
+  min-width: 0;
+  max-width: min(42vw, 260px);
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--composer-text-muted);
+  font-size: var(--font-size-2xs);
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.agent-dock-session-link:hover,
+.agent-dock-session-link:focus-visible {
+  color: var(--composer-text);
+}
+.agent-dock-session-link span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.composer-row--dock .persistent-composer {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
+}
+.composer-row--dock:is(:hover, :focus-within) .persistent-composer {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+}
+.composer-row--dock .composer-wrap .asv-composer-inner {
+  padding-left: var(--space-2);
+  padding-right: var(--space-2);
+}
+
 /* Dark-card overrides for the shared composer primitives. Scoped to
    .composer-wrap so the same components stay light-palette anywhere
    else they're used (future inline composers, templates preview, etc). */
