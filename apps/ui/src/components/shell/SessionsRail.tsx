@@ -35,16 +35,16 @@ function sessionSecondaryLabel(s: SessionInfo): string {
 
 /**
  * Sessions rail — the left-adjacent index column for the drilled-agent
- * inbox. Adapts the chat-store sessions list into `SessionRailRow`s;
+ * sessions surface. Adapts the chat-store sessions list into `SessionRailRow`s;
  * awaiting rows are flagged via the inbox store. Search, sort, and
- * filter live in the shared AppLayout-level agent inbox header so the
+ * filter live in the shared AppLayout-level sessions header so the
  * controls govern the whole master/detail surface, not only the rail.
  *
  * Sort: recent (default) / oldest first.
  * Filter: status — all / active / archived. Matches `s.status === "active"`.
  *
  * Row shape is single-line h=32 across both adopters — visual parity
- * with the inbox through the compact card rail variant.
+ * with the trust Sessions view through the compact card rail variant.
  */
 export default function SessionsRail({ onSelectSession }: SessionsRailProps = {}) {
   // Mounted under `/trust/<addr>/agents/<agent>/inbox[/...]`. The route
@@ -124,7 +124,7 @@ export default function SessionsRail({ onSelectSession }: SessionsRailProps = {}
   // Empty-state copy distinguishes "no sessions yet" from "no matches"
   // so the surface speaks accurately in both shapes.
   const isFilteringEmpty = allRows.length > 0 && rows.length === 0;
-  const emptyTitle = isFilteringEmpty ? "no matches" : "inbox is clear";
+  const emptyTitle = isFilteringEmpty ? "no matches" : "no sessions yet";
   const emptyHint = isFilteringEmpty ? "try a different search term." : "type below to start one";
 
   return (

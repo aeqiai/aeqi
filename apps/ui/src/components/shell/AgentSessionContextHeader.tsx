@@ -53,7 +53,7 @@ export default function AgentSessionContextHeader() {
   const title = currentSession ? sessionLabel(currentSession) : agent?.name || agentId || "Agent";
   const subtitle = currentSession
     ? (gatewayLabel(currentSession) ?? fallbackOrigin(currentSession.name))
-    : "Agent inbox";
+    : "Agent sessions";
   const active = activityLabel(currentSession, !!(itemId && streamingSessions[itemId]));
   const isStreaming = !!(itemId && streamingSessions[itemId]);
 

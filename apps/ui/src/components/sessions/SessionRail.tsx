@@ -5,16 +5,15 @@ import { recencyBucket, type RecencyBucket } from "@/lib/format";
 /**
  * Canonical row shape every Session-rail surface adapts its data into.
  * Data fetch / store / query stays surface-local; the rail is pure
- * presentation. This is the contract that lets agent-sessions, inbox,
- * and (future) channels share one rail primitive.
+ * presentation. This is the contract that lets agent sessions, user-filtered
+ * views, and future channels share one rail primitive.
  */
 export interface SessionRailRow {
   /** Stable selection identifier — the session ID in every adopting surface. */
   id: string;
   /** Bold body line — what the user reads. */
   primary: string;
-  /** Optional whisper-meta line under the primary. Inbox uses "agent · root";
-   * agent mode uses the session origin (telegram / whatsapp / web). */
+  /** Optional whisper-meta line under the primary. */
   secondary?: string;
   /** When true, primary wraps to up to 2 lines. Single-line ellipsis when false. */
   wrapPrimary?: boolean;
@@ -37,23 +36,22 @@ export interface SessionRailProps {
   rows: SessionRailRow[];
   selectedId: string | null;
   onSelect: (id: string) => void;
-  /** Visual density: compact for persistent agent rails, comfortable for Inbox/Home cards. */
+  /** Visual density: compact for persistent agent rails, comfortable for Home cards. */
   density?: "compact" | "comfortable";
   /** Surface treatment: plain legacy rail, or card rows on a recessed lane. */
   surface?: "plain" | "card";
-  /** Color treatment: light by default, recessed for inbox/session rails on a chat slab. */
+  /** Color treatment: light by default, recessed for session rails on a chat slab. */
   tone?: "light" | "recessed";
   /** Sessions that are currently streaming — drive the ThinkingDot. */
   streamingIds?: Record<string, boolean>;
-  /** Empty-state title (e.g. "no sessions yet" / "inbox is clear"). */
+  /** Empty-state title (e.g. "no sessions yet" / "no matches"). */
   emptyTitle: string;
   /** Empty-state hint underneath. */
   emptyHint?: string;
   /** Optional class for surface-specific empty-state tuning. */
   emptyStateClassName?: string;
   /** Listen on `window` for `<eventName>` `CustomEvent<{direction}>` to drive
-   * j/k traversal from a parent keyboard handler. Inbox owns its own keyboard
-   * handler today; agent-rail uses URL navigation, no keyboard handler. */
+   * j/k traversal from a parent keyboard handler. */
   traversalEventName?: string;
 }
 
@@ -93,10 +91,9 @@ export function SessionRailEmptyState({
 
 /**
  * Universal session rail — the left-adjacent index column for every
- * conversation surface (agent sessions, inbox, channels). Owns row
+ * conversation surface (agent sessions, pinned views, channels). Owns row
  * grouping + memoization + j/k traversal bridge; reads data via props
- * so the surface picks its transport (chat-store WS, inbox-store
- * polling, react-query, etc).
+ * so the surface picks its transport.
  *
  * Search / sort / filter live ABOVE the rail in `<SessionsToolbar>`,
  * which both shipping adopters mount as the canonical chrome. The rail
@@ -104,7 +101,7 @@ export function SessionRailEmptyState({
  *
  * Adopters today:
  *  - shell/SessionsRail.tsx — agent surface, drives from useChatStore
- *  - pages/MeInboxPage.tsx — inbox, drives from useInboxStore
+ *  - TrustSessionsTab.tsx — trust sessions and user-filtered pinned views
  */
 export default function SessionRail({
   rows,
@@ -155,7 +152,7 @@ export default function SessionRail({
 
   // Empty state — parent passed zero rows. The "no matches" sub-state is
   // owned by the parent surface (which knows whether the empty stems
-  // from a query or a genuine zero-row inbox) and passed in via
+  // from a query or a genuine zero-row view) and passed in via
   // emptyTitle / emptyHint.
   if (rows.length === 0) {
     return (
@@ -205,7 +202,7 @@ export default function SessionRail({
 /**
  * Memoed row. Re-renders only when its own item / active / streaming
  * state changes — not when a sibling's WS update churns the parent's
- * `streamingIds` record. With ~50 awaiting items in the inbox or
+ * `streamingIds` record. With ~50 awaiting items in a user view or
  * dozens of sessions in an active agent rail, this is the difference
  * between rendering one row on a stream tick and rendering all of them.
  */

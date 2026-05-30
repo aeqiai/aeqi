@@ -17,6 +17,7 @@ export function Tooltip({ content, position = "top", portal = false, children }:
   const [bubbleCoords, setBubbleCoords] = useState({ top: 0, left: 0 });
 
   const show = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => setVisible(true), 200);
   }, []);
 
@@ -27,6 +28,16 @@ export function Tooltip({ content, position = "top", portal = false, children }:
     }
     setVisible(false);
   }, []);
+
+  useEffect(
+    () => () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    },
+    [],
+  );
 
   // Compute portal bubble position
   const computeCoords = useCallback(() => {

@@ -6,6 +6,7 @@ import { useInboxStore } from "@/store/inbox";
 import type { Idea, Quest, Role } from "@/lib/types";
 import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
 import { entityPathFromId } from "@/lib/entityPath";
+import { withUserSessionsView } from "@/lib/sessionViews";
 
 /**
  * `/trust/<addr>/agents/<agent>/overview` — the agent cockpit. Mirrors
@@ -17,7 +18,7 @@ import { entityPathFromId } from "@/lib/entityPath";
  *   - Mission: identity idea content (first 200 chars). What this
  *     agent is for.
  *   - In flight: this agent's in-progress quests
- *   - Awaiting you: inbox sessions belonging to this agent
+ *   - Awaiting you: user-scoped sessions belonging to this agent
  *   - Momentum: last-24h events emitted by this agent
  *
  * Reuses `.dashboard-*` classes — the surface pattern is shared with
@@ -226,10 +227,10 @@ export default function AgentOverviewTab({
             </h2>
             {agentInbox.length > 0 && (
               <Link
-                to={entityPathFromId(entities, trustId, "inbox")}
+                to={withUserSessionsView(entityPathFromId(entities, trustId, "sessions"))}
                 className="dashboard-card-link"
               >
-                Open inbox →
+                Open my sessions →
               </Link>
             )}
           </div>

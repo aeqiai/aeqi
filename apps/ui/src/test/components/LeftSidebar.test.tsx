@@ -42,7 +42,7 @@ describe("LeftSidebar trust navigation", () => {
     });
   });
 
-  it("keeps one trust group open and moves Inbox under Operations", () => {
+  it("shows My sessions as a pinned view and keeps one trust group open", () => {
     const { getByRole, queryByRole } = render(
       withQueryClient(
         <StrictMode>
@@ -58,7 +58,10 @@ describe("LeftSidebar trust navigation", () => {
       ),
     );
 
-    expect(getByRole("link", { name: "Inbox" })).toBeInTheDocument();
+    const pinnedView = getByRole("link", { name: "My sessions" });
+    expect(pinnedView).toBeInTheDocument();
+    expect(pinnedView).toHaveAttribute("href", "/trust/root-1/sessions?view=mine");
+    expect(queryByRole("link", { name: "Inbox" })).not.toBeInTheDocument();
     expect(queryByRole("link", { name: "Your Inbox" })).not.toBeInTheDocument();
     expect(getByRole("button", { name: "Operations" })).toHaveAttribute("aria-expanded", "true");
 
@@ -66,6 +69,7 @@ describe("LeftSidebar trust navigation", () => {
 
     expect(getByRole("button", { name: "Ownership" })).toHaveAttribute("aria-expanded", "true");
     expect(getByRole("link", { name: "Shares" })).toBeInTheDocument();
+    expect(getByRole("link", { name: "My sessions" })).toBeInTheDocument();
     expect(queryByRole("link", { name: "Inbox" })).not.toBeInTheDocument();
   });
 });

@@ -45,7 +45,7 @@ describe("AgentSurfaceHeader", () => {
     );
   }
 
-  it("uses Agents as the back pill and exposes Inbox plus Settings navigation", () => {
+  it("uses Agents as the back pill and exposes Sessions plus Settings navigation", () => {
     renderHeader();
 
     expect(screen.getByRole("link", { name: "Agents" })).toHaveAttribute(
@@ -54,14 +54,14 @@ describe("AgentSurfaceHeader", () => {
     );
     expect(screen.getByText("Research Agent")).toBeInTheDocument();
     const nav = screen.getByRole("navigation", { name: "Agent views" });
-    const inbox = within(nav).getByRole("link", { name: "Inbox" });
+    const sessions = within(nav).getByRole("link", { name: "Sessions" });
     const settings = within(nav).getByRole("link", { name: "Settings" });
-    expect(inbox).toHaveAttribute("href", "/trust/root-1/agents/agent-1");
-    expect(inbox).toHaveAttribute("aria-current", "page");
+    expect(sessions).toHaveAttribute("href", "/trust/root-1/agents/agent-1");
+    expect(sessions).toHaveAttribute("aria-current", "page");
     expect(settings).not.toHaveAttribute("aria-current");
     expect(settings).toHaveAttribute("href", "/trust/root-1/agents/agent-1/settings");
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
-    expect(screen.queryByRole("tab", { name: "Inbox" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Sessions" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "New" })).toBeInTheDocument();
   });
 
@@ -73,9 +73,9 @@ describe("AgentSurfaceHeader", () => {
       "/trust/root-1/agents",
     );
     const nav = screen.getByRole("navigation", { name: "Agent views" });
-    const inbox = within(nav).getByRole("link", { name: "Inbox" });
+    const sessions = within(nav).getByRole("link", { name: "Sessions" });
     const settings = within(nav).getByRole("link", { name: "Settings" });
-    expect(inbox).not.toHaveAttribute("aria-current");
+    expect(sessions).not.toHaveAttribute("aria-current");
     expect(settings).toHaveAttribute("aria-current", "page");
     expect(settings).toHaveAttribute("href", "/trust/root-1/agents/agent-1/settings");
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();

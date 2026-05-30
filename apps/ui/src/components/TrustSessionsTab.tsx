@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Bot, Plus } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, type InboxItem } from "@/lib/api";
 import { entityPathFromId } from "@/lib/entityPath";
 import { recencyBucket, timeAgo, timeShort } from "@/lib/format";
+import {
+  sessionsViewFromSearch,
+  withUserSessionsView,
+  USER_SESSIONS_VIEW_LABEL,
+} from "@/lib/sessionViews";
 import Composer from "@/components/composer/Composer";
 import { inboxMessagesAdapter } from "@/components/inbox/inboxMessagesAdapter";
 import {
@@ -33,9 +38,10 @@ function sessionStatusLabel(status: string | undefined): string {
 }
 
 function sessionSecondaryLabel(session: SessionInfo, agentName: string | null): string {
+  const awaiting = "awaiting" in session && session.awaiting;
   return [
     agentName,
-    gatewayLabel(session) ?? sessionStatusLabel(session.status),
+    awaiting ? "Awaiting you" : (gatewayLabel(session) ?? sessionStatusLabel(session.status)),
     session.message_count ? `${session.message_count} messages` : null,
   ]
     .filter(Boolean)
@@ -46,6 +52,27 @@ function formatRelative(ms: number): string {
   return timeAgo(new Date(ms).toISOString());
 }
 
+type ViewSessionInfo = SessionInfo & {
+  awaiting?: boolean;
+  concerningUser?: boolean;
+};
+
+function userSessionFromInboxItem(item: InboxItem): ViewSessionInfo {
+  const awaiting = !!item.awaiting_at;
+  return {
+    id: item.session_id,
+    agent_id: item.agent_id ?? undefined,
+    agent_name: item.agent_name ?? undefined,
+    name: item.awaiting_subject || item.session_name,
+    status: awaiting ? "awaiting" : "active",
+    created_at: item.last_active,
+    last_active: item.last_active,
+    first_message: item.last_agent_message ?? item.awaiting_subject ?? item.session_name,
+    awaiting,
+    concerningUser: true,
+  };
+}
+
 export default function TrustSessionsTab({
   trustId,
   itemId,
@@ -54,11 +81,12 @@ export default function TrustSessionsTab({
   itemId?: string;
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
   useRelativeNow();
   const entities = useDaemonStore((s) => s.entities);
   const agents = useDaemonStore((s) => s.agents);
   const streamingSessions = useChatStore((s) => s.streamingSessions);
-  const [sessions, setSessions] = useState<SessionInfo[]>([]);
+  const [sessions, setSessions] = useState<ViewSessionInfo[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [messagesLoading, setMessagesLoading] = useState(false);
@@ -76,14 +104,21 @@ export default function TrustSessionsTab({
     [agents],
   );
 
+  const activeView = sessionsViewFromSearch(location.search);
+  const userSessionsView = activeView === "mine";
+
   useEffect(() => {
     let alive = true;
     setLoading(true);
-    api
-      .getSessions(undefined, trustId)
-      .then((data) => {
-        if (!alive) return;
-        setSessions(((data.sessions as SessionInfo[]) || []).filter((s) => s.id));
+    const request = userSessionsView
+      ? api.getUserSessions(trustId).then((data) => data.items.map(userSessionFromInboxItem))
+      : api
+          .getSessions(undefined, trustId)
+          .then((data) => ((data.sessions as SessionInfo[]) || []).filter((s) => s.id));
+
+    request
+      .then((next) => {
+        if (alive) setSessions(next);
       })
       .catch(() => {
         if (alive) setSessions([]);
@@ -94,7 +129,7 @@ export default function TrustSessionsTab({
     return () => {
       alive = false;
     };
-  }, [trustId]);
+  }, [trustId, userSessionsView]);
 
   const agentOptions = useMemo(() => {
     const ids = new Set(sessions.map((session) => session.agent_id).filter(Boolean) as string[]);
@@ -118,7 +153,8 @@ export default function TrustSessionsTab({
       .filter((session) => {
         if (agentFilter !== "all" && session.agent_id !== agentFilter) return false;
         if (filter.status === "all") return true;
-        const isActive = session.status === "active" || session.status === "running";
+        const isActive =
+          session.awaiting || session.status === "active" || session.status === "running";
         return filter.status === "active" ? isActive : !isActive;
       })
       .map((session) => {
@@ -133,6 +169,7 @@ export default function TrustSessionsTab({
           wrapPrimary: true,
           time: timeShort(tsRaw ?? null),
           status: session.status,
+          awaiting: session.awaiting,
           group: recencyBucket(tsRaw ?? null),
           sortKey: Number.isFinite(ts) ? ts : 0,
         };
@@ -208,9 +245,12 @@ export default function TrustSessionsTab({
 
   const handleSelect = useCallback(
     (id: string) => {
-      navigate(entityPathFromId(entities, trustId, "sessions", id), { replace: true });
+      const path = entityPathFromId(entities, trustId, "sessions", id);
+      navigate(userSessionsView ? withUserSessionsView(path, location.search) : path, {
+        replace: true,
+      });
     },
-    [entities, navigate, trustId],
+    [entities, location.search, navigate, trustId, userSessionsView],
   );
 
   const targetAgentId =
@@ -243,13 +283,23 @@ export default function TrustSessionsTab({
         } as SessionInfo,
         ...prev,
       ]);
-      navigate(entityPathFromId(entities, trustId, "sessions", sessionId));
+      const path = entityPathFromId(entities, trustId, "sessions", sessionId);
+      navigate(userSessionsView ? withUserSessionsView(path, location.search) : path);
     } catch {
       setSendError("Could not start a new session.");
     } finally {
       setCreatingSession(false);
     }
-  }, [agentNameById, creatingSession, entities, navigate, targetAgentId, trustId]);
+  }, [
+    agentNameById,
+    creatingSession,
+    entities,
+    location.search,
+    navigate,
+    targetAgentId,
+    trustId,
+    userSessionsView,
+  ]);
 
   const handleSend = useCallback(
     async (body: string) => {
@@ -266,14 +316,18 @@ export default function TrustSessionsTab({
         },
       ]);
       try {
-        await api.sendSessionMessage(
-          {
-            message: body,
-            agent_id: selected?.agent_id || undefined,
-            session_id: selectedId,
-          },
-          trustId,
-        );
+        if (selected?.awaiting && userSessionsView) {
+          await api.answerUserSession(selectedId, body);
+        } else {
+          await api.sendSessionMessage(
+            {
+              message: body,
+              agent_id: selected?.agent_id || undefined,
+              session_id: selectedId,
+            },
+            trustId,
+          );
+        }
         const now = new Date().toISOString();
         setSessions((prev) =>
           prev.map((session) =>
@@ -283,6 +337,8 @@ export default function TrustSessionsTab({
                   last_active: now,
                   message_count: (session.message_count ?? 0) + 1,
                   first_message: session.first_message || body.slice(0, 60),
+                  awaiting: false,
+                  status: session.status === "awaiting" ? "active" : session.status,
                 }
               : session,
           ),
@@ -293,7 +349,7 @@ export default function TrustSessionsTab({
         setSending(false);
       }
     },
-    [selected?.agent_id, selectedId, trustId],
+    [selected?.agent_id, selected?.awaiting, selectedId, trustId, userSessionsView],
   );
 
   const handleComposerSend = useCallback(async () => {
@@ -309,7 +365,11 @@ export default function TrustSessionsTab({
   const emptyTitle = filtering ? "no matching sessions" : "no sessions yet";
   const emptyHint = filtering
     ? "clear a filter or search term"
-    : "agent conversations will appear here";
+    : userSessionsView
+      ? "sessions that mention or include you will appear here"
+      : "agent conversations will appear here";
+  const titleText = userSessionsView ? USER_SESSIONS_VIEW_LABEL : "Sessions";
+  const searchPlaceholder = userSessionsView ? "Search my sessions" : "Search sessions";
 
   return (
     <div className="inbox-page trust-sessions trust-sessions-page">
@@ -317,7 +377,7 @@ export default function TrustSessionsTab({
         className="trust-sessions-page-header"
         title={
           <span className="trust-sessions-title">
-            <span className="trust-sessions-title-text">Sessions</span>
+            <span className="trust-sessions-title-text">{titleText}</span>
             <span className="trust-sessions-count" aria-label={`${visibleConversationCount} shown`}>
               {visibleConversationCount}
             </span>
@@ -342,7 +402,7 @@ export default function TrustSessionsTab({
           inline
           query={query}
           onQuery={setQuery}
-          searchPlaceholder="Search sessions"
+          searchPlaceholder={searchPlaceholder}
           sort={<SessionsSortPopover sort={sort} onChange={setSort} />}
           filter={
             <>

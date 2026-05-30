@@ -4,6 +4,7 @@ import { ChevronUp, MessagesSquare } from "lucide-react";
 import Composer from "@/components/composer/Composer";
 import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
+import { userSessionsPath } from "@/lib/sessionViews";
 import { createDraftId, useChatStore } from "@/store/chat";
 import { useDaemonStore } from "@/store/daemon";
 
@@ -40,7 +41,7 @@ interface ComposerRowProps {
  *   1. If AgentSessionView is mounted, fire `aeqi:send-message` — the
  *      active view picks it up and dispatches it through its websocket.
  *   2. Otherwise (user is on /:agent/quests, /events, etc.) stash the
- *      payload in chat store and navigate to /:agent/inbox. The chat
+ *      payload in chat store and navigate to the chat/session surface. The chat
  *      view drains `pendingMessage` on mount and the send continues
  *      seamlessly.
  */
@@ -101,7 +102,7 @@ export default function ComposerRow({
       window.dispatchEvent(new CustomEvent("aeqi:send-message", { detail }));
     } else {
       if (agentId) setPendingMessage(agentId, detail);
-      navigate(composeHref || `${base}/inbox`);
+      navigate(composeHref || userSessionsPath(base));
     }
     setInput("");
     setFiles([]);

@@ -46,7 +46,7 @@ function isLoopError(e: unknown): boolean {
 
 function LocationProbe() {
   const location = useLocation();
-  return <div data-testid="location">{location.pathname}</div>;
+  return <div data-testid="location">{`${location.pathname}${location.search}`}</div>;
 }
 
 function questFixture(
@@ -437,7 +437,7 @@ describe("shell components smoke", () => {
     expect(errors.find(isLoopError)).toBeUndefined();
   });
 
-  it("redirects the legacy top-level inbox route to the active trust inbox", async () => {
+  it("redirects the legacy top-level inbox route to the pinned sessions view", async () => {
     useDaemonStore.setState({
       status: null,
       dashboard: null,
@@ -476,7 +476,7 @@ describe("shell components smoke", () => {
     );
 
     await waitFor(() =>
-      expect(screen.getByTestId("location").textContent).toBe("/trust/0xabc123/inbox"),
+      expect(screen.getByTestId("location").textContent).toBe("/trust/0xabc123/sessions?view=mine"),
     );
   });
 

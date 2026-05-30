@@ -1,6 +1,6 @@
 /**
  * ProvisionRuntimeUpsell — the gate users hit when they open a runtime-
- * gated surface (Agents / Integrations / Quests / Ideas / Events / Inbox /
+ * gated surface (Agents / Integrations / Quests / Ideas / Events /
  * Sessions) on a free TRUST.
  *
  * Architecture:
@@ -45,7 +45,6 @@ export type UpsellSurface =
   | "quests"
   | "ideas"
   | "events"
-  | "inbox"
   | "sessions";
 
 const SURFACE_LABELS: Record<UpsellSurface, string> = {
@@ -56,7 +55,6 @@ const SURFACE_LABELS: Record<UpsellSurface, string> = {
   quests: "Quests",
   ideas: "Ideas",
   events: "Events",
-  inbox: "Inbox",
   sessions: "Sessions",
 };
 

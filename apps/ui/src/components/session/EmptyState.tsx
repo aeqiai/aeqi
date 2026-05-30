@@ -101,7 +101,7 @@ export default function EmptyState({
         </div>
       )}
       <div className="asv-empty-hint">
-        Type below to talk to {agentName}. Inbox stays on Home; the agent replies in real time.
+        Type below to talk to {agentName}. The agent replies in real time.
       </div>
       <div className="asv-empty-suggestions">
         {[

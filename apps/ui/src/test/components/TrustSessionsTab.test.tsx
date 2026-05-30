@@ -34,6 +34,21 @@ describe("TrustSessionsTab", () => {
         },
       ],
     } as never);
+    vi.spyOn(api, "getUserSessions").mockResolvedValue({
+      items: [
+        {
+          session_id: "session-1",
+          agent_id: "agent-1",
+          agent_name: "Chief of Staff",
+          trust_id: "root-1",
+          session_name: "Budget approval",
+          awaiting_subject: "Approve the launch spend?",
+          awaiting_at: "2026-05-28T10:12:00Z",
+          last_agent_message: "Should I approve this budget?",
+          last_active: "2026-05-28T10:12:00Z",
+        },
+      ],
+    } as never);
     vi.spyOn(api, "getSessionMessages").mockResolvedValue({
       messages: [
         {
@@ -45,6 +60,7 @@ describe("TrustSessionsTab", () => {
       ],
     } as never);
     vi.spyOn(api, "sendSessionMessage").mockResolvedValue({ ok: true } as never);
+    vi.spyOn(api, "answerUserSession").mockResolvedValue({ ok: true } as never);
     vi.spyOn(api, "createSession").mockResolvedValue({ ok: true, session_id: "session-2" });
 
     useDaemonStore.setState({
@@ -167,5 +183,32 @@ describe("TrustSessionsTab", () => {
     await waitFor(() => {
       expect(api.createSession).toHaveBeenCalledWith("agent-1", "root-1");
     });
+  });
+
+  it("renders the pinned My sessions view from user-scoped session data", async () => {
+    const user = userEvent.setup();
+    renderTab("/trust/root-1/sessions/session-1?view=mine");
+
+    await waitFor(() => {
+      expect(api.getUserSessions).toHaveBeenCalledWith("root-1");
+    });
+
+    const header = screen.getByLabelText("Session controls");
+    expect(within(header).getByRole("heading", { name: /My sessions/ })).toBeInTheDocument();
+    expect(within(header).getByPlaceholderText("Search my sessions")).toBeInTheDocument();
+    expect(await screen.findAllByText("Approve the launch spend?")).toHaveLength(2);
+    expect(screen.getAllByText(/Chief of Staff.*Awaiting you/).length).toBeGreaterThan(0);
+
+    const input = await screen.findByLabelText("Message body");
+    await user.type(input, "approved");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() => {
+      expect(api.answerUserSession).toHaveBeenCalledWith("session-1", "approved");
+    });
+    expect(api.sendSessionMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({ message: "approved" }),
+      "root-1",
+    );
   });
 });

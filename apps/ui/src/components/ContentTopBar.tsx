@@ -181,7 +181,7 @@ export default function ContentTopBar() {
             </Button>
           </Tooltip>
         )}
-        {/* Settings button moved to the LeftSidebar (below Inbox).
+        {/* Settings button moved to the LeftSidebar.
             Topbar stays focused on agent-scoped chrome + budget meter. */}
         {appMode !== "platform" && (
           <BudgetMeter

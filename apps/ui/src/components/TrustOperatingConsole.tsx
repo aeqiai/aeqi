@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
+import { userSessionsPath } from "@/lib/sessionViews";
 import { useDaemonStore } from "@/store/daemon";
 import { Textarea } from "@/components/ui";
 
@@ -75,7 +76,7 @@ export default function TrustOperatingConsole({ trustId, basePath }: TrustOperat
       if (sessionId) {
         navigate(sessionDeepUrlFromId(entities, trustId, chiefOfStaff.id, sessionId));
       } else {
-        navigate(`${basePath}/inbox`);
+        navigate(userSessionsPath(basePath));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not brief the operating team.");

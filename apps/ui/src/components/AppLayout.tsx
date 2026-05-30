@@ -18,6 +18,7 @@ import { useCurrentTrust } from "@/hooks/useCurrentTrust";
 import type { Agent, Trust } from "@/lib/types";
 import { entityPathFromId } from "@/lib/entityPath";
 import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
+import { userSessionsPath, withUserSessionsView } from "@/lib/sessionViews";
 import { sessionLabel } from "@/components/session/types";
 
 const CommandPalette = lazy(() => import("./CommandPalette"));
@@ -73,6 +74,7 @@ const COMPANY_PAGE_TABS = new Set([
   "members",
   "agents",
   "sessions",
+  // Legacy alias: Inbox is now the pinned user-filtered Sessions view.
   "inbox",
   "mails",
   // Legacy alias: Mail is canonicalized to plural Mails.
@@ -326,8 +328,8 @@ export default function AppLayout() {
   // behind the canonical bare trust URL.
   //
   // Drilled-agent default is Settings. Conversations are first-class under
-  // trust-wide Sessions, with drilled-agent `/inbox` kept as the direct chat
-  // deep link for existing conversations.
+  // trust-wide Sessions, with drilled-agent `/inbox` kept as a legacy direct
+  // chat deep link for existing conversations.
   const isEntityRoute = !!routeTrustAddress;
   // Are we on the agent's settings sub-surface? The route shape is
   // `agents/:agentId/settings[/:settingsTab[/:itemId]]`. We detect via
@@ -346,13 +348,18 @@ export default function AppLayout() {
     return <Navigate to="/" replace />;
   }
 
-  // Legacy top-level inbox route — the canonical inbox now lives under the
-  // active TRUST, so keep `/inbox` as a compatibility alias only.
+  // Legacy top-level inbox route — the user-filtered queue is now a pinned
+  // Sessions view under the active TRUST.
   if (isInbox) {
     if (!trustId) {
       return <Navigate to="/trust" replace />;
     }
-    return <Navigate to={`${entityPathFromId(entities, trustId, "inbox")}${search}`} replace />;
+    return (
+      <Navigate
+        to={withUserSessionsView(entityPathFromId(entities, trustId, "sessions"), search)}
+        replace
+      />
+    );
   }
 
   // Bare `/trust/<addr>` doesn't render independently — `effectiveTab`
@@ -488,13 +495,9 @@ export default function AppLayout() {
   })();
 
   // The chat composer + sessions rail belong on the drilled-agent
-  // default surface (`/trust/<addr>/agents/<id>/[inbox/<sid>]`). The
-  // trust-scoped inbox (`/trust/<addr>/inbox`) embeds
-  // `<SessionDetail>` (which mounts its own composer against the
-  // inbox-store POST path) — it must not also mount the AppLayout
-  // chat composer or it stacks visually over the inbox detail. Same
-  // applies to other top-level non-chat routes and to the agent's
-  // settings sub-surface (rail without chat).
+  // default surface (`/trust/<addr>/agents/<id>/[inbox/<sid>]`). Trust-
+  // scoped session views mount their own rail/detail/composer, so they
+  // must not also mount the AppLayout chat composer.
   const isAgentChatDefault =
     !!drilledAgent && !agentSettingsSegment && (tab === undefined || tab === "inbox");
   const sessionsMounted =
@@ -524,7 +527,6 @@ export default function AppLayout() {
     isEntityRoute &&
     !drilledAgent &&
     !!activeAgentId &&
-    tab !== "inbox" &&
     tab !== "sessions";
   const dockSession = activeAgentSessions
     .filter((s) => s.session_type !== "task")
@@ -536,7 +538,7 @@ export default function AppLayout() {
     })[0];
   const dockComposeHref = activeAgentId
     ? `${base}/agents/${encodeURIComponent(activeAgentId)}/inbox`
-    : `${base}/inbox`;
+    : userSessionsPath(base);
   const dockSessionHref = dockSession
     ? sessionDeepUrlFromId(entities, trustId, activeAgentId, dockSession.id)
     : dockComposeHref;

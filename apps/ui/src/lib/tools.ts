@@ -77,7 +77,7 @@ export const ALL_TOOLS: ToolSpec[] = [
     label: "Ask the director",
     category: "aeqi",
     description:
-      "When enabled, this agent can fire question.ask to surface a question to your home-page inbox. Off by default — flip on for agents you trust to ask sparingly.",
+      "When enabled, this agent can fire question.ask to surface a question in your pinned My sessions view. Off by default - flip on for agents you trust to ask sparingly.",
   },
   {
     id: "code",

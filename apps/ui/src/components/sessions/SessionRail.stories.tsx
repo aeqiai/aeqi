@@ -98,7 +98,7 @@ export const Filtered: Story = {
     docs: {
       description: {
         story:
-          "Caller (MeInboxPage / shell SessionsRail) has filtered the row list down before passing it in. The rail renders the narrowed set verbatim. Search lives in `<SessionsToolbar>` mounted above; this story documents the post-filter shape.",
+          "Caller has filtered the row list down before passing it in. The rail renders the narrowed set verbatim. Search lives in `<SessionsToolbar>` mounted above; this story documents the post-filter shape.",
       },
     },
   },
@@ -118,8 +118,8 @@ export const Empty: Story = {
     onSelect: () => {},
     density: "comfortable",
     surface: "card",
-    emptyTitle: "inbox is clear",
-    emptyHint: "decisions and replies your agents need will land here.",
+    emptyTitle: "no sessions yet",
+    emptyHint: "decisions and replies your agents need will land in My sessions.",
   },
   render: (args) => (
     <div style={{ width: 360, height: 480, background: "var(--color-card-subtle)" }}>

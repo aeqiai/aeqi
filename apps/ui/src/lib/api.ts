@@ -1839,6 +1839,18 @@ export const api = {
       { method: "POST", body: JSON.stringify({ channel }) },
     ),
 
+  getUserSessions: (scopedEntity?: string | null) =>
+    request<{ ok: boolean; items: InboxItem[] }>("/inbox", { scopedEntity }),
+
+  answerUserSession: (sessionId: string, answer: string) =>
+    request<{ ok: boolean; session_id?: string; error?: string }>(
+      `/inbox/${encodeURIComponent(sessionId)}/answer`,
+      {
+        method: "POST",
+        body: JSON.stringify({ answer }),
+      },
+    ),
+
   getInbox: () => request<{ ok: boolean; items: InboxItem[] }>("/inbox"),
 
   answerInbox: (sessionId: string, answer: string) =>

@@ -7,6 +7,7 @@ import { formatCents, type LaunchPlanId } from "@/lib/pricing";
 import { useDaemonStore } from "@/store/daemon";
 import { useUIStore } from "@/store/ui";
 import { entityPath } from "@/lib/entityPath";
+import { userSessionsPath } from "@/lib/sessionViews";
 import { Banner, Button, Card, Loading } from "@/components/ui";
 import { CompanyPlanCard, type Company } from "@/components/billing/CompanyPlanCard";
 import "@/styles/billing.css";
@@ -90,7 +91,7 @@ export default function BillingPanel() {
           setActiveEntity(match.id);
           await fetchAgents().catch((e) => logError("billing-panel.fetch-agents", e));
           setSearchParams(new URLSearchParams(), { replace: true });
-          navigate(entityPath(match, "inbox"));
+          navigate(userSessionsPath(entityPath(match)));
           return;
         }
       } catch {

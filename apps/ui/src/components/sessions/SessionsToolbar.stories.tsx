@@ -11,7 +11,7 @@ const meta: Meta<typeof SessionsToolbar> = {
     docs: {
       description: {
         component:
-          "Canonical toolbar for every conversation surface that mounts a `<SessionRail>`: search + sort + filter, in the chrome zone above the row list. Search is mandatory; sort and filter are slot-based so the domain semantics (inbox kind/entity vs agent session status) live with the surface, not the primitive. Both adopters — `InboxToolbar` (kind/entity popovers) and `shell/SessionsRail` (sort + status popovers) — render the same chrome shape; only the popover internals differ.",
+          "Canonical toolbar for every conversation surface that mounts a `<SessionRail>`: search + sort + filter, in the chrome zone above the row list. Search is mandatory; sort and filter are slot-based so each surface owns its own domain semantics while sharing the same chrome.",
       },
     },
   },
@@ -75,7 +75,7 @@ export const Default: Story = {
   },
 };
 
-/* ── With sort + filter slots — inbox surface shape ── */
+/* ── With sort + filter slots ── */
 
 function WithSortAndFilterDemo() {
   const [q, setQ] = useState("");
@@ -84,7 +84,7 @@ function WithSortAndFilterDemo() {
       <SessionsToolbar
         query={q}
         onQuery={setQ}
-        searchPlaceholder="Search inbox"
+        searchPlaceholder="Search sessions"
         sort={<FakePopoverButton label="Sort" />}
         filter={<FakePopoverButton label="Filter" />}
       />
@@ -99,7 +99,7 @@ export const WithSortAndFilter: Story = {
     docs: {
       description: {
         story:
-          "Inbox-surface composition — search plus two glyph buttons that, in production, open `InboxSortPopover` and `InboxFilterPopover`. Storybook stubs them as plain buttons because the popover open state isn't useful in isolation.",
+          "Search plus two glyph buttons for a surface-owned sort and filter. Storybook stubs them as plain buttons because the popover open state isn't useful in isolation.",
       },
     },
   },
@@ -111,7 +111,7 @@ function ActiveQueryDemo() {
   const [q, setQ] = useState("aeqi");
   return (
     <Wrap>
-      <SessionsToolbar query={q} onQuery={setQ} searchPlaceholder="Search inbox" />
+      <SessionsToolbar query={q} onQuery={setQ} searchPlaceholder="Search sessions" />
     </Wrap>
   );
 }

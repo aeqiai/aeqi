@@ -61,7 +61,7 @@ export function AgentInboxToolbar() {
     <SessionsToolbar
       query={query}
       onQuery={setQuery}
-      searchPlaceholder="Search inbox"
+      searchPlaceholder="Search sessions"
       sort={<SessionsSortPopover sort={sort} onChange={setSort} />}
       filter={<SessionsFilterPopover filter={filter} onChange={patchFilter} />}
     />

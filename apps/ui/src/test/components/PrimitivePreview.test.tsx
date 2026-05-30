@@ -38,7 +38,7 @@ describe("PrimitivePreview", () => {
 
     render(
       <StrictMode>
-        <MemoryRouter initialEntries={["/trust/root-1/inbox"]}>
+        <MemoryRouter initialEntries={["/trust/root-1/sessions?view=mine"]}>
           <Routes>
             <Route
               path="trust/:trustAddress/:tab"
@@ -77,7 +77,7 @@ describe("PrimitivePreview", () => {
 
     render(
       <StrictMode>
-        <MemoryRouter initialEntries={["/trust/root-1/inbox"]}>
+        <MemoryRouter initialEntries={["/trust/root-1/sessions?view=mine"]}>
           <Routes>
             <Route
               path="trust/:trustAddress/:tab"

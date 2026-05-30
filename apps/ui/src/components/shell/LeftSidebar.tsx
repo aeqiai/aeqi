@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   AppWindow,
   Box,
   ChevronDown,
   CircleDollarSign,
-  Inbox,
   House,
   LayoutDashboard,
   Workflow,
@@ -37,6 +36,11 @@ import { useUIStore } from "@/store/ui";
 import { useDaemonStore } from "@/store/daemon";
 import { useRuntimeStatus } from "@/hooks/useRuntimeStatus";
 import { entityBasePath } from "@/lib/entityPath";
+import {
+  sessionsViewFromSearch,
+  userSessionsPath,
+  USER_SESSIONS_VIEW_LABEL,
+} from "@/lib/sessionViews";
 
 interface LeftSidebarProps {
   /** Canonical entity (organization) id. Sidebar tabs are org-scoped, not child-agent scoped. */
@@ -47,7 +51,6 @@ interface LeftSidebarProps {
 // Sidebar nav icons — Lucide, sized via CSS (.sidebar-nav-item > svg).
 // Stroke width is overridden to 1.65 by layout.css for the 16px optical sweet
 // spot; the icon prop here just controls glyph identity.
-const InboxIcon = () => <Inbox />;
 const HomeIcon = () => <House />;
 // Views — the composable trust landing. LayoutDashboard reads "saved
 // operating view" without overloading the Trust group itself.
@@ -93,7 +96,6 @@ const TRUST_NAV_MATCHES: Record<TrustNavGroupId, string[]> = {
   operations: [
     "agents",
     "sessions",
-    "inbox",
     "quests",
     "ideas",
     "apps",
@@ -117,6 +119,7 @@ const TRUST_NAV_MATCHES: Record<TrustNavGroupId, string[]> = {
 
 export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const sidebarWidth = useUIStore((s) => s.sidebarWidth);
@@ -207,8 +210,12 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
     if (!base) return false;
     return path === `${base}/${id}` || path.startsWith(`${base}/${id}/`);
   };
-  const isActiveWithin = (ids: string[]) => ids.some((id) => isActiveTab(id));
   const isCompanyOverview = !!base && path === base;
+  const activeUserSessionsView =
+    !!base && isActiveTab("sessions") && sessionsViewFromSearch(location.search) === "mine";
+  const isActiveGroupTab = (id: string) =>
+    id === "sessions" && activeUserSessionsView ? false : isActiveTab(id);
+  const isActiveWithin = (ids: string[]) => ids.some((id) => isActiveGroupTab(id));
   const activeTrustGroup =
     (Object.entries(TRUST_NAV_MATCHES) as Array<[TrustNavGroupId, string[]]>).find(([, ids]) =>
       isActiveWithin(ids),
@@ -413,14 +420,28 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
           {topLevelItem("/blueprints", "Blueprints", <BlueprintsIcon />, isBlueprints)}
         </nav>
 
-        {/* ── Trust group — primitive registries only. Pinned Views are
-            intentionally omitted until the user pins real saved views;
-            no fake defaults occupy the top of the rail. ── */}
+        {/* ── Trust group — pinned views first, then primitive registries. ── */}
         {hasCompany && (
           <>
             <nav className="sidebar-surface-nav sidebar-zone sidebar-trust-nav" aria-label="Trust">
               <div className="sidebar-section-label">Trust</div>
               <ActingAsSelector />
+              <div className="sidebar-section-label">Pinned Views</div>
+              <div key="my-sessions" className="sidebar-nav-row">
+                <a
+                  className={`sidebar-nav-item ${activeUserSessionsView ? "active" : ""}`}
+                  href={userSessionsPath(base)}
+                  title={USER_SESSIONS_VIEW_LABEL}
+                  aria-current={activeUserSessionsView ? "page" : undefined}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate(userSessionsPath(base));
+                  }}
+                >
+                  <SessionsIcon />
+                  <span className="sidebar-nav-label">{USER_SESSIONS_VIEW_LABEL}</span>
+                </a>
+              </div>
               <div key="views" className="sidebar-nav-row">
                 <a
                   className={`sidebar-nav-item ${isCompanyOverview ? "active" : ""}`}
@@ -445,9 +466,7 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
                   })}
                   {navItem("sessions", "Sessions", <SessionsIcon />, {
                     locked: runtimeLocked,
-                  })}
-                  {navItem("inbox", "Inbox", <InboxIcon />, {
-                    locked: runtimeLocked,
+                    active: isActiveTab("sessions") && !activeUserSessionsView,
                   })}
                   {navItem("quests", "Quests", <QuestsIcon />, {
                     locked: runtimeLocked,

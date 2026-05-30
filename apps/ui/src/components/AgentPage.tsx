@@ -4,7 +4,7 @@ import { useParams } from "react-router-dom";
 const AgentSessionView = lazy(() => import("./AgentSessionView"));
 
 /**
- * Default drilled-agent surface (`/trust/<addr>/agents/<agent>/[inbox/<sid>]`).
+ * Default drilled-agent chat surface (`/trust/<addr>/agents/<agent>/[inbox/<sid>]` legacy shape).
  *
  * AppLayout owns the shared topbar (agent identity, session search,
  * sort/filter, and actions), plus the sessions rail and composer. This
@@ -16,7 +16,7 @@ export default function AgentPage({
 }: {
   agentId: string;
   // Kept for AppLayout's call-site compatibility — no longer used to
-  // pick a tab. The drilled-agent default shape is always inbox/chat.
+  // pick a tab. The drilled-agent default shape is always chat.
   tab?: string;
   itemId?: string | null;
 }) {

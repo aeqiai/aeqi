@@ -6,12 +6,12 @@ import { useRuntimeStatus } from "@/hooks/useRuntimeStatus";
 import ProvisionRuntimeUpsell, {
   type UpsellSurface,
 } from "@/components/upsell/ProvisionRuntimeUpsell";
+import { withUserSessionsView } from "@/lib/sessionViews";
 
 // TrustOverviewTab is the legacy implementation name for the canonical
 // bare-`/trust/<addr>/` Views landing — renders TrustHeroStrip + roles /
 // quests / activity. Lazy-loaded to keep this dispatch shell light.
 const TrustOverviewTab = lazy(() => import("@/components/TrustOverviewTab"));
-const MeInboxPage = lazy(() => import("@/pages/MeInboxPage"));
 // Trust-scope primitive tabs. `TrustAgentsTab` is entity-typed (takes
 // trustId, filters the directory). Events render through an agent lens rail
 // so the same page can inspect each agent's loop handlers. Quests and Ideas
@@ -56,7 +56,7 @@ interface TrustTabPageProps {
  *   /trust/:trustAddress/members       → TrustMembersTab (humans + pending invites)
  *   /trust/:trustAddress/agents        → TrustAgentsTab (LIST)
  *   /trust/:trustAddress/sessions      → TrustSessionsTab (all trust sessions)
- *   /trust/:trustAddress/inbox         → MeInboxPage
+ *   /trust/:trustAddress/inbox         → redirect to Sessions?view=mine (legacy URL)
  *   /trust/:trustAddress/apps          → TrustAppsTab(app registry)
  *   /trust/:trustAddress/mails         → TrustAppsTab(mails surface)
  *   /trust/:trustAddress/websites      → TrustAppsTab(websites surface)
@@ -94,11 +94,6 @@ const RUNTIME_GATED_TABS: Record<string, UpsellSurface> = {
   events: "events",
   quests: "quests",
   ideas: "ideas",
-  inbox: "inbox",
-  // `sessions` is rewritten upstream in AppLayout (308 to the drilled-
-  // agent inbox URL), so it never lands on TrustTabPage. Listed here for
-  // discoverability — gating its drilled-agent rewrite target is a
-  // separate concern handled in the drilled-agent surface.
 };
 
 export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTabPageProps) {
@@ -159,6 +154,10 @@ export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTab
     const target = location.pathname.replace(/\/website(?=\/|$)/, "/websites") + location.search;
     return <Navigate to={target} replace />;
   }
+  if (tab === "inbox") {
+    const path = location.pathname.replace(/\/inbox(?=\/|$)/, "/sessions");
+    return <Navigate to={withUserSessionsView(path, location.search)} replace />;
+  }
 
   // Runtime gate — applied before the per-tab dispatch so all gated
   // surfaces share one branch. While the status query is in-flight we
@@ -170,15 +169,6 @@ export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTab
     return <ProvisionRuntimeUpsell surface={upsellSurface} trustId={trustId} />;
   }
 
-  // Inbox is the company-scoped action queue. Visually it's MeInbox
-  // for now; the legacy top-level /inbox path is only a redirect alias.
-  if (tab === "inbox") {
-    return (
-      <Suspense>
-        <MeInboxPage />
-      </Suspense>
-    );
-  }
   // /health was retired 2026-05-17 — folded into TrustOverviewTab on
   // the bare TRUST URL. Redirect existing deep links to the cockpit so
   // they land on the same content without breaking bookmarks.

@@ -143,14 +143,9 @@ function GatedAppShell() {
 }
 
 /**
- * Bare `/` while authed lands on the user's primary entity inbox —
- * the daily-action surface. Resolved at nav-time from the daemon
- * store: prefer the `host`-typed placement (the platform-owner
- * carve-out, per `architecture_user_account_is_company.md`); fall
- * back to `entities[0]`. Until entities load, wait briefly rather than
- * flashing another shell destination. If the user has no company yet,
- * send them to the working launch flow. Unauthed visitors still bounce
- * through the auth gate.
+ * Bare `/` while authed lands on the user's Start surface. It resolves
+ * the active TRUST and previews the pinned user Sessions view without
+ * redirecting away from Home.
  */
 function RootRouteSwitch() {
   // The root `/` surface is the home picker (node-grid of actor × role ×
@@ -172,8 +167,7 @@ function RootRouteSwitch() {
  * The user's account-level surface (login profile, billing, settings)
  * lives at `/account` — it's user-scoped, not entity-scoped. There is
  * NO `/me/*` namespace: every entity is a Company entity (founder
- * direction 2026-05-07). Bare `/` resolves to the user's primary
- * entity inbox via `RootRouteSwitch`.
+ * direction 2026-05-07). Bare `/` resolves to Start via `RootRouteSwitch`.
  */
 export default function App() {
   // Protected app shell — extracted so the public-profile route can
@@ -302,7 +296,7 @@ export default function App() {
             }
           />
 
-          {/* Bare `/` resolves to the user's primary entity inbox when
+          {/* Bare `/` resolves to Start when
               they have one. Users without a company go straight to
               `/launch`. */}
           <Route path="/" element={<RootRouteSwitch />} />

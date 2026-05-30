@@ -10,13 +10,13 @@ import SurfaceHeader from "./SurfaceHeader";
 /**
  * Header for the drilled-agent default surface. Wraps the shared
  * SurfaceHeader primitive with agent-specific data (avatar + name) and
- * mode switcher (Inbox / Settings) and actions.
+ * mode switcher (Sessions / Settings) and actions.
  *
  * Variants:
  *   - "default" (drilled-agent landing) → [← Agents] · <Agent name> ·
- *     [Inbox | Settings] · [+ New]
+ *     [Sessions | Settings] · [+ New]
  *   - "settings" (settings sub-surface) → [← Agents] · <Agent name> ·
- *     [Inbox | Settings]
+ *     [Sessions | Settings]
  *
  * The chat surface lives one level beneath the header — sessions rail
  * to the left of the chat column (mounted by AppLayout), composer at
@@ -63,14 +63,14 @@ export default function AgentSurfaceHeader({
   const actions = (
     <>
       <nav className="agent-surface-header-switcher" aria-label="Agent views">
-        <Tooltip content="Agent sessions inbox">
+        <Tooltip content="Agent sessions">
           <Link
             to={sessionHref}
             aria-current={activeMode === "sessions" ? "page" : undefined}
             className="agent-surface-header-switch"
           >
             <MessagesSquare size={14} strokeWidth={1.5} aria-hidden="true" />
-            Inbox
+            Sessions
           </Link>
         </Tooltip>
         <Tooltip content="Agent settings">

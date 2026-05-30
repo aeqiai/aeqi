@@ -15,6 +15,7 @@ import { getInboxSignal, visibleInboxSignalLabel } from "@/lib/inboxState";
 import type { InboxItem } from "@/lib/api";
 import type { Role, Trust } from "@/lib/types";
 import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
+import { userSessionsPath } from "@/lib/sessionViews";
 import { useAuthStore } from "@/store/auth";
 import { useInboxStore } from "@/store/inbox";
 import { useUIStore } from "@/store/ui";
@@ -172,7 +173,7 @@ export default function StartPage() {
         <LaunchTrustCard />
       </section>
 
-      <section className="home-row-two" aria-label="Inbox and economy">
+      <section className="home-row-two" aria-label="My sessions and economy">
         <InboxPreviewCard
           entities={entities}
           inboxItems={inboxPreview}
@@ -301,12 +302,12 @@ function InboxPreviewCard({
   trustNameById,
   activeTrust,
 }: InboxPreviewCardProps) {
-  const inboxHref = activeTrust ? entityPath(activeTrust, "inbox") : "/trust";
+  const sessionsHref = activeTrust ? userSessionsPath(entityPath(activeTrust)) : "/trust";
   return (
     <article className="home-card home-card--inbox home-card--recessed">
       <header className="home-inbox-head">
-        <h2 className="home-inbox-title">Inbox</h2>
-        <Link to={inboxHref} className="home-inbox-cta" aria-label="View all inbox items">
+        <h2 className="home-inbox-title">My sessions</h2>
+        <Link to={sessionsHref} className="home-inbox-cta" aria-label="View my sessions">
           View all
           <ArrowRight size={14} strokeWidth={1.8} aria-hidden="true" />
         </Link>
@@ -324,8 +325,8 @@ function InboxPreviewCard({
         </ul>
       ) : (
         <InboxEmptyCanvas
-          title="Inbox clear"
-          hint="No reviews, approvals, failed events, or agent handoffs need attention."
+          title="Nothing waiting"
+          hint="Sessions that mention or include you will appear here."
           kind="empty"
           className="home-inbox-empty-canvas"
         />

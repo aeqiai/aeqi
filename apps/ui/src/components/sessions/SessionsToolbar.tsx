@@ -6,19 +6,16 @@ export interface SessionsToolbarProps {
   query: string;
   /** Search input change handler. */
   onQuery: (q: string) => void;
-  /** Placeholder + aria-label for the search input. Inbox uses "Search inbox";
-   *  agent surface uses "Search sessions". */
+  /** Placeholder + aria-label for the search input. */
   searchPlaceholder?: string;
   /** Sort control — typically a `<Popover>`-based glyph button. Slot-based so
-   *  each surface owns its own sort dimensions (inbox: recent / unread; agent:
-   *  recent only) without forcing this primitive to know the domain. */
+   *  each surface owns its own sort dimensions without forcing this primitive
+   *  to know the domain. */
   sort?: ReactNode;
   /** Filter control — typically a `<Popover>` with active-count dot. Slot-based
-   *  same as `sort`; inbox passes kind+entity filters, agent surface passes
-   *  status filters or omits entirely. */
+   *  same as `sort`; each surface passes its domain filters or omits entirely. */
   filter?: ReactNode;
-  /** Forwarded to the search input so a parent keyboard handler (e.g. inbox's
-   *  `/`-to-focus shortcut) can target it directly. */
+  /** Forwarded to the search input so a parent keyboard handler can target it directly. */
   searchRef?: React.RefObject<HTMLInputElement | null>;
   inline?: boolean;
 }
@@ -27,14 +24,10 @@ export interface SessionsToolbarProps {
  * Canonical toolbar for every conversation surface that mounts a
  * `<SessionRail>`: search + sort + filter, in the chrome zone above the
  * row list. Search is mandatory; sort and filter are slot-based so the
- * domain semantics (inbox kind/entity vs agent status, etc.) live with
- * the surface, not in this primitive.
+ * domain semantics live with the surface, not in this primitive.
  *
- * Adopters today (both render search + sort + filter for parity):
- *  - components/inbox/InboxToolbar.tsx — wraps this with inbox kind +
- *    entity popovers.
- *  - components/shell/SessionsRail.tsx — wraps this with sessions sort
- *    + status popovers on the drilled-agent surface.
+ * Adopters render search + sort + filter for parity while owning their
+ * status/view semantics locally.
  */
 export default function SessionsToolbar({
   query,

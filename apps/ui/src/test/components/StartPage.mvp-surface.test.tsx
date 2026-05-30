@@ -209,7 +209,7 @@ describe("StartPage MVP surface", () => {
     expect(primary).toBeInTheDocument();
     expect(secondary).toBeInTheDocument();
     expect(
-      screen.getByText(/no reviews, approvals, failed events, or agent handoffs/i),
+      screen.getByText(/sessions that mention or include you will appear here/i),
     ).toBeInTheDocument();
     expect(screen.getByText("Learn more")).toBeInTheDocument();
     expectNoVagueCtaLanguage(container);
@@ -218,7 +218,7 @@ describe("StartPage MVP surface", () => {
     expect(screen.getByTestId("location")).toHaveTextContent("/launch");
   });
 
-  it("shows the returning-user operating surface with active TRUST activity, inbox review, launch, and browse affordances", async () => {
+  it("shows the returning-user operating surface with active TRUST activity, user sessions, launch, and browse affordances", async () => {
     primeStartPage([ALPHA_TRUST, BETA_TRUST], [AWAITING_INBOX_ITEM]);
 
     const { container } = renderStartPage();
@@ -251,15 +251,15 @@ describe("StartPage MVP surface", () => {
     expect(screen.getByText(/Beta Trust/i)).toBeInTheDocument();
 
     const yourTrusts = screen.getByRole("link", { name: /view all trusts/i });
-    const reviewInbox = screen.getByRole("link", { name: /view all inbox items/i });
+    const reviewSessions = screen.getByRole("link", { name: /view my sessions/i });
     const launchTrust = screen.getByRole("link", { name: /^launch$/i });
     const browseBlueprints = screen.getByRole("link", { name: /browse blueprints/i });
 
     expect(yourTrusts).toBeInTheDocument();
-    expect(reviewInbox).toBeInTheDocument();
+    expect(reviewSessions).toBeInTheDocument();
     expect(launchTrust).toBeInTheDocument();
     expect(browseBlueprints).toBeInTheDocument();
-    expect(reviewInbox).toHaveAttribute("href", "/trust/alpha/inbox");
+    expect(reviewSessions).toHaveAttribute("href", "/trust/alpha/sessions?view=mine");
     expect(yourTrusts).toHaveAttribute("href", "/trust");
     expect(screen.getAllByText("View all")).toHaveLength(2);
     expect(
