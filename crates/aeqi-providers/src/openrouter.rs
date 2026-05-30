@@ -124,7 +124,9 @@ impl OpenRouterProvider {
                 continue;
             }
 
-            if !used_budget_fallback
+            let allow_openrouter_budget_fallback = self.base_url.is_none();
+            if allow_openrouter_budget_fallback
+                && !used_budget_fallback
                 && is_openrouter_budget_error(status, &body)
                 && current_request.model != BUDGET_FALLBACK_MODEL
             {

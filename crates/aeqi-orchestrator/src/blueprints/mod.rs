@@ -270,7 +270,15 @@ mod tests {
         let default = company_blueprint(DEFAULT_BLUEPRINT_SLUG).expect("default template present");
         assert_eq!(default.name, "First Company");
         assert_eq!(default.root.name, "Chief of Staff");
+        assert_eq!(
+            default.root.model.as_deref(),
+            Some("deepseek/deepseek-v4-flash"),
+        );
         assert_eq!(default.seed_agents.len(), 1);
+        assert_eq!(
+            default.seed_agents[0].model.as_deref(),
+            Some("deepseek/deepseek-v4-flash"),
+        );
         assert!(default.agent_template_refs.is_empty());
         assert_eq!(default.seed_events.len(), 9);
         assert_eq!(default.seed_ideas.len(), 23);

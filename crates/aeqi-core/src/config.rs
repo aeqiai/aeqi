@@ -151,7 +151,7 @@ pub struct OpenRouterConfig {
 }
 
 fn default_openrouter_model() -> String {
-    "z-ai/glm-4.5-air:free".to_string()
+    "deepseek/deepseek-v4-flash".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2109,7 +2109,7 @@ repo = "/tmp/aeqi"
     }
 
     #[test]
-    fn test_openrouter_default_model_uses_free_tier() {
+    fn test_openrouter_default_model_uses_deepseek_flash() {
         let toml = r#"
 [aeqi]
 name = "test"
@@ -2126,7 +2126,7 @@ role = "orchestrator"
 
         assert_eq!(
             config.default_model_for_provider(ProviderKind::OpenRouter),
-            "z-ai/glm-4.5-air:free".to_string()
+            "deepseek/deepseek-v4-flash".to_string()
         );
     }
 
