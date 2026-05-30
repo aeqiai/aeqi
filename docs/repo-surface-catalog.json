@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "categories": {
     "rustPackages": {
-      "count": 37,
+      "count": 38,
       "description": "Tracked Rust package manifests across the runtime, CLI, crates, and protocol projects.",
       "files": [
         "Cargo.toml",
@@ -17,6 +17,7 @@
         "crates/aeqi-ipfs/Cargo.toml",
         "crates/aeqi-mcp/Cargo.toml",
         "crates/aeqi-orchestrator/Cargo.toml",
+        "crates/aeqi-pack-etsy/Cargo.toml",
         "crates/aeqi-pack-github/Cargo.toml",
         "crates/aeqi-pack-google-workspace/Cargo.toml",
         "crates/aeqi-pack-notion/Cargo.toml",
@@ -45,7 +46,7 @@
       ]
     },
     "runtimeCrates": {
-      "count": 22,
+      "count": 23,
       "description": "First-party runtime crates under crates/.",
       "files": [
         "crates/aeqi-architect/Cargo.toml",
@@ -58,6 +59,7 @@
         "crates/aeqi-ipfs/Cargo.toml",
         "crates/aeqi-mcp/Cargo.toml",
         "crates/aeqi-orchestrator/Cargo.toml",
+        "crates/aeqi-pack-etsy/Cargo.toml",
         "crates/aeqi-pack-github/Cargo.toml",
         "crates/aeqi-pack-google-workspace/Cargo.toml",
         "crates/aeqi-pack-notion/Cargo.toml",
@@ -73,9 +75,10 @@
       ]
     },
     "toolPacks": {
-      "count": 4,
+      "count": 5,
       "description": "Optional integration tool packs under crates/aeqi-pack-*.",
       "files": [
+        "crates/aeqi-pack-etsy/Cargo.toml",
         "crates/aeqi-pack-github/Cargo.toml",
         "crates/aeqi-pack-google-workspace/Cargo.toml",
         "crates/aeqi-pack-notion/Cargo.toml",

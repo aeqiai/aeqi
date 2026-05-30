@@ -99,24 +99,33 @@ scripts/                   Install, deploy, and operator scripts
 
 ## Pre-commit Hook
 
-The repo ships a husky-managed pre-commit hook in `.husky/pre-commit`. It runs UI checks (typecheck, lint, vitest) **only when files under `apps/ui/` are staged**, so Rust-only commits stay fast.
+The repo ships tracked hooks under `scripts/git-hooks/`. Install them once per
+checkout:
+
+```bash
+scripts/install-git-hooks.sh
+```
+
+The pre-commit hook runs Rust formatting only when staged Rust files change and
+runs UI checks only when staged files under `apps/ui/` change, so unrelated
+commits stay fast.
 
 The full Rust suite (`scripts/rust-strict-lints.sh`, `test --workspace`) is enforced in CI on every push and pull request. The strict lint script runs `cargo fmt --all --check` plus `cargo clippy --workspace --all-targets --all-features -- -D warnings`, so test/example and feature-gated Rust code are covered. CI also runs `scripts/public-surface-scan.sh`, which blocks internal notes, local workstation paths, private deployment runbooks, and license wording drift from entering the public tree.
 
 ## Pre-push Hook
 
-To stop pushing code that fails CI (and so stop the email-on-failure noise), enable the tracked pre-push hook once per checkout:
-
-```bash
-git config core.hooksPath .githooks
-```
-
-The hook invokes `scripts/ci-local.sh`, which mirrors the CI fast path: `cargo fmt --all --check`, `cargo clippy --workspace --all-targets --all-features -- -D warnings`, `cargo +nightly udeps --workspace --all-targets`, `cargo build --workspace`, and the apps/ui typecheck + prettier check. Cached run is 2–3 min.
+The installed pre-push hook invokes `scripts/ci-local.sh prepush`, which mirrors
+the CI fast path: `scripts/public-surface-scan.sh`, `cargo fmt --all --check`,
+`cargo clippy --workspace --all-targets --all-features -- -D warnings`, `cargo
++nightly udeps --workspace --all-targets`, `cargo build --workspace`, the
+existing-DB runtime startup smoke, and the apps/ui typecheck + prettier check.
+Cached run is 2-3 min.
 
 Modes:
 
-- `scripts/ci-local.sh` — fast subset (default)
-- `FULL=1 scripts/ci-local.sh` — also runs `cargo test --workspace`, `npm --prefix apps/ui run verify`, and `smoke-fresh-install.sh`
+- `scripts/ci-local.sh --plan` — machine-readable local/CI tier contract, including CI-only gates
+- `scripts/ci-local.sh prepush` — fast pre-push subset
+- `scripts/ci-local.sh full` or `FULL=1 scripts/ci-local.sh` — also runs `cargo test --workspace`, `npm --prefix apps/ui run verify`, `smoke-fresh-install.sh`, and `smoke-quickstart-readme.sh`
 - `SKIP_UI=1`, `SKIP_UDEPS=1` — local escape hatches when the toolchain is broken
 
 Bypass for genuine emergencies: `git push --no-verify`. If you're tempted to use it, the email you'll get afterwards usually means you shouldn't have.
@@ -140,12 +149,6 @@ visual judgment.
 Authentication is optional. Pass `--no-auth` for public/login routes, `AEQI_TOKEN`
 or `--token` to seed an existing session JWT, or set `AEQI_WEB_SECRET`,
 `AEQI_USER_ID`, and `AEQI_EMAIL` to mint a short-lived JWT locally.
-
-To install the hooks after cloning:
-
-```bash
-npm install   # at the repo root, runs husky's install script
-```
 
 ## Pull Requests
 

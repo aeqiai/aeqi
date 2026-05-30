@@ -159,8 +159,15 @@ describe("TrustSessionsTab", () => {
     renderTab();
 
     const input = await screen.findByLabelText("Message body");
+    await waitFor(() => {
+      expect(input).not.toBeDisabled();
+    });
     await user.type(input, "continue here");
-    await user.click(screen.getByRole("button", { name: "Send" }));
+    const send = screen.getByRole("button", { name: "Send" });
+    await waitFor(() => {
+      expect(send).not.toBeDisabled();
+    });
+    await user.click(send);
 
     await waitFor(() => {
       expect(api.sendSessionMessage).toHaveBeenCalledWith(

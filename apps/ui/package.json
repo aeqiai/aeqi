@@ -37,8 +37,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build",
-    "prepare": "cd ../.. && ./apps/ui/node_modules/.bin/husky 2>/dev/null || true"
+    "build-storybook": "storybook build"
   },
   "lint-staged": {
     "src/**/*.{ts,tsx}": [

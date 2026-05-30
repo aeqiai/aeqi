@@ -41,8 +41,8 @@
  *   node apps/ui/scripts/hygiene-check.mjs            # working tree
  *   node apps/ui/scripts/hygiene-check.mjs --staged   # git diff --cached
  *
- * Wired into .husky/pre-commit before the existing apps/ui check + lint +
- * test steps. Exits 0 on clean, 1 on drift introduced.
+ * Wired into scripts/git-hooks/pre-commit before the existing apps/ui check +
+ * lint + test steps. Exits 0 on clean, 1 on drift introduced.
  */
 
 import { execSync } from "node:child_process";

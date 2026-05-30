@@ -3,8 +3,8 @@
 Use these commands for AEQI UI work in a throwaway worktree:
 
 ```bash
-npm run ui:wt -- doctor /home/claudedev/aeqi-ui-work --repair
-npm run ui:wt -- dev /home/claudedev/aeqi-ui-work --port auto --api prod
+npm run ui:wt -- doctor <repo-ui-worktree> --repair
+npm run ui:wt -- dev <repo-ui-worktree> --port auto --api prod
 npm run visual:check:list
 npm run visual:check -- role-detail --base http://127.0.0.1:5173 --layout --require-auth
 ```

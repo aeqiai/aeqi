@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_REPO="${AEQI_REPO:-/home/claudedev/aeqi}"
+ROOT_REPO="${AEQI_REPO:-$(git rev-parse --show-toplevel)}"
 APP_NODE_MODULES="$ROOT_REPO/apps/ui/node_modules"
 ROOT_NODE_MODULES="$ROOT_REPO/node_modules"
 
@@ -14,9 +14,10 @@ Usage:
   scripts/ui-worktree.sh cleanup <worktree>
 
 Examples:
-  npm run ui:wt -- doctor /home/claudedev/aeqi-ui-work --repair
-  npm run ui:wt -- dev /home/claudedev/aeqi-ui-work --port auto --api prod
-  npm run ui:wt -- visual /home/claudedev/aeqi-ui-work --url /trust/.../roles --require-auth
+  AEQI_REPO=<repo> npm run ui:wt -- doctor <repo-ui-worktree> --repair
+  npm run ui:wt -- doctor <repo-ui-worktree> --repair
+  npm run ui:wt -- dev <repo-ui-worktree> --port auto --api prod
+  npm run ui:wt -- visual <repo-ui-worktree> --url /trust/<entity_id>/roles --require-auth
 EOF
 }
 
@@ -40,6 +41,10 @@ link_node_modules() {
   local repair="$3"
 
   [[ -d "$target_path" ]] || die "missing dependency target: $target_path"
+
+  if [[ "$(abs_path "$link_path")" == "$(abs_path "$target_path")" ]]; then
+    return 0
+  fi
 
   if [[ -L "$link_path" ]]; then
     local current

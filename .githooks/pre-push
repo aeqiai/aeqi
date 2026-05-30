@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# Pre-push gate — runs scripts/ci-local.sh before each `git push`.
+# Compatibility pre-push gate. The installed hook path is scripts/git-hooks;
+# this wrapper remains for older checkouts that still point core.hooksPath at
+# .githooks.
 # Bypass for emergencies (e.g. pushing a docs-only typo fix): `git push --no-verify`.
 #
-# Enable once per checkout:
-#   git config core.hooksPath .githooks
+# Preferred install:
+#   scripts/install-git-hooks.sh
 
-exec "$(git rev-parse --show-toplevel)/scripts/ci-local.sh"
+exec "$(git rev-parse --show-toplevel)/scripts/ci-local.sh" prepush

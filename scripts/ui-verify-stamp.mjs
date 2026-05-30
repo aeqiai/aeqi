@@ -65,7 +65,7 @@ function walkFiles(dir, prefix = "") {
 
 function sourceHash() {
   const files = gitFiles([
-    ".husky/pre-commit",
+    "scripts/git-hooks/pre-commit",
     "apps/ui",
     "package.json",
     "package-lock.json",

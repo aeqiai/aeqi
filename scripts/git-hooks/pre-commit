@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
-# Pre-commit gate: refuse commits that would land fmt drift on main.
-#
-# Cheap (<1s with cache). Mirrors the first half of
-# scripts/rust-strict-lints.sh, which is the gate CI fails on.
+# Pre-commit gate: refuse commits that would land fmt/UI drift on main.
 #
 # Bypass with `git commit --no-verify` only when you know what you're doing —
 # every bypass risks turning rust_strict_lints red on the next push.
@@ -15,13 +12,30 @@ cd "$ROOT"
 # Only enforce when Rust files are staged. Touching docs/tokens/CSS shouldn't
 # pay the rustfmt startup cost.
 if ! git diff --cached --name-only --diff-filter=ACMR | grep -qE '\.rs$'; then
-    exit 0
+    rust_changed=0
+else
+    rust_changed=1
 fi
 
-echo "=== pre-commit: cargo fmt --all --check ==="
-if ! cargo fmt --all --check; then
+if [[ "$rust_changed" == "1" ]]; then
+  echo "=== pre-commit: cargo fmt --all --check ==="
+  if ! cargo fmt --all --check; then
     echo ""
     echo "✗ rustfmt drift detected. Run: cargo fmt --all"
     echo "  then re-stage and commit. (Bypass: --no-verify)"
     exit 1
+  fi
+fi
+
+if git diff --cached --name-only --diff-filter=ACMR | grep -q '^apps/ui/'; then
+  if node scripts/ui-verify-stamp.mjs --check --quiet; then
+    echo "[pre-commit] apps/ui changed - reusing matching npm run verify stamp"
+    exit 0
+  fi
+  echo "[pre-commit] apps/ui changed — running hygiene + design-system audit + check + lint + test"
+  node apps/ui/scripts/hygiene-check.mjs --staged
+  npm --prefix apps/ui run design-system:audit
+  npm --prefix apps/ui run check
+  npm --prefix apps/ui run lint
+  npm --prefix apps/ui test
 fi

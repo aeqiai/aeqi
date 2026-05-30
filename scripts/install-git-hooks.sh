@@ -24,7 +24,8 @@ chmod +x "$HOOKS_DIR"/*
 git config core.hooksPath "$HOOKS_DIR"
 
 echo "✓ git hooks installed (core.hooksPath = $HOOKS_DIR)"
-echo "  pre-commit  → cargo fmt --all --check on staged .rs"
-echo "  pre-push    → fmt + clippy + tests (scripts/pre-push.sh)"
+echo "  pre-commit  → staged Rust fmt + staged apps/ui checks"
+echo "  pre-push    → scripts/ci-local.sh prepush"
+echo "  plan        → scripts/ci-local.sh --plan"
 echo ""
 echo "Bypass either gate with --no-verify when you mean it."

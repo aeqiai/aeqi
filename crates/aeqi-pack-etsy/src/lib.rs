@@ -405,7 +405,7 @@ impl Tool for EtsyListingsListTool {
             query.push(("state", state));
         }
         if let Some(limit) = optional_u64(&args, "limit") {
-            query.push(("limit", limit.min(100).max(1).to_string()));
+            query.push(("limit", limit.clamp(1, 100).to_string()));
         }
         if let Some(offset) = optional_u64(&args, "offset") {
             query.push(("offset", offset.to_string()));
@@ -477,7 +477,7 @@ impl Tool for EtsyOrdersListTool {
         };
         let mut query = Vec::new();
         if let Some(limit) = optional_u64(&args, "limit") {
-            query.push(("limit", limit.min(100).max(1).to_string()));
+            query.push(("limit", limit.clamp(1, 100).to_string()));
         }
         if let Some(offset) = optional_u64(&args, "offset") {
             query.push(("offset", offset.to_string()));
