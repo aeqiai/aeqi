@@ -620,6 +620,11 @@
 
 .agents-list {
   padding: 0;
+  --table-separator: color-mix(
+    in srgb,
+    var(--color-border-faint) 68%,
+    var(--color-text-primary) 32%
+  );
 }
 
 /* Filter-narrowed empty state — when the entity has agents but the
@@ -811,17 +816,21 @@
   color: var(--color-text-muted);
 }
 
-/* Agents register table — keep the primitive's quiet uppercase header,
-   but tighten the row body so the slab reads like an operational register
-   instead of a generic report table. Exact micro-spend remains in the
-   cell tooltip; the visible row value is deliberately calmer. */
+/* Agents register table — sentence-case operational headers, not raw
+   spreadsheet labels. Header and footer use the same internal separator
+   so the register reads as one system with top/body/bottom rails. */
 .agents-list table thead {
   background: color-mix(in srgb, var(--color-card-elevated) 76%, transparent);
-  box-shadow: inset 0 -1px 0 var(--border);
+  box-shadow: inset 0 -1px 0 var(--table-separator);
 }
 .agents-list table thead th {
   padding: 14px 24px 10px;
   background: color-mix(in srgb, var(--color-card-elevated) 76%, transparent);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 560;
+  letter-spacing: 0;
+  text-transform: none;
 }
 .agents-list [data-sticky-header="true"] table thead th {
   background: color-mix(in srgb, var(--color-card-elevated) 76%, transparent);

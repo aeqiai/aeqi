@@ -12,6 +12,7 @@
 
 .viewport {
   width: 100%;
+  --table-separator: var(--border);
 }
 
 .viewport[data-scroll-width="sm"],
@@ -179,7 +180,7 @@
 
 .footerCell {
   padding: 0;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--table-separator);
 }
 
 .footer {
