@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { api } from "@/lib/api";
-import type { Agent, Role, RoleEdge } from "@/lib/types";
+import type { Agent, AgentTemplate, Role, RoleEdge } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
 import { entityPathFromId } from "@/lib/entityPath";
 import { useAgentsQuery } from "@/queries/agents";
@@ -100,6 +100,9 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
   const [rolesLoading, setRolesLoading] = useState(false);
   const [chartError, setChartError] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [agentTemplates, setAgentTemplates] = useState<AgentTemplate[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [templatesError, setTemplatesError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -124,6 +127,29 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
     };
   }, [trustId]);
 
+  useEffect(() => {
+    let cancelled = false;
+    setTemplatesLoading(true);
+    setTemplatesError(null);
+    api
+      .getBlueprints()
+      .then((resp) => {
+        if (cancelled) return;
+        setAgentTemplates(resp.agent_templates ?? []);
+      })
+      .catch((e: Error) => {
+        if (cancelled) return;
+        setAgentTemplates([]);
+        setTemplatesError(e.message || "Could not load agent Blueprints.");
+      })
+      .finally(() => {
+        if (!cancelled) setTemplatesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const patchParams = useCallback(
     (mut: (p: URLSearchParams) => void) => {
       const next = new URLSearchParams(searchParams);
@@ -147,6 +173,9 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
   // composer key path (`+`) and the toolbar button share a single entry
   // point. Mirrors AgentsTab's prior wiring.
   const openPicker = useCallback(() => setPickerOpen(true), []);
+  const openAgentBlueprints = useCallback(() => {
+    navigate(`/blueprints/agents?import_into=${encodeURIComponent(trustId)}`);
+  }, [navigate, trustId]);
   useEffect(() => {
     window.addEventListener("aeqi:create", openPicker);
     return () => window.removeEventListener("aeqi:create", openPicker);
@@ -334,7 +363,13 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
           </div>
         </section>
 
-        <SuggestedAgents onPick={openPicker} />
+        <SuggestedAgents
+          templates={agentTemplates}
+          loading={templatesLoading}
+          error={templatesError}
+          onPick={openPicker}
+          onBrowse={openAgentBlueprints}
+        />
       </div>
 
       <BlueprintPickerModal
@@ -346,34 +381,26 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
   );
 }
 
-interface SuggestedAgentSpec {
-  title: string;
-  desc: string;
-}
-
-const SUGGESTED_AGENTS: SuggestedAgentSpec[] = [
-  {
-    title: "Research Agent",
-    desc: "Tracks markets, documents, and strategic context.",
-  },
-  {
-    title: "Treasury Agent",
-    desc: "Monitors budgets, wallets, and capital movement.",
-  },
-  {
-    title: "Governance Agent",
-    desc: "Prepares proposals, quorum updates, and decisions.",
-  },
-];
-
 /**
- * Suggested agents — three blueprint cards below the table. Tells the
- * reader "this TRUST can grow execution capacity along these axes" so
- * the page never reads as terminal at one agent. Each card opens the
- * blueprint picker; per-blueprint prefill happens at the picker layer
- * (out of scope for this component).
+ * Suggested agents — real agent templates from the Blueprint catalog.
+ * The section is secondary capacity, so it sits on a recessed band;
+ * each Blueprint template remains an elevated action card inside it.
  */
-function SuggestedAgents({ onPick }: { onPick: () => void }) {
+function SuggestedAgents({
+  templates,
+  loading,
+  error,
+  onPick,
+  onBrowse,
+}: {
+  templates: AgentTemplate[];
+  loading: boolean;
+  error: string | null;
+  onPick: () => void;
+  onBrowse: () => void;
+}) {
+  const visible = templates.slice(0, 3);
+
   return (
     <section className="trust-agents-suggest" aria-label="Suggested agents">
       <header className="trust-agents-suggest-head">
@@ -381,11 +408,11 @@ function SuggestedAgents({ onPick }: { onPick: () => void }) {
           <div className="trust-agents-suggest-title-row">
             <h2 className="trust-agents-suggest-title">Suggested agents</h2>
             <span className="trust-agents-suggest-count" aria-hidden>
-              {SUGGESTED_AGENTS.length}
+              {templates.length}
             </span>
           </div>
           <p className="trust-agents-suggest-subtitle">
-            Add specialized execution capacity to this TRUST.
+            Agent Blueprints available for this TRUST.
           </p>
         </div>
         <Button
@@ -393,31 +420,60 @@ function SuggestedAgents({ onPick }: { onPick: () => void }) {
           variant="secondary"
           size="sm"
           className="trust-agents-suggest-all"
-          onClick={onPick}
+          onClick={onBrowse}
         >
           View blueprints
         </Button>
       </header>
-      <div className="trust-agents-suggest-grid">
-        {SUGGESTED_AGENTS.map((s) => (
-          <button
-            key={s.title}
-            type="button"
-            className="trust-agents-suggest-card"
-            onClick={onPick}
-            aria-label={`Add ${s.title}`}
-          >
-            <h3 className="trust-agents-suggest-card-title">{s.title}</h3>
-            <p className="trust-agents-suggest-card-desc">{s.desc}</p>
-            <span className="trust-agents-suggest-card-cta" aria-hidden>
-              <Plus size={12} strokeWidth={1.8} />
-              Add agent
-            </span>
-          </button>
-        ))}
-      </div>
+
+      {loading ? (
+        <div className="trust-agents-suggest-state">
+          <Loading size="sm" /> Loading agent Blueprints…
+        </div>
+      ) : error ? (
+        <div className="trust-agents-suggest-state" role="status">
+          Agent Blueprints are unavailable right now.
+        </div>
+      ) : visible.length === 0 ? (
+        <div className="trust-agents-suggest-state" role="status">
+          No agent Blueprints are published yet.
+        </div>
+      ) : (
+        <div className="trust-agents-suggest-grid">
+          {visible.map((template) => (
+            <button
+              key={template.id}
+              type="button"
+              className="trust-agents-suggest-card"
+              onClick={onPick}
+              aria-label={`Add ${template.name} from Blueprint`}
+            >
+              <h3 className="trust-agents-suggest-card-title">{template.name}</h3>
+              <p className="trust-agents-suggest-card-desc">
+                {template.tagline || template.role || "Reusable agent Blueprint."}
+              </p>
+              <p className="trust-agents-suggest-card-meta">{agentTemplateRuntimeLine(template)}</p>
+              <span className="trust-agents-suggest-card-cta" aria-hidden>
+                <Plus size={12} strokeWidth={1.8} />
+                Add from Blueprint
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
     </section>
   );
+}
+
+function agentTemplateRuntimeLine(template: AgentTemplate): string {
+  const parts = [template.role || "Agent Blueprint"];
+  const events = template.seed_events?.length ?? 0;
+  const ideas = template.seed_ideas?.length ?? 0;
+  const quests = template.seed_quests?.length ?? 0;
+  if (events > 0) parts.push(`${events} ${events === 1 ? "event" : "events"}`);
+  if (ideas > 0) parts.push(`${ideas} ${ideas === 1 ? "idea" : "ideas"}`);
+  if (quests > 0) parts.push(`${quests} ${quests === 1 ? "quest" : "quests"}`);
+  return parts.join(" · ");
 }
 
 // Map raw agent.status wire value into the three liveness buckets the
