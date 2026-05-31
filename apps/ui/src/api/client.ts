@@ -110,7 +110,8 @@ export async function apiRequest<T>(path: string, options?: ApiRequestOptions): 
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
-  const companyId = scopedEntity === false ? null : (scopedEntity ?? getScopedEntity());
+  const companyId =
+    scopedEntity === false || path === "/companies" ? null : (scopedEntity ?? getScopedEntity());
   if (companyId && !path.startsWith("/auth/")) {
     headers["X-Company"] = companyId;
     headers["X-Entity"] = companyId;

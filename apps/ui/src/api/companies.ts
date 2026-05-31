@@ -56,10 +56,10 @@ export function normalizeCompanyRoots(data: CompaniesResponse | null | undefined
 }
 
 export async function listCompanyRoots(): Promise<Company[]> {
-  const data = await apiRequest<CompaniesResponse>("/companies");
+  const data = await apiRequest<CompaniesResponse>("/companies", { scopedEntity: false });
   return normalizeCompanyRoots(data);
 }
 
 export function getCompaniesRaw(): Promise<CompaniesResponse> {
-  return apiRequest<CompaniesResponse>("/companies");
+  return apiRequest<CompaniesResponse>("/companies", { scopedEntity: false });
 }
