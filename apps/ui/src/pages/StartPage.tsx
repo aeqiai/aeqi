@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, BookOpen, FileText, Globe, Plus, Rocket, Share2, Users } from "lucide-react";
+import { ArrowRight, Blocks, BookOpen, Globe, Plus, Rocket, Share2, Users } from "lucide-react";
 import { LEARN_POSTS } from "./startPageLearnPosts";
 import "@/styles/roles.css";
 
@@ -63,7 +63,7 @@ function BlueprintCard() {
   return (
     <article className="home-card home-card--blueprint home-card--elevated">
       <span className="home-launch-kicker">
-        <FileText size={15} strokeWidth={1.7} aria-hidden="true" />
+        <Blocks size={15} strokeWidth={1.7} aria-hidden="true" />
         Template
       </span>
       <div className="home-launch-body">
@@ -193,9 +193,9 @@ function LearnAeqiSection() {
             <span className="home-learn-post-title">{activePost.title}</span>
             <span className="home-learn-post-summary">{activePost.summary}</span>
           </a>
-          <span className="home-learn-progress" aria-label="Learning article rotation progress">
-            <span key={activePost.href} className="home-learn-progress-bar" />
-          </span>
+        </span>
+        <span className="home-learn-progress" aria-label="Learning article rotation progress">
+          <span key={activePost.href} className="home-learn-progress-bar" />
         </span>
       </article>
       <aside className="home-learn-rail" aria-label="Learn aeqi links">

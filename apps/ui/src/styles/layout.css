@@ -13101,6 +13101,7 @@ button.role-context-card:disabled {
 }
 
 .home-learn-carousel {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(250px, 0.9fr) minmax(0, 1fr);
   align-items: stretch;
@@ -13198,22 +13199,27 @@ button.role-context-card:disabled {
 }
 
 .home-learn-progress {
-  position: relative;
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 2;
   display: block;
-  width: min(180px, 100%);
-  height: 6px;
-  margin-top: auto;
+  width: 100%;
+  height: 3px;
+  margin: 0;
   overflow: hidden;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--bg-row) 72%, var(--color-card-elevated) 28%);
-  box-shadow: inset 0 0 0 1px var(--color-border-faint);
+  border-radius: 0;
+  background: color-mix(in srgb, var(--color-border-faint) 74%, transparent);
+  box-shadow: none;
+  pointer-events: none;
 }
 
 .home-learn-progress-bar {
   display: block;
   width: 100%;
   height: 100%;
-  border-radius: inherit;
+  border-radius: 0;
   background: var(--color-text-primary);
   transform-origin: left center;
   animation: home-learn-progress 5.6s linear both;

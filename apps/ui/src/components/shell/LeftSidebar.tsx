@@ -25,6 +25,7 @@ import {
   Users,
   Settings,
   ReceiptText,
+  Rocket,
   ScrollText,
   Share2,
   WalletCards,
@@ -89,6 +90,7 @@ const SettingsIcon = () => <Icon icon={Settings} />;
 const EconomyIcon = () => <Icon icon={Globe} />;
 const BlueprintsIcon = () => <Icon icon={Blocks} />;
 const ReferralsIcon = () => <Icon icon={Share2} />;
+const LaunchIcon = () => <Icon icon={Rocket} />;
 
 // Admin — Lucide's Shield is the same silhouette as the prior hand-rolled.
 const SearchIcon = () => <Icon icon={Search} size="sm" />;
@@ -238,6 +240,7 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
     path === "/blueprints" ||
     path.startsWith("/blueprints/");
   const isReferrals = path === "/referrals" || path.startsWith("/referrals/");
+  const isLaunch = path === "/launch" || path.startsWith("/launch/");
   const isStart = path === "/" || path === "/start" || path.startsWith("/start/");
 
   const navItem = (
@@ -472,6 +475,7 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
           {topLevelItem("/markets", "Markets", <EconomyIcon />, isEconomy)}
           {topLevelItem("/templates", "Templates", <BlueprintsIcon />, isBlueprints)}
           {topLevelItem("/referrals", "Referrals", <ReferralsIcon />, isReferrals)}
+          {topLevelItem("/launch", "Launch", <LaunchIcon />, isLaunch)}
           {globalPinnedViews.map(pinnedViewItem)}
         </nav>
 
