@@ -97,16 +97,14 @@ export default function RoleNode({
       style={style}
       aria-label={`${role.title || "Untitled role"} — ${occupant.label}`}
     >
-      {/* Top half — canonical role identity. Title is the primary
-         signal (what the seat IS); pill carries the authority tier
-         (Director / Operator / Advisor). Both stay with the seat
-         even when the occupant rotates. */}
-      <span className="role-node-head">
-        <span className="role-node-title">{role.title || "Untitled"}</span>
+      {/* Role type gets its own metadata row so it never steals width
+         from the seat title on dense org charts. */}
+      <span className="role-node-meta">
         <span className={`role-node-pill role-node-pill--${pillTone(role)}`} aria-hidden>
           {pillLabel(role)}
         </span>
       </span>
+      <span className="role-node-title">{role.title || "Untitled"}</span>
       {/* Bottom half — who currently holds the seat. Skipped entirely
          when vacant (the seat title in the top half already says
          everything; "Seat open" prose + dashed silhouette was visual

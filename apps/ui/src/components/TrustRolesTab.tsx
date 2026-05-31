@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { Plus, Share2 } from "lucide-react";
+import { ArrowRight, Plus, Share2 } from "lucide-react";
 import { api } from "@/lib/api";
-import type { Role, RoleEdge } from "@/lib/types";
+import { blueprintId } from "@/lib/blueprintId";
+import { describeBlueprintStructures } from "@/lib/blueprintStructures";
+import type { Blueprint, Role, RoleEdge, SingleBlueprint } from "@/lib/types";
+import { isSingleBlueprint } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
 import { entityPathFromId } from "@/lib/entityPath";
 import { useClipboardToast } from "@/hooks/useClipboardToast";
@@ -70,6 +73,9 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
   const [edges, setEdges] = useState<RoleEdge[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [roleTemplates, setRoleTemplates] = useState<SingleBlueprint[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [templatesError, setTemplatesError] = useState<string | null>(null);
   const { copy, toastLabel } = useClipboardToast();
 
   const agents = useDaemonStore((s) => s.agents);
@@ -109,6 +115,29 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
       cancelled = true;
     };
   }, [trustId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setTemplatesLoading(true);
+    setTemplatesError(null);
+    api
+      .getBlueprints()
+      .then((resp) => {
+        if (cancelled) return;
+        setRoleTemplates((resp.blueprints ?? []).filter(isRoleTemplateBlueprint));
+      })
+      .catch((e: Error) => {
+        if (cancelled) return;
+        setRoleTemplates([]);
+        setTemplatesError(e.message || "Could not load role templates.");
+      })
+      .finally(() => {
+        if (!cancelled) setTemplatesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!legacySelectedRoleId) return;
@@ -183,6 +212,22 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
   const copyCurrentRoute = useCallback(() => {
     void copy(`${window.location.origin}${location.pathname}${location.search}`);
   }, [copy, location.pathname, location.search]);
+
+  const browseRoleTemplates = useCallback(() => {
+    navigate(`/templates?import_into=${encodeURIComponent(trustId)}`);
+  }, [navigate, trustId]);
+
+  const openRoleTemplate = useCallback(
+    (template: SingleBlueprint) => {
+      const id = blueprintId(template);
+      if (!id) {
+        browseRoleTemplates();
+        return;
+      }
+      navigate(`/templates/${encodeURIComponent(id)}?import_into=${encodeURIComponent(trustId)}`);
+    },
+    [browseRoleTemplates, navigate, trustId],
+  );
 
   const roleCount = roles.length;
 
@@ -371,6 +416,13 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
             </div>
           </section>
         </div>
+        <SuggestedRoleTemplates
+          templates={roleTemplates}
+          loading={templatesLoading}
+          error={templatesError}
+          onOpenTemplate={openRoleTemplate}
+          onBrowse={browseRoleTemplates}
+        />
       </div>
       <NewRoleModal
         open={createRoleOpen}
@@ -383,6 +435,113 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
       <ClipboardToast label={toastLabel} />
     </div>
   );
+}
+
+function isRoleTemplateBlueprint(template: Blueprint): template is SingleBlueprint {
+  if (!isSingleBlueprint(template)) return false;
+  const roleCount = template.seed_roles?.length ?? 0;
+  const agentCount = template.seed_agents?.length ?? 0;
+  return roleCount > 0 || agentCount > 0 || Boolean(template.root);
+}
+
+/**
+ * Role templates — real role structures from the template catalog.
+ * This is a recessed sibling floor: current roles stay in the chart,
+ * possible next structures stay below it.
+ */
+function SuggestedRoleTemplates({
+  templates,
+  loading,
+  error,
+  onOpenTemplate,
+  onBrowse,
+}: {
+  templates: SingleBlueprint[];
+  loading: boolean;
+  error: string | null;
+  onOpenTemplate: (template: SingleBlueprint) => void;
+  onBrowse: () => void;
+}) {
+  const visible = templates.slice(0, 3);
+
+  return (
+    <section className="trust-roles-suggest" aria-label="Role templates">
+      <header className="trust-roles-suggest-head">
+        <div className="trust-roles-suggest-titles">
+          <div className="trust-roles-suggest-title-row">
+            <h2 className="trust-roles-suggest-title">Role templates</h2>
+            <span className="trust-roles-suggest-count" aria-hidden>
+              {templates.length}
+            </span>
+          </div>
+        </div>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="trust-roles-suggest-all"
+          onClick={onBrowse}
+          aria-label="Browse role templates"
+        >
+          Browse templates
+        </Button>
+      </header>
+
+      {loading ? (
+        <div className="trust-roles-suggest-state">
+          <Loading size="sm" /> Loading role templates…
+        </div>
+      ) : error ? (
+        <div className="trust-roles-suggest-state" role="status">
+          Role templates are unavailable right now.
+        </div>
+      ) : visible.length === 0 ? (
+        <div className="trust-roles-suggest-state" role="status">
+          No role templates are published yet.
+        </div>
+      ) : (
+        <div className="trust-roles-suggest-grid">
+          {visible.map((template) => (
+            <button
+              key={blueprintId(template)}
+              type="button"
+              className="trust-roles-suggest-card"
+              onClick={() => onOpenTemplate(template)}
+              aria-label={`View ${template.name} role template`}
+            >
+              <h3 className="trust-roles-suggest-card-title">{template.name}</h3>
+              <p className="trust-roles-suggest-card-desc">
+                {template.tagline || roleTemplateStructureLine(template)}
+              </p>
+              <p className="trust-roles-suggest-card-meta">{roleTemplateRuntimeLine(template)}</p>
+              <span className="trust-roles-suggest-card-cta" aria-hidden>
+                View template
+                <ArrowRight size={12} strokeWidth={1.8} />
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function roleTemplateStructureLine(template: SingleBlueprint): string {
+  const structure = describeBlueprintStructures(template)[0];
+  return structure?.title ? `${structure.title} structure` : "Reusable role structure.";
+}
+
+function roleTemplateRuntimeLine(template: SingleBlueprint): string {
+  const structures = describeBlueprintStructures(template);
+  const roles =
+    template.seed_roles?.length ?? structures.reduce((sum, item) => sum + item.roles.length, 0);
+  const agents = template.seed_agents?.length ?? 0;
+  const parts = [
+    `${roles} ${roles === 1 ? "role" : "roles"}`,
+    `${structures.length} ${structures.length === 1 ? "structure" : "structures"}`,
+  ];
+  if (agents > 0) parts.push(`${agents} ${agents === 1 ? "agent" : "agents"}`);
+  return parts.join(" · ");
 }
 
 function RolesLoading() {

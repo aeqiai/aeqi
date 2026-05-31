@@ -28,25 +28,29 @@
   display: inline-flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 10px;
-  padding: 12px 14px;
+  gap: 7px;
+  padding: 10px 12px;
   background: var(--color-card-elevated);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-sm);
   color: var(--color-text-primary);
   text-align: left;
   font-family: var(--font-sans);
   cursor: default;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--color-text-primary) 3.5%, transparent);
   transition:
     background 0.12s ease,
+    border-color 0.12s ease,
     box-shadow 0.12s ease,
     color 0.12s ease;
 }
-/* Top half — title + pill on the same row, pill pushed right. */
-.role-node-head {
+/* Top metadata — the authority type is important, but it must not
+   steal horizontal room from the role title. */
+.role-node-meta {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  justify-content: center;
+  min-height: 18px;
   min-width: 0;
 }
 /* Bottom half — avatar + holder label. Centered vertically so a 32px
@@ -61,6 +65,8 @@
   cursor: pointer;
 }
 .role-node.is-clickable:hover {
+  border-color: var(--border);
+  background: var(--color-card);
   box-shadow: var(--shadow-sm);
 }
 .role-node.is-clickable:focus-visible {
@@ -73,8 +79,9 @@
    alert. The ring lifts the card slightly via shadow so it stands out
    without competing with the connector lines. */
 .role-node.is-selected {
+  border-color: var(--accent);
   box-shadow:
-    0 0 0 2px var(--accent),
+    0 0 0 1px var(--accent),
     var(--shadow-sm);
   outline: none;
 }
@@ -144,9 +151,11 @@
    second. The pill sits on the same row, pushed right by .role-node-
    head's space-between. */
 .role-node-title {
-  flex: 1;
-  font-size: var(--font-size-md);
-  font-weight: 600;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 650;
   color: var(--color-text-primary);
   white-space: nowrap;
   overflow: hidden;
@@ -157,7 +166,7 @@
    avatar, not as a competing title. */
 .role-node-holder {
   flex: 1;
-  font-size: var(--font-size-sm);
+  font-size: 12.5px;
   color: var(--color-text-secondary);
   white-space: nowrap;
   overflow: hidden;
@@ -174,7 +183,7 @@
 /* Cards-grid variant — same tile, taller breathing room. */
 .role-node--card {
   width: 100%;
-  min-height: 92px;
+  min-height: 104px;
 }
 
 /* Apex (CEO) — subtle distinction from peer nodes. Just enough to read
@@ -184,7 +193,7 @@
   font-weight: 600;
 }
 .role-node--apex {
-  padding: 12px 16px;
+  padding: 10px 14px;
 }
 
 /* ------------------------------------------------------------------
@@ -222,9 +231,9 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 38px;
+  gap: 34px;
   flex-shrink: 0;
-  padding: 24px;
+  padding: 24px 28px 32px;
 }
 
 /* Cross-zone connectors — director → operational. Absolutely positioned
@@ -242,8 +251,8 @@
    edges: this director DOES delegate to this operator, on the record. */
 .roles-chart-cross-edge-path {
   fill: none;
-  stroke: color-mix(in srgb, var(--color-text-secondary) 76%, transparent);
-  stroke-width: 1.35;
+  stroke: color-mix(in srgb, var(--color-text-secondary) 58%, transparent);
+  stroke-width: 1.25;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -252,10 +261,10 @@
    chip treatment so the canvas tells the same provenance story:
    structurally implied, not on the record. */
 .roles-chart-cross-edge-path--implicit {
-  stroke: var(--color-text-tertiary, var(--color-text-muted));
-  stroke-width: 1.25;
-  stroke-dasharray: 5 4;
-  opacity: 0.85;
+  stroke: color-mix(in srgb, var(--color-text-muted) 72%, transparent);
+  stroke-width: 1.1;
+  stroke-dasharray: 4 5;
+  opacity: 0.72;
   transition:
     stroke var(--transition-fast, 150ms) ease,
     stroke-width var(--transition-fast, 150ms) ease,
@@ -408,8 +417,8 @@
 }
 .roles-chart-edge-path {
   fill: none;
-  stroke: color-mix(in srgb, var(--color-text-secondary) 76%, transparent);
-  stroke-width: 1.35;
+  stroke: color-mix(in srgb, var(--color-text-secondary) 58%, transparent);
+  stroke-width: 1.25;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -973,8 +982,33 @@
   background: var(--bg-row);
   border-color: var(--input-border-focus, var(--border-hover));
 }
-.trust-roles-main,
-
+.trust-roles-main {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-card) 84%, var(--color-card-elevated) 16%);
+  box-shadow: var(--card-elevation);
+  overflow: hidden;
+}
+.trust-roles-workspace {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+.trust-roles-content {
+  display: flex;
+  flex: 1;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
 /* Roles snapshot — one slab in the same family as the Quests scope
    band. The row is a single component/surface; the four metrics are
    cells inside it rather than four independent cards. */
@@ -1127,6 +1161,170 @@
 }
 .trust-roles-state--error {
   color: var(--color-error);
+}
+
+/* Suggested roles — recessed floor under the live role workspace. The
+   org chart/list is current structure; this band contains real
+   template-backed structures the operator can inspect next. */
+.trust-roles-suggest {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 14px 16px;
+  border-top: 1px solid
+    color-mix(in srgb, var(--color-border-faint) 68%, var(--color-text-primary) 32%);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  background: var(--bg-row);
+  box-shadow:
+    inset 0 1px 2px color-mix(in srgb, var(--color-text-primary) 8%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--color-border-faint) 84%, transparent);
+  overflow: hidden;
+}
+.trust-roles-suggest-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 0;
+  padding: 0;
+}
+.trust-roles-suggest-titles {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.trust-roles-suggest-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.trust-roles-suggest-title {
+  margin: 0;
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 620;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.trust-roles-suggest-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+  background: var(--bg-subtle);
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.trust-roles-suggest-all {
+  flex-shrink: 0;
+  background: var(--color-card-elevated);
+}
+.trust-roles-suggest-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 360px));
+  justify-content: start;
+  gap: var(--space-2);
+  margin: 0;
+}
+.trust-roles-suggest-state {
+  display: flex;
+  align-items: center;
+  min-height: 88px;
+  padding: var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--color-card-elevated);
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 1.35;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+.trust-roles-suggest-card {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+  padding: 14px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-card-elevated);
+  color: inherit;
+  box-shadow:
+    inset 0 0 0 1px var(--border),
+    0 1px 2px color-mix(in srgb, var(--color-text-primary) 3.5%, transparent);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition:
+    background 0.12s ease,
+    box-shadow 0.12s ease;
+}
+.trust-roles-suggest-card:hover {
+  background: var(--color-card-elevated);
+  box-shadow:
+    inset 0 0 0 1px var(--border-hover),
+    var(--shadow-sm);
+}
+.trust-roles-suggest-card:hover .trust-roles-suggest-card-cta {
+  color: var(--color-text-primary);
+  transform: translateX(1px);
+}
+.trust-roles-suggest-card:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--color-accent);
+}
+.trust-roles-suggest-card-title {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+.trust-roles-suggest-card-desc {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.trust-roles-suggest-card-meta {
+  flex: 1;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 1.35;
+}
+.trust-roles-suggest-card-cta {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 6px;
+  padding: 4px 0;
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 560;
+  transition:
+    color 0.12s ease,
+    transform 0.12s ease;
 }
 
 /* Inspector panel — sticky alongside the canvas. Quiet card with a
@@ -2027,6 +2225,16 @@
   .trust-roles-snapshot-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .trust-roles-suggest-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .trust-roles-suggest-all {
+    width: 100%;
+  }
+  .trust-roles-suggest-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
   .agents-list [data-scroll-width="sm"] {
     overflow-x: visible;
   }
@@ -2070,15 +2278,9 @@
   }
 }
 
-/* Role-type pill — sits in the top-right of the tile so the card reads
-   "what kind of role is this" at a glance outside the chart's banded
-   layout. Tone token differs by type; founder uses warmth to align
-   with the snapshot stat highlight. */
-/* Authority pill — top-right of the role card's head row. v2 layout
-   uses flex flow (was absolute) so it sits cleanly next to the title
-   without overlapping long titles. */
+/* Authority pill — own metadata row above the role title. It remains a
+   first-class type signal without truncating long role names. */
 .role-node-pill {
-  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   height: 18px;

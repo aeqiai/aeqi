@@ -448,17 +448,19 @@ function OrgZoomViewport({ children }: { children: React.ReactNode }) {
     const inner = innerRef.current;
     if (!viewport || !inner) return;
     const vw = viewport.clientWidth;
+    const vh = viewport.clientHeight;
     // Use offsetWidth/offsetHeight rather than scrollWidth/scrollHeight.
     // scrollWidth only reflects overflow in the scroll direction, and
     // can be clamped by the parent container. offsetWidth is the
     // natural laid-out width of the element regardless of clipping.
     const iw = inner.offsetWidth;
     const ih = inner.offsetHeight;
-    if (iw === 0 || ih === 0) return;
-    const vh = viewport.clientHeight;
-    const scale = Math.min(1, (vw - 48) / iw, (vh - 48) / ih);
-    const tx = (vw - iw * scale) / 2;
-    const ty = Math.max(24, (vh - ih * scale) / 2);
+    if (vw === 0 || vh === 0 || iw === 0 || ih === 0) return;
+    const fitScale = Math.min(1, (vw - 48) / iw, (vh - 48) / ih);
+    const minReadableScale = vw >= 900 ? 0.64 : 0.55;
+    const scale = Math.min(1, Math.max(minReadableScale, fitScale));
+    const tx = vw >= 900 ? Math.max(24, (vw - iw * scale) / 2) : (vw - iw * scale) / 2;
+    const ty = 24;
     setTransform({ scale, tx, ty });
     hasFit.current = true;
   }, []);
@@ -470,7 +472,8 @@ function OrgZoomViewport({ children }: { children: React.ReactNode }) {
   useLayoutEffect(() => {
     if (hasFit.current) return;
     const inner = innerRef.current;
-    if (!inner) return;
+    const viewport = viewportRef.current;
+    if (!inner || !viewport) return;
     const ro = new ResizeObserver(() => {
       if (hasFit.current) {
         ro.disconnect();
@@ -480,6 +483,7 @@ function OrgZoomViewport({ children }: { children: React.ReactNode }) {
       if (hasFit.current) ro.disconnect();
     });
     ro.observe(inner);
+    ro.observe(viewport);
     return () => ro.disconnect();
   }, [applyFit]);
 
