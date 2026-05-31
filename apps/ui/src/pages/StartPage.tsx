@@ -95,20 +95,10 @@ function ReferralCard() {
 function EconomyCard() {
   return (
     <article className="home-card home-card--economy home-card--recessed">
-      <div className="home-economy-media">
-        <header className="home-economy-head">
-          <span className="home-economy-label">
-            <Globe size={15} strokeWidth={1.7} aria-hidden="true" />
-            Economy
-          </span>
-        </header>
-        <img
-          src="/home/economy-mood.png"
-          alt=""
-          className="home-economy-image"
-          aria-hidden="true"
-        />
-      </div>
+      <span className="home-launch-kicker">
+        <Globe size={15} strokeWidth={1.7} aria-hidden="true" />
+        Economy
+      </span>
       <div className="home-economy-content">
         <div className="home-economy-body">
           <p className="home-economy-lede">Find what is live</p>

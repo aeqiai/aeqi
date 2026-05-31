@@ -13286,10 +13286,10 @@ button.role-context-card:disabled {
 }
 
 .home-hero-overlay {
-  inset: 0 auto 0 24px;
-  width: min(620px, calc(100% - 48px));
+  inset: 0 24px;
+  width: auto;
   border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--color-card-elevated) 72%, transparent);
+  background: transparent;
 }
 
 .home-hero-identity {
@@ -13501,6 +13501,7 @@ button.role-context-card:disabled {
 .home-card--economy {
   background: var(--bg-row);
   box-shadow: inset 0 0 0 1px var(--color-border-faint);
+  padding: var(--space-4);
 }
 
 .home-economy-media {
@@ -13522,6 +13523,10 @@ button.role-context-card:disabled {
 }
 
 .home-economy-content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-3);
   background: transparent;
   color: var(--color-text-primary);
 }
@@ -13581,8 +13586,7 @@ button.role-context-card:disabled {
 
 .home-row-promos .home-economy-content {
   flex: 1;
-  gap: var(--space-3);
-  padding: var(--space-4);
+  padding: 0;
 }
 
 .home-row-promos .home-economy-body {
@@ -13650,7 +13654,10 @@ button.role-context-card:disabled {
 
   .home-hero-overlay {
     inset: 0;
-    background: color-mix(in srgb, var(--color-card) 68%, transparent);
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 34px 18px;
+    background: transparent;
   }
 
   .home-hero-identity {
@@ -13663,6 +13670,7 @@ button.role-context-card:disabled {
 
   .home-hero-profile-copy {
     gap: 0;
+    max-width: 300px;
   }
 
   .home-card--context,
@@ -13682,7 +13690,7 @@ button.role-context-card:disabled {
   }
 
   .home-card--economy {
-    padding: 0;
+    padding: var(--space-4);
   }
 
   .home-context-head,
