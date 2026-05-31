@@ -821,10 +821,12 @@
    so the register reads as one system with top/body/bottom rails. */
 .agents-list table thead {
   background: color-mix(in srgb, var(--color-card-elevated) 76%, transparent);
-  box-shadow: inset 0 -1px 0 var(--table-separator);
+  box-shadow: none;
 }
 .agents-list table thead th {
-  padding: 14px 24px 10px;
+  height: 48px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--table-separator);
   background: color-mix(in srgb, var(--color-card-elevated) 76%, transparent);
   color: var(--color-text-secondary);
   font-size: 11px;
