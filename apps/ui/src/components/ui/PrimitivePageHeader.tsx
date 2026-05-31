@@ -21,7 +21,7 @@ export const PrimitivePageHeader = forwardRef<HTMLElement, PrimitivePageHeaderPr
       actions,
       padding = "standard",
       titleVariant = "plain",
-      pinPlacement = "actions",
+      pinPlacement = "utilities",
       className,
       children,
       ...rest

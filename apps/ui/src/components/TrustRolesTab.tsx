@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowRight, Plus, Share2 } from "lucide-react";
+import { ArrowRight, Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import { blueprintId } from "@/lib/blueprintId";
 import { describeBlueprintStructures } from "@/lib/blueprintStructures";
@@ -8,18 +8,8 @@ import type { Blueprint, Role, RoleEdge, SingleBlueprint } from "@/lib/types";
 import { isSingleBlueprint } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
 import { entityPathFromId } from "@/lib/entityPath";
-import { useClipboardToast } from "@/hooks/useClipboardToast";
 import "@/styles/roles.css";
-import {
-  Button,
-  ClipboardToast,
-  EmptyState,
-  IconButton,
-  Loading,
-  PrimitivePageHeader,
-  PrimitiveSearchField,
-  Tooltip,
-} from "./ui";
+import { Button, EmptyState, Loading, PrimitivePageHeader, PrimitiveSearchField } from "./ui";
 import RolesChart from "./roles/RolesChart";
 import RolesCards from "./roles/RolesCards";
 import RolesList from "./roles/RolesList";
@@ -27,6 +17,7 @@ import RolesSortPopover from "./roles/RolesSortPopover";
 import RolesFilterPopover from "./roles/RolesFilterPopover";
 import RolesViewPopover from "./roles/RolesViewPopover";
 import NewRoleModal from "./roles/NewRoleModal";
+import { labelRoleType } from "./roles/RoleInspectorPrimitives";
 import {
   type OccupantFilter,
   type RolesFilterState,
@@ -35,7 +26,7 @@ import {
   parseView,
 } from "./roles/types";
 
-const OCCUPANT_RANK: Record<string, number> = { agent: 0, human: 1, vacant: 2 };
+const OCCUPANT_RANK: Record<string, number> = { agent: 0, human: 1, trust: 2, vacant: 3 };
 
 function isRole(role: Role | null | undefined): role is Role {
   return Boolean(role?.id);
@@ -76,7 +67,6 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
   const [roleTemplates, setRoleTemplates] = useState<SingleBlueprint[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(false);
   const [templatesError, setTemplatesError] = useState<string | null>(null);
-  const { copy, toastLabel } = useClipboardToast();
 
   const agents = useDaemonStore((s) => s.agents);
   const entities = useDaemonStore((s) => s.entities);
@@ -209,12 +199,8 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
     [patchParams],
   );
 
-  const copyCurrentRoute = useCallback(() => {
-    void copy(`${window.location.origin}${location.pathname}${location.search}`);
-  }, [copy, location.pathname, location.search]);
-
   const browseRoleTemplates = useCallback(() => {
-    navigate(`/templates?import_into=${encodeURIComponent(trustId)}`);
+    navigate(`/templates?kind=roles&import_into=${encodeURIComponent(trustId)}`);
   }, [navigate, trustId]);
 
   const openRoleTemplate = useCallback(
@@ -224,7 +210,9 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
         browseRoleTemplates();
         return;
       }
-      navigate(`/templates/${encodeURIComponent(id)}?import_into=${encodeURIComponent(trustId)}`);
+      navigate(
+        `/templates/${encodeURIComponent(id)}?kind=roles&import_into=${encodeURIComponent(trustId)}`,
+      );
     },
     [browseRoleTemplates, navigate, trustId],
   );
@@ -246,6 +234,26 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
     return counts;
   }, [roles]);
 
+  const roleById = useMemo(() => new Map(roles.map((r) => [r.id, r])), [roles]);
+
+  const parentRolesByChildId = useMemo(() => {
+    const out = new Map<string, Role[]>();
+    for (const edge of edges) {
+      const parent = roleById.get(edge.parent_role_id);
+      if (!parent) continue;
+      const existing = out.get(edge.child_role_id);
+      if (existing) existing.push(parent);
+      else out.set(edge.child_role_id, [parent]);
+    }
+    return out;
+  }, [edges, roleById]);
+
+  const trustNames = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const entity of entities) m.set(entity.id, entity.name);
+    return m;
+  }, [entities]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     let rows = roles.slice();
@@ -253,15 +261,9 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
       rows = rows.filter((r) => r.occupant_kind === occupantFilter);
     }
     if (q) {
-      rows = rows.filter((r) => {
-        if (r.title.toLowerCase().includes(q)) return true;
-        if (r.occupant_id) {
-          const name = agentNames.get(r.occupant_id);
-          if (name && name.toLowerCase().includes(q)) return true;
-          if (r.occupant_id.toLowerCase().includes(q)) return true;
-        }
-        return false;
-      });
+      rows = rows.filter((r) =>
+        roleSearchText(r, agentNames, trustNames, parentRolesByChildId.get(r.id) ?? []).includes(q),
+      );
     }
     rows.sort((a, b) => {
       switch (sort) {
@@ -278,7 +280,7 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
       }
     });
     return rows;
-  }, [roles, search, sort, occupantFilter, agentNames]);
+  }, [roles, search, sort, occupantFilter, agentNames, trustNames, parentRolesByChildId]);
 
   const filteredIds = useMemo(() => new Set(filtered.map((r) => r.id)), [filtered]);
   const filteredEdges = useMemo(
@@ -286,6 +288,12 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
       edges.filter((e) => filteredIds.has(e.parent_role_id) && filteredIds.has(e.child_role_id)),
     [edges, filteredIds],
   );
+
+  const newRolePath = useMemo(() => {
+    const params = new URLSearchParams(searchParams);
+    params.set("new", "1");
+    return `${entityPathFromId(entities, trustId, "roles")}?${params.toString()}`;
+  }, [entities, searchParams, trustId]);
 
   const handleSelectRole = useCallback(
     (role: Role) => {
@@ -328,19 +336,9 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
           </span>
         }
         aria-label="Role controls"
+        pinPlacement="utilities"
         actions={
           <div className="trust-roles-header-actions">
-            <Tooltip content="Copy route" portal>
-              <IconButton
-                variant="bordered"
-                size="md"
-                className="trust-roles-header-icon"
-                aria-label="Copy roles route"
-                onClick={copyCurrentRoute}
-              >
-                <Share2 size={14} strokeWidth={1.8} />
-              </IconButton>
-            </Tooltip>
             <Button
               className="trust-top-rail-cta"
               variant="primary"
@@ -358,6 +356,7 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
             placeholder="Search roles"
             value={search}
             onChange={(next) => setFilter({ search: next })}
+            showKbdHint
             onEscapeEmpty={(e) => e.currentTarget.blur()}
           />
           <RolesSortPopover sort={sort} onChange={(next) => setFilter({ sort: next })} />
@@ -372,8 +371,11 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
 
       <div className="trust-roles-main trust-roles-main--detail-collapsed trust-primitive-shell-surface">
         <div className="trust-roles-workspace">
-          <section className="trust-roles-content" aria-label="Role workspace">
-            <div className="trust-roles-canvas">
+          <section
+            className={`trust-roles-content trust-roles-content--${view}`}
+            aria-label="Role workspace"
+          >
+            <div className={`trust-roles-canvas trust-roles-canvas--${view}`}>
               {loading && <RolesLoading />}
               {error && <RolesError message={error} />}
               {showEmpty && <RolesEmptyState />}
@@ -388,7 +390,7 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
                   agentAvatars={agentAvatars}
                   onSelectRole={handleSelectRole}
                   selectedRoleId={null}
-                  newRolePath={`${entityPathFromId(entities, trustId, "roles")}?new=1`}
+                  newRolePath={newRolePath}
                 />
               )}
               {!loading && !error && filtered.length > 0 && view === "cards" && (
@@ -406,7 +408,8 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
                 <div className="trust-roles-scroll trust-roles-scroll--list">
                   <RolesList
                     roles={filtered}
-                    edges={filteredEdges}
+                    edges={edges}
+                    allRoles={roles}
                     agentNames={agentNames}
                     agentAvatars={agentAvatars}
                     onSelectRole={handleSelectRole}
@@ -432,9 +435,42 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
         agents={agents}
         onCreated={handleRoleCreated}
       />
-      <ClipboardToast label={toastLabel} />
     </div>
   );
+}
+
+function roleSearchText(
+  role: Role,
+  agentNames: Map<string, string>,
+  trustNames: Map<string, string>,
+  parents: Role[],
+): string {
+  const parts = [
+    role.title,
+    labelRoleType(role.role_type),
+    role.occupant_kind,
+    occupantSearchLabel(role, agentNames, trustNames),
+    role.occupant_id,
+    ...parents.flatMap((parent) => [
+      parent.title,
+      labelRoleType(parent.role_type),
+      parent.occupant_kind,
+      occupantSearchLabel(parent, agentNames, trustNames),
+      parent.occupant_id,
+    ]),
+  ];
+  return parts.filter(Boolean).join(" ").toLowerCase();
+}
+
+function occupantSearchLabel(
+  role: Role,
+  agentNames: Map<string, string>,
+  trustNames: Map<string, string>,
+): string {
+  if (role.occupant_kind === "agent") return agentNames.get(role.occupant_id ?? "") ?? "";
+  if (role.occupant_kind === "trust") return trustNames.get(role.occupant_id ?? "") ?? "";
+  if (role.occupant_kind === "human") return role.occupant_name ?? "";
+  return "vacant";
 }
 
 function isRoleTemplateBlueprint(template: Blueprint): template is SingleBlueprint {

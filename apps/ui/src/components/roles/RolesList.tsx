@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import type { Role, RoleEdge, RoleType } from "@/lib/types";
+import { useEffect, useMemo, useState } from "react";
+import type { Role, RoleEdge } from "@/lib/types";
 import AgentAvatar from "../AgentAvatar";
 import { Table, type TableColumn } from "../ui";
 import { labelRoleType } from "./RoleInspectorPrimitives";
@@ -15,18 +15,7 @@ export interface RolesListProps {
   onSelectRole: (role: Role) => void;
 }
 
-// Bucket order: directors first (board), then operational (CEO/C-suite/agents),
-// then advisors. Within each bucket, stable original order.
-const BUCKET_ORDER: RoleType[] = ["director", "operational", "advisor"];
-
-function sortByBucket(roles: Role[]): Role[] {
-  const bucketRank = new Map<RoleType, number>(BUCKET_ORDER.map((t, i) => [t, i]));
-  return [...roles].sort((a, b) => {
-    const ra = bucketRank.get(a.role_type) ?? BUCKET_ORDER.length;
-    const rb = bucketRank.get(b.role_type) ?? BUCKET_ORDER.length;
-    return ra - rb;
-  });
-}
+const ROLES_PAGE_SIZE = 25;
 
 function occupantSortKey(role: Role, agentNames: Map<string, string>): string {
   if (role.occupant_kind === "vacant") return "￿"; // sort vacant to the end
@@ -44,8 +33,13 @@ export default function RolesList({
   agentAvatars,
   onSelectRole,
 }: RolesListProps) {
-  const ordered = useMemo(() => sortByBucket(roles), [roles]);
+  const [page, setPage] = useState(1);
   const allRolesRef = allRoles ?? roles;
+
+  useEffect(() => {
+    const pageCount = Math.max(1, Math.ceil(roles.length / ROLES_PAGE_SIZE));
+    setPage((current) => Math.min(current, pageCount));
+  }, [roles.length]);
 
   /**
    * Titles aren't globally unique (two "Engineer"s reporting to the same
@@ -151,12 +145,19 @@ export default function RolesList({
     <div className="trust-roles-table">
       <Table<Role>
         columns={columns}
-        data={ordered}
+        data={roles}
         rowKey={(role) => role.id}
         onRowClick={onSelectRole}
         density="compact"
         scrollWidth="sm"
         ariaLabel="Roles"
+        pagination={{
+          page,
+          pageSize: ROLES_PAGE_SIZE,
+          total: roles.length,
+          itemLabel: "roles",
+          onPageChange: setPage,
+        }}
       />
     </div>
   );

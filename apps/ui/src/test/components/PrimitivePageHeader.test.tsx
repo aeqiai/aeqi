@@ -15,6 +15,7 @@ describe("PrimitivePageHeader", () => {
 
     const header = screen.getByLabelText("Agent controls");
     expect(header).toHaveAttribute("data-title-variant", "plain");
+    expect(header).toHaveAttribute("data-pin-placement", "utilities");
     expect(screen.getByRole("heading", { name: "Agents" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Pin current view" })).toBeInTheDocument();
   });

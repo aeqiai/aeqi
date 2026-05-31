@@ -3,6 +3,7 @@ import { Bot, Landmark } from "lucide-react";
 import type { Role } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
 import RoundAvatar from "../RoundAvatar";
+import { labelRoleType } from "./RoleInspectorPrimitives";
 
 export interface RoleNodeProps {
   role: Role;
@@ -101,7 +102,7 @@ export default function RoleNode({
          from the seat title on dense org charts. */}
       <span className="role-node-meta">
         <span className={`role-node-pill role-node-pill--${pillTone(role)}`} aria-hidden>
-          {pillLabel(role)}
+          {labelRoleType(role.role_type)}
         </span>
       </span>
       <span className="role-node-title">{role.title || "Untitled"}</span>
@@ -135,23 +136,8 @@ export default function RoleNode({
   );
 }
 
-// Role-type label. The `founder` boolean exists in the data model
-// (used internally for board / Venture-TRUST equity accounting) but is
-// intentionally NOT surfaced as a user-facing label here — board
-// members are Directors. If a Venture surface ever needs to distinguish
-// founders from other directors, add a separate marker rather than
-// hijacking this pill.
-//
-// "Operational" role_type → "Operator" user-facing label. An Operator
-// IS someone who executes; "Operational" sounds like a status. Internal
-// role_type values are untouched.
-function pillLabel(role: Role): string {
-  if (role.role_type === "director") return "Director";
-  if (role.role_type === "advisor") return "Advisor";
-  return "Operator";
-}
-
-function pillTone(role: Role): "director" | "advisor" | "operational" {
+function pillTone(role: Role): "director" | "advisor" | "operational" | "owner" {
+  if (role.role_type === "owner") return "owner";
   if (role.role_type === "director") return "director";
   if (role.role_type === "advisor") return "advisor";
   return "operational";

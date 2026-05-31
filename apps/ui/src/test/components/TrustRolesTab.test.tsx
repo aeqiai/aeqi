@@ -141,6 +141,10 @@ describe("TrustRolesTab", () => {
     expect(within(header).getByRole("button", { name: "View: Org chart" })).toHaveClass(
       "ideas-toolbar-btn",
     );
+    expect(within(header).getByRole("button", { name: "Pin current view" })).toBeInTheDocument();
+    expect(
+      within(header).queryByRole("button", { name: "Copy roles route" }),
+    ).not.toBeInTheDocument();
 
     expect(api.getRoles).toHaveBeenCalledWith("root-1");
     const workspace = screen.getByLabelText("Role workspace");
@@ -162,6 +166,10 @@ describe("TrustRolesTab", () => {
     expect(within(table).getByRole("columnheader", { name: "Type" })).toBeInTheDocument();
     expect(within(table).getByRole("columnheader", { name: "Occupant" })).toBeInTheDocument();
     expect(within(table).getByRole("columnheader", { name: "Reports to" })).toBeInTheDocument();
+    expect(within(table).getByText("Showing 1-3 of 3 roles")).toBeInTheDocument();
+    expect(
+      Array.from(table.querySelectorAll("tbody tr")).map((row) => row.getAttribute("data-row-key")),
+    ).toEqual(["role-vacant", "role-operator", "role-owner"]);
     expect(
       within(table)
         .getAllByText("Owner")
