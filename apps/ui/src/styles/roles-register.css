@@ -1,5 +1,17 @@
 /* Roles register view polish kept out of the legacy roles megafile. */
 
+.trust-roles {
+  --role-director: var(--state-review);
+  --role-director-bg: var(--state-review-bg);
+  --role-director-border: color-mix(in srgb, var(--state-review) 24%, transparent);
+  --role-operator: var(--state-progress);
+  --role-operator-bg: var(--state-progress-bg);
+  --role-operator-border: color-mix(in srgb, var(--state-progress) 24%, transparent);
+  --role-advisor: var(--state-verified);
+  --role-advisor-bg: var(--state-verified-bg);
+  --role-advisor-border: color-mix(in srgb, var(--state-verified) 24%, transparent);
+}
+
 .role-node--card.is-clickable::after {
   content: "";
   position: absolute;
@@ -59,9 +71,28 @@
   overflow: visible;
 }
 
-.role-node-pill--owner {
-  background: var(--color-accent-bg);
-  color: var(--color-text-primary);
+.roles-list-type--director,
+.roles-list-type--owner,
+.role-node-pill--director,
+.role-node-pill--owner,
+.role-node-pill--founder {
+  background: var(--role-director-bg);
+  color: var(--role-director);
+  box-shadow: inset 0 0 0 1px var(--role-director-border);
+}
+
+.roles-list-type--operational,
+.role-node-pill--operational {
+  background: var(--role-operator-bg);
+  color: var(--role-operator);
+  box-shadow: inset 0 0 0 1px var(--role-operator-border);
+}
+
+.roles-list-type--advisor,
+.role-node-pill--advisor {
+  background: var(--role-advisor-bg);
+  color: var(--role-advisor);
+  box-shadow: inset 0 0 0 1px var(--role-advisor-border);
 }
 
 @media (max-width: 720px) {
