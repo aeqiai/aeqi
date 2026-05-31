@@ -11206,9 +11206,8 @@ button.ideas-ref-add.ideas-content-pill:focus-visible {
   flex-direction: column;
   width: 100%;
   gap: 24px;
-  padding: 24px 0 80px;
+  padding: 0 0 80px;
 }
-.home-hero,
 .home-row-two,
 .home-row-trusts,
 .home-row-promos,
@@ -11226,6 +11225,8 @@ button.ideas-ref-add.ideas-content-pill:focus-visible {
    cards below own actions and current TRUST context. */
 .home-hero {
   position: relative;
+  width: 100%;
+  box-sizing: border-box;
 }
 /* Ethereal fade — the image dissolves into the page paper across the
    top-left quadrant. Uses CSS mask so the gradient is INSIDE the image
@@ -11243,7 +11244,7 @@ button.ideas-ref-add.ideas-content-pill:focus-visible {
   height: 280px;
   object-fit: cover;
   object-position: center 45%;
-  border-radius: var(--radius-lg, 12px);
+  border-radius: var(--radius-lg, 12px) var(--radius-lg, 12px) 0 0;
   filter: saturate(0.72) contrast(1.03);
   mask-image: radial-gradient(circle farthest-corner at 100% 100%, black 50%, transparent 100%);
   -webkit-mask-image: radial-gradient(
@@ -11254,12 +11255,12 @@ button.ideas-ref-add.ideas-content-pill:focus-visible {
 }
 .home-hero-overlay {
   position: absolute;
-  inset: 0 24px 0 24px;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  padding: 34px 72px;
+  padding: 34px clamp(48px, 7vw, 96px);
   pointer-events: none;
 }
 .home-hero-identity {
@@ -13253,10 +13254,9 @@ button.role-context-card:disabled {
 /* Home trust-primitive refresh — compact graphite/ink operating surface. */
 .home-page {
   gap: var(--space-4);
-  padding: var(--space-4) 0 var(--space-8);
+  padding: 0 0 var(--space-8);
 }
 
-.home-hero,
 .home-row-two,
 .home-row-trusts,
 .home-row-promos,
@@ -13267,7 +13267,8 @@ button.role-context-card:disabled {
 .home-hero {
   position: relative;
   display: block;
-  padding: 0 24px;
+  max-width: none;
+  padding: 0;
   background: transparent;
   box-shadow: none;
 }
@@ -13569,10 +13570,9 @@ button.role-context-card:disabled {
 @media (max-width: 480px) {
   .home-page {
     gap: var(--space-3);
-    padding: var(--space-3) 0 var(--space-6);
+    padding: 0 0 var(--space-6);
   }
 
-  .home-hero,
   .home-row-two,
   .home-row-trusts,
   .home-row-promos,
@@ -13583,7 +13583,7 @@ button.role-context-card:disabled {
 
   .home-hero {
     gap: var(--space-3);
-    padding: var(--space-3);
+    padding: 0;
   }
 
   .home-hero-identity {

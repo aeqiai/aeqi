@@ -539,7 +539,7 @@ export default function AppLayout() {
         Skip to main content
       </a>
       <div className="shell">
-        <LeftSidebar trustId={isHome || isStart ? null : trustId} path={path} />
+        <LeftSidebar trustId={trustId} path={path} />
 
         <div className="content-column">
           <div className="content-card">
