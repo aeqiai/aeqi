@@ -58,7 +58,7 @@ describe("StartPage MVP surface", () => {
       "href",
       "/blueprints",
     );
-    expect(within(startRow).getByText("Public market surface")).toBeInTheDocument();
+    expect(within(startRow).getByText("Find what is live")).toBeInTheDocument();
     expect(
       within(startRow).getByRole("heading", { name: "Invite the first operators" }),
     ).toBeInTheDocument();

@@ -13267,10 +13267,29 @@ button.role-context-card:disabled {
 .home-hero {
   position: relative;
   display: block;
-  max-width: none;
-  padding: 0;
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 24px;
+  box-sizing: border-box;
   background: transparent;
   box-shadow: none;
+}
+
+.home-hero-image {
+  height: 260px;
+  border-radius: var(--radius-lg);
+  object-position: center 44%;
+  filter: saturate(0.78) contrast(1.04);
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+
+.home-hero-overlay {
+  inset: 0 auto 0 24px;
+  width: min(620px, calc(100% - 48px));
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-card-elevated) 72%, transparent);
 }
 
 .home-hero-identity {
@@ -13336,9 +13355,14 @@ button.role-context-card:disabled {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-4);
   align-items: stretch;
-  grid-auto-rows: minmax(248px, auto);
+  grid-auto-rows: minmax(224px, auto);
 }
 
+/* Home surface ladder:
+   - `.home-card` is the neutral page-card tier.
+   - `.home-card--elevated` is for primary/action cards.
+   - `.home-card--recessed` is for supporting grouped work/preview surfaces.
+   Nested previews inside recessed cards step back up to elevated. */
 .home-card {
   border-radius: var(--radius-lg);
   background: var(--color-card);
@@ -13357,7 +13381,7 @@ button.role-context-card:disabled {
 .home-card--recessed.home-card--trust-list,
 .home-card--recessed.home-card--inbox,
 .home-card--recessed.home-card--learn {
-  background: var(--color-card);
+  background: var(--bg-row);
 }
 
 .home-row-trusts {
@@ -13431,8 +13455,13 @@ button.role-context-card:disabled {
 .home-trust-list-cta,
 .home-inbox-cta,
 .home-primary-action--secondary {
-  background: var(--color-card-elevated);
+  background: var(--bg-row);
   box-shadow: inset 0 0 0 1px var(--color-border-faint);
+}
+
+.home-card--referral .home-primary-action--secondary,
+.home-economy-cta.home-primary-action--secondary {
+  background: var(--color-card-elevated);
 }
 
 .home-trust-row:hover,
@@ -13459,7 +13488,7 @@ button.role-context-card:disabled {
 
 .home-card--referral {
   min-height: 220px;
-  background: var(--color-card-elevated);
+  background: var(--bg-row);
 }
 
 .home-launch-title {
@@ -13470,17 +13499,17 @@ button.role-context-card:disabled {
 }
 
 .home-card--economy {
-  background: var(--color-text-primary);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-card-elevated) 10%, transparent);
+  background: var(--bg-row);
+  box-shadow: inset 0 0 0 1px var(--color-border-faint);
 }
 
 .home-economy-media {
-  min-height: 112px;
+  min-height: 92px;
   background: var(--color-text-primary);
 }
 
 .home-economy-image {
-  height: 112px;
+  height: 92px;
   filter: grayscale(0.2) saturate(0.72) contrast(1.08);
   opacity: 0.74;
 }
@@ -13493,13 +13522,20 @@ button.role-context-card:disabled {
 }
 
 .home-economy-content {
-  background: var(--color-text-primary);
+  background: transparent;
+  color: var(--color-text-primary);
 }
 
 .home-economy-lede {
   font-family: var(--font-sans);
   font-size: var(--font-size-lg);
   font-weight: 650;
+  color: var(--color-text-primary);
+}
+
+.home-economy-aside {
+  color: var(--color-text-secondary);
+  opacity: 1;
 }
 
 .home-row-two,
@@ -13515,7 +13551,7 @@ button.role-context-card:disabled {
 .home-row-promos .home-card--launch,
 .home-row-promos .home-card--economy,
 .home-row-promos .home-card--referral {
-  min-height: 248px;
+  min-height: 224px;
   height: 100%;
 }
 
@@ -13531,18 +13567,16 @@ button.role-context-card:disabled {
 }
 
 .home-row-promos .home-launch-actions {
-  align-items: end;
-  margin-top: var(--space-3);
-}
-
-.home-row-promos .home-card--referral .home-launch-actions {
   grid-template-columns: 1fr;
+  align-items: end;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
 }
 
 .home-row-promos .home-economy-media,
 .home-row-promos .home-economy-image {
-  min-height: 104px;
-  height: 104px;
+  min-height: 92px;
+  height: 92px;
 }
 
 .home-row-promos .home-economy-content {
@@ -13615,6 +13649,7 @@ button.role-context-card:disabled {
   }
 
   .home-hero-overlay {
+    inset: 0;
     background: color-mix(in srgb, var(--color-card) 68%, transparent);
   }
 

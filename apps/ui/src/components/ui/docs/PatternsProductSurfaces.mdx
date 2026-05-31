@@ -67,6 +67,36 @@ Use the color tiers by job, not by taste:
 Accent should stay scarce. If a screenshot reads as mostly graphite,
 purple, blue, beige, or status color, the page has drifted.
 
+## Page Review Loop
+
+When reviewing or changing a page, use the same loop every time:
+
+1. Name the page job and primary object from the Page-Specific Jobs table.
+2. Mark every visible block with one surface job: page surface, elevated action,
+   recessed work surface, nested preview, or overlay/media.
+3. Ensure adjacent blocks do not share the same surface tier unless they are one
+   continuous group.
+4. Make the primary action filled, secondary actions bordered or recessed, and
+   nested-card actions raised enough to separate from their parent.
+5. Check desktop and mobile screenshots before shipping. Fail the pass if text
+   overlaps, cards in a row have mismatched heights, or a button disappears into
+   its parent surface.
+
+### Surface Decision Tree
+
+Ask the surface what job it has:
+
+| Question                                      | Use                                     |
+| --------------------------------------------- | --------------------------------------- |
+| Is this the main readable page/card body?     | `--color-card`                          |
+| Is this a clickable card or primary action?   | `--color-card-elevated` or primary CTA  |
+| Is this grouping, toolbar chrome, or a lane?  | `--bg-row` / `--bg-surface`             |
+| Is this content nested inside a recessed box? | Step back up to `--color-card-elevated` |
+| Is this only media mood or object imagery?    | Image/canvas with text contrast layer   |
+
+This rule prevents white-on-white buttons, nested cards that vanish into their
+parents, and one-off color decisions across pages.
+
 ## Toolbar Contract
 
 Use **Patterns -> Toolbar** for implementation details. The short rule:

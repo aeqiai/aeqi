@@ -111,9 +111,9 @@ function EconomyCard() {
       </div>
       <div className="home-economy-content">
         <div className="home-economy-body">
-          <p className="home-economy-lede">Public market surface</p>
+          <p className="home-economy-lede">Find what is live</p>
           <p className="home-economy-aside">
-            Discover TRUST listings, open roles, blueprints, and launch-ready funding surfaces.
+            Browse public TRUSTs, open roles, and launch signals from the network.
           </p>
         </div>
         <Link
