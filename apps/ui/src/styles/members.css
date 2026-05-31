@@ -2,6 +2,15 @@
    The table is the directory; the top rail already carries the page count. */
 
 .company-members {
+  --role-director: var(--state-review);
+  --role-director-bg: var(--state-review-bg);
+  --role-director-border: color-mix(in srgb, var(--state-review) 24%, transparent);
+  --role-operator: var(--state-progress);
+  --role-operator-bg: var(--state-progress-bg);
+  --role-operator-border: color-mix(in srgb, var(--state-progress) 24%, transparent);
+  --role-advisor: var(--state-verified);
+  --role-advisor-bg: var(--state-verified-bg);
+  --role-advisor-border: color-mix(in srgb, var(--state-verified) 24%, transparent);
   --toolbar-control-h: 32px;
   --table-separator: color-mix(
     in srgb,
@@ -132,23 +141,6 @@
   background: var(--bg-row);
 }
 
-.company-members-status {
-  height: 24px;
-  min-height: 24px;
-  padding: 0 9px;
-  gap: 7px;
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1;
-  letter-spacing: 0;
-  text-transform: none;
-}
-
-.company-members-status > span:first-child {
-  width: 7px;
-  height: 7px;
-}
-
 .company-members-role-count-cell {
   display: inline-flex;
   align-items: center;
@@ -161,28 +153,12 @@
   line-height: 1.25;
 }
 
-.company-members-role-count {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  min-width: 72px;
-  height: 24px;
-  padding: 0 9px;
-  border-radius: var(--radius-full);
-  background: var(--bg-row);
-  color: var(--color-text-primary);
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 560;
-  line-height: 1;
-}
-
-.company-members-role-count.muted {
+.company-members-role-empty {
   min-width: 28px;
   background: transparent;
   color: var(--color-text-muted);
   font-weight: 500;
+  box-shadow: none;
 }
 
 .company-members-nav-action {

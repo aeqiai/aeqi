@@ -22,6 +22,9 @@ export type { CardTriggerProps } from "./CardTrigger";
 export { Badge, StatusBadge } from "./Badge";
 export type { BadgeProps, BadgeVariant, StatusBadgeProps } from "./Badge";
 
+export { StatusPill } from "./StatusPill";
+export type { StatusPillProps, StatusPillTone } from "./StatusPill";
+
 export { Modal } from "./Modal";
 export type { ModalProps } from "./Modal";
 

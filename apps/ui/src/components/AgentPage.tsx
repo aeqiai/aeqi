@@ -2,7 +2,7 @@ import { MessageSquare, Settings } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import AgentAvatar from "./AgentAvatar";
 import SurfaceHeader from "./SurfaceHeader";
-import { Button, Icon } from "@/components/ui";
+import { Button, Icon, StatusPill, type StatusPillTone } from "@/components/ui";
 import { useNav } from "@/hooks/useNav";
 import { entityPathFromId } from "@/lib/entityPath";
 import { timeAgo } from "@/lib/format";
@@ -38,6 +38,8 @@ export default function AgentPage({
 
   const liveness =
     agent?.status === "active" ? "online" : agent?.status === "stopped" ? "offline" : "idle";
+  const livenessTone: StatusPillTone =
+    liveness === "online" ? "success" : liveness === "offline" ? "muted" : "review";
   const lastActive = agent?.last_active ? timeAgo(agent.last_active) : null;
   const spend = formatSpendUsd(agent?.lifetime_cost_usd ?? 0);
   const sessionCount = agent?.session_count ?? 0;
@@ -70,10 +72,9 @@ export default function AgentPage({
                 {agent?.model || "No model selected"}
               </div>
             </div>
-            <span className={`agent-liveness agent-liveness--${liveness}`}>
-              <span className={`agent-liveness-dot agent-liveness-dot--${liveness}`} aria-hidden />
+            <StatusPill tone={livenessTone}>
               {liveness === "online" ? "Online" : liveness === "offline" ? "Offline" : "Idle"}
-            </span>
+            </StatusPill>
           </div>
 
           <dl className="agent-detail-facts">

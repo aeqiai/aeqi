@@ -10,13 +10,13 @@ import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
 import UserAvatar from "./UserAvatar";
 import {
-  Badge,
   Button,
   EmptyState,
   IconButton,
   Loading,
   PrimitivePageHeader,
   PrimitiveSearchField,
+  StatusPill,
   Table,
   ToolbarRadioPopover,
   type TableColumn,
@@ -39,13 +39,7 @@ import {
   type MemberStatusFilter,
 } from "./members/memberRows";
 import "@/styles/members.css";
-
-const STATUS_VARIANT: Record<MemberStatus, "success" | "warning" | "neutral" | "muted"> = {
-  active: "success",
-  invited: "warning",
-  accepted: "neutral",
-  no_role: "muted",
-};
+import "@/styles/roles-register.css";
 
 export default function CompanyMembersTab({ companyId }: { companyId: string }) {
   const navigate = useNavigate();
@@ -190,14 +184,7 @@ export default function CompanyMembersTab({ companyId }: { companyId: string }) 
         sortable: true,
         sortAccessor: (row) => STATUS_LABEL[row.status],
         cell: (row) => (
-          <Badge
-            variant={STATUS_VARIANT[row.status]}
-            size="sm"
-            dot
-            className="company-members-status"
-          >
-            {STATUS_LABEL[row.status]}
-          </Badge>
+          <StatusPill tone={memberStatusTone(row.status)}>{STATUS_LABEL[row.status]}</StatusPill>
         ),
       },
       {
@@ -358,14 +345,9 @@ export default function CompanyMembersTab({ companyId }: { companyId: string }) 
                   <article className="company-members-card" key={row.id}>
                     <div className="company-members-card-main">
                       <MemberIdentity row={row} />
-                      <Badge
-                        variant={STATUS_VARIANT[row.status]}
-                        size="sm"
-                        dot
-                        className="company-members-status"
-                      >
+                      <StatusPill tone={memberStatusTone(row.status)}>
                         {STATUS_LABEL[row.status]}
-                      </Badge>
+                      </StatusPill>
                     </div>
                     <dl className="company-members-card-meta">
                       <div>
@@ -418,14 +400,13 @@ function MemberRoleCell({ row, onOpen }: { row: MemberRow; onOpen: (row: MemberR
   const count = row.roleIds.length;
   const role = authorityRoleLabel(row.authorityRole);
   const label = count === 1 ? `Open ${row.roles[0] ?? "role"}` : `Open role for ${row.name}`;
+  const pillClass = row.authorityRole
+    ? `roles-list-type roles-list-type--${roleToneClass(row.authorityRole)}`
+    : "roles-list-type company-members-role-empty";
 
   return (
     <span className="company-members-role-count-cell" title={roleList(row.roles)}>
-      <span
-        className={count > 0 ? "company-members-role-count" : "company-members-role-count muted"}
-      >
-        {role}
-      </span>
+      <span className={pillClass}>{role}</span>
       {count > 0 && (
         <IconButton
           aria-label={label}
@@ -443,6 +424,18 @@ function MemberRoleCell({ row, onOpen }: { row: MemberRow; onOpen: (row: MemberR
       )}
     </span>
   );
+}
+
+function memberStatusTone(status: MemberStatus): "success" | "review" | "muted" {
+  if (status === "active" || status === "accepted") return "success";
+  if (status === "invited") return "review";
+  return "muted";
+}
+
+function roleToneClass(role: MemberRow["authorityRole"]): "director" | "operational" | "advisor" {
+  if (role === "director") return "director";
+  if (role === "advisor") return "advisor";
+  return "operational";
 }
 
 function LastActiveCell({ value }: { value: string | null }) {

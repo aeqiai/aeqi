@@ -126,7 +126,7 @@ describe("CompanyAgentsTab", () => {
 
     expect(register.closest(".company-agents-register")).not.toBeNull();
     expect(register).toContainElement(table);
-    expect(online.closest(".agent-liveness")).toHaveClass("agent-liveness--online");
+    expect(online.parentElement?.querySelector('[aria-hidden="true"]')).not.toBeNull();
     expect(suggestions.closest(".company-agents-suggest")).not.toBeNull();
     expect(screen.queryByLabelText("Selected agent")).toBeNull();
     expect(screen.queryByRole("region", { name: "Agent snapshot" })).not.toBeInTheDocument();

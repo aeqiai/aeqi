@@ -1,0 +1,75 @@
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 24px;
+  max-width: 100%;
+  padding: 0 9px;
+  border-radius: var(--radius-full);
+  background: var(--bg-row);
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.sm {
+  height: 24px;
+  padding: 0 9px;
+  font-size: 12px;
+}
+
+.md {
+  height: 28px;
+  padding: 0 10px;
+  font-size: var(--font-size-xs);
+}
+
+.dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-full);
+  flex: 0 0 auto;
+  background: var(--color-text-muted);
+}
+
+.label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.success .dot {
+  background: var(--state-verified);
+}
+
+.progress .dot {
+  background: var(--state-progress);
+}
+
+.review .dot {
+  background: var(--state-review);
+}
+
+.warning .dot {
+  background: var(--color-warning);
+}
+
+.error .dot {
+  background: var(--color-error);
+}
+
+.info .dot {
+  background: var(--color-info);
+}
+
+.muted .dot,
+.neutral .dot {
+  background: var(--color-text-muted);
+  opacity: 0.7;
+}

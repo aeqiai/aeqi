@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { SearchX } from "lucide-react";
 import type { Agent } from "@/lib/types";
-import { Table, type TableColumn } from "../ui";
+import { StatusPill, Table, type StatusPillTone, type TableColumn } from "../ui";
 import AgentAvatar from "../AgentAvatar";
 import { relativeTime } from "../ideas/types";
 import { formatSpendUsd } from "@/lib/spend";
@@ -18,6 +18,11 @@ const LIVENESS_LABEL: Record<Liveness, string> = {
   online: "Online",
   idle: "Idle",
   offline: "Offline",
+};
+const LIVENESS_TONE: Record<Liveness, StatusPillTone> = {
+  online: "success",
+  idle: "review",
+  offline: "muted",
 };
 const AGENTS_PAGE_SIZE = 25;
 function livenessOf(raw: string | undefined): Liveness {
@@ -134,12 +139,7 @@ export default function AgentsList({
         sortAccessor: (a) => a.status ?? "unknown",
         cell: (a) => {
           const liveness = livenessOf(a.status);
-          return (
-            <span className={`agent-liveness agent-liveness--${liveness}`}>
-              <span className={`agent-liveness-dot agent-liveness-dot--${liveness}`} aria-hidden />
-              {LIVENESS_LABEL[liveness]}
-            </span>
-          );
+          return <StatusPill tone={LIVENESS_TONE[liveness]}>{LIVENESS_LABEL[liveness]}</StatusPill>;
         },
       },
       {

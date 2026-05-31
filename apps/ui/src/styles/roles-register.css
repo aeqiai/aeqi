@@ -12,6 +12,20 @@
   --role-advisor-border: color-mix(in srgb, var(--state-verified) 24%, transparent);
 }
 
+.roles-list-type {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: var(--bg-row);
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+}
+
 .role-node--card.is-clickable::after {
   content: "";
   position: absolute;
