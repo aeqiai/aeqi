@@ -1,4 +1,6 @@
 import { forwardRef, useMemo, useState, type ReactNode, type KeyboardEvent } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "./Button";
 import styles from "./Table.module.css";
 
 export type TableSortDir = "asc" | "desc";
@@ -74,6 +76,16 @@ export interface TableProps<T> {
   sort?: TableSort | null;
   /** Fires on header click. Receives `null` when sort is cleared. */
   onSortChange?: (next: TableSort | null) => void;
+  /** Optional client-side pagination footer for register tables. */
+  pagination?: TablePagination;
+}
+
+export interface TablePagination {
+  page: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+  total?: number;
+  itemLabel?: string;
 }
 
 /**
@@ -129,6 +141,7 @@ function TableInner<T>(
     defaultSort = null,
     sort: sortProp,
     onSortChange,
+    pagination,
   }: TableProps<T>,
   ref: React.Ref<HTMLTableElement>,
 ) {
@@ -184,6 +197,19 @@ function TableInner<T>(
       return 0;
     });
   }, [data, sort, columns]);
+
+  const paginationTotal = pagination?.total ?? sortedData.length;
+  const pageSize = pagination ? Math.max(1, pagination.pageSize) : 0;
+  const pageCount = pagination ? Math.max(1, Math.ceil(paginationTotal / pageSize)) : 1;
+  const page = pagination ? clamp(pagination.page, 1, pageCount) : 1;
+  const pageStartIndex = pagination ? (page - 1) * pageSize : 0;
+  const visibleData = pagination
+    ? sortedData.slice(pageStartIndex, pageStartIndex + pageSize)
+    : sortedData;
+  const pageStart = paginationTotal === 0 ? 0 : pageStartIndex + 1;
+  const pageEnd =
+    paginationTotal === 0 ? 0 : Math.min(pageStartIndex + visibleData.length, paginationTotal);
+  const itemLabel = pagination?.itemLabel ?? "rows";
 
   const cls = [styles.table, styles[density], className].filter(Boolean).join(" ");
 
@@ -258,18 +284,19 @@ function TableInner<T>(
                   ))}
                 </tr>
               ))
-            : sortedData.map((row, i) => {
+            : visibleData.map((row, i) => {
                 const clickable = !!onRowClick;
-                const handleClick = clickable ? () => onRowClick!(row, i) : undefined;
+                const rowIndex = pagination ? pageStartIndex + i : i;
+                const handleClick = clickable ? () => onRowClick!(row, rowIndex) : undefined;
                 const handleKeyDown = clickable
                   ? (e: KeyboardEvent<HTMLTableRowElement>) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
-                        onRowClick!(row, i);
+                        onRowClick!(row, rowIndex);
                       }
                     }
                   : undefined;
-                const key = rowKey(row, i);
+                const key = rowKey(row, rowIndex);
                 return (
                   <tr
                     key={key}
@@ -282,13 +309,54 @@ function TableInner<T>(
                   >
                     {columns.map((col) => (
                       <td key={col.key} data-align={col.align ?? "start"} className={col.className}>
-                        {col.cell(row, i)}
+                        {col.cell(row, rowIndex)}
                       </td>
                     ))}
                   </tr>
                 );
               })}
         </tbody>
+        {pagination && (
+          <tfoot>
+            <tr>
+              <td colSpan={columns.length} className={styles.footerCell}>
+                <div className={styles.footer}>
+                  <span className={styles.footerMeta}>
+                    Showing {pageStart}-{pageEnd} of {paginationTotal} {itemLabel}
+                  </span>
+                  <span className={styles.footerControls}>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className={styles.footerButton}
+                      leadingIcon={<ChevronLeft size={13} strokeWidth={1.8} />}
+                      disabled={page <= 1}
+                      onClick={() => pagination.onPageChange(page - 1)}
+                    >
+                      Previous
+                    </Button>
+                    <span className={styles.footerPage}>
+                      Page {page} of {pageCount}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className={styles.footerButton}
+                      trailingIcon={<ChevronRight size={13} strokeWidth={1.8} />}
+                      trailingIconMode="inline"
+                      disabled={page >= pageCount}
+                      onClick={() => pagination.onPageChange(page + 1)}
+                    >
+                      Next
+                    </Button>
+                  </span>
+                </div>
+              </td>
+            </tr>
+          </tfoot>
+        )}
       </table>
     </div>
   );
@@ -299,3 +367,7 @@ export const Table = forwardRef(TableInner) as <T>(
 ) => ReturnType<typeof TableInner>;
 
 const SKELETON_SIZES = ["sm", "md", "lg", "xl"] as const;
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}

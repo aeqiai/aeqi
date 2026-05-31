@@ -112,6 +112,8 @@ describe("TrustAgentsTab", () => {
     expect(screen.queryByLabelText("Selected agent")).toBeNull();
     expect(screen.queryByRole("region", { name: "Agent snapshot" })).not.toBeInTheDocument();
     expect(screen.queryByText("Agents register")).not.toBeInTheDocument();
+    expect(screen.getByText("Showing 1-1 of 1 agents")).toBeInTheDocument();
+    expect(screen.getByText("Page 1 of 1")).toBeInTheDocument();
     expect(await screen.findByText("Steward")).toBeInTheDocument();
     expect(screen.getByText("Operating Steward · 1 event · 1 idea · 1 quest")).toBeInTheDocument();
     expect(

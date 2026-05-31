@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { SearchX } from "lucide-react";
 import type { Agent } from "@/lib/types";
 import { Table, type TableColumn } from "../ui";
@@ -19,6 +19,7 @@ const LIVENESS_LABEL: Record<Liveness, string> = {
   idle: "Idle",
   offline: "Offline",
 };
+const AGENTS_PAGE_SIZE = 25;
 function livenessOf(raw: string | undefined): Liveness {
   if (raw === "active") return "online";
   if (raw === "stopped") return "offline";
@@ -52,6 +53,7 @@ export default function AgentsList({
   agents: Agent[];
   onSelect: (id: string) => void;
 }) {
+  const [page, setPage] = useState(1);
   const columns = useMemo<Array<TableColumn<Agent>>>(
     () => [
       {
@@ -145,6 +147,11 @@ export default function AgentsList({
     [],
   );
 
+  useEffect(() => {
+    const pageCount = Math.max(1, Math.ceil(agents.length / AGENTS_PAGE_SIZE));
+    setPage((current) => Math.min(current, pageCount));
+  }, [agents.length]);
+
   // Filter-narrowed empty state — entity has agents but the active
   // filters drop the visible set to zero. Centered icon + title + hint
   // on the elevated card register, mirroring `QuestColumnEmptyState`
@@ -176,6 +183,13 @@ export default function AgentsList({
         density="compact"
         scrollWidth="sm"
         ariaLabel="Agents"
+        pagination={{
+          page,
+          pageSize: AGENTS_PAGE_SIZE,
+          total: agents.length,
+          itemLabel: "agents",
+          onPageChange: setPage,
+        }}
       />
     </div>
   );
