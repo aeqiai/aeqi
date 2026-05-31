@@ -1,3 +1,9 @@
+.pinButton[aria-pressed="true"] {
+  background: var(--bg-row);
+  border-color: var(--border-hover);
+  color: var(--color-text-primary);
+}
+
 .form {
   display: flex;
   flex-direction: column;
