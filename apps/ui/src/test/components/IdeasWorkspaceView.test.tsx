@@ -180,9 +180,8 @@ describe("IdeasWorkspaceView", () => {
     expect(contentBody).toBeTruthy();
     expect(contentSurface?.contains(pageHeader ?? null)).toBe(false);
     expect(within(contentHeader as HTMLElement).getByText("Explorer")).toBeInTheDocument();
-    expect(within(contentHeader as HTMLElement).getByText("Idea")).toBeInTheDocument();
-    expect(within(contentHeader as HTMLElement).getByText("Details")).toBeInTheDocument();
     expect(within(contentHeader as HTMLElement).getByText("Eich Holding")).toBeInTheDocument();
+    expect(within(contentHeader as HTMLElement).getByText("Details")).toBeInTheDocument();
     expect(contentSurface?.contains(contentHeader ?? null)).toBe(true);
     expect(contentSurface?.contains(contentBody ?? null)).toBe(true);
     expect(within(main).queryByText("Details")).not.toBeInTheDocument();

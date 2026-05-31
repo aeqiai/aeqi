@@ -16,7 +16,7 @@
  * disabled with a "Coming soon" tooltip rather than removed.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Check } from "lucide-react";
 import { Button, Loading, Tooltip } from "@/components/ui";
 import { getIdeaComments, subscribeToIdea, type CommentRow } from "@/api/sessions";
@@ -31,6 +31,7 @@ interface IdeaConversationPanelProps {
   showActivity?: boolean;
   variant?: "stacked" | "tabs" | "combined";
   activityRefreshKey?: unknown;
+  actions?: ReactNode;
 }
 
 // ─── SubscribeBar ─────────────────────────────────────────────────────────────
@@ -85,6 +86,7 @@ export default function IdeaConversationPanel({
   showActivity = true,
   variant = "stacked",
   activityRefreshKey,
+  actions,
 }: IdeaConversationPanelProps) {
   const user = useAuthStore((s) => s.user);
   const { companyId } = useNav();
@@ -229,12 +231,15 @@ export default function IdeaConversationPanel({
               <span>Activity</span>
               <span className="idea-convo-section-count">{activityCount}</span>
             </div>
-            <SubscribeBar
-              subscribed={subscribed}
-              onSubscribe={handleSubscribe}
-              disabled={!user?.id}
-              busy={subscribeBusy}
-            />
+            <div className="idea-convo-actions">
+              {actions}
+              <SubscribeBar
+                subscribed={subscribed}
+                onSubscribe={handleSubscribe}
+                disabled={!user?.id}
+                busy={subscribeBusy}
+              />
+            </div>
           </div>
           {activityPanel}
           {commentsPanel}
@@ -264,12 +269,15 @@ export default function IdeaConversationPanel({
                 <span className="idea-convo-section-count">{activityCount}</span>
               </button>
             </div>
-            <SubscribeBar
-              subscribed={subscribed}
-              onSubscribe={handleSubscribe}
-              disabled={!user?.id}
-              busy={subscribeBusy}
-            />
+            <div className="idea-convo-actions">
+              {actions}
+              <SubscribeBar
+                subscribed={subscribed}
+                onSubscribe={handleSubscribe}
+                disabled={!user?.id}
+                busy={subscribeBusy}
+              />
+            </div>
           </div>
           <div hidden={activeTab !== "comments"}>{commentsPanel}</div>
           <div hidden={activeTab !== "activity"}>{activityPanel}</div>
@@ -281,12 +289,15 @@ export default function IdeaConversationPanel({
               <span>Comments</span>
               <span className="idea-convo-section-count">{commentCount}</span>
             </div>
-            <SubscribeBar
-              subscribed={subscribed}
-              onSubscribe={handleSubscribe}
-              disabled={!user?.id}
-              busy={subscribeBusy}
-            />
+            <div className="idea-convo-actions">
+              {actions}
+              <SubscribeBar
+                subscribed={subscribed}
+                onSubscribe={handleSubscribe}
+                disabled={!user?.id}
+                busy={subscribeBusy}
+              />
+            </div>
           </div>
           {commentsPanel}
         </section>

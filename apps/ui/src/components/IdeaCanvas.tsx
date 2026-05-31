@@ -792,6 +792,19 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
                 : "stacked"
             }
             activityRefreshKey={conversationActivityRefreshKey}
+            actions={
+              <ImportMenu
+                companyId={companyId}
+                parts={["ideas"]}
+                blueprintTitle="Import child ideas from a template"
+                accept="*/*"
+                fileLabel="Upload files"
+                triggerLabel="Upload"
+                includeBlueprint={false}
+                onMarkdownPicked={(files) => void handleFileImport(files)}
+                onBlueprintSpawned={() => void invalidateIdeas()}
+              />
+            }
           />
         )}
       </div>

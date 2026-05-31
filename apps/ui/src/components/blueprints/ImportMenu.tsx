@@ -20,6 +20,10 @@ interface ImportMenuProps {
   accept?: string;
   /** Label for the local file picker row. */
   fileLabel?: string;
+  /** Label for the toolbar trigger. */
+  triggerLabel?: string;
+  /** Whether to show the blueprint import path. */
+  includeBlueprint?: boolean;
   /** Called once the user has picked one or more markdown files. The
    *  caller is responsible for parsing + uploading; the menu only
    *  hands the files over and dismisses. */
@@ -45,6 +49,8 @@ export function ImportMenu({
   blueprintTitle,
   accept = ".md,.markdown",
   fileLabel = "From markdown",
+  triggerLabel = "Import",
+  includeBlueprint = true,
   onMarkdownPicked,
   onBlueprintSpawned,
   size = "sm",
@@ -58,7 +64,7 @@ export function ImportMenu({
         placement="bottom-end"
         trigger={
           <Button variant="secondary" size={size}>
-            <span>Import</span>
+            <span>{triggerLabel}</span>
             <svg
               width="9"
               height="9"
@@ -81,12 +87,16 @@ export function ImportMenu({
             label: fileLabel,
             onSelect: () => fileInputRef.current?.click(),
           },
-          {
-            key: "blueprint",
-            label: "Template imports after primitive bundle audit",
-            disabled: true,
-            onSelect: () => setPickerOpen(true),
-          },
+          ...(includeBlueprint
+            ? [
+                {
+                  key: "blueprint",
+                  label: "Template imports after primitive bundle audit",
+                  disabled: true,
+                  onSelect: () => setPickerOpen(true),
+                },
+              ]
+            : []),
         ]}
       />
       <input

@@ -5336,6 +5336,10 @@
   white-space: nowrap;
 }
 
+.ideas-workspace-card-head-title--document {
+  font-size: 14px;
+}
+
 .ideas-workspace-card-head-subtitle {
   min-width: 0;
   overflow: hidden;
@@ -10382,6 +10386,14 @@ button.ideas-ref-add.ideas-content-pill:focus-visible {
   justify-content: space-between;
   gap: 12px;
   min-height: 32px;
+}
+
+.idea-convo-actions {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 /* Comments is the primary interaction surface — full type weight, neutral

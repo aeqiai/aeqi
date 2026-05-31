@@ -399,8 +399,10 @@ export default function IdeasWorkspaceView({
           </div>
 
           <div className="ideas-workspace-card-head-zone ideas-workspace-card-head-zone--document">
-            <span className="ideas-workspace-card-head-title">Idea</span>
-            <span className="ideas-workspace-card-head-subtitle" title={activeDocumentLabel}>
+            <span
+              className="ideas-workspace-card-head-title ideas-workspace-card-head-title--document"
+              title={activeDocumentLabel}
+            >
               {activeDocumentLabel}
             </span>
           </div>
