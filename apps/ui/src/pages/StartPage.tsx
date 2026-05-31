@@ -40,7 +40,7 @@ export default function StartPage() {
 
 function LaunchTrustCard() {
   return (
-    <article className="home-card home-card--launch">
+    <article className="home-card home-card--launch home-card--elevated">
       <span className="home-launch-kicker">
         <Rocket size={15} strokeWidth={1.7} aria-hidden="true" />
         Launch
@@ -68,7 +68,7 @@ function LaunchTrustCard() {
 
 function ReferralCard() {
   return (
-    <article className="home-card home-card--referral">
+    <article className="home-card home-card--referral home-card--elevated">
       <span className="home-launch-kicker">
         <Share2 size={15} strokeWidth={1.7} aria-hidden="true" />
         Referrals
@@ -94,7 +94,7 @@ function ReferralCard() {
 
 function EconomyCard() {
   return (
-    <article className="home-card home-card--economy">
+    <article className="home-card home-card--economy home-card--recessed">
       <div className="home-economy-media">
         <header className="home-economy-head">
           <span className="home-economy-label">
