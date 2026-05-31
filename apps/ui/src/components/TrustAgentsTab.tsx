@@ -278,7 +278,7 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
         </div>
       </PrimitivePageHeader>
 
-      <div className="trust-agents-main trust-primitive-shell-surface">
+      <div className={`trust-agents-main trust-primitive-shell-surface trust-agents-main--${view}`}>
         {activeChips.length > 0 && (
           <div className="ideas-tags-strip">
             <div className="ideas-list-chips" role="list" aria-label="Active filters">
@@ -388,9 +388,15 @@ function SuggestedAgents({ onPick }: { onPick: () => void }) {
             Add specialized execution capacity to this TRUST.
           </p>
         </div>
-        <button type="button" className="trust-agents-suggest-all" onClick={onPick}>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="trust-agents-suggest-all"
+          onClick={onPick}
+        >
           View blueprints
-        </button>
+        </Button>
       </header>
       <div className="trust-agents-suggest-grid">
         {SUGGESTED_AGENTS.map((s) => (
