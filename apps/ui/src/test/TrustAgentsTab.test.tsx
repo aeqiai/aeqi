@@ -75,6 +75,10 @@ describe("TrustAgentsTab", () => {
               path="/trust/:trustAddress/agents"
               element={<TrustAgentsTab trustId="root-1" />}
             />
+            <Route
+              path="/templates/:blueprintId/:section"
+              element={<div>Agent template detail</div>}
+            />
           </Routes>
         </QueryClientProvider>
       </MemoryRouter>,
@@ -101,7 +105,7 @@ describe("TrustAgentsTab", () => {
     renderTab();
 
     const register = screen.getByRole("region", { name: "Agents register" });
-    const suggestions = screen.getByRole("region", { name: "Suggested agents" });
+    const suggestions = screen.getByRole("region", { name: "Agent templates" });
     const table = screen.getByRole("table", { name: "Agents" });
     const online = within(table).getByText("Online");
 
@@ -115,22 +119,18 @@ describe("TrustAgentsTab", () => {
     expect(screen.getByText("Showing 1-1 of 1 agents")).toBeInTheDocument();
     expect(screen.getByText("Page 1 of 1")).toBeInTheDocument();
     expect(await screen.findByText("Steward")).toBeInTheDocument();
-    expect(screen.getByText("Operating Steward · 1 event · 1 idea · 1 quest")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Open template picker for Steward" }),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Operating steward · 1 event · 1 idea · 1 quest")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "View Steward agent template" })).toBeInTheDocument();
     expect(screen.queryByText("Research Agent")).not.toBeInTheDocument();
     expect(register.compareDocumentPosition(suggestions)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
-  it("opens the template picker from an entire suggestion card", async () => {
+  it("opens the template detail from an entire suggestion card", async () => {
     renderTab();
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Open template picker for Steward" }),
-    );
+    fireEvent.click(await screen.findByRole("button", { name: "View Steward agent template" }));
 
-    expect(screen.getByRole("dialog", { name: "Add agents from a template" })).toBeInTheDocument();
+    expect(screen.getByText("Agent template detail")).toBeInTheDocument();
   });
 
   it("does not invent suggestions when no agent Templates exist", async () => {

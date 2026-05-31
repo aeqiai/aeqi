@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { ArrowRight, Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Agent, AgentTemplate, Role, RoleEdge } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
@@ -176,6 +176,9 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
   const openPicker = useCallback(() => setPickerOpen(true), []);
   const openAgentBlueprints = useCallback(() => {
     navigate(`/templates/agents?import_into=${encodeURIComponent(trustId)}`);
+  }, [navigate, trustId]);
+  const openAgentTemplateDetail = useCallback(() => {
+    navigate(`/templates/aeqi/agents?import_into=${encodeURIComponent(trustId)}`);
   }, [navigate, trustId]);
   useEffect(() => {
     window.addEventListener("aeqi:create", openPicker);
@@ -371,7 +374,7 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
           templates={agentTemplates}
           loading={templatesLoading}
           error={templatesError}
-          onPick={openPicker}
+          onOpenTemplate={openAgentTemplateDetail}
           onBrowse={openAgentBlueprints}
         />
       </div>
@@ -386,36 +389,38 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
 }
 
 /**
- * Suggested agents — real agent templates from the template catalog.
+ * Agent templates — real reusable agent bundles from the template catalog.
  * The section is secondary capacity, so it sits on a recessed band;
- * each template remains an elevated action card inside it.
+ * each template remains an elevated navigation card inside it.
  */
 function SuggestedAgents({
   templates,
   loading,
   error,
-  onPick,
+  onOpenTemplate,
   onBrowse,
 }: {
   templates: AgentTemplate[];
   loading: boolean;
   error: string | null;
-  onPick: () => void;
+  onOpenTemplate: () => void;
   onBrowse: () => void;
 }) {
   const visible = templates.slice(0, 3);
 
   return (
-    <section className="trust-agents-suggest" aria-label="Suggested agents">
+    <section className="trust-agents-suggest" aria-label="Agent templates">
       <header className="trust-agents-suggest-head">
         <div className="trust-agents-suggest-titles">
           <div className="trust-agents-suggest-title-row">
-            <h2 className="trust-agents-suggest-title">Suggested agents</h2>
+            <h2 className="trust-agents-suggest-title">Agent templates</h2>
             <span className="trust-agents-suggest-count" aria-hidden>
               {templates.length}
             </span>
           </div>
-          <p className="trust-agents-suggest-subtitle">Agent templates available for this TRUST.</p>
+          <p className="trust-agents-suggest-subtitle">
+            Reusable agents from the template catalog.
+          </p>
         </div>
         <Button
           type="button"
@@ -423,8 +428,9 @@ function SuggestedAgents({
           size="sm"
           className="trust-agents-suggest-all"
           onClick={onBrowse}
+          aria-label="Browse agent templates"
         >
-          View templates
+          Browse templates
         </Button>
       </header>
 
@@ -447,8 +453,8 @@ function SuggestedAgents({
               key={template.id}
               type="button"
               className="trust-agents-suggest-card"
-              onClick={onPick}
-              aria-label={`Open template picker for ${template.name}`}
+              onClick={onOpenTemplate}
+              aria-label={`View ${template.name} agent template`}
             >
               <h3 className="trust-agents-suggest-card-title">{template.name}</h3>
               <p className="trust-agents-suggest-card-desc">
@@ -456,8 +462,8 @@ function SuggestedAgents({
               </p>
               <p className="trust-agents-suggest-card-meta">{agentTemplateRuntimeLine(template)}</p>
               <span className="trust-agents-suggest-card-cta" aria-hidden>
-                <Plus size={12} strokeWidth={1.8} />
-                Use template
+                View template
+                <ArrowRight size={12} strokeWidth={1.8} />
               </span>
             </button>
           ))}
@@ -468,7 +474,7 @@ function SuggestedAgents({
 }
 
 function agentTemplateRuntimeLine(template: AgentTemplate): string {
-  const parts = [template.role || "Agent template"];
+  const parts = [sentenceCase(template.role || "Agent template")];
   const events = template.seed_events?.length ?? 0;
   const ideas = template.seed_ideas?.length ?? 0;
   const quests = template.seed_quests?.length ?? 0;
@@ -476,6 +482,19 @@ function agentTemplateRuntimeLine(template: AgentTemplate): string {
   if (ideas > 0) parts.push(`${ideas} ${ideas === 1 ? "idea" : "ideas"}`);
   if (quests > 0) parts.push(`${quests} ${quests === 1 ? "quest" : "quests"}`);
   return parts.join(" · ");
+}
+
+function sentenceCase(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return value;
+  const words = trimmed.split(/\s+/);
+  return words
+    .map((word, index) =>
+      index === 0 || word === word.toUpperCase()
+        ? word
+        : word.charAt(0).toLowerCase() + word.slice(1),
+    )
+    .join(" ");
 }
 
 // Map raw agent.status wire value into the three liveness buckets the
