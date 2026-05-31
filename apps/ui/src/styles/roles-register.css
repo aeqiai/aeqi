@@ -37,6 +37,10 @@
   border-bottom: 1px solid var(--table-separator);
 }
 
+.trust-roles-canvas--list .trust-roles-scroll--list {
+  padding: 0;
+}
+
 .trust-roles-main--cards .trust-roles-workspace,
 .trust-roles-main--list .trust-roles-workspace {
   flex: 0 0 auto;
