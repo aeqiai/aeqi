@@ -4,8 +4,8 @@ import { Link } from "react-router-dom";
 import { ProgressList, type ProgressStep } from "@/components/ui";
 import { api } from "@/lib/api";
 import { publicWebsiteUrl } from "@/lib/publicWebsite";
-import { trustEmailAddress } from "@/lib/trustEmail";
-import { LaunchShell } from "@/pages/trustSetup/LaunchShell";
+import { companyEmailAddress } from "@/lib/companyEmail";
+import { LaunchShell } from "@/pages/companySetup/LaunchShell";
 import { useDaemonStore } from "@/store/daemon";
 import { useUIStore } from "@/store/ui";
 
@@ -15,7 +15,7 @@ const SOLANA_CLUSTER =
   (import.meta.env.VITE_SOLANA_CLUSTER as string | undefined) ?? "localnet-solana";
 
 const STEPS = [
-  { key: "creating_trust", label: "Creating TRUST" },
+  { key: "creating_company", label: "Creating COMPANY" },
   { key: "signing_on_solana", label: "Registering on Solana" },
   { key: "loading_roles", label: "Activating roles" },
   { key: "spawning_agent", label: "Starting runtime" },
@@ -39,21 +39,21 @@ function truncate(addr: string): string {
 }
 
 /**
- * Watch-your-TRUST-form interstitial. Polls the launch-status endpoint
+ * Watch-your-COMPANY-form interstitial. Polls the launch-status endpoint
  * every 1s and lights each of four steps as the placement transitions
  * through the spawn flow.
  *
- * Owns the launch interstitial and exposes the launched TRUST plus the
+ * Owns the launch interstitial and exposes the launched COMPANY plus the
  * public website handoff once the placement becomes ready.
  */
 export function LaunchingReveal({
-  trustId,
+  companyId,
   fallbackDisplayName,
   websiteUrl,
   websiteDomain,
   emailAddress,
 }: {
-  trustId: string;
+  companyId: string;
   fallbackDisplayName?: string;
   websiteUrl?: string | null;
   websiteDomain?: string | null;
@@ -70,7 +70,7 @@ export function LaunchingReveal({
 
     const tick = async () => {
       try {
-        const data = await api.getLaunchStatus(trustId);
+        const data = await api.getLaunchStatus(companyId);
         if (cancelled) return;
         setStatus(data);
         setPollError(null);
@@ -89,30 +89,30 @@ export function LaunchingReveal({
       cancelled = true;
       if (timer !== undefined) window.clearTimeout(timer);
     };
-  }, [trustId]);
+  }, [companyId]);
 
   const milestones = status?.milestones;
-  const trustAddress = status?.trust_address ?? null;
-  const trustError = status?.trust_error ?? null;
+  const companyAddress = status?.company_address ?? null;
+  const trustError = status?.company_error ?? null;
   const runtimeError = status?.runtime_error ?? null;
-  const displayName = status?.display_name || fallbackDisplayName || "Your TRUST";
+  const displayName = status?.display_name || fallbackDisplayName || "Your COMPANY";
   const runtimeReady = ["ready", "complete"].includes(status?.placement_status ?? "");
-  const chainReady = Boolean(trustAddress);
+  const chainReady = Boolean(companyAddress);
   const isReady = runtimeReady && chainReady;
   const hasError = Boolean(trustError || runtimeError);
   const generatedWebsiteUrl =
-    trustAddress !== null
-      ? publicWebsiteUrl({ id: trustId, name: displayName, trust_address: trustAddress })
+    companyAddress !== null
+      ? publicWebsiteUrl({ id: companyId, name: displayName, company_address: companyAddress })
       : null;
-  const trustToolsPath = trustAddress ? `/trust/${encodeURIComponent(trustAddress)}` : null;
+  const trustToolsPath = companyAddress ? `/company/${encodeURIComponent(companyAddress)}` : null;
   const launchWebsiteUrl = websiteUrl ?? generatedWebsiteUrl;
   const launchWebsiteLabel =
     websiteDomain ?? launchWebsiteUrl?.replace(/^https?:\/\//, "").replace(/\/$/, "") ?? null;
   const launchEmailAddress =
     emailAddress ??
     status?.email_address ??
-    (trustAddress !== null
-      ? trustEmailAddress({ id: trustId, name: displayName, trust_address: trustAddress })
+    (companyAddress !== null
+      ? companyEmailAddress({ id: companyId, name: displayName, company_address: companyAddress })
       : null);
   const reachedSteps = STEPS.map((step) => {
     const milestone = milestones?.[step.key as MilestoneKey];
@@ -143,15 +143,15 @@ export function LaunchingReveal({
             ? "active"
             : "pending",
       detail:
-        step.key === "signing_on_solana" && reached && trustAddress ? (
+        step.key === "signing_on_solana" && reached && companyAddress ? (
           <a
             className="launching-reveal__explorer"
-            href={explorerUrl(trustAddress)}
+            href={explorerUrl(companyAddress)}
             target="_blank"
             rel="noreferrer"
-            aria-label={`View TRUST ${trustAddress} on the Solana explorer`}
+            aria-label={`View COMPANY ${companyAddress} on the Solana explorer`}
           >
-            {truncate(trustAddress)}
+            {truncate(companyAddress)}
           </a>
         ) : undefined,
     };
@@ -159,20 +159,20 @@ export function LaunchingReveal({
   const busy = !isReady && !hasError;
 
   useEffect(() => {
-    if (!isReady || hasError || !trustAddress) return;
+    if (!isReady || hasError || !companyAddress) return;
     void (async () => {
       try {
-        await api.updateEntity(trustId, { public: true });
+        await api.updateEntity(companyId, { public: true });
         await fetchEntities();
       } catch (e) {
         if (import.meta.env.MODE !== "test") {
           console.error("failed to publish website on launch", e);
         }
       } finally {
-        setActiveEntity(trustId);
+        setActiveEntity(companyId);
       }
     })();
-  }, [fetchEntities, hasError, isReady, setActiveEntity, trustAddress, trustId]);
+  }, [fetchEntities, hasError, isReady, setActiveEntity, companyAddress, companyId]);
 
   return (
     <LaunchShell
@@ -180,7 +180,7 @@ export function LaunchingReveal({
       ariaLive="polite"
       ariaBusy={busy}
       pitch={{
-        eyebrow: "TRUST LAUNCH",
+        eyebrow: "COMPANY LAUNCH",
         lines: ["Your", "workspace", "is forming."],
         lead: "Identity, roles, agents, quests, memory, tools, and evidence are coming online together.",
       }}
@@ -194,15 +194,15 @@ export function LaunchingReveal({
       </h1>
       <p className="auth-subheading">
         {isReady
-          ? "The TRUST exists and the public website shell is live."
+          ? "The COMPANY exists and the public website shell is live."
           : runtimeReady
-            ? "The workspace is live. On-chain TRUST identity is still confirming before we expose website and explorer handoff."
-            : "aeqi is creating the workspace, registering the TRUST on Solana, and starting its runtime."}
+            ? "The workspace is live. On-chain COMPANY identity is still confirming before we expose website and explorer handoff."
+            : "aeqi is creating the workspace, registering the COMPANY on Solana, and starting its runtime."}
       </p>
 
       <ProgressList steps={progressSteps} className="launching-reveal__steps" />
 
-      {isReady && trustAddress && (
+      {isReady && companyAddress && (
         <div className="launching-reveal__complete">
           <div className="launching-reveal__website">
             <div className="launching-reveal__website-meta">
@@ -234,7 +234,7 @@ export function LaunchingReveal({
                   <span>Status</span>
                 </span>
                 <span className="launching-reveal__website-stat">
-                  <strong>Trust</strong>
+                  <strong>Company</strong>
                   <span>Owner</span>
                 </span>
               </div>
@@ -243,7 +243,7 @@ export function LaunchingReveal({
           <div className="launching-reveal__actions">
             {trustToolsPath && (
               <Link className="launching-reveal__cta" to={trustToolsPath}>
-                TRUST tools
+                COMPANY tools
               </Link>
             )}
             {launchWebsiteUrl && (
@@ -262,7 +262,7 @@ export function LaunchingReveal({
 
       {trustError && (
         <p className="launching-reveal__error" role="alert">
-          Trust provisioning failed: {trustError}
+          Company provisioning failed: {trustError}
         </p>
       )}
       {!trustError && runtimeError && (
@@ -270,12 +270,12 @@ export function LaunchingReveal({
           Runtime provisioning failed: {runtimeError}
         </p>
       )}
-      {hasError && trustAddress && (
+      {hasError && companyAddress && (
         <Link
           className="launching-reveal__secondary"
-          to={`/trust/${encodeURIComponent(trustAddress)}`}
+          to={`/company/${encodeURIComponent(companyAddress)}`}
         >
-          Enter TRUST
+          Enter COMPANY
         </Link>
       )}
       {!trustError && !runtimeError && pollError && !status && (

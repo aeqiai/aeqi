@@ -10,7 +10,7 @@ Status: planned, not callable yet.
 
 AEQI's first WeChat-family integration should be **WeCom Callback** for
 company use, not personal Weixin. WeCom Callback maps naturally to AEQI's
-TRUST model: a company registers a self-built enterprise app, WeCom calls
+COMPANY model: a company registers a self-built enterprise app, WeCom calls
 AEQI's public callback endpoint, AEQI verifies/decrypts the message, queues
 agent work, and sends the reply proactively through WeCom's `message/send`
 API.
@@ -24,7 +24,7 @@ Why this first:
 - It is enterprise/company-native.
 - It can appear as a first-class app inside WeCom.
 - It supports multi-corp routing.
-- It does not require a long-running WebSocket adapter per trust.
+- It does not require a long-running WebSocket adapter per company.
 - It matches AEQI's platform control plane, public routes, credential store,
   role grants, and async agent sessions.
 
@@ -38,8 +38,8 @@ Credential scope:
 
 ```
 provider:        "wecom"
-scope_kind:      "trust"
-scope_id:        "<trust/entity id>"
+scope_kind:      "company"
+scope_id:        "<company/entity id>"
 lifecycle_kind:  "service_account_callback"
 ```
 
@@ -63,7 +63,7 @@ Runtime metadata:
 ## Callback flow
 
 1. User creates a WeCom self-built app in the WeCom admin console.
-2. AEQI shows the trust-specific callback URL.
+2. AEQI shows the company-specific callback URL.
 3. WeCom sends a GET verification request with signature/timestamp/nonce.
 4. AEQI verifies and decrypts `echostr`, then returns plaintext.
 5. WeCom POSTs encrypted XML messages to the same endpoint.
@@ -82,11 +82,11 @@ messages instead of synchronous HTTP responses.
 
 Use both platform policy and AEQI authority:
 
-- TRUST role/app grants: `apps.wecom.use`, later narrower grants like
+- COMPANY role/app grants: `apps.wecom.use`, later narrower grants like
   `apps.wecom.send.use`.
 - Channel allowlists for permitted WeCom users/groups.
 - Per-group sender allowlists for group workflows.
-- Audit every inbound message and outbound reply against the trust/session.
+- Audit every inbound message and outbound reply against the company/session.
 
 Do not let raw possession of the callback URL imply authority.
 
@@ -100,7 +100,7 @@ V1:
 - proactive send
 - multi-corp routing
 - dedupe
-- trust-scoped credentials
+- company-scoped credentials
 - role/app grants
 
 V1.5:
@@ -124,7 +124,7 @@ can be unreliable or unavailable for many account types. AEQI should not promise
 personal WeChat group workflows until a real account proves event delivery.
 
 Personal Weixin should therefore be user-scoped (`ScopeHint::User` or
-device-session), while WeCom is trust-scoped.
+device-session), while WeCom is company-scoped.
 
 ## Acceptance for the real pack
 

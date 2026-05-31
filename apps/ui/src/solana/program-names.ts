@@ -21,7 +21,7 @@ import {
   AEQI_ROLE_PROGRAM_ID,
   AEQI_TOKEN_PROGRAM_ID,
   AEQI_TREASURY_PROGRAM_ID,
-  AEQI_TRUST_PROGRAM_ID,
+  AEQI_COMPANY_PROGRAM_ID,
   AEQI_UNIFUTURES_PROGRAM_ID,
   AEQI_VESTING_PROGRAM_ID,
 } from "./pdas";
@@ -36,7 +36,7 @@ export const AEQI_PROGRAM_NAMES: Record<string, string> = {
   [AEQI_ROLE_PROGRAM_ID.toBase58()]: "aeqi_role",
   [AEQI_TOKEN_PROGRAM_ID.toBase58()]: "aeqi_token",
   [AEQI_TREASURY_PROGRAM_ID.toBase58()]: "aeqi_treasury",
-  [AEQI_TRUST_PROGRAM_ID.toBase58()]: "aeqi_trust",
+  [AEQI_COMPANY_PROGRAM_ID.toBase58()]: "aeqi_company",
   [AEQI_UNIFUTURES_PROGRAM_ID.toBase58()]: "aeqi_unifutures",
   [AEQI_VESTING_PROGRAM_ID.toBase58()]: "aeqi_vesting",
 };
@@ -44,7 +44,7 @@ export const AEQI_PROGRAM_NAMES: Record<string, string> = {
 /**
  * Resolve a base58 program ID to its friendly AEQI program name.
  * Returns `null` for unknown programs so callers can fall back to the
- * raw pubkey (e.g. third-party modules a TRUST has adopted).
+ * raw pubkey (e.g. third-party modules a COMPANY has adopted).
  */
 export function getAeqiProgramName(programId: string): string | null {
   return AEQI_PROGRAM_NAMES[programId] ?? null;

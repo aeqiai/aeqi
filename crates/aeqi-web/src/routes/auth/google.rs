@@ -145,7 +145,7 @@ async fn google_callback_handler(
         return (StatusCode::BAD_GATEWAY, "no id_token from Google").into_response();
     };
 
-    // Decode the ID token payload (we trust Google's signature since we just got it).
+    // Decode the ID token payload (we company Google's signature since we just got it).
     let parts: Vec<&str> = id_token.split('.').collect();
     if parts.len() != 3 {
         return (StatusCode::BAD_GATEWAY, "malformed id_token").into_response();

@@ -31,7 +31,7 @@ use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
 
 /// Hardcoded aeqi_token program ID — used to derive the canonical
-/// cap-table mint PDA `[b"mint", trust]` for each ProposalCreated
+/// cap-table mint PDA `[b"mint", company]` for each ProposalCreated
 /// event so the snapshot job knows which mint to query.
 const AEQI_TOKEN_PROGRAM_ID: Pubkey =
     solana_sdk::pubkey!("AxyYnv99gnKJ3VMYbyVjz4BxP8LA34CUnhHGVifrc3Kh");
@@ -364,16 +364,16 @@ fn dispatch_snapshot_if_token_proposal(
     }
     let Some(signer) = signer else {
         warn!(
-            trust = %snapshot::pubkey_b58(&p.trust),
+            company = %snapshot::pubkey_b58(&p.company),
             proposal_id = %snapshot::pubkey_b58(&p.proposal_id),
             "token-mode proposal observed but snapshot signer unavailable — skipping"
         );
         return;
     };
 
-    let trust = Pubkey::new_from_array(p.trust);
-    let proposal = derive_proposal_pda(&trust, &p.proposal_id);
-    let mint = derive_canonical_mint_pda(&trust);
+    let company = Pubkey::new_from_array(p.company);
+    let proposal = derive_proposal_pda(&company, &p.proposal_id);
+    let mint = derive_canonical_mint_pda(&company);
 
     let rpc = rpc.clone();
     let signer = signer.clone();
@@ -416,14 +416,14 @@ fn dispatch_snapshot_if_token_proposal(
     });
 }
 
-fn derive_proposal_pda(trust: &Pubkey, proposal_id: &[u8; 32]) -> Pubkey {
+fn derive_proposal_pda(company: &Pubkey, proposal_id: &[u8; 32]) -> Pubkey {
     Pubkey::find_program_address(
-        &[b"proposal", trust.as_ref(), proposal_id.as_ref()],
+        &[b"proposal", company.as_ref(), proposal_id.as_ref()],
         &Pubkey::from_str("5WHpPFf2mPYNFjr5p3ujeRcZNPoqWMBMkYnsWb2YtyNq").unwrap(),
     )
     .0
 }
 
-fn derive_canonical_mint_pda(trust: &Pubkey) -> Pubkey {
-    Pubkey::find_program_address(&[b"mint", trust.as_ref()], &AEQI_TOKEN_PROGRAM_ID).0
+fn derive_canonical_mint_pda(company: &Pubkey) -> Pubkey {
+    Pubkey::find_program_address(&[b"mint", company.as_ref()], &AEQI_TOKEN_PROGRAM_ID).0
 }

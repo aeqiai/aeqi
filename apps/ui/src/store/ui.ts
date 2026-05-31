@@ -15,14 +15,14 @@ export interface PinnedView {
   path: string;
   search: string;
   createdAt: string;
-  trustId?: string;
+  companyId?: string;
 }
 
 export interface SavePinnedViewInput {
   label: string;
   path: string;
   search?: string;
-  trustId?: string | null;
+  companyId?: string | null;
 }
 
 function clampSidebarWidth(w: number): number {
@@ -89,7 +89,7 @@ function readStoredPinnedViews(): PinnedView[] {
             typeof candidate.createdAt === "string"
               ? candidate.createdAt
               : new Date().toISOString(),
-          trustId: typeof candidate.trustId === "string" ? candidate.trustId : undefined,
+          companyId: typeof candidate.companyId === "string" ? candidate.companyId : undefined,
         },
       ];
     });
@@ -154,10 +154,10 @@ export const useUIStore = create<UIState>((set, get) => ({
   savePinnedView: (input) => {
     const path = normalizePinnedPath(input.path);
     const search = normalizePinnedSearch(input.search);
-    const trustId = input.trustId || undefined;
+    const companyId = input.companyId || undefined;
     const label = normalizePinnedLabel(input.label);
     const existing = get().pinnedViews.find(
-      (view) => view.path === path && view.search === search && view.trustId === trustId,
+      (view) => view.path === path && view.search === search && view.companyId === companyId,
     );
     const savedView: PinnedView = {
       id: existing?.id ?? createPinnedViewId(),
@@ -165,7 +165,7 @@ export const useUIStore = create<UIState>((set, get) => ({
       path,
       search,
       createdAt: existing?.createdAt ?? new Date().toISOString(),
-      trustId,
+      companyId,
     };
     const next = [savedView, ...get().pinnedViews.filter((view) => view.id !== savedView.id)];
 

@@ -3,20 +3,20 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import LeftSidebar from "./LeftSidebar";
 import { agentKeys, entityKeys } from "@/queries/keys";
-import type { Agent, Trust } from "@/lib/types";
+import type { Agent, Company } from "@/lib/types";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
 import { useUIStore } from "@/store/ui";
 
-const TRUST_ID = "root-1";
+const COMPANY_ID = "root-1";
 
-const sampleTrust: Trust = {
-  id: TRUST_ID,
+const sampleCompany: Company = {
+  id: COMPANY_ID,
   name: "Eich Holding",
-  type: "trust",
+  type: "company",
   status: "active",
   created_at: "2026-05-30T00:00:00Z",
-  trust_address: TRUST_ID,
+  company_address: COMPANY_ID,
   agent_id: "agent-operator",
 };
 
@@ -25,7 +25,7 @@ const sampleAgents: Agent[] = [
     id: "agent-operator",
     name: "Operator",
     status: "active",
-    trust_id: TRUST_ID,
+    company_id: COMPANY_ID,
   },
 ];
 
@@ -34,7 +34,7 @@ const seedShellState = (collapsed: boolean) => {
     status: null,
     dashboard: null,
     cost: null,
-    entities: [sampleTrust],
+    entities: [sampleCompany],
     agents: sampleAgents,
     quests: [],
     events: [],
@@ -46,7 +46,7 @@ const seedShellState = (collapsed: boolean) => {
   });
 
   useUIStore.setState({
-    activeEntity: TRUST_ID,
+    activeEntity: COMPANY_ID,
     sidebarCollapsed: collapsed,
     sidebarWidth: 180,
     collapsedGroups: {},
@@ -62,8 +62,8 @@ const seedShellState = (collapsed: boolean) => {
       email: "operator@aeqi.ai",
       name: "Operator",
       is_admin: true,
-      roots: [TRUST_ID],
-      entities: [TRUST_ID],
+      roots: [COMPANY_ID],
+      entities: [COMPANY_ID],
     },
   });
 };
@@ -86,9 +86,9 @@ function ShellStory({
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   });
-  queryClient.setQueryData(entityKeys.all, [sampleTrust]);
+  queryClient.setQueryData(entityKeys.all, [sampleCompany]);
   queryClient.setQueryData(agentKeys.directory(), sampleAgents);
-  queryClient.setQueryData(["runtime", "status", TRUST_ID], {
+  queryClient.setQueryData(["runtime", "status", COMPANY_ID], {
     has_runtime: true,
     host_active: true,
     plan: "standard",
@@ -107,8 +107,8 @@ function ShellStory({
         >
           <Routes>
             <Route
-              path="/trust/:trustId/*"
-              element={<LeftSidebar trustId={TRUST_ID} path={pathOnly(route)} />}
+              path="/company/:companyId/*"
+              element={<LeftSidebar companyId={COMPANY_ID} path={pathOnly(route)} />}
             />
           </Routes>
         </div>
@@ -125,7 +125,7 @@ const meta: Meta<typeof LeftSidebar> = {
     docs: {
       description: {
         component:
-          "Authenticated app sidebar with normal pinned rows, independently open trust groups, unified row rhythm, and design-system icons. Use these stories for the 640px shell review before shipping navigation changes.",
+          "Authenticated app sidebar with normal pinned rows, independently open company groups, unified row rhythm, and design-system icons. Use these stories for the 640px shell review before shipping navigation changes.",
       },
     },
   },
@@ -136,15 +136,15 @@ type Story = StoryObj<typeof LeftSidebar>;
 
 export const PinnedSessions: Story = {
   name: "Pinned sessions / Operations open",
-  render: () => <ShellStory route="/trust/root-1/sessions?view=mine" />,
+  render: () => <ShellStory route="/company/root-1/sessions?view=mine" />,
 };
 
 export const OwnershipOpen: Story = {
   name: "Assets / Ownership open",
-  render: () => <ShellStory route="/trust/root-1/assets" height={720} />,
+  render: () => <ShellStory route="/company/root-1/assets" height={720} />,
 };
 
 export const Collapsed: Story = {
   name: "Collapsed rail",
-  render: () => <ShellStory route="/trust/root-1/sessions?view=mine" collapsed />,
+  render: () => <ShellStory route="/company/root-1/sessions?view=mine" collapsed />,
 };

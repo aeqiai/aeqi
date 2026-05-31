@@ -19,9 +19,9 @@ export default function AgentSurfaceHeader({
   const agents = useDaemonStore((s) => s.agents);
   const agent = agents.find((a) => a.id === agentId);
   const agentName = agent?.name || agentId;
-  const trustId = agent?.trust_id || "";
+  const companyId = agent?.company_id || "";
 
-  const backHref = trustId ? entityPath(trustId, "agents") : base ? `${base}/agents` : "/";
+  const backHref = companyId ? entityPath(companyId, "agents") : base ? `${base}/agents` : "/";
 
   const title = (
     <span className="agent-surface-header-agent">

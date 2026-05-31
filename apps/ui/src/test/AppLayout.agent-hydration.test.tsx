@@ -8,7 +8,7 @@ import AgentSessionContextHeader from "@/components/shell/AgentSessionContextHea
 import { agentKeys, entityKeys, questKeys, runtimeKeys, activityKeys } from "@/queries/keys";
 import { useDaemonStore } from "@/store/daemon";
 import { useChatStore } from "@/store/chat";
-import type { Trust } from "@/lib/types";
+import type { Company } from "@/lib/types";
 
 function LocationProbe() {
   const location = useLocation();
@@ -40,11 +40,11 @@ describe("AppLayout drilled-agent hydration", () => {
         {
           id: "root-1",
           name: "Root",
-          type: "trust",
+          type: "company",
           status: "active",
           created_at: "2026-04-28T00:00:00Z",
-          trust_address: "F9s1sSJRm2CobSLkd1BN1Vj4UigRo9zpZhb6raXsQzPq",
-        } as Trust,
+          company_address: "F9s1sSJRm2CobSLkd1BN1Vj4UigRo9zpZhb6raXsQzPq",
+        } as Company,
       ],
       agents: [],
       quests: [],
@@ -70,12 +70,12 @@ describe("AppLayout drilled-agent hydration", () => {
         <StrictMode>
           <MemoryRouter
             initialEntries={[
-              "/trust/F9s1sSJRm2CobSLkd1BN1Vj4UigRo9zpZhb6raXsQzPq/agents/child-1/inbox",
+              "/company/F9s1sSJRm2CobSLkd1BN1Vj4UigRo9zpZhb6raXsQzPq/agents/child-1/inbox",
             ]}
           >
             <Routes>
               <Route
-                path="/trust/:trustAddress/agents/:agentId/*"
+                path="/company/:companyAddress/agents/:agentId/*"
                 element={
                   <>
                     <AppLayout />
@@ -92,19 +92,19 @@ describe("AppLayout drilled-agent hydration", () => {
     expect(screen.getByRole("status", { name: "Loading runtime" })).toBeInTheDocument();
     await waitFor(() =>
       expect(screen.getByTestId("location").textContent).toBe(
-        "/trust/F9s1sSJRm2CobSLkd1BN1Vj4UigRo9zpZhb6raXsQzPq/agents/child-1/inbox",
+        "/company/F9s1sSJRm2CobSLkd1BN1Vj4UigRo9zpZhb6raXsQzPq/agents/child-1/inbox",
       ),
     );
   });
 
-  it("redirects the legacy drilled-agent inbox index to trust-level Sessions", async () => {
+  it("redirects the legacy drilled-agent inbox index to company-level Sessions", async () => {
     useDaemonStore.setState({
       agents: [
         {
           id: "agent-1",
           name: "Chief of Staff",
           status: "active",
-          trust_id: "root-1",
+          company_id: "root-1",
         },
       ] as never,
       agentsLoaded: true,
@@ -115,12 +115,12 @@ describe("AppLayout drilled-agent hydration", () => {
         <StrictMode>
           <MemoryRouter
             initialEntries={[
-              "/trust/F9s1sSJRm2CobSLkd1BN1Vj4UigRo9zpZhb6raXsQzPq/agents/agent-1/inbox",
+              "/company/F9s1sSJRm2CobSLkd1BN1Vj4UigRo9zpZhb6raXsQzPq/agents/agent-1/inbox",
             ]}
           >
             <Routes>
               <Route
-                path="/trust/:trustAddress/agents/:agentId/:tab"
+                path="/company/:companyAddress/agents/:agentId/:tab"
                 element={
                   <>
                     <AppLayout />
@@ -128,7 +128,7 @@ describe("AppLayout drilled-agent hydration", () => {
                   </>
                 }
               />
-              <Route path="/trust/:trustAddress/sessions" element={<LocationProbe />} />
+              <Route path="/company/:companyAddress/sessions" element={<LocationProbe />} />
             </Routes>
           </MemoryRouter>
         </StrictMode>,
@@ -137,7 +137,7 @@ describe("AppLayout drilled-agent hydration", () => {
 
     await waitFor(() =>
       expect(screen.getByTestId("location").textContent).toBe(
-        "/trust/F9s1sSJRm2CobSLkd1BN1Vj4UigRo9zpZhb6raXsQzPq/sessions",
+        "/company/F9s1sSJRm2CobSLkd1BN1Vj4UigRo9zpZhb6raXsQzPq/sessions",
       ),
     );
   });
@@ -149,7 +149,7 @@ describe("AppLayout drilled-agent hydration", () => {
           id: "agent-1",
           name: "Chief of Staff",
           status: "active",
-          trust_id: "root-1",
+          company_id: "root-1",
         },
       ] as never,
       agentsLoaded: true,
@@ -160,12 +160,12 @@ describe("AppLayout drilled-agent hydration", () => {
         <StrictMode>
           <MemoryRouter
             initialEntries={[
-              "/trust/F9s1sSJRm2CobSLkd1BN1Vj4UigRo9zpZhb6raXsQzPq/agents/agent-1/settings",
+              "/company/F9s1sSJRm2CobSLkd1BN1Vj4UigRo9zpZhb6raXsQzPq/agents/agent-1/settings",
             ]}
           >
             <Routes>
               <Route
-                path="/trust/:trustAddress/agents/:agentId/settings"
+                path="/company/:companyAddress/agents/:agentId/settings"
                 element={
                   <>
                     <AppLayout />
@@ -181,7 +181,7 @@ describe("AppLayout drilled-agent hydration", () => {
 
     expect(await screen.findByLabelText("Agent settings")).toBeInTheDocument();
     expect(screen.getByTestId("location").textContent).toBe(
-      "/trust/F9s1sSJRm2CobSLkd1BN1Vj4UigRo9zpZhb6raXsQzPq/agents/agent-1/settings",
+      "/company/F9s1sSJRm2CobSLkd1BN1Vj4UigRo9zpZhb6raXsQzPq/agents/agent-1/settings",
     );
   });
 
@@ -192,7 +192,7 @@ describe("AppLayout drilled-agent hydration", () => {
           id: "agent-1",
           name: "Chief of Staff",
           status: "active",
-          trust_id: "root-1",
+          company_id: "root-1",
         },
       ] as never,
       agentsLoaded: true,
@@ -228,10 +228,10 @@ describe("AppLayout drilled-agent hydration", () => {
       withQueryClient(
         <StrictMode>
           <MemoryRouter
-            initialEntries={["/trust/F9s1sSJRm2CobSLkd1BN1Vj4UigRo9zpZhb6raXsQzPq/roles"]}
+            initialEntries={["/company/F9s1sSJRm2CobSLkd1BN1Vj4UigRo9zpZhb6raXsQzPq/roles"]}
           >
             <Routes>
-              <Route path="/trust/:trustAddress/:tab" element={<AppLayout />} />
+              <Route path="/company/:companyAddress/:tab" element={<AppLayout />} />
             </Routes>
           </MemoryRouter>
         </StrictMode>,
@@ -247,7 +247,7 @@ describe("AppLayout drilled-agent hydration", () => {
       within(dock).getByRole("link", { name: /open connected session: second session/i }),
     ).toHaveAttribute(
       "href",
-      "/trust/F9s1sSJRm2CobSLkd1BN1Vj4UigRo9zpZhb6raXsQzPq/sessions/session-2",
+      "/company/F9s1sSJRm2CobSLkd1BN1Vj4UigRo9zpZhb6raXsQzPq/sessions/session-2",
     );
   });
 
@@ -258,7 +258,7 @@ describe("AppLayout drilled-agent hydration", () => {
           id: "agent-1",
           name: "Chief of Staff",
           status: "active",
-          trust_id: "root-1",
+          company_id: "root-1",
         },
       ] as never,
       agentsLoaded: true,
@@ -287,12 +287,12 @@ describe("AppLayout drilled-agent hydration", () => {
     render(
       <MemoryRouter
         initialEntries={[
-          "/trust/F9s1sSJRm2CobSLkd1BN1Vj4UigRo9zpZhb6raXsQzPq/agents/agent-1/inbox/session-1",
+          "/company/F9s1sSJRm2CobSLkd1BN1Vj4UigRo9zpZhb6raXsQzPq/agents/agent-1/inbox/session-1",
         ]}
       >
         <Routes>
           <Route
-            path="/trust/:trustAddress/agents/:agentId/:tab/:itemId"
+            path="/company/:companyAddress/agents/:agentId/:tab/:itemId"
             element={<AgentSessionContextHeader />}
           />
         </Routes>
@@ -303,14 +303,14 @@ describe("AppLayout drilled-agent hydration", () => {
     expect(screen.getByText("WhatsApp · Ada · +15550001111")).toBeInTheDocument();
   });
 
-  it("redirects a legacy drilled-agent session URL to the trust-level session detail", async () => {
+  it("redirects a legacy drilled-agent session URL to the company-level session detail", async () => {
     useDaemonStore.setState({
       agents: [
         {
           id: "agent-1",
           name: "Chief of Staff",
           status: "active",
-          trust_id: "root-1",
+          company_id: "root-1",
         },
       ] as never,
       agentsLoaded: true,
@@ -321,12 +321,12 @@ describe("AppLayout drilled-agent hydration", () => {
         <StrictMode>
           <MemoryRouter
             initialEntries={[
-              "/trust/F9s1sSJRm2CobSLkd1BN1Vj4UigRo9zpZhb6raXsQzPq/agents/agent-1/inbox/session-1",
+              "/company/F9s1sSJRm2CobSLkd1BN1Vj4UigRo9zpZhb6raXsQzPq/agents/agent-1/inbox/session-1",
             ]}
           >
             <Routes>
               <Route
-                path="/trust/:trustAddress/agents/:agentId/:tab/:itemId"
+                path="/company/:companyAddress/agents/:agentId/:tab/:itemId"
                 element={
                   <>
                     <AppLayout />
@@ -334,7 +334,7 @@ describe("AppLayout drilled-agent hydration", () => {
                   </>
                 }
               />
-              <Route path="/trust/:trustAddress/sessions/:itemId" element={<LocationProbe />} />
+              <Route path="/company/:companyAddress/sessions/:itemId" element={<LocationProbe />} />
             </Routes>
           </MemoryRouter>
         </StrictMode>,
@@ -343,7 +343,7 @@ describe("AppLayout drilled-agent hydration", () => {
 
     await waitFor(() =>
       expect(screen.getByTestId("location").textContent).toBe(
-        "/trust/F9s1sSJRm2CobSLkd1BN1Vj4UigRo9zpZhb6raXsQzPq/sessions/session-1",
+        "/company/F9s1sSJRm2CobSLkd1BN1Vj4UigRo9zpZhb6raXsQzPq/sessions/session-1",
       ),
     );
   });

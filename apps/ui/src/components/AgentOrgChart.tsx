@@ -103,23 +103,23 @@ export default function AgentOrgChart({
   const navigate = useNavigate();
   const agents = useDaemonStore((s) => s.agents);
   const entitiesList = useDaemonStore((s) => s.entities);
-  const trustId = useMemo(() => {
+  const companyId = useMemo(() => {
     const found = agents.find((a) => a.id === parentAgentId);
-    return found?.trust_id ?? null;
+    return found?.company_id ?? null;
   }, [agents, parentAgentId]);
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const [positions, setPositions] = useState<Role[]>([]);
   const [edges, setEdges] = useState<RoleEdge[]>([]);
   useEffect(() => {
-    if (!trustId) {
+    if (!companyId) {
       setPositions([]);
       setEdges([]);
       return;
     }
     let cancelled = false;
     api
-      .getRoles(trustId)
+      .getRoles(companyId)
       .then((resp) => {
         if (cancelled) return;
         setPositions(resp.roles ?? []);
@@ -133,7 +133,7 @@ export default function AgentOrgChart({
     return () => {
       cancelled = true;
     };
-  }, [trustId]);
+  }, [companyId]);
 
   const org = useMemo(
     () => buildOrgFromPositions(agents, positions, edges, parentAgentId),
@@ -180,8 +180,8 @@ export default function AgentOrgChart({
 
   const handleSelect = (id: string) => {
     if (onSelect) onSelect(id);
-    else if (trustId)
-      navigate(entityPathFromId(entitiesList, trustId, "agents", encodeURIComponent(id)));
+    else if (companyId)
+      navigate(entityPathFromId(entitiesList, companyId, "agents", encodeURIComponent(id)));
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -231,11 +231,11 @@ export default function AgentOrgChart({
       <div className="org-scroll">
         <OrgNodeView node={org} onSelect={handleSelect} onAddChild={() => setPickerOpen(true)} />
       </div>
-      {trustId && (
+      {companyId && (
         <BlueprintPickerModal
           open={pickerOpen}
           onClose={() => setPickerOpen(false)}
-          trustId={trustId}
+          companyId={companyId}
         />
       )}
     </div>

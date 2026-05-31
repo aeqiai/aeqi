@@ -31,7 +31,7 @@ import {
 export default function QuestBoard({
   agentId: _agentId,
   resolvedAgentId,
-  trustId,
+  companyId,
   quests,
   allQuests,
   scopeFilter,
@@ -58,7 +58,7 @@ export default function QuestBoard({
 }: {
   agentId: string;
   resolvedAgentId: string;
-  trustId: string;
+  companyId: string;
   quests: Quest[];
   allQuests: Quest[];
   scopeFilter: QuestFilter;
@@ -86,7 +86,7 @@ export default function QuestBoard({
   /** When true, the main board renders only the four ACTIVE columns
    *  (Todo · In Progress · In Review · Done) and demotes Backlog and
    *  Cancelled into horizontal strips below the board. Used by the
-   *  standalone TRUST-scope Quests app at `/trust/<addr>/quests`. */
+   *  standalone COMPANY-scope Quests app at `/company/<addr>/quests`. */
   splitLayout?: boolean;
 }) {
   // Backlog and Cancelled are demoted into below-board strips when
@@ -341,11 +341,11 @@ export default function QuestBoard({
   return (
     <div className="quest-board">
       <PrimitivePageHeader
-        className="trust-quests-page-header"
+        className="company-quests-page-header"
         title={
-          <span className="trust-primitive-page-title">
-            <span className="trust-primitive-page-title-text">Quests</span>
-            <span className="trust-primitive-page-count" aria-hidden="true">
+          <span className="company-primitive-page-title">
+            <span className="company-primitive-page-title-text">Quests</span>
+            <span className="company-primitive-page-count" aria-hidden="true">
               {allQuests.length}
             </span>
           </span>
@@ -372,7 +372,7 @@ export default function QuestBoard({
           <>
             <ImportMenu
               size="md"
-              trustId={trustId}
+              companyId={companyId}
               parts={["quests"]}
               blueprintTitle="Import quests from a template"
               onMarkdownPicked={async (files) => {
@@ -393,7 +393,7 @@ export default function QuestBoard({
               onBlueprintSpawned={onCreated}
             />
             <Button
-              className="trust-top-rail-cta"
+              className="company-top-rail-cta"
               variant="primary"
               size="md"
               onClick={() => onCompose()}

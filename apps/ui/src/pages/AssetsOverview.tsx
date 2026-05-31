@@ -25,7 +25,7 @@ import type { BudgetAccountWithPda, VaultHolding, VestingPositionWithPda } from 
 import { entityPath } from "@/lib/entityPath";
 import { formatCurrency, formatInteger, formatNumber } from "@/lib/i18n";
 import { explorerAddressUrl } from "@/lib/solana-explorer";
-import type { Trust } from "@/lib/types";
+import type { Company } from "@/lib/types";
 import {
   Badge,
   Banner,
@@ -78,7 +78,7 @@ const COMP_TONES = ["accent", "ink", "muted", "subtle", "soft"] as const;
 
 /**
  * Treasury overview — the at-a-glance answer to "how much does this
- * TRUST hold and where is it allocated". Total USD value is computed
+ * COMPANY hold and where is it allocated". Total USD value is computed
  * permissively: every holding whose mint resolves to a registered
  * stablecoin (USDC) is summed at par; unknown mints don't contribute
  * (we don't fake prices). The headline is "stablecoin USD" — not "total
@@ -237,12 +237,12 @@ export function CapitalizeSection({
   onReceive,
 }: {
   vaultAuthority: string;
-  /** Iter-9: the Trust entity so the staking link can resolve through
+  /** Iter-9: the Company entity so the staking link can resolve through
    *  `entityPath(entity, "stake", mint)` to the canonical
-   *  `/trust/<addr>/stake/<mint>` (or `/trust/<id>/stake/<mint>`
+   *  `/company/<addr>/stake/<mint>` (or `/company/<id>/stake/<mint>`
    *  pre-bridge) — not a hand-crafted `/c/<id>` literal. Optional;
    *  when omitted the affordance falls back to the explorer link. */
-  entity?: Pick<Trust, "id" | "trust_address">;
+  entity?: Pick<Company, "id" | "company_address">;
   /** Iter-9: scan holdings for known LST mints (jitoSOL / mSOL / bSOL)
    *  and surface a "View staking" affordance when at least one is held.
    *  Empty list collapses the affordance — we don't surface a link to
@@ -257,8 +257,8 @@ export function CapitalizeSection({
 
   return (
     <PageSection
-      title="Capitalize your TRUST"
-      description="Send USDC (or any SPL token) to the vault address from any Solana wallet. The TRUST owns the balance the moment it lands."
+      title="Capitalize your COMPANY"
+      description="Send USDC (or any SPL token) to the vault address from any Solana wallet. The COMPANY owns the balance the moment it lands."
     >
       <Card padding="lg">
         <Inline gap="6" align="start">
@@ -273,9 +273,9 @@ export function CapitalizeSection({
               />
             </DetailField>
             <span className={styles.capitalizeNote}>
-              The deposit address is a program-owned PDA — only the TRUST&apos;s configured treasury
-              authority can authorize a withdrawal. Withdrawals route through governance or the
-              runtime-upgrade rail.
+              The deposit address is a program-owned PDA — only the COMPANY&apos;s configured
+              treasury authority can authorize a withdrawal. Withdrawals route through governance or
+              the runtime-upgrade rail.
             </span>
             <Inline gap="2" align="center" className={styles.capitalizeActions}>
               <Button variant="primary" size="sm" onClick={onReceive}>
@@ -314,19 +314,19 @@ export function CapitalizeSection({
  * When the vault holds at least one known LST mint (jitoSOL / mSOL /
  * bSOL), we surface a quiet "View staking" link beside the existing
  * Deposit / Receive / Withdraw row. The link points at
- * `/c/<trust>/stake/<mint>` — a route that doesn't exist yet (per the
+ * `/c/<company>/stake/<mint>` — a route that doesn't exist yet (per the
  * iter-9 brief). We're honest about the gap: the affordance is real
  * (the holding IS in the vault), and the surface is an explicit TBD
  * the route handler can pick up.
  *
- * Multiple LSTs collapse into a row of mint badges so a TRUST holding
+ * Multiple LSTs collapse into a row of mint badges so a COMPANY holding
  * jitoSOL + mSOL renders both without doubling the affordance.
  */
 function CapitalizeStakingAffordance({
   entity,
   lstHoldings,
 }: {
-  entity: Pick<Trust, "id" | "trust_address"> | undefined;
+  entity: Pick<Company, "id" | "company_address"> | undefined;
   lstHoldings: Array<{ mint: string; meta: { symbol: string; provider: string } }>;
 }) {
   return (
@@ -546,7 +546,7 @@ export function HoldingsSection({
 
   // Iter-6: empty-state card. The legacy table renders `empty` inside the
   // table body which reads as "we couldn't find any" — true, but a fresh
-  // Foundation TRUST has *no holdings at all*, and the silent table is
+  // Foundation COMPANY has *no holdings at all*, and the silent table is
   // ambiguous between "broken" and "deliberately empty". When there are
   // zero rows, we surface a dedicated EmptyState card with a vault
   // explorer CTA so the page reads intentional. The composition bar and
@@ -646,7 +646,7 @@ export function HoldingsSection({
  * each stablecoin mint in the vault. Honest about its scope: only
  * registered stablecoins contribute, since we have no oracle for SPL
  * governance tokens or AEQI-issued equity. When the vault holds no
- * stablecoins (a Foundation TRUST that just spawned, or a fresh Venture
+ * stablecoins (a Foundation COMPANY that just spawned, or a fresh Venture
  * pre-deposit) the bar collapses and the section renders a small
  * explainer instead.
  */

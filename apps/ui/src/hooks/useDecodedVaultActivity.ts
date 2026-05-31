@@ -1,7 +1,7 @@
 /**
  * `useDecodedVaultActivity` — fetch parsed transactions for the top-N
  * signatures touching the vault authority PDA and classify each as a
- * Deposit / Withdraw / Other against the TRUST.
+ * Deposit / Withdraw / Other against the COMPANY.
  *
  * Iter-4 closes the gap left by `useVaultActivity`: that hook surfaces
  * raw signatures and an explorer deep-link, which is honest but flat.

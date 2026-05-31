@@ -1,5 +1,5 @@
 export {
-  useActiveTrust as useActiveEntity,
-  useTrusts as useEntities,
-  useTrustsQuery as useEntitiesQuery,
-} from "@/queries/trusts";
+  useActiveCompany as useActiveEntity,
+  useCompanies as useEntities,
+  useCompaniesQuery as useEntitiesQuery,
+} from "@/queries/companies";

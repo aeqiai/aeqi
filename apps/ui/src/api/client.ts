@@ -110,9 +110,9 @@ export async function apiRequest<T>(path: string, options?: ApiRequestOptions): 
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
-  const trustId = scopedEntity === false ? null : (scopedEntity ?? getScopedEntity());
-  if (trustId && !path.startsWith("/auth/")) {
-    headers["X-Trust"] = trustId;
+  const companyId = scopedEntity === false ? null : (scopedEntity ?? getScopedEntity());
+  if (companyId && !path.startsWith("/auth/")) {
+    headers["X-Company"] = companyId;
   }
 
   const res = await fetch(url, { ...fetchOptions, headers });

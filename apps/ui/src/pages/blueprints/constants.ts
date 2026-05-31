@@ -31,14 +31,14 @@ export const CATEGORY_ORDER: BlueprintCategory[] = ["company", "foundation", "fu
 
 export const CATEGORY_LABELS: Record<BlueprintCategory, string> = {
   company: "Operating Company",
-  foundation: "Foundation TRUST",
-  fund: "Fund TRUST",
+  foundation: "Foundation COMPANY",
+  fund: "Fund COMPANY",
 };
 
 export const CATEGORY_DESCRIPTIONS: Record<BlueprintCategory, string> = {
   company: "Launch a canonical company package with roles, agents, and runtime memory.",
-  foundation: "Draft lane for public-good TRUST packages; not shipped in v1.",
-  fund: "Draft lane for investment TRUST packages; not shipped in v1.",
+  foundation: "Draft lane for public-good COMPANY packages; not shipped in v1.",
+  fund: "Draft lane for investment COMPANY packages; not shipped in v1.",
 };
 
 /** Set of valid category param values. */

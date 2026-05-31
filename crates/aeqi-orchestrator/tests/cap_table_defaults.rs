@@ -10,17 +10,21 @@ async fn personal_cap_table_defaults_seed_creator_common() {
     let resp = handle_create_entity(
         &ctx,
         &serde_json::json!({
-            "name": "Ada Personal Trust",
-            "personal_trust": true,
+            "name": "Ada Personal Company",
+            "personal_company": true,
             "caller_user_id": "user-ada",
         }),
         &None,
     )
     .await;
     assert_eq!(resp["ok"], true);
-    let trust_id = resp["id"].as_str().unwrap();
+    let company_id = resp["id"].as_str().unwrap();
 
-    let rows = h.registry().list_cap_table_entries(trust_id).await.unwrap();
+    let rows = h
+        .registry()
+        .list_cap_table_entries(company_id)
+        .await
+        .unwrap();
     assert_eq!(rows.len(), 1);
     let row = &rows[0];
     assert_eq!(row.allocation_key, "creator_common");
@@ -48,9 +52,9 @@ async fn company_cap_table_defaults_seed_founder_and_option_pool() {
     )
     .await;
     assert_eq!(resp["ok"], true);
-    let trust_id = resp["id"].as_str().unwrap();
+    let company_id = resp["id"].as_str().unwrap();
 
-    assert_company_cap_table_defaults(&h, trust_id, Some("user-founder")).await;
+    assert_company_cap_table_defaults(&h, company_id, Some("user-founder")).await;
 }
 
 #[tokio::test]
@@ -62,7 +66,7 @@ async fn blueprint_cap_table_defaults_seed_founder_and_option_pool() {
         &ctx,
         &serde_json::json!({
             "creator_user_id": "user-founder",
-            "trust_id": "trust-blueprint-1",
+            "company_id": "company-blueprint-1",
             "display_name": "Launch Co",
             "inline_blueprint": {
                 "slug": "launch-co",
@@ -95,7 +99,7 @@ async fn blueprint_cap_table_defaults_seed_founder_and_option_pool() {
     .await;
     assert_eq!(resp["ok"], true, "{resp}");
 
-    assert_company_cap_table_defaults(&h, "trust-blueprint-1", Some("user-founder")).await;
+    assert_company_cap_table_defaults(&h, "company-blueprint-1", Some("user-founder")).await;
 }
 
 #[tokio::test]
@@ -114,19 +118,22 @@ async fn list_cap_table_entries_respects_scope() {
     )
     .await;
     assert_eq!(resp["ok"], true);
-    let trust_id = resp["id"].as_str().unwrap();
+    let company_id = resp["id"].as_str().unwrap();
 
-    let allowed = Some(vec![trust_id.to_string()]);
-    let listed =
-        handle_list_cap_table_entries(&ctx, &serde_json::json!({"trust_id": trust_id}), &allowed)
-            .await;
+    let allowed = Some(vec![company_id.to_string()]);
+    let listed = handle_list_cap_table_entries(
+        &ctx,
+        &serde_json::json!({"company_id": company_id}),
+        &allowed,
+    )
+    .await;
     assert_eq!(listed["ok"], true);
     assert_eq!(listed["entries"].as_array().unwrap().len(), 2);
 
     let denied = handle_list_cap_table_entries(
         &ctx,
-        &serde_json::json!({"trust_id": trust_id}),
-        &Some(vec!["other-trust".to_string()]),
+        &serde_json::json!({"company_id": company_id}),
+        &Some(vec!["other-company".to_string()]),
     )
     .await;
     assert_eq!(denied["ok"], false);
@@ -136,10 +143,14 @@ async fn list_cap_table_entries_respects_scope() {
 
 async fn assert_company_cap_table_defaults(
     h: &TestHarness,
-    trust_id: &str,
+    company_id: &str,
     creator_user_id: Option<&str>,
 ) {
-    let rows = h.registry().list_cap_table_entries(trust_id).await.unwrap();
+    let rows = h
+        .registry()
+        .list_cap_table_entries(company_id)
+        .await
+        .unwrap();
     assert_eq!(rows.len(), 2);
 
     let founder = rows

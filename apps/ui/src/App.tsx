@@ -27,13 +27,13 @@ const MagicLinkPage = lazy(() => import("@/pages/MagicLinkPage"));
 const PublicProfilePage = lazy(() => import("@/pages/PublicProfilePage"));
 const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
 const ResetPasswordPage = lazy(() => import("@/pages/ResetPasswordPage"));
-const TrustSetupPage = lazy(() => import("@/pages/TrustSetupPage"));
+const CompanySetupPage = lazy(() => import("@/pages/CompanySetupPage"));
 const VerifyEmailPage = lazy(() => import("@/pages/VerifyEmailPage"));
 
 /**
  * Top-level URL segments that must NEVER resolve to a public profile.
  * These collide with auth pages, app shell, API, and assets surfaces; if
- * a Company's trust_id ever matched one of them the public-profile
+ * a Company's company_id ever matched one of them the public-profile
  * route would shadow real product surfaces. Listed here once so the
  * `<PublicProfileRoute />` guard and any future entity-id validator can
  * agree on the deny list.
@@ -43,7 +43,7 @@ const RESERVED_SLUGS = new Set([
   "auth",
   "account",
   "c",
-  "trust",
+  "company",
   "launch",
   "templates",
   "blueprints",
@@ -147,14 +147,14 @@ function GatedAppShell() {
 
 /**
  * Bare `/` while authed lands on the user's Start surface. It resolves
- * the active TRUST and previews the pinned user Sessions view without
+ * the active COMPANY and previews the pinned user Sessions view without
  * redirecting away from Home.
  */
 function RootRouteSwitch() {
   // The root `/` surface is the home picker (node-grid of actor × role ×
-  // trust contexts). GatedAppShell handles the auth gate; AppLayout mounts
+  // company contexts). GatedAppShell handles the auth gate; AppLayout mounts
   // and dispatches `path === "/"` → StartPage. No redirects to /launch or
-  // /trust/<addr> anymore — the start page IS the daily-landing.
+  // /company/<addr> anymore — the start page IS the daily-landing.
   return <GatedAppShell />;
 }
 
@@ -165,14 +165,14 @@ function LegacyTopLevelRedirect({ from, to }: { from: string; to: string }) {
 }
 
 // `/` is only the user-scope landing before an organization exists. Once an
-// organization exists, AppLayout keeps the shell on the trust route so
+// organization exists, AppLayout keeps the shell on the company route so
 // sidebar tabs never generate bogus top-level paths like `/quests`.
 
 /**
- * Trust-root URL architecture. The app shell lives at
- * `/trust/:trustAddress/...` (canonical); the sidebar always navigates
+ * Company-root URL architecture. The app shell lives at
+ * `/company/:companyAddress/...` (canonical); the sidebar always navigates
  * inside that entity. Child
- * agents remain addressable at `/trust/<addr>/agents/:agentId/...`.
+ * agents remain addressable at `/company/<addr>/agents/:agentId/...`.
  * The user's account-level surface (login profile, billing, settings)
  * lives at `/account` — it's user-scoped, not entity-scoped. There is
  * NO `/me/*` namespace: every entity is a Company entity (founder
@@ -189,15 +189,15 @@ export default function App() {
             intentionally do NOT inherit the shell. */}
         <Route path="agents" element={<AgentsPage />} />
         <Route path="change-password" element={<ChangePasswordPage />} />
-        <Route path="launch" element={<TrustSetupPage />} />
-        <Route path="launch/:blueprintId" element={<TrustSetupPage />} />
-        <Route path="onboarding" element={<TrustSetupPage entry="personal" />} />
+        <Route path="launch" element={<CompanySetupPage />} />
+        <Route path="launch/:blueprintId" element={<CompanySetupPage />} />
+        <Route path="onboarding" element={<CompanySetupPage entry="personal" />} />
 
         {/* Legacy flat session URL — resolves the owning agent +
             entity, then Navigate replace to the canonical deep shape. */}
         <Route path="sessions/:sessionId" element={<SessionRedirect />} />
 
-        {/* Account surface + every company at /trust/<addr>/... share
+        {/* Account surface + every company at /company/<addr>/... share
               the same shell — AppLayout decides content from path. */}
         <Route element={<AppLayout />}>
           <Route path="account" element={null} />
@@ -213,11 +213,11 @@ export default function App() {
           <Route path="start" element={null} />
           <Route path="network" element={null} />
           <Route path="identity" element={null} />
-          {/* Canonical trusts-picker route as of 2026-05-19. Bare `/trust`
-              (no address) renders the picker; `/trust/<addr>/...` below
+          {/* Canonical companies-picker route as of 2026-05-19. Bare `/company`
+              (no address) renders the picker; `/company/<addr>/...` below
               is the entity shell. */}
-          <Route path="trust" element={null} />
-          <Route path="trust/:trustAddress" element={null}>
+          <Route path="company" element={null} />
+          <Route path="company/:companyAddress" element={null}>
             <Route index element={null} />
             <Route path="agents/:agentId" element={null}>
               <Route index element={null} />
@@ -254,7 +254,7 @@ export default function App() {
           <Route path="/login" element={<WelcomePage mode="login" />} />
           <Route path="/signup" element={<WelcomePage mode="signup" />} />
           <Route path="/welcome" element={<WelcomePage mode="welcome" />} />
-          {/* `/launch` is the standalone TRUST launch surface; unauth
+          {/* `/launch` is the standalone COMPANY launch surface; unauth
               visitors bounce through the protected route below. */}
           <Route path="/waitlist" element={<Navigate to="/signup" replace />} />
           <Route path="/verify" element={<VerifyEmailPage />} />
@@ -287,7 +287,7 @@ export default function App() {
             path="/onboarding"
             element={
               <ProtectedRoute>
-                <TrustSetupPage entry="personal" />
+                <CompanySetupPage entry="personal" />
               </ProtectedRoute>
             }
           />
@@ -295,7 +295,7 @@ export default function App() {
             path="/launch"
             element={
               <ProtectedRoute>
-                <TrustSetupPage />
+                <CompanySetupPage />
               </ProtectedRoute>
             }
           />
@@ -303,7 +303,7 @@ export default function App() {
             path="/launch/:blueprintId"
             element={
               <ProtectedRoute>
-                <TrustSetupPage />
+                <CompanySetupPage />
               </ProtectedRoute>
             }
           />
@@ -345,7 +345,7 @@ export default function App() {
           {/* Public profile — top-level `/<slug>` route. Lives BEFORE the
               authed catch-all so unauth visitors can hit a Company's
               public profile without bouncing to /login. Reserved slugs
-              (api / auth / me / c / trust / login / signup / etc.)
+              (api / auth / me / c / company / login / signup / etc.)
               delegate to the protected tree so authed surfaces continue
               to render correctly for those segments. */}
           <Route path="/:slug" element={<PublicProfileRoute protectedFallback={protectedTree} />} />

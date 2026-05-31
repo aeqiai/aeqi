@@ -22,12 +22,12 @@ describe("ParticipantStrip", () => {
     useDaemonStore.setState({
       entities: [
         {
-          id: "trust-1",
+          id: "company-1",
           name: "Root",
-          type: "trust",
+          type: "company",
           status: "active",
           created_at: "2026-05-30T00:00:00Z",
-          trust_address: "root-1",
+          company_address: "root-1",
         },
       ],
       agents: [
@@ -36,7 +36,7 @@ describe("ParticipantStrip", () => {
           name: "Builder",
           avatar: "/builder.png",
           status: "active",
-          trust_id: "trust-1",
+          company_id: "company-1",
         },
       ],
     });
@@ -60,7 +60,7 @@ describe("ParticipantStrip", () => {
       <MemoryRouter>
         <ParticipantStrip
           sessionId="session-1"
-          trustId="trust-1"
+          companyId="company-1"
           activeParticipantIds={["agent-1"]}
         />
       </MemoryRouter>,

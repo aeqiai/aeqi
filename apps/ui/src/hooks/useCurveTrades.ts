@@ -1,5 +1,5 @@
 /**
- * `useCurveTrades` — shared fetcher for `/api/curves/{trustId}/state`.
+ * `useCurveTrades` — shared fetcher for `/api/curves/{companyId}/state`.
  *
  * Iter-6 functional gap: prior to this hook the curve state was fetched
  * in two independent places — once at `EquityGenesisCurveSection` (so
@@ -14,7 +14,7 @@
  *      single Equity render even though both consumers wanted the same
  *      payload.
  *
- * This hook collapses both into one fetcher keyed by `trustId` +
+ * This hook collapses both into one fetcher keyed by `companyId` +
  * `refreshTick`. The genesis curve section drives the tick after every
  * successful trade, the page hands the tick to the cap-table section,
  * and the drawer reads from the same hook output. Curve activity that
@@ -26,7 +26,7 @@
  * surface internally consistent without forcing a wider migration.
  * Future iters can promote this to RQ if a second consumer surfaces.
  *
- * Soft-fails: 409 `curve_not_provisioned` (Foundation TRUSTs,
+ * Soft-fails: 409 `curve_not_provisioned` (Foundation Companies,
  * partially-provisioned ventures, ledger-reset stranded placements) is
  * NOT an error — it's the absence of a curve. The hook flags it
  * separately so the consumer can render an empty state without painting
@@ -55,21 +55,21 @@ export interface UseCurveTradesResult {
 }
 
 /**
- * Subscribe to the live curve state for a TRUST. Re-fetches whenever
- * `trustId` or `refreshTick` changes — `refreshTick` is the consumer's
+ * Subscribe to the live curve state for a COMPANY. Re-fetches whenever
+ * `companyId` or `refreshTick` changes — `refreshTick` is the consumer's
  * lever for "I just landed a Buy/Sell, refresh now".
  *
  * Returns a stable shape so downstream `useMemo`s can depend on
  * individual fields rather than recomputing on every render.
  */
-export function useCurveTrades(trustId: string, refreshTick: number = 0): UseCurveTradesResult {
+export function useCurveTrades(companyId: string, refreshTick: number = 0): UseCurveTradesResult {
   const [state, setState] = useState<CurveState | null>(null);
   const [missing, setMissing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!trustId) {
+    if (!companyId) {
       setState(null);
       setMissing(false);
       setError(null);
@@ -80,7 +80,7 @@ export function useCurveTrades(trustId: string, refreshTick: number = 0): UseCur
     setIsLoading(true);
     void (async () => {
       try {
-        const next = await api.getCurveState(trustId);
+        const next = await api.getCurveState(companyId);
         if (cancelled) return;
         setState(next);
         setMissing(false);
@@ -102,7 +102,7 @@ export function useCurveTrades(trustId: string, refreshTick: number = 0): UseCur
     return () => {
       cancelled = true;
     };
-  }, [trustId, refreshTick]);
+  }, [companyId, refreshTick]);
 
   return {
     state,

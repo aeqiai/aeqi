@@ -52,7 +52,7 @@
               },
               {
                 "kind": "account",
-                "path": "pool.trust",
+                "path": "pool.company",
                 "account": "LiquidityPool"
               },
               {
@@ -98,7 +98,7 @@
               },
               {
                 "kind": "account",
-                "path": "pool.trust",
+                "path": "pool.company",
                 "account": "LiquidityPool"
               },
               {
@@ -134,7 +134,7 @@
               },
               {
                 "kind": "account",
-                "path": "pool.trust",
+                "path": "pool.company",
                 "account": "LiquidityPool"
               },
               {
@@ -224,7 +224,7 @@
               },
               {
                 "kind": "account",
-                "path": "curve.trust",
+                "path": "curve.company",
                 "account": "BondingCurve"
               },
               {
@@ -261,7 +261,7 @@
               },
               {
                 "kind": "account",
-                "path": "curve.trust",
+                "path": "curve.company",
                 "account": "BondingCurve"
               },
               {
@@ -346,7 +346,7 @@
               },
               {
                 "kind": "account",
-                "path": "sale.trust",
+                "path": "sale.company",
                 "account": "CommitmentSale"
               },
               {
@@ -382,7 +382,7 @@
               },
               {
                 "kind": "account",
-                "path": "sale.trust",
+                "path": "sale.company",
                 "account": "CommitmentSale"
               },
               {
@@ -427,7 +427,7 @@
               },
               {
                 "kind": "account",
-                "path": "sale.trust",
+                "path": "sale.company",
                 "account": "CommitmentSale"
               },
               {
@@ -490,7 +490,7 @@
               },
               {
                 "kind": "account",
-                "path": "exit.trust",
+                "path": "exit.company",
                 "account": "Exit"
               },
               {
@@ -526,7 +526,7 @@
               },
               {
                 "kind": "account",
-                "path": "exit.trust",
+                "path": "exit.company",
                 "account": "Exit"
               },
               {
@@ -609,7 +609,7 @@
               },
               {
                 "kind": "account",
-                "path": "sale.trust",
+                "path": "sale.company",
                 "account": "CommitmentSale"
               },
               {
@@ -645,7 +645,7 @@
               },
               {
                 "kind": "account",
-                "path": "sale.trust",
+                "path": "sale.company",
                 "account": "CommitmentSale"
               },
               {
@@ -694,7 +694,7 @@
               },
               {
                 "kind": "account",
-                "path": "sale.trust",
+                "path": "sale.company",
                 "account": "CommitmentSale"
               },
               {
@@ -748,7 +748,7 @@
       ],
       "accounts": [
         {
-          "name": "trust"
+          "name": "company"
         },
         {
           "name": "module_state",
@@ -779,7 +779,7 @@
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -800,7 +800,7 @@
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               },
               {
                 "kind": "arg",
@@ -866,7 +866,7 @@
       ],
       "accounts": [
         {
-          "name": "trust"
+          "name": "company"
         },
         {
           "name": "module_state",
@@ -897,7 +897,7 @@
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -919,7 +919,7 @@
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               },
               {
                 "kind": "arg",
@@ -1001,7 +1001,7 @@
       ],
       "accounts": [
         {
-          "name": "trust"
+          "name": "company"
         },
         {
           "name": "module_state",
@@ -1032,7 +1032,7 @@
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -1053,7 +1053,7 @@
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               },
               {
                 "kind": "arg",
@@ -1122,7 +1122,7 @@
       ],
       "accounts": [
         {
-          "name": "trust"
+          "name": "company"
         },
         {
           "name": "module_state",
@@ -1153,7 +1153,7 @@
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -1184,7 +1184,7 @@
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               },
               {
                 "kind": "arg",
@@ -1228,7 +1228,7 @@
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               },
               {
                 "kind": "arg",
@@ -1262,7 +1262,7 @@
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               },
               {
                 "kind": "arg",
@@ -1452,7 +1452,7 @@
               },
               {
                 "kind": "account",
-                "path": "sale.trust",
+                "path": "sale.company",
                 "account": "CommitmentSale"
               },
               {
@@ -1473,8 +1473,8 @@
     {
       "name": "init",
       "docs": [
-        "Module init — creates UnifuturesModuleState PDA bound to a trust.",
-        "Gated to the trust authority during creation mode so the",
+        "Module init — creates UnifuturesModuleState PDA bound to a company.",
+        "Gated to the company authority during creation mode so the",
         "module_state PDA cannot be squatted by an attacker."
       ],
       "discriminator": [
@@ -1489,9 +1489,9 @@
       ],
       "accounts": [
         {
-          "name": "trust",
+          "name": "company",
           "docs": [
-            "Trust PDA — must be a real Trust account owned by aeqi_trust."
+            "Company PDA — must be a real Company account owned by aeqi_company."
           ],
           "pda": {
             "seeds": [
@@ -1507,8 +1507,8 @@
               },
               {
                 "kind": "account",
-                "path": "trust.trust_id",
-                "account": "Trust"
+                "path": "company.company_id",
+                "account": "Company"
               }
             ],
             "program": {
@@ -1579,7 +1579,7 @@
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -1669,7 +1669,7 @@
               },
               {
                 "kind": "account",
-                "path": "pool.trust",
+                "path": "pool.company",
                 "account": "LiquidityPool"
               },
               {
@@ -1715,7 +1715,7 @@
               },
               {
                 "kind": "account",
-                "path": "pool.trust",
+                "path": "pool.company",
                 "account": "LiquidityPool"
               },
               {
@@ -1751,7 +1751,7 @@
               },
               {
                 "kind": "account",
-                "path": "pool.trust",
+                "path": "pool.company",
                 "account": "LiquidityPool"
               },
               {
@@ -1841,7 +1841,7 @@
               },
               {
                 "kind": "account",
-                "path": "curve.trust",
+                "path": "curve.company",
                 "account": "BondingCurve"
               },
               {
@@ -1878,7 +1878,7 @@
               },
               {
                 "kind": "account",
-                "path": "curve.trust",
+                "path": "curve.company",
                 "account": "BondingCurve"
               },
               {
@@ -1964,7 +1964,7 @@
               },
               {
                 "kind": "account",
-                "path": "exit.trust",
+                "path": "exit.company",
                 "account": "Exit"
               },
               {
@@ -2000,7 +2000,7 @@
               },
               {
                 "kind": "account",
-                "path": "exit.trust",
+                "path": "exit.company",
                 "account": "Exit"
               },
               {
@@ -2075,7 +2075,7 @@
               },
               {
                 "kind": "account",
-                "path": "pool.trust",
+                "path": "pool.company",
                 "account": "LiquidityPool"
               },
               {
@@ -2121,7 +2121,7 @@
               },
               {
                 "kind": "account",
-                "path": "pool.trust",
+                "path": "pool.company",
                 "account": "LiquidityPool"
               },
               {
@@ -2245,7 +2245,7 @@
       ]
     },
     {
-      "name": "Trust",
+      "name": "Company",
       "discriminator": [
         71,
         85,
@@ -2593,8 +2593,8 @@
     },
     {
       "code": 6027,
-      "name": "TrustNotInCreationMode",
-      "msg": "trust must be in creation mode to initialize the unifutures module"
+      "name": "CompanyNotInCreationMode",
+      "msg": "company must be in creation mode to initialize the unifutures module"
     },
     {
       "code": 6028,
@@ -2619,7 +2619,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -2648,7 +2648,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -2668,7 +2668,7 @@
             "name": "asset_mint",
             "docs": [
               "Canonical asset mint sold by this curve. Buy/sell reject any other",
-              "asset mint so callers cannot route a TRUST curve through a worthless",
+              "asset mint so callers cannot route a COMPANY curve through a worthless",
               "substitute token."
             ],
             "type": "pubkey"
@@ -2725,7 +2725,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -2786,7 +2786,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -2819,7 +2819,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -2868,7 +2868,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -2901,7 +2901,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -2974,7 +2974,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -3015,7 +3015,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -3044,7 +3044,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -3081,7 +3081,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -3142,7 +3142,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -3179,7 +3179,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -3216,7 +3216,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -3249,7 +3249,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -3282,7 +3282,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -3315,7 +3315,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -3356,7 +3356,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -3389,7 +3389,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -3425,15 +3425,15 @@
       }
     },
     {
-      "name": "Trust",
+      "name": "Company",
       "docs": [
-        "Core TRUST account — one per AEQI company. PDA seeded `[b\"trust\", trust_id]`."
+        "Core COMPANY account — one per AEQI company. PDA seeded `[b\"company\", company_id]`."
       ],
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust_id",
+            "name": "company_id",
             "type": {
               "array": [
                 "u8",
@@ -3470,7 +3470,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {

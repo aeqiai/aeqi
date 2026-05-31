@@ -45,7 +45,7 @@ runtime that can remember, assign, execute, verify, and explain work.
 A first-time operator or contributor should be able to answer these questions in
 under ten minutes:
 
-1. Am I using hosted TRUST, local demo, self-hosted runtime, or source checkout?
+1. Am I using hosted COMPANY, local demo, self-hosted runtime, or source checkout?
 2. Where is runtime state: home-scoped `~/.aeqi` or workspace-local config?
 3. Which command proves the runtime is healthy?
 4. Which command creates the first durable quest?

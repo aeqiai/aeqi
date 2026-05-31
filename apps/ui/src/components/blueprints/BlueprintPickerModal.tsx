@@ -9,7 +9,7 @@ interface BlueprintPickerModalProps {
   open: boolean;
   onClose: () => void;
   /** Host entity that the picked template will be spawned into. */
-  trustId: string;
+  companyId: string;
   /**
    * Which seed parts to materialize. Omit (default) for the full
    * `+ New agent` flow that pulls in all blueprint seed surfaces. Pass
@@ -41,7 +41,7 @@ interface BlueprintPickerModalProps {
 export function BlueprintPickerModal({
   open,
   onClose,
-  trustId,
+  companyId,
   parts,
   onSpawned,
   title,
@@ -56,16 +56,16 @@ export function BlueprintPickerModal({
     if (onSpawned) {
       onSpawned();
     } else {
-      navigate(entityPathFromId(entitiesList, trustId, "agents"));
+      navigate(entityPathFromId(entitiesList, companyId, "agents"));
     }
-  }, [trustId, entitiesList, fetchAgents, navigate, onClose, onSpawned]);
+  }, [companyId, entitiesList, fetchAgents, navigate, onClose, onSpawned]);
 
   return (
     <Modal open={open} onClose={onClose} title={title ?? "Add agents from a template"}>
       {open && (
         <BlueprintLaunchPicker
           mode="spawn-into-entity"
-          trustId={trustId}
+          companyId={companyId}
           parts={parts}
           onSpawnedAgent={() => void handleSpawned()}
         />

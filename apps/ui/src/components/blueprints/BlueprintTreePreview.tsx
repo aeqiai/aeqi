@@ -10,7 +10,7 @@ interface BlueprintTreePreviewProps {
 
 /**
  * Org-chart preview for a Blueprint. Renders as a layered DAG that
- * mirrors the post-spawn shape (`TrustRolesTab`'s chart view) — what
+ * mirrors the post-spawn shape (`CompanyRolesTab`'s chart view) — what
  * the user picks IS what they get. Wrapped in a bordered card with a
  * header so it reads as an intentional product surface, not a sketch.
  *

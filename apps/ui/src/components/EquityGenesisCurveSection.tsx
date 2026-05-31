@@ -15,10 +15,10 @@ import "./EquityGenesisCurveSection.css";
 
 /**
  * Genesis curve — live BondingCurve state pulled from the platform's
- * `/api/curves/{trust_id}/state` route (ja-016 platform half, 6f3933f).
+ * `/api/curves/{company_id}/state` route (ja-016 platform half, 6f3933f).
  *
  * Renders only when the curve PDA is fully provisioned on chain. The
- * 409 `curve_not_provisioned` case (Foundation TRUSTs, ledger-reset
+ * 409 `curve_not_provisioned` case (Foundation Companies, ledger-reset
  * stranded placements, partially-provisioned ventures) silently hides
  * the section — Equity is the right home for "Venture token state" and
  * the rest of the page (mint, cap table, vesting) already renders the
@@ -39,11 +39,11 @@ import "./EquityGenesisCurveSection.css";
  * `/api/solana/curve-sell` endpoint lands.
  */
 export function EquityGenesisCurveSection({
-  trustId,
+  companyId,
   refreshTick,
   onTradeSettled,
 }: {
-  trustId: string;
+  companyId: string;
   /**
    * Iter-6: the parent page lifts the refresh tick so HolderDrawer +
    * RecentTradesLog (under the chart) share the same cache cadence.
@@ -64,7 +64,7 @@ export function EquityGenesisCurveSection({
   // a refresh.
   const [internalTick, setInternalTick] = useState(0);
   const effectiveTick = internalTick + (refreshTick ?? 0);
-  const { state, missing, error: loadError } = useCurveTrades(trustId, effectiveTick);
+  const { state, missing, error: loadError } = useCurveTrades(companyId, effectiveTick);
   const [buying, setBuying] = useState(false);
   const [buySignature, setBuySignature] = useState<string | null>(null);
   const [buyError, setBuyError] = useState<string | null>(null);
@@ -102,7 +102,7 @@ export function EquityGenesisCurveSection({
     setBuyError(null);
     setBuySignature(null);
     try {
-      const result = await api.tryUnifuturesFirstBuy({ entity_id: trustId });
+      const result = await api.tryUnifuturesFirstBuy({ entity_id: companyId });
       setBuySignature(result.signature_b58);
       bumpRefresh();
     } catch (err) {
@@ -377,7 +377,7 @@ export function EquityGenesisCurveSection({
       // (= 9 billion LAUNCH at 6 decimals); GENESIS_CURVE_MAX_SUPPLY is
       // 1e12 base units. Number coercion is safe for every legal value.
       const result = await api.curveSell({
-        entity_id: trustId,
+        entity_id: companyId,
         token_amount: Number(sellAmountBaseUnits),
       });
       setSellSignature(result.signature_b58);
@@ -391,7 +391,7 @@ export function EquityGenesisCurveSection({
     }
   };
 
-  // Foundation TRUSTs and partially-provisioned ventures: the on-chain
+  // Foundation Companies and partially-provisioned ventures: the on-chain
   // curve PDA is not backed yet. Surface a quiet empty state rather than
   // hiding the section silently — Equity readers expect to see "why" the
   // chart isn't here.
@@ -403,7 +403,7 @@ export function EquityGenesisCurveSection({
       >
         <EmptyState
           title="Curve not provisioned yet"
-          description="This TRUST's bonding-curve PDA is not backed on the configured cluster. Once provisioning lands, the live curve and Buy/Sell rails appear here."
+          description="This COMPANY's bonding-curve PDA is not backed on the configured cluster. Once provisioning lands, the live curve and Buy/Sell rails appear here."
         />
       </PageSection>
     );

@@ -7,12 +7,12 @@ import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
 
 interface Resolved {
   agentId: string;
-  trustId: string;
+  companyId: string;
 }
 
 /**
  * Bounces the legacy flat `/sessions/:sessionId` URL onto the canonical
- * deep shape `/trust/<addr>/sessions/<sessionId>`.
+ * deep shape `/company/<addr>/sessions/<sessionId>`.
  *
  * Resolution order:
  * 1. Inbox store (sync, populated for awaiting sessions).
@@ -30,10 +30,10 @@ export default function SessionRedirect() {
 
   const inboxResolved: Resolved | null = useMemo(
     () =>
-      inboxItem?.agent_id && inboxItem?.trust_id
-        ? { agentId: inboxItem.agent_id, trustId: inboxItem.trust_id }
+      inboxItem?.agent_id && inboxItem?.company_id
+        ? { agentId: inboxItem.agent_id, companyId: inboxItem.company_id }
         : null,
-    [inboxItem?.agent_id, inboxItem?.trust_id],
+    [inboxItem?.agent_id, inboxItem?.company_id],
   );
 
   const [resolved, setResolved] = useState<Resolved | null>(inboxResolved);
@@ -64,18 +64,18 @@ export default function SessionRedirect() {
         const sessions = (data?.sessions || []) as Array<Record<string, unknown>>;
         const match = sessions.find((s) => (s.id as string) === sessionId);
         const agentId = match?.agent_id as string | undefined;
-        const entityIdFromRow = match?.trust_id as string | undefined;
+        const entityIdFromRow = match?.company_id as string | undefined;
         if (!agentId) {
           setResolveFailed(true);
           return;
         }
-        const entityFromStore = agents.find((a) => a.id === agentId)?.trust_id;
-        const trustId = entityIdFromRow ?? entityFromStore ?? null;
-        if (!trustId) {
+        const entityFromStore = agents.find((a) => a.id === agentId)?.company_id;
+        const companyId = entityIdFromRow ?? entityFromStore ?? null;
+        if (!companyId) {
           setResolveFailed(true);
           return;
         }
-        setResolved({ agentId, trustId });
+        setResolved({ agentId, companyId });
       })
       .catch(() => {
         if (!cancelled) setResolveFailed(true);
@@ -88,6 +88,6 @@ export default function SessionRedirect() {
   if (resolveFailed) return <Navigate to="/" replace />;
   if (!resolved) return null;
 
-  const deep = sessionDeepUrlFromId(entities, resolved.trustId, resolved.agentId, sessionId);
+  const deep = sessionDeepUrlFromId(entities, resolved.companyId, resolved.agentId, sessionId);
   return <Navigate to={deep} replace />;
 }

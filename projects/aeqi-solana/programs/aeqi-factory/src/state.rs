@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 
 /// Template registered on-chain. PDA seeded `[b"template", template_id]`.
 /// Declares the module set, ACL graph, and default value configs that
-/// `instantiate_template` will replay against every fresh TRUST.
+/// `instantiate_template` will replay against every fresh COMPANY.
 #[account]
 pub struct Template {
     pub template_id: [u8; 32],
@@ -15,7 +15,7 @@ pub struct Template {
 /// Module declaration in a template. `program_id` points at the concrete
 /// executable selected for this template. `provider`, `implementation_version`,
 /// and `implementation_metadata_hash` record the provider-published version
-/// that this TRUST starts from; future provider releases are adopted per TRUST.
+/// that this COMPANY starts from; future provider releases are adopted per COMPANY.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace)]
 pub struct ModuleSpec {
     pub module_id: [u8; 32],
@@ -23,11 +23,11 @@ pub struct ModuleSpec {
     pub provider: Pubkey,
     pub implementation_version: u64,
     pub implementation_metadata_hash: [u8; 32],
-    pub trust_acl: u64,
+    pub company_acl: u64,
 }
 
 /// Inter-module ACL edge declaration. After all modules are deployed the
-/// factory walks this list and CPIs `aeqi_trust::set_module_acl` per edge.
+/// factory walks this list and CPIs `aeqi_company::set_module_acl` per edge.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace)]
 pub struct AclEdgeSpec {
     pub source_module_id: [u8; 32],

@@ -8,7 +8,7 @@ export interface ResolvedAgent {
   kind: "agent";
   id: string;
   name: string;
-  trust_id?: string | null;
+  company_id?: string | null;
 }
 
 export interface ResolvedEvent {
@@ -60,7 +60,7 @@ async function fetchAgent(id: string): Promise<ResolvedPrimitive | null> {
       kind: "agent",
       id: found.id,
       name: found.name,
-      trust_id: found.trust_id,
+      company_id: found.company_id,
     };
   } catch {
     return null;

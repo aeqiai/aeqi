@@ -1,20 +1,20 @@
 # AEQI Architecture
 
-AEQI is a TRUST runtime and orchestration engine in Rust. The canonical
+AEQI is a COMPANY runtime and orchestration engine in Rust. The canonical
 vocabulary lives in [primitive-contract.md](primitive-contract.md). This page
 maps that product contract to the current runtime implementation.
 
 ## Primitive Contract
 
-A **TRUST** is the shared AI workspace and runtime for one mission. Inside a
-TRUST, the first-class surfaces are Roles, Agents, Quests, Ideas, Events,
+A **COMPANY** is the shared AI workspace and runtime for one mission. Inside a
+COMPANY, the first-class surfaces are Roles, Agents, Quests, Ideas, Events,
 Sessions, and Apps/Tools.
 Some storage still reflects earlier implementation history; this table maps
 the contract to current state.
 
 | Surface          | Purpose                                                                | Current storage                                                           |
 | ---------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| **TRUST**        | Shared AI workspace and runtime for one mission                        | entity/runtime identity, platform placement, protocol state where present |
+| **COMPANY**        | Shared AI workspace and runtime for one mission                        | entity/runtime identity, platform placement, protocol state where present |
 | **Role**         | Authority, responsibility, scope, permissions, budgets, and occupancy  | role tables and platform/protocol role state where present                |
 | **Agent**        | Persistent identity in a tree (`parent_id` hierarchy)                  | `aeqi.db`                                                                 |
 | **Quest**        | Unit of work with dependencies, evidence, retries, and outcomes        | `sessions.db`                                                             |

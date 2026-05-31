@@ -48,17 +48,17 @@ import { bytesToHex, relativeTimeLabel, shortAddress } from "./QuorumPage.format
 
 /**
  * Return a function that invalidates every Quorum-scoped query for a
- * given (trustAddress, proposalId?) tuple. After a successful vote, the
+ * given (companyAddress, proposalId?) tuple. After a successful vote, the
  * caller passes the proposalId to invalidate that proposal's vote
  * records too; after a successful propose/execute/cancel the proposal
  * list itself is invalidated.
  *
  * React Query's `invalidateQueries` matches by query-key prefix, so a
- * single `["quorum", "proposals", trustAddress]` invalidate refetches
+ * single `["quorum", "proposals", companyAddress]` invalidate refetches
  * the on-chain proposal list, and `["quorum", "voteRecords", ...]`
  * refetches the detail-modal vote audit.
  */
-export function useQuorumInvalidator(trustAddress: string) {
+export function useQuorumInvalidator(companyAddress: string) {
   const qc = useQueryClient();
   return useCallback(
     (opts?: {
@@ -69,17 +69,17 @@ export function useQuorumInvalidator(trustAddress: string) {
       // so reuse `bytesToHex` to derive the same key the read uses.
       if (opts?.proposalId) {
         const idKey = bytesToHex(opts.proposalId);
-        void qc.invalidateQueries({ queryKey: ["quorum", "voteRecords", trustAddress, idKey] });
+        void qc.invalidateQueries({ queryKey: ["quorum", "voteRecords", companyAddress, idKey] });
       }
-      void qc.invalidateQueries({ queryKey: ["quorum", "proposals", trustAddress] });
+      void qc.invalidateQueries({ queryKey: ["quorum", "proposals", companyAddress] });
       // configs only change on register_config; only refetch them when a
       // brand-new proposal opens (the platform may have shipped a config
       // alongside in a sibling quest), not on every vote.
       if (opts?.kind === "propose") {
-        void qc.invalidateQueries({ queryKey: ["quorum", "configs", trustAddress] });
+        void qc.invalidateQueries({ queryKey: ["quorum", "configs", companyAddress] });
       }
     },
-    [qc, trustAddress],
+    [qc, companyAddress],
   );
 }
 
@@ -118,11 +118,11 @@ export function VoteWeightBar({
 }
 
 /* ────────────────────────────────────────────────────────────────── */
-/* Vote history — VoteRecord PDAs scoped to (trust, proposalId)        */
+/* Vote history — VoteRecord PDAs scoped to (company, proposalId)        */
 /* ────────────────────────────────────────────────────────────────── */
 
 /**
- * Pull `VoteRecord` PDAs scoped to (trust, proposalId) and render the
+ * Pull `VoteRecord` PDAs scoped to (company, proposalId) and render the
  * audit trail. The row tallies show the aggregate, but operators need
  * to see WHO voted WHAT to spot delegation patterns, missed signers,
  * or coordination concerns. The RPC cost is one `getProgramAccounts`
@@ -132,13 +132,13 @@ export function VoteWeightBar({
  * proposal so influence concentration reads at a glance.
  */
 export function VoteHistorySection({
-  trustAddress,
+  companyAddress,
   proposalId,
   blockTimes,
   signatures,
   nowSeconds,
 }: {
-  trustAddress: string;
+  companyAddress: string;
   proposalId: Uint8Array | number[];
   /** iter-9: per-PDA blockTime map produced by `useProposalMomentum`. The
    *  hook fetches one signature per vote_record PDA via
@@ -154,7 +154,7 @@ export function VoteHistorySection({
    *  the rest of the modal still reads "ends in 2h". */
   nowSeconds: number;
 }) {
-  const { data, isLoading, error } = useProposalVoteRecords(trustAddress, proposalId);
+  const { data, isLoading, error } = useProposalVoteRecords(companyAddress, proposalId);
 
   // Sort by weight DESC then voter address — gives the highest-impact
   // signer first, which is what an operator actually wants to scan for.
@@ -509,29 +509,29 @@ function decodeIpfsCid(bytes: Uint8Array | number[]): DecodedCid {
 const ROLE_STATUS_OCCUPIED = 1;
 
 export function ProposalActionBar({
-  trustId,
-  trustAddress,
+  companyId,
+  companyAddress,
   proposal,
   status,
   viewerCreatorAddress,
   roles,
   onAction,
 }: {
-  trustId: string;
-  trustAddress: string;
+  companyId: string;
+  companyAddress: string;
   proposal: ProposalAccount;
   status: ProposalStatus;
   /**
-   * EOA that owns the TRUST (from `entity.creator_address`). When
+   * EOA that owns the COMPANY (from `entity.creator_address`). When
    * present, the Cancel CTA only renders if it matches the on-chain
    * `proposer` field on the proposal — keeps random viewers from
    * accidentally firing a cancel against a proposal they didn&apos;t open.
    * `null` falls back to the prior permissive behaviour so the surface
-   * stays usable on TRUSTs whose creator address isn&apos;t yet recorded.
+   * stays usable on Companies whose creator address isn&apos;t yet recorded.
    */
   viewerCreatorAddress: string | null;
   /**
-   * Occupied role accounts on this TRUST. Iter-5 extends the cancel
+   * Occupied role accounts on this COMPANY. Iter-5 extends the cancel
    * allowlist beyond the proposer-only check: if the viewer&apos;s EOA
    * matches the `account` pubkey on any Occupied role, they also see the
    * Cancel CTA. The on-chain ix still gates the actual signature, this
@@ -541,7 +541,7 @@ export function ProposalActionBar({
   roles?: RoleAccountWithPda[];
   onAction?: () => void;
 }) {
-  const invalidate = useQuorumInvalidator(trustAddress);
+  const invalidate = useQuorumInvalidator(companyAddress);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [busy, setBusy] = useState<null | "execute" | "cancel">(null);
@@ -557,7 +557,7 @@ export function ProposalActionBar({
     setBanner(null);
     try {
       const result = await api.proposalExecute({
-        entity_id: trustId,
+        entity_id: companyId,
         proposal_id_hex: proposalIdHex,
       });
       if (result.platform_side_tbd) {
@@ -597,7 +597,7 @@ export function ProposalActionBar({
     setBanner(null);
     try {
       const result = await api.proposalCancel({
-        entity_id: trustId,
+        entity_id: companyId,
         proposal_id_hex: proposalIdHex,
         reason: cancelReason.trim() || undefined,
       });
@@ -644,7 +644,7 @@ export function ProposalActionBar({
   //      the broader restriction.
   //   2. viewerCreatorAddress is set — compare against the proposer
   //      pubkey on the proposal first. Then, if the viewer isn&apos;t the
-  //      proposer, walk Occupied roles on the TRUST and grant the
+  //      proposer, walk Occupied roles on the COMPANY and grant the
   //      affordance if any role&apos;s `account` matches the viewer EOA.
   //      That covers the board / multisig case from the brief: a role
   //      holder reviewing someone else&apos;s proposal can pull it.
@@ -675,8 +675,8 @@ export function ProposalActionBar({
   const cancelTooltip = isProposer
     ? "Cancel withdraws the proposal. The on-chain cancel ix only accepts the proposer&apos;s signature."
     : holdsOccupiedRole
-      ? "Cancel withdraws the proposal. You hold a role on this TRUST — the proposed cancel grant lets role-holders pull proposals during pending/active."
-      : "Cancel withdraws the proposal. Restricted to the proposer or a role-holder on this TRUST.";
+      ? "Cancel withdraws the proposal. You hold a role on this COMPANY — the proposed cancel grant lets role-holders pull proposals during pending/active."
+      : "Cancel withdraws the proposal. Restricted to the proposer or a role-holder on this COMPANY.";
 
   if (!canExecute && !canCancel && !banner) return null;
 

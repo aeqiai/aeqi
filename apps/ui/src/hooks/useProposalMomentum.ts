@@ -16,7 +16,7 @@
  *      from the index) degrades to "no timestamp" rather than killing the
  *      whole hook.
  *   2. **Cached.** Each per-PDA lookup lives behind its own
- *      `["quorum", "voteRecordTime", trustAddress, pdaBase58]` query so
+ *      `["quorum", "voteRecordTime", companyAddress, pdaBase58]` query so
  *      flipping between proposals or re-opening the detail modal doesn't
  *      re-fire the round-trips. The umbrella momentum query depends on the
  *      list of voteRecord PDAs — when a new vote lands, only the new PDA
@@ -52,7 +52,7 @@ export const MOMENTUM_BUCKETS = 24;
 /** Per-PDA staleness — the create-time of a vote_record PDA never
  *  changes, so once we know the blockTime we can hold it forever. We
  *  still let React Query drop entries from memory after a long idle so
- *  flipping between TRUSTs doesn't accumulate unbounded entries. */
+ *  flipping between Companies doesn't accumulate unbounded entries. */
 const PER_RECORD_STALE_MS = 60 * 60 * 1000;
 /** Umbrella staleness for the momentum aggregation. Cheap once the
  *  per-record cache is warm — re-running is one cache walk. */
@@ -101,9 +101,9 @@ interface UseProposalMomentumArgs {
   voteStart: number;
   /** End of the vote window, unix seconds (proposal.voteStart + voteDuration). */
   voteEnd: number;
-  /** TRUST PDA — namespaces the React Query cache key alongside the
+  /** COMPANY PDA — namespaces the React Query cache key alongside the
    *  per-record lookup. */
-  trustAddress: string;
+  companyAddress: string;
 }
 
 export interface UseProposalMomentumResult {
@@ -120,7 +120,7 @@ export interface UseProposalMomentumResult {
  * doesn't reflow as new times stream in).
  */
 export function useProposalMomentum(args: UseProposalMomentumArgs): UseProposalMomentumResult {
-  const { voteRecords, voteStart, voteEnd, trustAddress } = args;
+  const { voteRecords, voteStart, voteEnd, companyAddress } = args;
   const directRpcEnabled = isDirectSolanaRpcEnabled();
 
   // Stable list of (pda, weight, choice) tuples that survives identity
@@ -145,7 +145,7 @@ export function useProposalMomentum(args: UseProposalMomentumArgs): UseProposalM
   const pdaKey = useMemo(() => recordRefs.map((r) => r.pda).join(","), [recordRefs]);
 
   const query = useQuery({
-    queryKey: ["quorum", "proposalMomentum", trustAddress, pdaKey, voteStart, voteEnd],
+    queryKey: ["quorum", "proposalMomentum", companyAddress, pdaKey, voteStart, voteEnd],
     queryFn: async (): Promise<ProposalMomentum> => {
       // Resolve blockTime per PDA in parallel. `getSignaturesForAddress`
       // with limit=1 returns the most-recent (and, for a vote_record PDA
@@ -252,9 +252,9 @@ export function useProposalMomentum(args: UseProposalMomentumArgs): UseProposalM
     },
     // The hook is enabled even when we have no records — that just
     // gives us a zeroed-buckets reading the sparkline can render as a
-    // flat baseline. The trust+window key changes when the parent
+    // flat baseline. The company+window key changes when the parent
     // navigates, which triggers a fresh fetch.
-    enabled: directRpcEnabled && trustAddress.length > 0 && voteEnd > voteStart,
+    enabled: directRpcEnabled && companyAddress.length > 0 && voteEnd > voteStart,
     staleTime: STALE_TIME_MS,
     // We re-resolve only when the PDA list grows; the per-record value
     // is immutable once created so the gcTime stays generous.

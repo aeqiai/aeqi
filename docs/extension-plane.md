@@ -1,11 +1,11 @@
 # Runtime Extension Plane
 
-This document defines the AEQI-native extension plane: how a TRUST discovers,
+This document defines the AEQI-native extension plane: how a COMPANY discovers,
 authorizes, invokes, observes, and removes capabilities without turning AEQI
 into a generic worker/function/trigger framework.
 
 It builds on [primitive-contract.md](primitive-contract.md). The public product
-ontology remains TRUST-first. The extension plane is infrastructure under
+ontology remains COMPANY-first. The extension plane is infrastructure under
 **Apps / Tools** and **Events**.
 
 ## Goal
@@ -16,7 +16,7 @@ Make every runtime capability visible through one live registry:
 - who owns it
 - what schema it accepts and returns
 - who may call it
-- what TRUST, role, agent, app, package, or MCP server installed it
+- what COMPANY, role, agent, app, package, or MCP server installed it
 - whether it is healthy
 - how to remove it without leaving stale registrations
 - which events or sessions used it
@@ -26,7 +26,7 @@ is making Worker / Function / Trigger the public product model.
 
 ## Non-Goals
 
-- Do not rename TRUST, Roles, Agents, Quests, Ideas, Events, Sessions, or
+- Do not rename COMPANY, Roles, Agents, Quests, Ideas, Events, Sessions, or
   Apps/Tools.
 - Do not replace the existing `ToolRegistry`, MCP registry, event store, or
   blueprint installer in one pass.
@@ -71,7 +71,7 @@ pub struct CapabilityDescriptor {
     pub name: String,
     pub owner: CapabilityOwner,
     pub status: CapabilityStatus,
-    pub trust_scope: TrustScope,
+    pub company_scope: CompanyScope,
     pub caller_kinds: Vec<CallerKind>,
     pub input_schema: Option<serde_json::Value>,
     pub output_schema: Option<serde_json::Value>,
@@ -96,7 +96,7 @@ Initial `CapabilityKind` values:
 | `quest_api`          | Quest CRUD/search/workflow surface                     | quest tools/API                   |
 | `idea_api`           | Idea CRUD/search/graph surface                         | idea tools/API                    |
 | `code_graph`         | Indexed repository graph and query surface             | code graph index                  |
-| `app`                | Trust-scoped app integration or package                | Apps page / future installer      |
+| `app`                | Company-scoped app integration or package                | Apps page / future installer      |
 
 ### Capability Owner
 
@@ -106,12 +106,12 @@ identity.
 ```rust
 pub enum CapabilityOwner {
     RuntimeBuiltin { module: String },
-    Trust { trust_id: String },
-    Role { trust_id: String, role_id: String },
-    Agent { trust_id: String, agent_id: String },
-    App { trust_id: String, app_id: String },
-    Package { trust_id: String, package_id: String, install_id: String },
-    McpServer { trust_id: String, server_name: String },
+    Company { company_id: String },
+    Role { company_id: String, role_id: String },
+    Agent { company_id: String, agent_id: String },
+    App { company_id: String, app_id: String },
+    Package { company_id: String, package_id: String, install_id: String },
+    McpServer { company_id: String, server_name: String },
 }
 ```
 
@@ -152,7 +152,7 @@ Names carry authority. A package cannot register `mcp:github:*` or
 
 ```rust
 pub struct NamespaceGrant {
-    pub trust_id: String,
+    pub company_id: String,
     pub namespace: String,
     pub owner: CapabilityOwner,
     pub allowed_kinds: Vec<CapabilityKind>,
@@ -166,7 +166,7 @@ Examples:
 
 - `runtime:*` belongs to builtins only.
 - `mcp:<server>:*` belongs to the configured MCP server.
-- `app:<app_id>:*` belongs to a trust-scoped app.
+- `app:<app_id>:*` belongs to a company-scoped app.
 - `pkg:<package_id>:*` belongs to a package install.
 - `agent:<agent_id>:*` belongs to an agent only for agent-local capabilities.
 
@@ -236,7 +236,7 @@ First runtime/API shape:
 
 | Function/API                   | Use                                                   |
 | ------------------------------ | ----------------------------------------------------- |
-| `runtime.capabilities.list`    | List visible descriptors for current TRUST and actor. |
+| `runtime.capabilities.list`    | List visible descriptors for current COMPANY and actor. |
 | `runtime.capabilities.info`    | Fetch one descriptor plus health and owner metadata.  |
 | `runtime.capabilities.changed` | Event pattern fired after registry changes.           |
 | `runtime.trigger_types.list`   | List known trigger types and schemas.                 |
@@ -262,7 +262,7 @@ wait until owner-token and namespace rules are tested.
 ## Security Rules
 
 - Registry reads are actor-scoped. Hosted users see only capabilities for
-  authorized TRUSTs.
+  authorized Companies.
 - Schemas are public to authorized actors; secrets and resolved credentials are
   never included.
 - Tool args may contain user/operator data and must be redacted in logs.
@@ -293,12 +293,12 @@ existing surfaces.
 
 Acceptance:
 
-- The same current TRUST shows the same capability list through HTTP and MCP.
+- The same current COMPANY shows the same capability list through HTTP and MCP.
 - Tool descriptors include name, schema, caller kinds, source, and owner.
 - MCP tools keep their `mcp:<server>:<tool>` namespace.
 - Event handlers report pattern, enabled state, owner, and tool call count.
 - No secrets appear in descriptors.
-- Isolation tests prove hosted users cannot read another TRUST's registry.
+- Isolation tests prove hosted users cannot read another COMPANY's registry.
 
 ## Second Slice
 
@@ -328,8 +328,8 @@ Add owner-token and namespace enforcement for installable apps/packages:
 For any implementation slice:
 
 - Unit test descriptor projection for builtins, MCP tools, and event rows.
-- Contract test HTTP and MCP return equivalent descriptor sets for one TRUST.
-- Isolation test denies capability listing for unauthorized TRUSTs.
+- Contract test HTTP and MCP return equivalent descriptor sets for one COMPANY.
+- Isolation test denies capability listing for unauthorized Companies.
 - Redaction test proves credentials and secret args never appear in descriptors
   or logs.
 - Namespace test blocks cross-owner overwrite.

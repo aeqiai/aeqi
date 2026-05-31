@@ -107,7 +107,7 @@ The release can ship when these statements are true:
 - Verification should be captured as evidence, not only printed into a session.
 - Recoverability and resumability should be part of the visible work state.
 - Release work should exercise the same MCP and quest machinery that public
-  users are expected to trust.
+  users are expected to company.
 
 ### Needs UI Focus
 
@@ -124,7 +124,7 @@ The release can ship when these statements are true:
   release should not depend on full SaaS maturity.
 - Platform claims should be limited to runtime lifecycle, health, proxying, and
   hosted MCP where those paths are verified.
-- Any Solana or TRUST protocol work should support the long arc without
+- Any Solana or COMPANY protocol work should support the long arc without
   becoming the cold public wedge.
 
 ## Work Tracks

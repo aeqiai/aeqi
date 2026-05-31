@@ -11,14 +11,14 @@ import { useMemo } from "react";
 export interface ShellSurface {
   /** Bare `/` — the welcome / Start surface (hero + 4 preview cards).
    *  The root every authed user lands on (2026-05-19 swap: the dominion
-   *  picker moved to `/trust`; `/` is now the cinematic welcome). */
+   *  picker moved to `/company`; `/` is now the cinematic welcome). */
   isHome: boolean;
-  /** `/trust` — canonical trusts picker as of 2026-05-19. Big active-
-   *  trust hero + switcher. Bare `/trust` (no address segment) is the
-   *  picker; `/trust/<addr>/...` is the entity shell handled separately.
+  /** `/company` — canonical companies picker as of 2026-05-19. Big active-
+   *  company hero + switcher. Bare `/company` (no address segment) is the
+   *  picker; `/company/<addr>/...` is the entity shell handled separately.
    *  The 2026-05-19 `/network`, `/identity`, `/acting-as` back-compat
-   *  aliases were dropped 2026-05-19 PM — only `/trust` remains. */
-  isTrustsPicker: boolean;
+   *  aliases were dropped 2026-05-19 PM — only `/company` remains. */
+  isCompaniesPicker: boolean;
   /** True for all `/account/*` paths — ProfilePage dispatches further. */
   isAccount: boolean;
   isBlueprints: boolean;
@@ -27,10 +27,10 @@ export interface ShellSurface {
   /** `/markets/*` — top-level marketplace / inference / billing destination
    *  introduced as part of the "Global" sidebar group on 2026-05-18. */
   isEconomy: boolean;
-  /** `/referrals` — global aeqi referral playbook, outside any TRUST. */
+  /** `/referrals` — global aeqi referral playbook, outside any COMPANY. */
   isReferrals: boolean;
   /** Legacy top-level `/inbox` alias. The canonical inbox now lives under
-   *  `/trust/<addr>/inbox`; this flag stays so AppLayout can redirect old
+   *  `/company/<addr>/inbox`; this flag stays so AppLayout can redirect old
    *  bookmarks and routes without mounting a second inbox surface. */
   isInbox: boolean;
   /** `/start` — welcome / first-experience page. Hero image + four
@@ -77,12 +77,12 @@ export function useShellSurface(path: string): ShellSurface {
     const isStart = path === "/start" || path.startsWith("/start/");
     // Canonical picker route as of 2026-05-19. The earlier /network,
     // /identity, /acting-as back-compat aliases were retired the same
-    // day — only /trust is supported.
-    const isTrustsPicker = path === "/trust";
+    // day — only /company is supported.
+    const isCompaniesPicker = path === "/company";
 
-    // Legacy Roles sub-routes on the canonical trust route. These are parsed
+    // Legacy Roles sub-routes on the canonical company route. These are parsed
     // only so AppLayout can redirect them into the canonical Roles workspace.
-    const rolesPathMatch = path.match(/^\/trust\/[^/]+\/roles\/(.+)$/);
+    const rolesPathMatch = path.match(/^\/company\/[^/]+\/roles\/(.+)$/);
     const rolesSuffix = rolesPathMatch ? rolesPathMatch[1] : null;
     const isRolesNew = rolesSuffix === "new";
     const isRolesInvite = !isRolesNew && !!rolesSuffix && rolesSuffix.endsWith("/invite");
@@ -94,7 +94,7 @@ export function useShellSurface(path: string): ShellSurface {
     // surfaces. Anything else is a 404 — including bogus top-level
     // segments (`/foo`) that would otherwise fall through to a stale
     // active-entity render.
-    const isCompanyRoute = /^\/trust\/[^/]+(\/|$)/.test(path);
+    const isCompanyRoute = /^\/company\/[^/]+(\/|$)/.test(path);
     const isKnownShellRoute =
       isHome ||
       isCompanyRoute ||
@@ -105,7 +105,7 @@ export function useShellSurface(path: string): ShellSurface {
       isReferrals ||
       isInbox ||
       isStart ||
-      isTrustsPicker ||
+      isCompaniesPicker ||
       isAdmin;
     const isNotFound = !isKnownShellRoute;
 
@@ -118,7 +118,7 @@ export function useShellSurface(path: string): ShellSurface {
       isReferrals,
       isInbox,
       isStart,
-      isTrustsPicker,
+      isCompaniesPicker,
       isNotFound,
       isAdmin,
       isRolesNew,

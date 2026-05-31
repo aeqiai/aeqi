@@ -1,7 +1,7 @@
-export type TrustNavGroupId = "operations" | "ownership" | "infrastructure";
-export type TrustNavGroupState = Record<TrustNavGroupId, boolean>;
+export type CompanyNavGroupId = "operations" | "ownership" | "infrastructure";
+export type CompanyNavGroupState = Record<CompanyNavGroupId, boolean>;
 
-export const TRUST_NAV_MATCHES: Record<TrustNavGroupId, string[]> = {
+export const COMPANY_NAV_MATCHES: Record<CompanyNavGroupId, string[]> = {
   operations: ["agents", "sessions", "projects", "goals", "skills", "quests", "ideas", "events"],
   ownership: [
     "roles",

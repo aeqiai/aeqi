@@ -26,7 +26,7 @@
 #![allow(deprecated, unexpected_cfgs)]
 
 use aeqi_budget::Budget;
-use aeqi_trust::state::Trust;
+use aeqi_company::state::Company;
 use aeqi_unifutures::cpi::accounts::{CreateCommitmentSale, CreateCurve, CreateExit};
 use aeqi_unifutures::program::AeqiUnifutures;
 use anchor_lang::prelude::*;
@@ -34,24 +34,24 @@ use anchor_spl::token_interface::Mint;
 
 declare_id!("8dCM5qRnfMAZGdsC8pYYQzomVdQpihL9jgwAXoPaie3U");
 
-/// aeqi_trust program id — used for cross-program PDA derivation so module
-/// setup paths cannot accept arbitrary trust pubkeys.
-pub const AEQI_TRUST_ID: Pubkey =
+/// aeqi_company program id — used for cross-program PDA derivation so module
+/// setup paths cannot accept arbitrary company pubkeys.
+pub const AEQI_COMPANY_ID: Pubkey =
     anchor_lang::pubkey!("CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV");
 
 #[program]
 pub mod aeqi_funding {
     use super::*;
 
-    /// Module init — gated to the trust authority during creation mode so
+    /// Module init — gated to the company authority during creation mode so
     /// the module_state PDA cannot be squatted by an attacker.
     pub fn init(ctx: Context<InitFunding>) -> Result<()> {
-        let trust = &ctx.accounts.trust;
-        require!(trust.creation_mode, FundingError::TrustNotInCreationMode);
-        require_keys_eq!(ctx.accounts.payer.key(), trust.authority, FundingError::Unauthorized);
+        let company = &ctx.accounts.company;
+        require!(company.creation_mode, FundingError::CompanyNotInCreationMode);
+        require_keys_eq!(ctx.accounts.payer.key(), company.authority, FundingError::Unauthorized);
 
         let m = &mut ctx.accounts.module_state;
-        m.trust = ctx.accounts.trust.key();
+        m.company = ctx.accounts.company.key();
         m.request_count = 0;
         m.bump = ctx.bumps.module_state;
         Ok(())
@@ -78,14 +78,14 @@ pub mod aeqi_funding {
         }
         require_budget_capacity(
             &ctx.accounts.budget,
-            ctx.accounts.trust.key(),
+            ctx.accounts.company.key(),
             budget_id,
             if kind == 0 { asset_amount } else { 0 },
         )?;
 
         let now = Clock::get()?.unix_timestamp;
         let r = &mut ctx.accounts.request;
-        r.trust = ctx.accounts.trust.key();
+        r.company = ctx.accounts.company.key();
         r.request_id = request_id;
         r.creator = ctx.accounts.creator.key();
         r.kind = kind;
@@ -102,7 +102,7 @@ pub mod aeqi_funding {
             m.request_count.checked_add(1).ok_or(error!(FundingError::MathOverflow))?;
 
         emit!(FundingRequestCreated {
-            trust: r.trust,
+            company: r.company,
             request_id,
             creator: r.creator,
             kind,
@@ -126,13 +126,13 @@ pub mod aeqi_funding {
     ) -> Result<()> {
         let r = &mut ctx.accounts.request;
         require_keys_eq!(ctx.accounts.creator.key(), r.creator, FundingError::Unauthorized);
-        require_keys_eq!(ctx.accounts.trust.key(), r.trust, FundingError::TrustMismatch);
-        require_budget_capacity(&ctx.accounts.budget, r.trust, r.budget_id, r.asset_amount)?;
+        require_keys_eq!(ctx.accounts.company.key(), r.company, FundingError::CompanyMismatch);
+        require_budget_capacity(&ctx.accounts.budget, r.company, r.budget_id, r.asset_amount)?;
         require!(r.status == RequestStatus::Pending as u8, FundingError::CannotActivate);
         require!(r.kind == 0, FundingError::WrongKind);
 
         let cpi = CreateCommitmentSale {
-            trust: ctx.accounts.trust.to_account_info(),
+            company: ctx.accounts.company.to_account_info(),
             module_state: ctx.accounts.unifutures_module_state.to_account_info(),
             sale: ctx.accounts.sale.to_account_info(),
             creator: ctx.accounts.creator.to_account_info(),
@@ -151,7 +151,7 @@ pub mod aeqi_funding {
         r.primitive_id = sale_id;
 
         emit!(FundingRequestActivated {
-            trust: r.trust,
+            company: r.company,
             request_id: r.request_id,
             kind: r.kind,
             primitive_id: sale_id,
@@ -172,13 +172,13 @@ pub mod aeqi_funding {
     ) -> Result<()> {
         let r = &mut ctx.accounts.request;
         require_keys_eq!(ctx.accounts.creator.key(), r.creator, FundingError::Unauthorized);
-        require_keys_eq!(ctx.accounts.trust.key(), r.trust, FundingError::TrustMismatch);
-        require_budget_capacity(&ctx.accounts.budget, r.trust, r.budget_id, max_supply)?;
+        require_keys_eq!(ctx.accounts.company.key(), r.company, FundingError::CompanyMismatch);
+        require_budget_capacity(&ctx.accounts.budget, r.company, r.budget_id, max_supply)?;
         require!(r.status == RequestStatus::Pending as u8, FundingError::CannotActivate);
         require!(r.kind == 1, FundingError::WrongKind);
 
         let cpi = CreateCurve {
-            trust: ctx.accounts.trust.to_account_info(),
+            company: ctx.accounts.company.to_account_info(),
             module_state: ctx.accounts.unifutures_module_state.to_account_info(),
             curve: ctx.accounts.curve.to_account_info(),
             asset_mint: ctx.accounts.asset_mint.to_account_info(),
@@ -200,7 +200,7 @@ pub mod aeqi_funding {
         r.primitive_id = curve_id;
 
         emit!(FundingRequestActivated {
-            trust: r.trust,
+            company: r.company,
             request_id: r.request_id,
             kind: r.kind,
             primitive_id: curve_id,
@@ -219,13 +219,13 @@ pub mod aeqi_funding {
     ) -> Result<()> {
         let r = &mut ctx.accounts.request;
         require_keys_eq!(ctx.accounts.creator.key(), r.creator, FundingError::Unauthorized);
-        require_keys_eq!(ctx.accounts.trust.key(), r.trust, FundingError::TrustMismatch);
-        require_budget_capacity(&ctx.accounts.budget, r.trust, r.budget_id, exit_quote)?;
+        require_keys_eq!(ctx.accounts.company.key(), r.company, FundingError::CompanyMismatch);
+        require_budget_capacity(&ctx.accounts.budget, r.company, r.budget_id, exit_quote)?;
         require!(r.status == RequestStatus::Pending as u8, FundingError::CannotActivate);
         require!(r.kind == 2, FundingError::WrongKind);
 
         let cpi = CreateExit {
-            trust: ctx.accounts.trust.to_account_info(),
+            company: ctx.accounts.company.to_account_info(),
             module_state: ctx.accounts.unifutures_module_state.to_account_info(),
             exit: ctx.accounts.exit.to_account_info(),
             asset_mint: ctx.accounts.asset_mint.to_account_info(),
@@ -244,7 +244,7 @@ pub mod aeqi_funding {
         r.primitive_id = exit_id;
 
         emit!(FundingRequestActivated {
-            trust: r.trust,
+            company: r.company,
             request_id: r.request_id,
             kind: r.kind,
             primitive_id: exit_id,
@@ -263,7 +263,7 @@ pub mod aeqi_funding {
         require!(r.status == RequestStatus::Activated as u8, FundingError::CannotFinalize);
         r.status = RequestStatus::Finalized as u8;
         emit!(FundingRequestFinalized {
-            trust: r.trust,
+            company: r.company,
             request_id: r.request_id,
             kind: r.kind,
             primitive_id: r.primitive_id,
@@ -277,7 +277,7 @@ pub mod aeqi_funding {
         require_keys_eq!(ctx.accounts.creator.key(), r.creator, FundingError::Unauthorized);
         require!(r.status == RequestStatus::Pending as u8, FundingError::CannotCancel);
         r.status = RequestStatus::Cancelled as u8;
-        emit!(FundingRequestCancelled { trust: r.trust, request_id: r.request_id });
+        emit!(FundingRequestCancelled { company: r.company, request_id: r.request_id });
         Ok(())
     }
 }
@@ -285,7 +285,7 @@ pub mod aeqi_funding {
 #[account]
 #[derive(InitSpace)]
 pub struct FundingModuleState {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub request_count: u64,
     pub bump: u8,
 }
@@ -301,7 +301,7 @@ pub enum RequestStatus {
 #[account]
 #[derive(InitSpace)]
 pub struct FundingRequest {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub request_id: [u8; 32],
     pub creator: Pubkey,
     pub kind: u8, // 0=CommitmentSale 1=BondingCurve 2=Exit
@@ -318,11 +318,11 @@ pub struct FundingRequest {
 
 fn require_budget_capacity(
     budget: &Budget,
-    trust: Pubkey,
+    company: Pubkey,
     budget_id: [u8; 32],
     required_amount: u64,
 ) -> Result<()> {
-    require_keys_eq!(budget.trust, trust, FundingError::BudgetMismatch);
+    require_keys_eq!(budget.company, company, FundingError::BudgetMismatch);
     require!(budget.budget_id == budget_id, FundingError::BudgetMismatch);
     require!(!budget.frozen, FundingError::BudgetUnavailable);
     if budget.expiry != 0 {
@@ -339,18 +339,18 @@ fn require_budget_capacity(
 
 #[derive(Accounts)]
 pub struct InitFunding<'info> {
-    /// Trust PDA — must be a real Trust account owned by aeqi_trust.
+    /// Company PDA — must be a real Company account owned by aeqi_company.
     #[account(
-        seeds = [b"trust", trust.trust_id.as_ref()],
-        bump = trust.bump,
-        seeds::program = AEQI_TRUST_ID,
+        seeds = [b"company", company.company_id.as_ref()],
+        bump = company.bump,
+        seeds::program = AEQI_COMPANY_ID,
     )]
-    pub trust: Account<'info, Trust>,
+    pub company: Account<'info, Company>,
     #[account(
         init,
         payer = payer,
         space = 8 + FundingModuleState::INIT_SPACE,
-        seeds = [b"funding_module", trust.key().as_ref()],
+        seeds = [b"funding_module", company.key().as_ref()],
         bump,
     )]
     pub module_state: Account<'info, FundingModuleState>,
@@ -362,11 +362,11 @@ pub struct InitFunding<'info> {
 #[derive(Accounts)]
 #[instruction(request_id: [u8; 32])]
 pub struct CreateFundingRequest<'info> {
-    /// CHECK: trust pda
-    pub trust: UncheckedAccount<'info>,
+    /// CHECK: company pda
+    pub company: UncheckedAccount<'info>,
     #[account(
         mut,
-        seeds = [b"funding_module", trust.key().as_ref()],
+        seeds = [b"funding_module", company.key().as_ref()],
         bump = module_state.bump,
     )]
     pub module_state: Account<'info, FundingModuleState>,
@@ -374,7 +374,7 @@ pub struct CreateFundingRequest<'info> {
         init,
         payer = creator,
         space = 8 + FundingRequest::INIT_SPACE,
-        seeds = [b"funding_request", trust.key().as_ref(), request_id.as_ref()],
+        seeds = [b"funding_request", company.key().as_ref(), request_id.as_ref()],
         bump,
     )]
     pub request: Account<'info, FundingRequest>,
@@ -388,13 +388,13 @@ pub struct CreateFundingRequest<'info> {
 pub struct ActivateCommitmentSale<'info> {
     #[account(
         mut,
-        seeds = [b"funding_request", request.trust.as_ref(), request.request_id.as_ref()],
+        seeds = [b"funding_request", request.company.as_ref(), request.request_id.as_ref()],
         bump = request.bump,
     )]
     pub request: Account<'info, FundingRequest>,
     pub budget: Account<'info, Budget>,
-    /// CHECK: trust pda — passed through to aeqi_unifutures CPI
-    pub trust: UncheckedAccount<'info>,
+    /// CHECK: company pda — passed through to aeqi_unifutures CPI
+    pub company: UncheckedAccount<'info>,
     /// CHECK: aeqi_unifutures' module_state PDA — validated by the CPI
     #[account(mut)]
     pub unifutures_module_state: UncheckedAccount<'info>,
@@ -411,13 +411,13 @@ pub struct ActivateCommitmentSale<'info> {
 pub struct ActivateBondingCurve<'info> {
     #[account(
         mut,
-        seeds = [b"funding_request", request.trust.as_ref(), request.request_id.as_ref()],
+        seeds = [b"funding_request", request.company.as_ref(), request.request_id.as_ref()],
         bump = request.bump,
     )]
     pub request: Account<'info, FundingRequest>,
     pub budget: Account<'info, Budget>,
-    /// CHECK: trust pda
-    pub trust: UncheckedAccount<'info>,
+    /// CHECK: company pda
+    pub company: UncheckedAccount<'info>,
     /// CHECK: unifutures module_state
     #[account(mut)]
     pub unifutures_module_state: UncheckedAccount<'info>,
@@ -436,13 +436,13 @@ pub struct ActivateBondingCurve<'info> {
 pub struct ActivateExit<'info> {
     #[account(
         mut,
-        seeds = [b"funding_request", request.trust.as_ref(), request.request_id.as_ref()],
+        seeds = [b"funding_request", request.company.as_ref(), request.request_id.as_ref()],
         bump = request.bump,
     )]
     pub request: Account<'info, FundingRequest>,
     pub budget: Account<'info, Budget>,
-    /// CHECK: trust pda
-    pub trust: UncheckedAccount<'info>,
+    /// CHECK: company pda
+    pub company: UncheckedAccount<'info>,
     /// CHECK: unifutures module_state
     #[account(mut)]
     pub unifutures_module_state: UncheckedAccount<'info>,
@@ -462,7 +462,7 @@ pub struct ActivateExit<'info> {
 pub struct CancelFundingRequest<'info> {
     #[account(
         mut,
-        seeds = [b"funding_request", request.trust.as_ref(), request.request_id.as_ref()],
+        seeds = [b"funding_request", request.company.as_ref(), request.request_id.as_ref()],
         bump = request.bump,
     )]
     pub request: Account<'info, FundingRequest>,
@@ -473,7 +473,7 @@ pub struct CancelFundingRequest<'info> {
 pub struct FinalizeFundingRequest<'info> {
     #[account(
         mut,
-        seeds = [b"funding_request", request.trust.as_ref(), request.request_id.as_ref()],
+        seeds = [b"funding_request", request.company.as_ref(), request.request_id.as_ref()],
         bump = request.bump,
     )]
     pub request: Account<'info, FundingRequest>,
@@ -482,7 +482,7 @@ pub struct FinalizeFundingRequest<'info> {
 
 #[event]
 pub struct FundingRequestCreated {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub request_id: [u8; 32],
     pub creator: Pubkey,
     pub kind: u8,
@@ -493,13 +493,13 @@ pub struct FundingRequestCreated {
 
 #[event]
 pub struct FundingRequestCancelled {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub request_id: [u8; 32],
 }
 
 #[event]
 pub struct FundingRequestActivated {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub request_id: [u8; 32],
     pub kind: u8,
     pub primitive_id: [u8; 32],
@@ -507,7 +507,7 @@ pub struct FundingRequestActivated {
 
 #[event]
 pub struct FundingRequestFinalized {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub request_id: [u8; 32],
     pub kind: u8,
     pub primitive_id: [u8; 32],
@@ -523,8 +523,8 @@ pub enum FundingError {
     MathOverflow,
     #[msg("only creator can cancel a request")]
     Unauthorized,
-    #[msg("trust account does not match the funding request")]
-    TrustMismatch,
+    #[msg("company account does not match the funding request")]
+    CompanyMismatch,
     #[msg("request is not in Pending status — can't cancel")]
     CannotCancel,
     #[msg("request is not in Pending status — can't activate")]
@@ -539,6 +539,6 @@ pub enum FundingError {
     BudgetUnavailable,
     #[msg("budget has insufficient remaining allocation")]
     BudgetCapacityExceeded,
-    #[msg("trust must be in creation mode to initialize the funding module")]
-    TrustNotInCreationMode,
+    #[msg("company must be in creation mode to initialize the funding module")]
+    CompanyNotInCreationMode,
 }

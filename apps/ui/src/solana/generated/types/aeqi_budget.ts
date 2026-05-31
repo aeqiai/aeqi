@@ -18,11 +18,11 @@ export type AeqiBudget = {
       "docs": [
         "Create a budget allocation for a role. The grantor (typically a",
         "treasury authority or governance signer) signs to lock the",
-        "allocation. A budget can be sourced from TRUST (no parent) or from",
+        "allocation. A budget can be sourced from COMPANY (no parent) or from",
         "a parent budget (which the grantor must control).",
         "",
-        "Authority gate: in this iteration, only the trust authority can",
-        "originate budgets (i.e. budgets sourced directly from TRUST). Once",
+        "Authority gate: in this iteration, only the company authority can",
+        "originate budgets (i.e. budgets sourced directly from COMPANY). Once",
         "governance + role-walk capability lands, child budgets sourced from",
         "a parent budget will be gated on the parent budget's grantor / role",
         "instead."
@@ -39,9 +39,9 @@ export type AeqiBudget = {
       ],
       "accounts": [
         {
-          "name": "trust",
+          "name": "company",
           "docs": [
-            "Trust PDA — must be a real Trust account owned by aeqi_trust."
+            "Company PDA — must be a real Company account owned by aeqi_company."
           ],
           "pda": {
             "seeds": [
@@ -57,8 +57,8 @@ export type AeqiBudget = {
               },
               {
                 "kind": "account",
-                "path": "trust.trust_id",
-                "account": "trust"
+                "path": "company.company_id",
+                "account": "company"
               }
             ],
             "program": {
@@ -125,7 +125,7 @@ export type AeqiBudget = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -148,7 +148,7 @@ export type AeqiBudget = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               },
               {
                 "kind": "arg",
@@ -241,7 +241,7 @@ export type AeqiBudget = {
               },
               {
                 "kind": "account",
-                "path": "budget.trust",
+                "path": "budget.company",
                 "account": "budget"
               },
               {
@@ -262,7 +262,7 @@ export type AeqiBudget = {
     {
       "name": "init",
       "docs": [
-        "Module init — gated to the trust authority during creation mode so",
+        "Module init — gated to the company authority during creation mode so",
         "the module_state PDA cannot be squatted by an attacker."
       ],
       "discriminator": [
@@ -277,9 +277,9 @@ export type AeqiBudget = {
       ],
       "accounts": [
         {
-          "name": "trust",
+          "name": "company",
           "docs": [
-            "Trust PDA — must be a real Trust account owned by aeqi_trust."
+            "Company PDA — must be a real Company account owned by aeqi_company."
           ],
           "pda": {
             "seeds": [
@@ -295,8 +295,8 @@ export type AeqiBudget = {
               },
               {
                 "kind": "account",
-                "path": "trust.trust_id",
-                "account": "trust"
+                "path": "company.company_id",
+                "account": "company"
               }
             ],
             "program": {
@@ -363,7 +363,7 @@ export type AeqiBudget = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -416,7 +416,7 @@ export type AeqiBudget = {
               },
               {
                 "kind": "account",
-                "path": "budget.trust",
+                "path": "budget.company",
                 "account": "budget"
               },
               {
@@ -476,7 +476,7 @@ export type AeqiBudget = {
               },
               {
                 "kind": "account",
-                "path": "budget.trust",
+                "path": "budget.company",
                 "account": "budget"
               },
               {
@@ -536,7 +536,7 @@ export type AeqiBudget = {
       ]
     },
     {
-      "name": "trust",
+      "name": "company",
       "discriminator": [
         71,
         85,
@@ -642,7 +642,7 @@ export type AeqiBudget = {
     {
       "code": 6007,
       "name": "trustNotInCreationMode",
-      "msg": "trust must be in creation mode to initialize the budget module"
+      "msg": "company must be in creation mode to initialize the budget module"
     }
   ],
   "types": [
@@ -652,7 +652,7 @@ export type AeqiBudget = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -680,7 +680,7 @@ export type AeqiBudget = {
           {
             "name": "parentBudgetId",
             "docs": [
-              "Parent budget if hierarchical; [0u8; 32] if sourced from TRUST directly."
+              "Parent budget if hierarchical; [0u8; 32] if sourced from COMPANY directly."
             ],
             "type": {
               "array": [
@@ -718,7 +718,7 @@ export type AeqiBudget = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -760,7 +760,7 @@ export type AeqiBudget = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -781,7 +781,7 @@ export type AeqiBudget = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -801,7 +801,7 @@ export type AeqiBudget = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -830,7 +830,7 @@ export type AeqiBudget = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -851,7 +851,7 @@ export type AeqiBudget = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -910,15 +910,15 @@ export type AeqiBudget = {
       }
     },
     {
-      "name": "trust",
+      "name": "company",
       "docs": [
-        "Core TRUST account — one per AEQI company. PDA seeded `[b\"trust\", trust_id]`."
+        "Core COMPANY account — one per AEQI company. PDA seeded `[b\"company\", company_id]`."
       ],
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "trustId",
+            "name": "companyId",
             "type": {
               "array": [
                 "u8",

@@ -24,7 +24,7 @@ const LABEL_BY_PRIMITIVE: Record<EntityPrimitive, string> = {
  * label-only parser fallbacks resolve opportunistically from local state.
  */
 export default function EntityRefInline({ ref }: { ref: EntityRef }) {
-  const { trustId: routeTrustId } = useNav();
+  const { companyId: routeCompanyId } = useNav();
   const entities = useDaemonStore((s) => s.entities);
   const agents = useDaemonStore((s) => s.agents);
   const quests = useDaemonStore((s) => s.quests);
@@ -52,7 +52,7 @@ export default function EntityRefInline({ ref }: { ref: EntityRef }) {
     return ref.slug || ref.id;
   }, [ref.label, ref.slug, ref.id, ref.kind, resolved, agents, quests]);
 
-  const scopeTrustId = ref.trustId || routeTrustId;
+  const scopeCompanyId = ref.companyId || routeCompanyId;
   const role = LABEL_BY_PRIMITIVE[ref.kind];
   const body = (
     <>
@@ -62,7 +62,7 @@ export default function EntityRefInline({ ref }: { ref: EntityRef }) {
     </>
   );
 
-  if (!scopeTrustId || !resolved) {
+  if (!scopeCompanyId || !resolved) {
     return (
       <span
         className={`asv-entity-ref asv-entity-ref--${ref.kind} asv-entity-ref--unresolved`}
@@ -75,7 +75,7 @@ export default function EntityRefInline({ ref }: { ref: EntityRef }) {
 
   const href = entityPathFromId(
     entities,
-    scopeTrustId,
+    scopeCompanyId,
     TAB_BY_PRIMITIVE[ref.kind],
     encodeURIComponent(resolved),
   );

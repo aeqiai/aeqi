@@ -3,7 +3,7 @@ use anchor_lang::prelude::*;
 #[account]
 #[derive(InitSpace)]
 pub struct RoleModuleState {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub initialized: bool,
     pub bump: u8,
 }
@@ -24,7 +24,7 @@ pub struct RoleTypeConfig {
 #[account]
 #[derive(InitSpace)]
 pub struct RoleType {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub role_type_id: [u8; 32],
     pub hierarchy: u32,
     pub config: RoleTypeConfig,
@@ -43,7 +43,7 @@ pub enum RoleStatus {
 #[account]
 #[derive(InitSpace)]
 pub struct Role {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub role_id: [u8; 32],
     pub role_type_id: [u8; 32],
     pub account: Pubkey,
@@ -57,7 +57,7 @@ pub struct Role {
 #[account]
 #[derive(InitSpace)]
 pub struct RoleDelegation {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub role_id: [u8; 32],
     pub delegatee: Pubkey,
     pub bump: u8,

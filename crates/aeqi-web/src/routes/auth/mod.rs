@@ -89,7 +89,7 @@ pub fn accounts_routes() -> Router<AppState> {
 
 /// Ensure the account has its embedded custodial wallet.
 ///
-/// Authentication creates or resolves a person account only. Company/TRUST
+/// Authentication creates or resolves a person account only. Company/COMPANY
 /// creation happens later through blueprint provisioning after billing.
 pub(super) async fn ensure_account_wallet(state: &AppState, user_id: &str) -> anyhow::Result<()> {
     aeqi_wallets::ensure_primary_custodial_user_wallet(

@@ -25,7 +25,7 @@ export function useSessionManager({
   urlSessionId,
   processRawMessages,
 }: UseSessionManagerOptions) {
-  const { trustId } = useNav();
+  const { companyId } = useNav();
   const navigate = useNavigate();
   const entities = useDaemonStore((s) => s.entities);
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
@@ -39,34 +39,34 @@ export function useSessionManager({
   }, [activeSessionId]);
 
   // Navigate helpers — agent-scoped. `setSession(sid)` jumps to the
-  // canonical session URL `/trust/<addr>/sessions/<sid>`.
+  // canonical session URL `/company/<addr>/sessions/<sid>`.
   // `setSession(null)` strips the session id and lands at
-  // the agent's bare URL `/trust/<addr>/agents/<aid>` — chat-as-default
+  // the agent's bare URL `/company/<addr>/agents/<aid>` — chat-as-default
   // empty state. The first message in that empty state creates the
   // new session via the WS dispatch path; we don't pre-create one.
   const setSession = useCallback(
     (sid: string | null) => {
-      if (!trustId || !agentId) return;
+      if (!companyId || !agentId) return;
       if (sid) {
-        navigate(sessionDeepUrlFromId(entities, trustId, agentId, sid), { replace: true });
+        navigate(sessionDeepUrlFromId(entities, companyId, agentId, sid), { replace: true });
       } else {
-        navigate(entityPathFromId(entities, trustId, "agents", agentId), { replace: true });
+        navigate(entityPathFromId(entities, companyId, "agents", agentId), { replace: true });
       }
     },
-    [trustId, agentId, entities, navigate],
+    [companyId, agentId, entities, navigate],
   );
 
   // Load sessions for this agent
   useEffect(() => {
     if (!agentId) return;
     api
-      .getSessions(agentId, trustId || undefined)
+      .getSessions(agentId, companyId || undefined)
       .then((d: Record<string, unknown>) => {
         const list: SessionInfo[] = (d.sessions as SessionInfo[]) || [];
         setSessions(list);
       })
       .catch(() => setSessions([]));
-  }, [agentId, trustId]);
+  }, [agentId, companyId]);
 
   // Mirror the session list into chat store so the SessionsRail can
   // render it without a duplicate fetch.
@@ -140,7 +140,7 @@ export function useSessionManager({
     prevSessionRef.current = activeSessionId;
 
     api
-      .getSessionMessages(activeSessionId, 1000, trustId || undefined)
+      .getSessionMessages(activeSessionId, 1000, companyId || undefined)
       .then((d: Record<string, unknown>) => {
         const loaded = processRawMessages((d.messages as Array<Record<string, unknown>>) || []);
         if (loaded.length > 0) {
@@ -148,7 +148,7 @@ export function useSessionManager({
         }
       })
       .catch((e) => logError("session-manager.load-history", e));
-  }, [activeSessionId, processRawMessages, trustId]);
+  }, [activeSessionId, processRawMessages, companyId]);
 
   // Poll for new messages on sessions not driven by local WebSocket.
   // Uses streamingRef so the interval checks latest streaming state without
@@ -170,7 +170,7 @@ export function useSessionManager({
       if (useChatStore.getState().streamingSessions[activeSessionId]) return;
       if (isRateLimited()) return;
       api
-        .getSessionMessages(activeSessionId, 1000, trustId || undefined)
+        .getSessionMessages(activeSessionId, 1000, companyId || undefined)
         .then((d: Record<string, unknown>) => {
           const loaded = processRawMessages((d.messages as Array<Record<string, unknown>>) || []);
           if (loaded.length > 0) {
@@ -180,7 +180,7 @@ export function useSessionManager({
         .catch((e) => logError("session-manager.poll-history", e));
     }, 10000);
     return () => clearInterval(iv);
-  }, [activeSessionId, processRawMessages, trustId]);
+  }, [activeSessionId, processRawMessages, companyId]);
 
   return {
     sessions,

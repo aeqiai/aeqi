@@ -1,41 +1,41 @@
 import type { QuestMetadata, QuestRuntime } from "./runtime";
 
 /**
- * Single-variant alias for the on-the-wire `type` field on a Trust.
+ * Single-variant alias for the on-the-wire `type` field on a Company.
  * Legacy payloads used `"company"`; the UI normalizes current payloads to
- * `"trust"` at the API boundary.
+ * `"company"` at the API boundary.
  */
-export type TrustType = "trust";
+export type CompanyType = "company";
 
-export interface Trust {
+export interface Company {
   id: string;
   name: string;
-  type: TrustType;
+  type: CompanyType;
   status: "active" | "paused" | "archived";
   avatar?: string;
   color?: string;
   budget_usd?: number;
   created_at: string;
   last_active?: string;
-  /** On-chain TRUST identity (bytes32 hex). NULL until TRUST bridge fires. */
-  trust_id?: string;
-  /** On-chain TRUST proxy address. NULL until indexer-confirmed. */
-  trust_address?: string;
+  /** On-chain COMPANY identity (bytes32 hex). NULL until COMPANY bridge fires. */
+  company_id?: string;
+  /** On-chain COMPANY proxy address. NULL until indexer-confirmed. */
+  company_address?: string;
   /** Public website slug. When present, `https://<slug>.aeqi.ai/` is the public site. */
   slug?: string;
-  /** Canonical trust email identity, usually `hello@<slug>.aeqi.ai`. */
+  /** Canonical company email identity, usually `hello@<slug>.aeqi.ai`. */
   email_address?: string;
-  /** EOA that created this Trust's on-chain TRUST mirror. */
+  /** EOA that created this Company's on-chain COMPANY mirror. */
   creator_address?: string;
-  /** Default agent UUID for this trust. Surfaced by the platform's
-   *  `/api/trusts` payload as `agent_id` so trust-scoped surfaces (`/me/*`,
+  /** Default agent UUID for this company. Surfaced by the platform's
+   *  `/api/companies` payload as `agent_id` so company-scoped surfaces (`/me/*`,
    *  AgentPage) can resolve the entry agent without an entity-scoped fetch. */
   agent_id?: string;
   /** Placement type — `"host"`, `"sandbox"`, `"vps"`, or `"unknown"`. */
   placement_type?: string;
   /** One-line description rendered in the entity hero strip on Overview. */
   tagline?: string;
-  /** When true, the trust's public subdomain returns a public website. */
+  /** When true, the company's public subdomain returns a public website. */
   public?: boolean;
   /** Organization billing plan ID (`starter` for Standard, `growth` for Pro). */
   plan?: string;
@@ -49,7 +49,7 @@ export interface Trust {
 
 export interface CapTableEntry {
   id: string;
-  trust_id: string;
+  company_id: string;
   allocation_key: string;
   holder_kind: string;
   holder_id?: string | null;
@@ -80,7 +80,7 @@ export interface EntityViewLayout {
 
 export interface EntityView {
   id: string;
-  trust_id: string;
+  company_id: string;
   owner_user_id?: string | null;
   key: string;
   label: string;
@@ -111,7 +111,7 @@ export interface EntityViewUpsert {
 export interface Agent {
   id: string;
   name: string;
-  trust_id?: string | null;
+  company_id?: string | null;
   status: string;
   model?: string;
   session_id?: string;
@@ -531,7 +531,7 @@ export interface RoleOverride {
 export type BlueprintCategory = "company" | "foundation" | "fund";
 export type BlueprintTemplate = "entity" | "venture" | "foundation" | "fund";
 
-/** Single-company blueprint — spawns one TRUST + runtime entity. */
+/** Single-company blueprint — spawns one COMPANY + runtime entity. */
 export interface SingleBlueprint {
   kind?: "single";
   /** Opaque blueprint identifier used for launch/setup routes. Mirrors the
@@ -575,7 +575,7 @@ export function isSingleBlueprint(bp: Blueprint): bp is SingleBlueprint {
   return !bp.kind || bp.kind === "single";
 }
 
-export type OccupantKind = "human" | "agent" | "trust" | "vacant";
+export type OccupantKind = "human" | "agent" | "company" | "vacant";
 
 /**
  * Role tier in the three-tier authority model.
@@ -600,7 +600,7 @@ export type RoleType = "owner" | "director" | "operational" | "advisor";
  *  closure over `RoleEdge` (DAG, not tree). */
 export interface Role {
   id: string;
-  trust_id: string;
+  company_id: string;
   title: string;
   occupant_kind: OccupantKind;
   occupant_id: string | null;
@@ -634,7 +634,7 @@ export interface RoleEdge {
 
 export interface RoleInvitation {
   token: string;
-  trust_id: string;
+  company_id: string;
   role_id: string;
   inviter_user_id: string;
   target_kind: "email" | "slug" | "open";
@@ -651,13 +651,13 @@ export interface RoleInvitation {
 }
 
 /** Public invitation detail — returned by GET /api/invitations/:token.
- *  Note: trust_id is NOT in the platform response; entity_display_name is.
+ *  Note: company_id is NOT in the platform response; entity_display_name is.
  *  role_id is included for cross-referencing. */
 export interface InvitationDetail {
   token: string;
   role_title?: string;
   role_id: string;
-  trust_id?: string;
+  company_id?: string;
   entity_display_name: string;
   inviter_name: string;
   target_kind?: "email" | "slug" | "open";

@@ -7,8 +7,8 @@ Defines the data needed to spawn the AEQI company via `aeqi_factory.instantiate_
 | Field       | Value                                                                |
 | ----------- | -------------------------------------------------------------------- |
 | Template ID | `keccak256("aeqi.v1")` (32 bytes)                                    |
-| TRUST ID    | freshly random 32 bytes per spawn                                    |
-| Authority   | platform-managed signer (transitions to TRUST itself after finalize) |
+| COMPANY ID    | freshly random 32 bytes per spawn                                    |
+| Authority   | platform-managed signer (transitions to COMPANY itself after finalize) |
 | IPFS CID    | operating agreement pinned via `aeqi-ipfs`                           |
 
 ## Modules to register
@@ -17,11 +17,11 @@ Before registration, the provider publishes one `ModuleImplementation` PDA per
 module version. The factory template then records the selected
 provider/version/hash. During `instantiate_template`, the factory validates
 those published implementation records, registers each module slot, replays the
-template's module ACL edges, and finalizes the TRUST. Per-module
+template's module ACL edges, and finalizes the COMPANY. Per-module
 `init`/`finalize` instructions still run as a follow-on phase because each
 module has a different account context.
 
-| module_id (keccak256 of name) | program_id        | provider          | version | trust_acl                                   |
+| module_id (keccak256 of name) | program_id        | provider          | version | company_acl                                   |
 | ----------------------------- | ----------------- | ----------------- | ------- | ------------------------------------------- |
 | `role`                        | `aeqi_role`       | `aeqi_role`       | 1       | SetNumericConfig + SetBytesConfig + Execute |
 | `token`                       | `aeqi_token`      | `aeqi_token`      | 1       | TransferFunds + SetBytesConfig              |
@@ -33,7 +33,7 @@ yet.
 
 `instantiate_template` expects `remaining_accounts` in this exact order:
 
-1. one TRUST `Module` PDA per module, in template order
+1. one COMPANY `Module` PDA per module, in template order
 2. one provider-published `ModuleImplementation` PDA per module, in template
    order
 3. one `ModuleAclEdge` PDA per ACL edge, in template order

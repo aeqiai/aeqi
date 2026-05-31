@@ -8,7 +8,7 @@
  * is:
  *
  *   1. `VoteHistorySection` (sibling) already fetches vote records via
- *      `readVoteRecords(trust, proposalId)`. The detail-modal vote
+ *      `readVoteRecords(company, proposalId)`. The detail-modal vote
  *      history is wired and cached.
  *   2. This component re-uses those same records and resolves a per-PDA
  *      `getSignaturesForAddress(votePda, { limit: 1 })` via the
@@ -42,7 +42,7 @@ import { formatTimestamp } from "./QuorumPage.format";
 /**
  * Mount-point inside `TallyDetail` — renders the momentum sparkline AND
  * the outcome forecast pill. Both surfaces share the same hook so the
- * RPC round-trips happen once per (trust, proposal) tuple.
+ * RPC round-trips happen once per (company, proposal) tuple.
  *
  * When `voteRecords` is empty the sparkline degrades to a flat baseline
  * (zero-cum across every bucket) and the forecast hides the verdict (no
@@ -52,7 +52,7 @@ import { formatTimestamp } from "./QuorumPage.format";
 export function TallyMomentumStrip({
   proposal,
   config,
-  trustAddress,
+  companyAddress,
   voteRecords,
   nowSeconds,
 }: {
@@ -61,7 +61,7 @@ export function TallyMomentumStrip({
    *  forecast; without it the verdict still computes against `0` (no
    *  threshold known) and renders as `unknown`. */
   config?: GovernanceConfigWithPda;
-  trustAddress: string;
+  companyAddress: string;
   voteRecords: VoteRecordWithPda[] | undefined;
   nowSeconds: number;
 }) {
@@ -73,7 +73,7 @@ export function TallyMomentumStrip({
     voteRecords,
     voteStart,
     voteEnd,
-    trustAddress,
+    companyAddress,
   });
 
   const forecast = useMemo(

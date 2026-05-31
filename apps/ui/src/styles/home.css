@@ -1,4 +1,4 @@
-/* Home trust-primitive refresh — compact graphite/ink operating surface. */
+/* Home company-primitive refresh — compact graphite/ink operating surface. */
 .home-page {
   --home-section-inset: 24px;
   --home-content-max: 1180px;
@@ -10,7 +10,7 @@
 }
 
 .home-row-two,
-.home-row-trusts,
+.home-row-companies,
 .home-row-promos {
   max-width: none;
 }
@@ -159,7 +159,7 @@
 
 .home-card--recessed,
 .home-card--recessed.home-card--context,
-.home-card--recessed.home-card--trust-list,
+.home-card--recessed.home-card--company-list,
 .home-card--recessed.home-card--inbox,
 .home-card--recessed.home-card--learn {
   background: var(--bg-row);
@@ -167,19 +167,19 @@
     color-mix(in srgb, var(--color-border-faint) 78%, var(--color-text-primary) 22%);
 }
 
-.home-row-trusts {
+.home-row-companies {
   grid-template-columns: minmax(0, 1.18fr) minmax(280px, 0.92fr) minmax(280px, 320px);
 }
 
 .home-card--context,
-.home-card--trust-list,
+.home-card--company-list,
 .home-card--blueprint,
 .home-card--launch {
   min-height: 220px;
 }
 
 .home-card--context,
-.home-card--trust-list,
+.home-card--company-list,
 .home-card--blueprint,
 .home-card--launch,
 .home-card--referral,
@@ -188,7 +188,7 @@
 }
 
 .home-context-heading,
-.home-trust-list-title,
+.home-company-list-title,
 .home-inbox-title,
 .home-learn-title {
   font-family: var(--font-sans);
@@ -198,8 +198,8 @@
 }
 
 .home-context-representation,
-.home-trust-row,
-.home-trust-list-empty,
+.home-company-row,
+.home-company-list-empty,
 .home-inbox-link.sessions-rail-row,
 .home-inbox-empty-canvas,
 .home-learn-carousel,
@@ -237,7 +237,7 @@
   background: var(--color-card-elevated);
 }
 
-.home-trust-list-cta,
+.home-company-list-cta,
 .home-inbox-cta,
 .home-primary-action--secondary {
   background: var(--color-card-elevated);
@@ -245,8 +245,8 @@
     color-mix(in srgb, var(--color-border-faint) 48%, var(--color-text-primary) 52%);
 }
 
-.home-trust-row:hover,
-.home-trust-row:focus-visible,
+.home-company-row:hover,
+.home-company-row:focus-visible,
 .home-inbox-link.sessions-rail-row:hover,
 .home-inbox-link.sessions-rail-row:focus-visible,
 .home-learn-carousel:hover,
@@ -254,11 +254,11 @@
   background: var(--bg-row);
 }
 
-.home-trust-row.is-active {
+.home-company-row.is-active {
   box-shadow: inset 0 0 0 1px var(--color-accent);
 }
 
-.home-trust-mini-mark.is-active {
+.home-company-mini-mark.is-active {
   background: var(--color-text-primary);
   color: var(--btn-primary-text);
 }
@@ -378,7 +378,7 @@
 }
 
 @media (max-width: 960px) {
-  .home-row-trusts,
+  .home-row-companies,
   .home-row-promos,
   .home-row-two,
   .home-learn {
@@ -404,7 +404,7 @@
   }
 
   .home-row-two,
-  .home-row-trusts {
+  .home-row-companies {
     padding-right: var(--space-3);
     padding-left: var(--space-3);
   }
@@ -464,7 +464,7 @@
   }
 
   .home-card--context,
-  .home-card--trust-list,
+  .home-card--company-list,
   .home-card--launch,
   .home-card--referral,
   .home-card--inbox {
@@ -472,7 +472,7 @@
   }
 
   .home-card--context,
-  .home-card--trust-list,
+  .home-card--company-list,
   .home-card--launch,
   .home-card--inbox,
   .home-card--economy {
@@ -484,14 +484,14 @@
   }
 
   .home-context-head,
-  .home-trust-list-head,
+  .home-company-list-head,
   .home-inbox-head {
     align-items: stretch;
     flex-direction: column;
     gap: var(--space-3);
   }
 
-  .home-trust-list-cta,
+  .home-company-list-cta,
   .home-inbox-cta {
     align-self: stretch;
   }

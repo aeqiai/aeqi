@@ -86,8 +86,8 @@ export default function IdeasWorkspaceView({
 }: IdeasWorkspaceViewProps) {
   const searchRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<IdeaCanvasHandle>(null);
-  const { goEntity, trustId } = useNav();
-  const { patchIdea, removeIdea, invalidateIdeas } = useAgentIdeasCache(agentId, trustId);
+  const { goEntity, companyId } = useNav();
+  const { patchIdea, removeIdea, invalidateIdeas } = useAgentIdeasCache(agentId, companyId);
   const [expandedIdeas, setExpandedIdeas] = useState<Record<string, boolean>>({});
   const [composeScope, setComposeScope] = useState<ScopeValue>("self");
   const [canvasDirty, setCanvasDirty] = useState(false);
@@ -160,13 +160,13 @@ export default function IdeasWorkspaceView({
       if (!activeIdea) return;
       setInspectorError(null);
       try {
-        await ideasApi.updateIdea(activeIdea.id, { tags: nextTags }, trustId);
+        await ideasApi.updateIdea(activeIdea.id, { tags: nextTags }, companyId);
         patchIdea(activeIdea.id, { tags: nextTags });
       } catch (error) {
         setInspectorError(error instanceof Error ? error.message : "Tag update failed");
       }
     },
-    [activeIdea, patchIdea, trustId],
+    [activeIdea, patchIdea, companyId],
   );
 
   const handleScopeChange = useCallback(
@@ -180,7 +180,7 @@ export default function IdeasWorkspaceView({
       setInspectorError(null);
       setInspectorBusy(true);
       try {
-        await ideasApi.updateIdea(activeIdea.id, { scope: next }, trustId);
+        await ideasApi.updateIdea(activeIdea.id, { scope: next }, companyId);
         patchIdea(activeIdea.id, { scope: next });
       } catch (error) {
         setInspectorError(error instanceof Error ? error.message : "Scope update failed");
@@ -188,7 +188,7 @@ export default function IdeasWorkspaceView({
         setInspectorBusy(false);
       }
     },
-    [activeIdea, activeScope, composing, patchIdea, rootSelected, trustId],
+    [activeIdea, activeScope, composing, patchIdea, rootSelected, companyId],
   );
 
   const handleSave = useCallback(async () => {
@@ -221,9 +221,9 @@ export default function IdeasWorkspaceView({
   const handleTrackedQuestCreated = useCallback(
     async (quest: { id: string }) => {
       setTrackIdea(null);
-      goEntity(trustId, "quests", quest.id);
+      goEntity(companyId, "quests", quest.id);
     },
-    [goEntity, trustId],
+    [goEntity, companyId],
   );
 
   const handleDelete = useCallback(async () => {
@@ -231,7 +231,7 @@ export default function IdeasWorkspaceView({
     setInspectorError(null);
     setInspectorBusy(true);
     try {
-      const res = await ideasApi.deleteIdea(activeIdea.id, trustId);
+      const res = await ideasApi.deleteIdea(activeIdea.id, companyId);
       if (!res.ok && res.error === "in_use" && res.quest_ids?.length) {
         const ids = res.quest_ids;
         const formatted = ids.length === 1 ? `quest ${ids[0]}` : `${ids.length} quests`;
@@ -252,7 +252,7 @@ export default function IdeasWorkspaceView({
     } finally {
       setInspectorBusy(false);
     }
-  }, [activeIdea, onSelect, removeIdea, rootIdea, trustId]);
+  }, [activeIdea, onSelect, removeIdea, rootIdea, companyId]);
 
   const handleFileImport = useCallback(
     async (files: FileList | File[]) => {
@@ -282,7 +282,7 @@ export default function IdeasWorkspaceView({
                 parent_idea_id: parentIdeaId,
                 properties: importIdeaProperties(data, file.name),
               },
-              trustId,
+              companyId,
             );
           } else {
             const upload = await ideasApi.uploadFileToIdea(
@@ -292,7 +292,7 @@ export default function IdeasWorkspaceView({
                 scope: activeScope,
                 parentIdeaId,
               },
-              trustId,
+              companyId,
             );
             if (!upload.ok) throw new Error(upload.error || "upload failed");
           }
@@ -305,7 +305,7 @@ export default function IdeasWorkspaceView({
       await invalidateIdeas();
       if (failures.length > 0) setInspectorError(failures.join("; "));
     },
-    [activeIdea?.id, activeScope, agentId, invalidateIdeas, rootIdea?.id, trustId],
+    [activeIdea?.id, activeScope, agentId, invalidateIdeas, rootIdea?.id, companyId],
   );
 
   return (
@@ -321,7 +321,7 @@ export default function IdeasWorkspaceView({
           <div className="ideas-workspace-head-actions">
             <ImportMenu
               size="md"
-              trustId={trustId}
+              companyId={companyId}
               parts={["ideas"]}
               blueprintTitle="Import child ideas from a template"
               accept="*/*"
@@ -500,7 +500,7 @@ export default function IdeasWorkspaceView({
           ) : (
             <div className="empty-state-hero muted">
               <span className="empty-state-hero-eyebrow">workspace unavailable</span>
-              <h3 className="empty-state-hero-title">The TRUST root could not be prepared.</h3>
+              <h3 className="empty-state-hero-title">The COMPANY root could not be prepared.</h3>
               <p className="empty-state-hero-body">{rootError ?? "Try reloading the page."}</p>
             </div>
           )}
@@ -512,7 +512,7 @@ export default function IdeasWorkspaceView({
               <IdeaWorkspaceInspector
                 idea={activeIdea}
                 agentId={agentId}
-                scopedEntity={trustId}
+                scopedEntity={companyId}
                 composing={composing}
                 childCount={activeIdea ? descendantCount(activeIdea.id, ideas) : 0}
                 scope={activeScope}
@@ -553,7 +553,7 @@ export default function IdeasWorkspaceView({
         open={Boolean(trackIdea)}
         idea={trackIdea}
         agentId={agentId}
-        trustId={trustId}
+        companyId={companyId}
         onClose={() => setTrackIdea(null)}
         onCreated={handleTrackedQuestCreated}
       />

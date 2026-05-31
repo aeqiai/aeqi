@@ -2,7 +2,7 @@
   "cluster": "localnet",
   "programs": [
     {
-      "name": "aeqi_trust",
+      "name": "aeqi_company",
       "pubkey": "CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV"
     },
     {

@@ -68,14 +68,14 @@ export async function probeDismissEndpoint(): Promise<boolean> {
     return false;
   }
 
-  // The platform proxy on /api/inbox/* requires an X-Trust header — without
+  // The platform proxy on /api/inbox/* requires an X-Company header — without
   // it the catch-all extracts a missing entity id and returns 400 (NOT 401),
   // which leaks a console error on every inbox mount. Skip the probe until an
-  // entity scope is set; the next inbox mount with a real X-Trust will run
+  // entity scope is set; the next inbox mount with a real X-Company will run
   // the probe cleanly. This mirrors the daemon-store fetchAll ordering rule
   // (entity-scoped fetches gate on getScopedEntity()).
-  const trustId = getScopedEntity();
-  if (!trustId) {
+  const companyId = getScopedEntity();
+  if (!companyId) {
     return false;
   }
 

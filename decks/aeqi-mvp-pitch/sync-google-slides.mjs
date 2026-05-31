@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 
 const deckId = "1cEc2aokQky78P7sp5SAq_fg43xJ9JOsFUzDXS_CInDM";
-const trustId = "C68sd4DX6K7aSLaTyfPnAw7cqN5Fj82qX7JyuDj8NVY4";
+const companyId = "C68sd4DX6K7aSLaTyfPnAw7cqN5Fj82qX7JyuDj8NVY4";
 const mcp = "/home/claudedev/.aeqi/bin/aeqi-mcp-http";
 
 const args = new Map();
@@ -26,8 +26,8 @@ function googleRequest(method, url, body) {
       required_scopes: ["https://www.googleapis.com/auth/presentations"],
       ...(body ? { body } : {}),
     },
-    credential_scope_kind: "trust",
-    credential_scope_id: trustId,
+    credential_scope_kind: "company",
+    credential_scope_id: companyId,
   };
   const raw = execFileSync(mcp, ["apps", JSON.stringify(payload)], {
     encoding: "utf8",

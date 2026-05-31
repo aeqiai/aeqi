@@ -240,10 +240,10 @@ export const api = {
     return request<Record<string, unknown>>(`/activity/events${qs ? `?${qs}` : ""}`);
   },
 
-  getTrusts: () => request<Record<string, unknown>>("/trusts"),
-  createTrust: (data: { name: string; tagline?: string; prefix?: string }) =>
-    request<Record<string, unknown>>("/trusts", { method: "POST", body: JSON.stringify(data) }),
-  createPersonalTrust: (data: {
+  getCompanies: () => request<Record<string, unknown>>("/companies"),
+  createCompany: (data: { name: string; tagline?: string; prefix?: string }) =>
+    request<Record<string, unknown>>("/companies", { method: "POST", body: JSON.stringify(data) }),
+  createPersonalCompany: (data: {
     name: string;
     owner_name: string;
     goal: string;
@@ -252,7 +252,7 @@ export const api = {
     request<{
       ok: boolean;
       id: string;
-      trust?: {
+      company?: {
         id?: string;
         name?: string;
         type?: string;
@@ -260,20 +260,20 @@ export const api = {
         placement_type?: string;
         plan?: string;
       };
-    }>("/trusts", {
+    }>("/companies", {
       method: "POST",
       body: JSON.stringify({
         name: data.name,
         owner_name: data.owner_name,
         goal: data.goal,
         tagline: data.tagline,
-        personal_trust: true,
+        personal_company: true,
         kind: "personal",
       }),
     }),
-  getEntities: () => request<Record<string, unknown>>("/trusts"),
+  getEntities: () => request<Record<string, unknown>>("/companies"),
   createEntity: (data: { name: string; tagline?: string; prefix?: string }) =>
-    request<Record<string, unknown>>("/trusts", { method: "POST", body: JSON.stringify(data) }),
+    request<Record<string, unknown>>("/companies", { method: "POST", body: JSON.stringify(data) }),
   updateEntity: (
     name: string,
     data: {
@@ -283,7 +283,7 @@ export const api = {
       public?: boolean;
     },
   ) =>
-    request<{ ok: boolean }>(`/trusts/${encodeURIComponent(name)}`, {
+    request<{ ok: boolean }>(`/companies/${encodeURIComponent(name)}`, {
       method: "PUT",
       body: JSON.stringify({
         ...data,
@@ -294,12 +294,12 @@ export const api = {
   // Roles — the org-chart primitive. Returns the full set of roles +
   // edges for the entity so the caller can render either a flat list or
   // a DAG.
-  getRoles: async (trustId: string) => {
+  getRoles: async (companyId: string) => {
     const r = await request<{
       ok: boolean;
       roles: Role[];
       edges: RoleEdge[];
-    }>(`/roles?trust_id=${encodeURIComponent(trustId)}`, { scopedEntity: trustId });
+    }>(`/roles?company_id=${encodeURIComponent(companyId)}`, { scopedEntity: companyId });
     return {
       ok: r.ok,
       roles: r.roles,
@@ -307,24 +307,24 @@ export const api = {
     };
   },
 
-  getCapTable: (trustId: string) =>
-    request<{ ok: boolean; trust_id: string; entries: CapTableEntry[] }>(
-      `/trusts/${encodeURIComponent(trustId)}/cap-table`,
-      { scopedEntity: trustId },
+  getCapTable: (companyId: string) =>
+    request<{ ok: boolean; company_id: string; entries: CapTableEntry[] }>(
+      `/companies/${encodeURIComponent(companyId)}/cap-table`,
+      { scopedEntity: companyId },
     ),
 
-  getTrustViews: (trustId: string) =>
-    request<{ ok: boolean; trust_id: string; views: EntityView[] }>(
-      `/trusts/${encodeURIComponent(trustId)}/views`,
-      { scopedEntity: trustId },
+  getCompanyViews: (companyId: string) =>
+    request<{ ok: boolean; company_id: string; views: EntityView[] }>(
+      `/companies/${encodeURIComponent(companyId)}/views`,
+      { scopedEntity: companyId },
     ),
 
-  upsertTrustViews: (trustId: string, views: EntityViewUpsert[]) =>
-    request<{ ok: boolean; trust_id: string; views: EntityView[] }>(
-      `/trusts/${encodeURIComponent(trustId)}/views`,
+  upsertCompanyViews: (companyId: string, views: EntityViewUpsert[]) =>
+    request<{ ok: boolean; company_id: string; views: EntityView[] }>(
+      `/companies/${encodeURIComponent(companyId)}/views`,
       {
         method: "PUT",
-        scopedEntity: trustId,
+        scopedEntity: companyId,
         body: JSON.stringify({ views }),
       },
     ),
@@ -333,7 +333,7 @@ export const api = {
     request<{ ok: boolean; role: Role }>(`/roles/${encodeURIComponent(roleId)}`),
 
   createRole: (data: {
-    trust_id: string;
+    company_id: string;
     title: string;
     occupant_kind: OccupantKind;
     occupant_id?: string;
@@ -343,7 +343,7 @@ export const api = {
     description_idea_id?: string | null;
   }) => {
     const wire = {
-      trust_id: data.trust_id,
+      company_id: data.company_id,
       title: data.title,
       occupant_kind: data.occupant_kind,
       ...(data.occupant_id ? { occupant_id: data.occupant_id } : {}),
@@ -401,15 +401,15 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  getUserGrants: (trustId: string, userId: string) =>
+  getUserGrants: (companyId: string, userId: string) =>
     request<{ ok: boolean; grants: string[] }>(
-      `/roles/grants?trust_id=${encodeURIComponent(trustId)}&user_id=${encodeURIComponent(userId)}`,
+      `/roles/grants?company_id=${encodeURIComponent(companyId)}&user_id=${encodeURIComponent(userId)}`,
     ),
 
-  // Invitation endpoints — platform-side, no trust scope in the path
+  // Invitation endpoints — platform-side, no company scope in the path
   // for the public-facing ones.
   createRoleInvitation: (
-    trustId: string,
+    companyId: string,
     roleId: string,
     data: {
       target_kind: "email" | "slug" | "open";
@@ -419,13 +419,13 @@ export const api = {
     },
   ) =>
     request<{ ok: boolean; invitation: RoleInvitation }>(
-      `/trusts/${encodeURIComponent(trustId)}/roles/${encodeURIComponent(roleId)}/invitations`,
+      `/companies/${encodeURIComponent(companyId)}/roles/${encodeURIComponent(roleId)}/invitations`,
       { method: "POST", body: JSON.stringify(data) },
     ),
 
-  listEntityInvitations: (trustId: string) =>
+  listEntityInvitations: (companyId: string) =>
     request<{ ok: boolean; invitations: RoleInvitation[] }>(
-      `/trusts/${encodeURIComponent(trustId)}/invitations`,
+      `/companies/${encodeURIComponent(companyId)}/invitations`,
     ),
 
   getInvitation: (token: string) =>
@@ -446,7 +446,7 @@ export const api = {
     }),
 
   getDirectedEntities: () =>
-    request<{ ok: boolean; entities: Array<{ trust_id: string; display_name: string }> }>(
+    request<{ ok: boolean; entities: Array<{ company_id: string; display_name: string }> }>(
       `/me/directed-entities`,
     ),
 
@@ -716,7 +716,7 @@ export const api = {
     display_name?: string;
     role_overrides?: RoleOverride[];
   }) =>
-    request<{ ok: boolean; trust_id: string }>("/blueprints/spawn", {
+    request<{ ok: boolean; company_id: string }>("/blueprints/spawn", {
       method: "POST",
       body: JSON.stringify(data),
     }),
@@ -725,7 +725,7 @@ export const api = {
   // company merge) and Import-from-blueprint on Ideas / Quests (scoped
   // via `parts`). Server defaults to all four parts when `parts` is
   // omitted; pass e.g. `["ideas"]` to materialize only seed_ideas.
-  spawnBlueprintIntoEntity: (data: { blueprint: string; trust_id: string; parts?: string[] }) =>
+  spawnBlueprintIntoEntity: (data: { blueprint: string; company_id: string; parts?: string[] }) =>
     request<{
       ok: boolean;
       spawned_agents: number;
@@ -734,7 +734,7 @@ export const api = {
       created_quests: number;
     }>("/blueprints/spawn-into", { method: "POST", body: JSON.stringify(data) }),
 
-  // Platform-side launch — mints the canonical trust_id (UUID) on the
+  // Platform-side launch — mints the canonical company_id (UUID) on the
   // platform host and provisions a sandbox runtime. Callable by users with
   // subscription_status="invited" (invite-only access), "active" (paid), or admins
   // explicitly requesting plan="sandbox". Anyone else gets 402 and goes
@@ -747,7 +747,7 @@ export const api = {
   }) =>
     request<{
       ok: boolean;
-      trust_id: string;
+      company_id: string;
       display_name: string;
       website_domain?: string | null;
       website_url?: string | null;
@@ -768,20 +768,20 @@ export const api = {
       body: JSON.stringify({ display_name }),
     }),
 
-  getLaunchStatus: (trustId: string) =>
+  getLaunchStatus: (companyId: string) =>
     request<{
       ok: boolean;
-      trust_id: string;
+      company_id: string;
       display_name: string;
       email_address?: string | null;
       placement_status: string;
-      trust_status: string;
-      trust_address: string | null;
-      trust_error: string | null;
+      company_status: string;
+      company_address: string | null;
+      company_error: string | null;
       runtime_error: string | null;
       org_lifecycle: string;
       milestones: {
-        creating_trust: { reached: boolean; at: string | null };
+        creating_company: { reached: boolean; at: string | null };
         signing_on_solana: { reached: boolean; at: string | null };
         loading_roles: { reached: boolean; at: string | null };
         spawning_agent: { reached: boolean; at: string | null };
@@ -795,12 +795,12 @@ export const api = {
         buy_amount: number;
         max_cost: number;
       } | null;
-    }>(`/start/launch/status/${encodeURIComponent(trustId)}`),
+    }>(`/start/launch/status/${encodeURIComponent(companyId)}`),
 
-  getTrustEmailMessages: (trustId: string) =>
+  getCompanyEmailMessages: (companyId: string) =>
     request<{
       ok: boolean;
-      trust_id: string;
+      company_id: string;
       address?: string | null;
       identities?: Array<{
         kind: string;
@@ -814,7 +814,7 @@ export const api = {
       message_count: number;
       messages: Array<{
         id: string;
-        trust_id: string;
+        company_id: string;
         recipient: string;
         sender?: string | null;
         subject?: string | null;
@@ -822,24 +822,24 @@ export const api = {
         raw_size: number;
         received_at: string;
       }>;
-    }>(`/trusts/${encodeURIComponent(trustId)}/email/messages`),
+    }>(`/companies/${encodeURIComponent(companyId)}/email/messages`),
 
-  sendTrustEmailTest: (trustId: string) =>
+  sendCompanyEmailTest: (companyId: string) =>
     request<{
       ok: boolean;
-      trust_id: string;
+      company_id: string;
       to: string;
       from: string;
       reply_to: string;
       sender_mode: string;
-    }>(`/trusts/${encodeURIComponent(trustId)}/email/test`, {
+    }>(`/companies/${encodeURIComponent(companyId)}/email/test`, {
       method: "POST",
     }),
 
-  getTrustWebsiteAnalytics: (trustId: string) =>
+  getCompanyWebsiteAnalytics: (companyId: string) =>
     request<{
       ok: boolean;
-      trust_id: string;
+      company_id: string;
       domain?: string | null;
       tracking_status: "installed" | "ready" | string;
       status: "live" | "setup_required" | "unavailable" | "no_domain" | string;
@@ -855,7 +855,7 @@ export const api = {
         };
       } | null;
       message: string;
-    }>(`/trusts/${encodeURIComponent(trustId)}/website/analytics`),
+    }>(`/companies/${encodeURIComponent(companyId)}/website/analytics`),
 
   listHostingDomains: () =>
     request<{
@@ -869,7 +869,7 @@ export const api = {
       }>;
     }>("/hosting/domains"),
 
-  addHostingDomain: (data: { domain: string; app_id: string; trust_id: string }) =>
+  addHostingDomain: (data: { domain: string; app_id: string; company_id: string }) =>
     request<{
       ok: boolean;
       domain: string;
@@ -922,7 +922,7 @@ export const api = {
 
   /**
    * Mint N LAUNCH to a recipient pubkey (placement owner only). On-chain
-   * `mint_tokens` requires signer == trust.authority; platform gates via
+   * `mint_tokens` requires signer == company.authority; platform gates via
    * placement owner. Idempotent ATA creation included.
    */
   tokenMint: (data: { entity_id: string; recipient_pubkey: string; amount: number }) =>
@@ -965,17 +965,17 @@ export const api = {
    * Server-side Solana assets snapshot. The browser never talks to Solana
    * RPC directly; platform/indexer owns localnet now and mainnet later.
    */
-  getTrustAssetsByAddress: (trustAddress: string) =>
+  getCompanyAssetsByAddress: (companyAddress: string) =>
     request<{
       ok: true;
       cluster: string;
-      trust_id: string;
-      trust_address: string;
+      company_id: string;
+      company_address: string;
       vault: {
         module_state_pda: string;
         vault_authority_pda: string;
         module_state: {
-          trust: string;
+          company: string;
           treasury_authority: string;
           bump: number;
         } | null;
@@ -989,7 +989,7 @@ export const api = {
       budgets: Array<{
         public_key: string;
         account: {
-          trust: string;
+          company: string;
           budget_id: number[];
           grantor: string;
           target_role_id: number[];
@@ -1004,7 +1004,7 @@ export const api = {
       vesting_positions: Array<{
         public_key: string;
         account: {
-          trust: string;
+          company: string;
           position_id: number[];
           recipient: string;
           mint: string;
@@ -1021,20 +1021,20 @@ export const api = {
           bump: number;
         };
       }>;
-    }>(`/public/trust/${encodeURIComponent(trustAddress)}/assets`),
+    }>(`/public/company/${encodeURIComponent(companyAddress)}/assets`),
 
   /**
-   * Server-side Solana incorporation snapshot. Platform owns TRUST/module/role
+   * Server-side Solana incorporation snapshot. Platform owns COMPANY/module/role
    * reads so hosted browsers never need direct Solana RPC access.
    */
-  getTrustIncorporationByAddress: (trustAddress: string) =>
+  getCompanyIncorporationByAddress: (companyAddress: string) =>
     request<{
       ok: true;
       cluster: string;
-      trust_id: string;
-      trust_address: string;
-      trust: {
-        trust_id: number[];
+      company_id: string;
+      company_address: string;
+      company: {
+        company_id: number[];
         authority: string;
         creation_mode: boolean;
         paused: boolean;
@@ -1044,13 +1044,13 @@ export const api = {
       modules: Array<{
         public_key: string;
         account: {
-          trust: string;
+          company: string;
           module_id: number[];
           program_id: string;
           provider: string;
           implementation_version: string;
           implementation_metadata_hash: number[];
-          trust_acl: string;
+          company_acl: string;
           initialized: number;
           bump: number;
         };
@@ -1058,7 +1058,7 @@ export const api = {
       roles: Array<{
         public_key: string;
         account: {
-          trust: string;
+          company: string;
           role_id: number[];
           role_type_id: number[];
           account: string;
@@ -1069,7 +1069,7 @@ export const api = {
           bump: number;
         };
       }>;
-    }>(`/public/trust/${encodeURIComponent(trustAddress)}/incorporation`),
+    }>(`/public/company/${encodeURIComponent(companyAddress)}/incorporation`),
 
   /**
    * Grant a vesting position. position_id is generated server-side and
@@ -1098,8 +1098,8 @@ export const api = {
     }),
 
   /**
-   * One-time per trust: allocate the BudgetModuleState PDA. Must be
-   * called once before any budgetCreate against the same trust.
+   * One-time per company: allocate the BudgetModuleState PDA. Must be
+   * called once before any budgetCreate against the same company.
    * On-chain init rejects a second call with "account already in use".
    */
   budgetModuleInit: (data: { entity_id: string }) =>
@@ -1113,7 +1113,7 @@ export const api = {
     }),
 
   /**
-   * Trust authority grants a spending budget capped at `amount` against
+   * Company authority grants a spending budget capped at `amount` against
    * a target role. `target_role_id` accepts hex (0x-prefixed 32-byte) OR
    * a free-text label which the platform hashes with keccak256.
    * `expiry = 0` means no expiry. `budget_label` similarly resolves to a
@@ -1140,8 +1140,8 @@ export const api = {
     }),
 
   /**
-   * One-time per trust: allocate the FundingModuleState PDA. Must be
-   * called before the trust is finalized (on-chain creation_mode guard).
+   * One-time per company: allocate the FundingModuleState PDA. Must be
+   * called before the company is finalized (on-chain creation_mode guard).
    */
   fundingModuleInit: (data: { entity_id: string }) =>
     request<{
@@ -1250,7 +1250,7 @@ export const api = {
    * Transfer a pending vesting position to a new recipient. The on-chain
    * concept is: a position grants future tokens to a wallet that hasn't
    * fully vested yet — the recipient should be transferable (employees
-   * leave, addresses rotate, ownership consolidates). The grantor (trust
+   * leave, addresses rotate, ownership consolidates). The grantor (company
    * authority) signs the rotation.
    *
    * Status: HONEST STUB. There is no `aeqi_vesting::transfer_position`
@@ -1286,7 +1286,7 @@ export const api = {
    * Freeze a Solana on-chain budget. The on-chain `aeqi_budget::freeze`
    * instruction flips `account.frozen = true`, after which any
    * `spend_treasury` or `allocate_child_budget` call against the budget
-   * is rejected by the program. Grantor (trust authority) signs.
+   * is rejected by the program. Grantor (company authority) signs.
    *
    * Status: HONEST STUB. The on-chain ix EXISTS (see
    * `programs/aeqi-budget/src/lib.rs` — `pub fn freeze`), but the
@@ -1310,7 +1310,7 @@ export const api = {
   /**
    * Unfreeze a previously-frozen on-chain budget. Reverses
    * `budgetFreeze`; the on-chain `aeqi_budget::unfreeze` instruction
-   * flips `account.frozen = false`. Grantor (trust authority) signs.
+   * flips `account.frozen = false`. Grantor (company authority) signs.
    *
    * Status: HONEST STUB. Same shape as `budgetFreeze` above —
    * the on-chain ix exists but the platform route `/api/solana/budget-unfreeze`
@@ -1370,7 +1370,7 @@ export const api = {
     }),
 
   /**
-   * Read the live BondingCurve state for a TRUST's genesis curve. Prices
+   * Read the live BondingCurve state for a COMPANY's genesis curve. Prices
    * are u128 micro-USDC and come over the wire as decimal strings — the UI
    * caller parses to BigInt for math or renders them as labels.
    *
@@ -1379,10 +1379,10 @@ export const api = {
    *   chain doesn't back the derived addresses yet). UI hides the chart.
    * 403 / 404 / 503 → normal platform error shapes; treated as null below.
    */
-  getCurveState: (trustId: string) =>
+  getCurveState: (companyId: string) =>
     request<{
       ok: true;
-      trust_pubkey_b58: string;
+      company_pubkey_b58: string;
       curve_pubkey_b58: string;
       asset_mint_b58: string;
       quote_mint_b58: string;
@@ -1411,14 +1411,14 @@ export const api = {
         log_index: number;
       }>;
       recent_trades_unavailable?: boolean;
-    }>(`/curves/${encodeURIComponent(trustId)}/state`),
+    }>(`/curves/${encodeURIComponent(companyId)}/state`),
 
   /**
    * Open a new proposal against a registered governance config.
    *
    * Honest stub: the platform-side handler does not exist yet. The
    * intended Solana ix is `aeqi_governance::propose` (PDA seeded
-   * `[b"proposal", trust, proposal_id]`); a sibling quest owns the
+   * `[b"proposal", company, proposal_id]`); a sibling quest owns the
    * `/api/solana/proposal-create` endpoint and the gateway → governance
    * program wire-up (anchor builder, snapshotSlot capture, IPFS pin of
    * title + description as the `ipfs_cid` field).
@@ -1588,7 +1588,7 @@ export const api = {
   }) =>
     request<{
       ok: boolean;
-      agent: { id: string; name: string; trust_id?: string | null; status?: string };
+      agent: { id: string; name: string; company_id?: string | null; status?: string };
       warnings?: string[];
     }>("/agents/spawn", { method: "POST", body: JSON.stringify(data) }),
 
@@ -1758,23 +1758,23 @@ export const api = {
 
   revokeKey: (id: string) => request<{ ok: boolean }>(`/keys/${id}`, { method: "DELETE" }),
 
-  // Runtime provisioning — turn a free TRUST into a paid one.
+  // Runtime provisioning — turn a free COMPANY into a paid one.
   // Backend: `aeqi-platform/src/routes/runtime.rs`.
   //
-  //   POST /api/runtime/provision { trust_id, plan: "standard"|"pro" }
-  //     → { ok, url, trust_id, plan }   — Stripe checkout URL.
-  //   GET  /api/runtime/status?trust_id=<id>
+  //   POST /api/runtime/provision { company_id, plan: "standard"|"pro" }
+  //     → { ok, url, company_id, plan }   — Stripe checkout URL.
+  //   GET  /api/runtime/status?company_id=<id>
   //     → { ok, has_runtime, plan, tier, host_active, … }
   //
-  // `trust_id` here is the platform-side entity uuid (matches
-  // `Trust.id` on the frontend), NOT the on-chain `trust_address`.
-  provisionRuntime: (data: { trust_id: string; plan: "standard" | "pro" }) =>
-    request<{ ok: boolean; url: string; trust_id: string; plan: string }>("/runtime/provision", {
+  // `company_id` here is the platform-side entity uuid (matches
+  // `Company.id` on the frontend), NOT the on-chain `company_address`.
+  provisionRuntime: (data: { company_id: string; plan: "standard" | "pro" }) =>
+    request<{ ok: boolean; url: string; company_id: string; plan: string }>("/runtime/provision", {
       method: "POST",
       body: JSON.stringify(data),
     }),
 
-  getRuntimeStatus: (trustId: string) =>
+  getRuntimeStatus: (companyId: string) =>
     request<{
       ok: boolean;
       has_runtime: boolean;
@@ -1790,13 +1790,13 @@ export const api = {
       placement_type: string;
       status: string;
       service_name: string | null;
-    }>(`/runtime/status?trust_id=${encodeURIComponent(trustId)}`),
+    }>(`/runtime/status?company_id=${encodeURIComponent(companyId)}`),
 
   // Stripe billing. Launch and resubscribe flows stamp Standard/Pro `plan`
   // metadata for provisioning and billing display.
   createCheckoutSession: (data: {
     blueprint?: string;
-    // not trust_id — entity is minted post-checkout when launch resumes.
+    // not company_id — entity is minted post-checkout when launch resumes.
     display_name?: string;
     mission?: string;
     plan?: LaunchPlanId | string;
@@ -1894,13 +1894,13 @@ export const api = {
 
   // ── Budgets — the role-budget primitive (WS-B2 / B6 / canonical brief
   // architecture_role_budget_canonical.md). Reads require treasury.read at
-  // the trust; mutations require occupant of the budget's owner role.
+  // the company; mutations require occupant of the budget's owner role.
   // `idempotency_key` on mutations dedupes retries within an epoch.
   listBudgets: (
-    trustId: string,
+    companyId: string,
     filters: { ownerRoleId?: string; parentBudgetId?: string; isPrimary?: boolean } = {},
   ) => {
-    const params = new URLSearchParams({ trust_id: trustId });
+    const params = new URLSearchParams({ company_id: companyId });
     if (filters.ownerRoleId) params.set("owner_role_id", filters.ownerRoleId);
     if (filters.parentBudgetId) params.set("parent_budget_id", filters.parentBudgetId);
     if (filters.isPrimary !== undefined) params.set("is_primary", String(filters.isPrimary));
@@ -1915,9 +1915,9 @@ export const api = {
       policy: BudgetPolicy | null;
     }>(`/budgets/${encodeURIComponent(budgetId)}`),
 
-  getBudgetTree: (trustId: string) =>
+  getBudgetTree: (companyId: string) =>
     request<{ ok: boolean; tree: { nodes: Budget[]; edges: [string, string][] } }>(
-      `/budgets/tree?trust_id=${encodeURIComponent(trustId)}`,
+      `/budgets/tree?company_id=${encodeURIComponent(companyId)}`,
     ),
 
   getBudgetAllowance: (budgetId: string) =>
@@ -1940,7 +1940,7 @@ export const api = {
   },
 
   createBudget: (data: {
-    trust_id: string;
+    company_id: string;
     owner_role_id: string;
     name: string;
     kind?: BudgetKind;
@@ -2018,7 +2018,7 @@ export const api = {
       new_role: {
         title: string;
         role_type?: "director" | "operational" | "advisor";
-        occupant_kind?: "human" | "agent" | "trust" | "vacant";
+        occupant_kind?: "human" | "agent" | "company" | "vacant";
         occupant_id?: string;
         grants?: string[];
       };
@@ -2054,18 +2054,18 @@ export const api = {
       },
     ),
 
-  pauseTreasury: (trustId: string, paused: boolean) =>
+  pauseTreasury: (companyId: string, paused: boolean) =>
     request<{ ok: boolean; paused?: boolean; code?: string; error?: string; roles?: string[] }>(
-      `/trusts/${encodeURIComponent(trustId)}/treasury/pause`,
+      `/companies/${encodeURIComponent(companyId)}/treasury/pause`,
       {
         method: "POST",
         body: JSON.stringify({ paused }),
       },
     ),
 
-  initTreasuryConfig: (trustId: string, gateway: string, adminRoleId: string) =>
+  initTreasuryConfig: (companyId: string, gateway: string, adminRoleId: string) =>
     request<{ ok: boolean; code?: string; error?: string }>(
-      `/trusts/${encodeURIComponent(trustId)}/treasury/config`,
+      `/companies/${encodeURIComponent(companyId)}/treasury/config`,
       {
         method: "POST",
         body: JSON.stringify({ inference_gateway: gateway, admin_role_id: adminRoleId }),
@@ -2087,7 +2087,7 @@ export interface AllowanceBundle {
 
 export interface Budget {
   id: string;
-  trust_id: string;
+  company_id: string;
   parent_budget_id: string | null;
   owner_role_id: string;
   name: string;
@@ -2139,13 +2139,13 @@ export interface TreasuryEvent {
 /// indicator only, no longer used for filtering. `last_active` is the
 /// recency anchor used for sort.
 ///
-/// `agent_name` and `trust_id` are joined server-side; `last_agent_message`
+/// `agent_name` and `company_id` are joined server-side; `last_agent_message`
 /// is the truncated assistant message body.
 export interface InboxItem {
   session_id: string;
   agent_id: string | null;
   agent_name: string | null;
-  trust_id: string | null;
+  company_id: string | null;
   session_name: string;
   awaiting_subject: string | null;
   awaiting_at: string | null;

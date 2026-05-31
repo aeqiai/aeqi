@@ -229,14 +229,14 @@ impl QuestsTool {
 
     /// Quest 67-213 phase-1: resolve the entity context for `role:<id>`
     /// assignee validation. The tool runs inside an agent session, so the
-    /// caller's entity is the agent's `trust_id`.
+    /// caller's entity is the agent's `company_id`.
     async fn caller_entity_id(&self) -> Option<String> {
         self.agent_registry
             .get(&self.agent_id)
             .await
             .ok()
             .flatten()
-            .and_then(|a| a.trust_id)
+            .and_then(|a| a.company_id)
     }
 
     /// Set the session ID of the calling session. Used to propagate

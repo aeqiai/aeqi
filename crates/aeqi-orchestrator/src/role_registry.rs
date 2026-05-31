@@ -18,16 +18,16 @@ use std::{collections::BTreeSet, sync::Arc};
 
 /// Who occupies a role. `Vacant` is a first-class state — useful for
 /// "we're hiring CFO" placeholders that already carry edges in the DAG.
-/// `Trust` is used for board / director seats where the occupant is another
-/// entity's TRUST address (e.g. a parent holding occupies the Director seat
-/// of its child operating Company). Board ≠ org chart: trust-occupied roles
+/// `Company` is used for board / director seats where the occupant is another
+/// entity's COMPANY address (e.g. a parent holding occupies the Director seat
+/// of its child operating Company). Board ≠ org chart: company-occupied roles
 /// are governance relations, not authority-transit edges in `role_edges`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum OccupantKind {
     Human,
     Agent,
-    Trust,
+    Company,
     Vacant,
 }
 
@@ -36,7 +36,7 @@ impl OccupantKind {
         match self {
             OccupantKind::Human => "human",
             OccupantKind::Agent => "agent",
-            OccupantKind::Trust => "trust",
+            OccupantKind::Company => "company",
             OccupantKind::Vacant => "vacant",
         }
     }
@@ -49,7 +49,7 @@ impl std::str::FromStr for OccupantKind {
         match s {
             "human" => Ok(OccupantKind::Human),
             "agent" => Ok(OccupantKind::Agent),
-            "trust" => Ok(OccupantKind::Trust),
+            "company" => Ok(OccupantKind::Company),
             "vacant" => Ok(OccupantKind::Vacant),
             other => bail!("unknown occupant kind: {}", other),
         }
@@ -112,7 +112,7 @@ pub const ALL_GRANTS: &[&str] = &[
 // Keep policy queries named and colocated with the role domain. IPC handlers
 // should call intention-revealing registry methods, not assemble SQL.
 
-const SQL_ROLE_IN_ENTITY_EXISTS: &str = "SELECT 1 FROM roles WHERE id = ?1 AND trust_id = ?2";
+const SQL_ROLE_IN_ENTITY_EXISTS: &str = "SELECT 1 FROM roles WHERE id = ?1 AND company_id = ?2";
 
 const SQL_ROLE_HAS_PARENT: &str = "SELECT 1 FROM role_edges WHERE child_role_id = ?1 LIMIT 1";
 
@@ -120,7 +120,7 @@ const SQL_USER_CAN_MANAGE_ROLE: &str = "WITH RECURSIVE managed(role_id) AS (
      SELECT r.id
      FROM roles r
      JOIN role_grants g ON g.role_id = r.id
-     WHERE r.trust_id = ?1
+     WHERE r.company_id = ?1
        AND r.occupant_kind = 'human'
        AND r.occupant_id = ?2
        AND g.grant = ?3
@@ -129,14 +129,14 @@ const SQL_USER_CAN_MANAGE_ROLE: &str = "WITH RECURSIVE managed(role_id) AS (
      FROM role_edges e
      JOIN managed m ON m.role_id = e.parent_role_id
      JOIN roles child ON child.id = e.child_role_id
-     WHERE child.trust_id = ?1
+     WHERE child.company_id = ?1
  )
  SELECT 1 FROM managed WHERE role_id = ?4 LIMIT 1";
 
 const SQL_USER_CAN_CREATE_ROOT_ROLE: &str = "SELECT 1
  FROM roles r
  JOIN role_grants g ON g.role_id = r.id
- WHERE r.trust_id = ?1
+ WHERE r.company_id = ?1
    AND r.occupant_kind = 'human'
    AND r.occupant_id = ?2
    AND r.role_type = 'director'
@@ -169,7 +169,7 @@ pub fn default_grants_for_type(role_type: RoleType) -> Vec<String> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Role {
     pub id: String,
-    pub trust_id: String,
+    pub company_id: String,
     pub title: String,
     pub occupant_kind: OccupantKind,
     pub occupant_id: Option<String>,
@@ -197,7 +197,7 @@ pub struct RoleEdge {
 fn row_to_role(row: &rusqlite::Row<'_>) -> rusqlite::Result<Role> {
     Ok(Role {
         id: row.get(0)?,
-        trust_id: row.get(1)?,
+        company_id: row.get(1)?,
         title: row.get(2)?,
         occupant_kind: {
             let s: String = row.get(3)?;
@@ -242,17 +242,17 @@ impl RoleRegistry {
     /// All roles in the entity, ordered by creation time.
     /// Grants are NOT populated — use `list_for_entity_with_grants` when you
     /// need them.
-    pub async fn list_for_entity(&self, trust_id: &str) -> Result<Vec<Role>> {
+    pub async fn list_for_entity(&self, company_id: &str) -> Result<Vec<Role>> {
         let db = self.db.lock().await;
         let mut stmt = db.prepare(
-            "SELECT id, trust_id, title, occupant_kind, occupant_id,
+            "SELECT id, company_id, title, occupant_kind, occupant_id,
                     role_type, founder, created_at, updated_at, description_idea_id
              FROM roles
-             WHERE trust_id = ?1
+             WHERE company_id = ?1
              ORDER BY created_at ASC",
         )?;
         let rows = stmt
-            .query_map(params![trust_id], row_to_role)?
+            .query_map(params![company_id], row_to_role)?
             .filter_map(|r| r.ok())
             .collect();
         Ok(rows)
@@ -261,20 +261,20 @@ impl RoleRegistry {
     /// All roles + edges for an entity, with grants populated on each role.
     pub async fn list_for_entity_with_grants(
         &self,
-        trust_id: &str,
+        company_id: &str,
     ) -> Result<(Vec<Role>, Vec<RoleEdge>)> {
         let db = self.db.lock().await;
 
         let mut roles: Vec<Role> = {
             let mut stmt = db.prepare(
-                "SELECT r.id, r.trust_id, r.title, r.occupant_kind, r.occupant_id,
+                "SELECT r.id, r.company_id, r.title, r.occupant_kind, r.occupant_id,
                         r.role_type, r.founder, r.created_at, r.updated_at,
                         r.description_idea_id
                  FROM roles r
-                 WHERE r.trust_id = ?1
+                 WHERE r.company_id = ?1
                  ORDER BY r.created_at ASC",
             )?;
-            stmt.query_map(params![trust_id], row_to_role)?
+            stmt.query_map(params![company_id], row_to_role)?
                 .filter_map(|r| r.ok())
                 .collect()
         };
@@ -285,9 +285,9 @@ impl RoleRegistry {
                 "SELECT g.role_id, g.grant
                  FROM role_grants g
                  JOIN roles r ON r.id = g.role_id
-                 WHERE r.trust_id = ?1",
+                 WHERE r.company_id = ?1",
             )?;
-            stmt.query_map(params![trust_id], |row| {
+            stmt.query_map(params![company_id], |row| {
                 Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
             })?
             .filter_map(|r| r.ok())
@@ -306,9 +306,9 @@ impl RoleRegistry {
                 "SELECT e.parent_role_id, e.child_role_id
                  FROM role_edges e
                  JOIN roles r ON r.id = e.parent_role_id
-                 WHERE r.trust_id = ?1",
+                 WHERE r.company_id = ?1",
             )?;
-            stmt.query_map(params![trust_id], row_to_edge)?
+            stmt.query_map(params![company_id], row_to_edge)?
                 .filter_map(|r| r.ok())
                 .collect()
         };
@@ -317,17 +317,17 @@ impl RoleRegistry {
     }
 
     /// All edges between roles in this entity (filtered by parent's
-    /// trust_id; edges only ever connect roles inside the same entity).
-    pub async fn list_edges_for_entity(&self, trust_id: &str) -> Result<Vec<RoleEdge>> {
+    /// company_id; edges only ever connect roles inside the same entity).
+    pub async fn list_edges_for_entity(&self, company_id: &str) -> Result<Vec<RoleEdge>> {
         let db = self.db.lock().await;
         let mut stmt = db.prepare(
             "SELECT e.parent_role_id, e.child_role_id
              FROM role_edges e
              JOIN roles r ON r.id = e.parent_role_id
-             WHERE r.trust_id = ?1",
+             WHERE r.company_id = ?1",
         )?;
         let rows = stmt
-            .query_map(params![trust_id], row_to_edge)?
+            .query_map(params![company_id], row_to_edge)?
             .filter_map(|r| r.ok())
             .collect();
         Ok(rows)
@@ -338,7 +338,7 @@ impl RoleRegistry {
         let db = self.db.lock().await;
         let result = db
             .query_row(
-                "SELECT id, trust_id, title, occupant_kind, occupant_id,
+                "SELECT id, company_id, title, occupant_kind, occupant_id,
                         role_type, founder, created_at, updated_at, description_idea_id
                  FROM roles WHERE id = ?1",
                 params![role_id],
@@ -363,17 +363,21 @@ impl RoleRegistry {
     /// Used by `handle_create_role` to detect an existing spawn-time role and
     /// avoid minting a duplicate when the caller only wants to set the title,
     /// role_type, and org-chart edge.
-    pub async fn get_by_occupant(&self, trust_id: &str, occupant_id: &str) -> Result<Option<Role>> {
+    pub async fn get_by_occupant(
+        &self,
+        company_id: &str,
+        occupant_id: &str,
+    ) -> Result<Option<Role>> {
         let db = self.db.lock().await;
         let result = db
             .query_row(
-                "SELECT id, trust_id, title, occupant_kind, occupant_id,
+                "SELECT id, company_id, title, occupant_kind, occupant_id,
                         role_type, founder, created_at, updated_at, description_idea_id
                  FROM roles
-                 WHERE trust_id = ?1 AND occupant_id = ?2
+                 WHERE company_id = ?1 AND occupant_id = ?2
                  ORDER BY created_at ASC
                  LIMIT 1",
-                params![trust_id, occupant_id],
+                params![company_id, occupant_id],
                 row_to_role,
             )
             .optional()?;
@@ -392,10 +396,10 @@ impl RoleRegistry {
 
     // ── Grant queries ─────────────────────────────────────────────────────────
 
-    /// Return the union of grants across all roles a given user holds at `trust_id`.
+    /// Return the union of grants across all roles a given user holds at `company_id`.
     pub async fn user_grants_for_entity(
         &self,
-        trust_id: &str,
+        company_id: &str,
         user_id: &str,
     ) -> Result<Vec<String>> {
         let db = self.db.lock().await;
@@ -403,34 +407,39 @@ impl RoleRegistry {
             "SELECT DISTINCT g.grant
              FROM role_grants g
              JOIN roles r ON r.id = g.role_id
-             WHERE r.trust_id = ?1
+             WHERE r.company_id = ?1
                AND r.occupant_kind = 'human'
                AND r.occupant_id = ?2
              ORDER BY g.grant",
         )?;
         let grants = stmt
-            .query_map(params![trust_id, user_id], |row| row.get::<_, String>(0))?
+            .query_map(params![company_id, user_id], |row| row.get::<_, String>(0))?
             .filter_map(|r| r.ok())
             .collect();
         Ok(grants)
     }
 
-    /// Returns true iff the user holds at least one role at `trust_id` that
+    /// Returns true iff the user holds at least one role at `company_id` that
     /// carries `grant`.
-    pub async fn user_has_grant(&self, trust_id: &str, user_id: &str, grant: &str) -> Result<bool> {
-        let grants = self.user_grants_for_entity(trust_id, user_id).await?;
+    pub async fn user_has_grant(
+        &self,
+        company_id: &str,
+        user_id: &str,
+        grant: &str,
+    ) -> Result<bool> {
+        let grants = self.user_grants_for_entity(company_id, user_id).await?;
         Ok(grants.iter().any(|g| g == grant))
     }
 
-    /// Returns true iff `user_id` occupies a role in `trust_id` that carries
+    /// Returns true iff `user_id` occupies a role in `company_id` that carries
     /// `roles.manage` and controls `target_role_id` through the role DAG.
     ///
     /// The controlled set includes the caller's own role. That keeps the
-    /// founding Director editable in newly-created TRUSTs while still blocking
+    /// founding Director editable in newly-created Companies while still blocking
     /// edits to peers, ancestors, and unrelated branches.
     pub async fn user_can_manage_role(
         &self,
-        trust_id: &str,
+        company_id: &str,
         user_id: &str,
         target_role_id: &str,
     ) -> Result<bool> {
@@ -438,7 +447,7 @@ impl RoleRegistry {
         let target_belongs: Option<i64> = db
             .query_row(
                 SQL_ROLE_IN_ENTITY_EXISTS,
-                params![target_role_id, trust_id],
+                params![target_role_id, company_id],
                 |row| row.get(0),
             )
             .optional()?;
@@ -455,7 +464,7 @@ impl RoleRegistry {
             let director_can_manage_root: Option<i64> = db
                 .query_row(
                     SQL_USER_CAN_CREATE_ROOT_ROLE,
-                    params![trust_id, user_id, GRANT_ROLES_MANAGE],
+                    params![company_id, user_id, GRANT_ROLES_MANAGE],
                     |row| row.get(0),
                 )
                 .optional()?;
@@ -467,23 +476,23 @@ impl RoleRegistry {
         let allowed: Option<i64> = db
             .query_row(
                 SQL_USER_CAN_MANAGE_ROLE,
-                params![trust_id, user_id, GRANT_ROLES_MANAGE, target_role_id],
+                params![company_id, user_id, GRANT_ROLES_MANAGE, target_role_id],
                 |row| row.get(0),
             )
             .optional()?;
         Ok(allowed.is_some())
     }
 
-    /// Returns true iff the user can mint a root-level role in `trust_id`.
+    /// Returns true iff the user can mint a root-level role in `company_id`.
     /// Root roles affect the top of the authority graph, so this is narrower
     /// than generic `roles.manage`: the caller must occupy a Director role
     /// carrying `roles.manage`.
-    pub async fn user_can_create_root_role(&self, trust_id: &str, user_id: &str) -> Result<bool> {
+    pub async fn user_can_create_root_role(&self, company_id: &str, user_id: &str) -> Result<bool> {
         let db = self.db.lock().await;
         let allowed: Option<i64> = db
             .query_row(
                 SQL_USER_CAN_CREATE_ROOT_ROLE,
-                params![trust_id, user_id, GRANT_ROLES_MANAGE],
+                params![company_id, user_id, GRANT_ROLES_MANAGE],
                 |row| row.get(0),
             )
             .optional()?;
@@ -509,7 +518,7 @@ impl RoleRegistry {
     pub async fn upsert(
         &self,
         id: &str,
-        trust_id: &str,
+        company_id: &str,
         title: &str,
         kind: OccupantKind,
         occupant_id: Option<&str>,
@@ -517,11 +526,11 @@ impl RoleRegistry {
         let now = Utc::now().to_rfc3339();
         let db = self.db.lock().await;
         db.execute(
-            "INSERT INTO roles (id, trust_id, title, occupant_kind, occupant_id,
+            "INSERT INTO roles (id, company_id, title, occupant_kind, occupant_id,
                                 role_type, founder, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5, 'operational', 0, ?6)
              ON CONFLICT(id) DO NOTHING",
-            params![id, trust_id, title, kind.as_db(), occupant_id, now],
+            params![id, company_id, title, kind.as_db(), occupant_id, now],
         )?;
         Ok(())
     }
@@ -531,13 +540,13 @@ impl RoleRegistry {
     /// grants=default for Operational.
     pub async fn create(
         &self,
-        trust_id: &str,
+        company_id: &str,
         title: &str,
         kind: OccupantKind,
         occupant_id: Option<&str>,
     ) -> Result<Role> {
         self.create_with_type(
-            trust_id,
+            company_id,
             title,
             kind,
             occupant_id,
@@ -552,7 +561,7 @@ impl RoleRegistry {
     /// If `grants` is `None` or empty, defaults for the type are used.
     pub async fn create_with_type(
         &self,
-        trust_id: &str,
+        company_id: &str,
         title: &str,
         kind: OccupantKind,
         occupant_id: Option<&str>,
@@ -569,12 +578,12 @@ impl RoleRegistry {
 
         let db = self.db.lock().await;
         db.execute(
-            "INSERT INTO roles (id, trust_id, title, occupant_kind, occupant_id,
+            "INSERT INTO roles (id, company_id, title, occupant_kind, occupant_id,
                                 role_type, founder, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             params![
                 id,
-                trust_id,
+                company_id,
                 title,
                 kind.as_db(),
                 occupant_id,
@@ -595,7 +604,7 @@ impl RoleRegistry {
 
         let mut role = db
             .query_row(
-                "SELECT id, trust_id, title, occupant_kind, occupant_id,
+                "SELECT id, company_id, title, occupant_kind, occupant_id,
                         role_type, founder, created_at, updated_at, description_idea_id
                  FROM roles WHERE id = ?1",
                 params![id],
@@ -730,9 +739,9 @@ impl RoleRegistry {
 
         let now = Utc::now().to_rfc3339();
         let db = self.db.lock().await;
-        let trust_id: String = db
+        let company_id: String = db
             .query_row(
-                "SELECT trust_id FROM roles WHERE id = ?1",
+                "SELECT company_id FROM roles WHERE id = ?1",
                 params![role_id],
                 |row| row.get(0),
             )
@@ -740,15 +749,15 @@ impl RoleRegistry {
             .ok_or_else(|| anyhow::anyhow!("role not found"))?;
 
         for parent_id in &parents {
-            let parent_trust_id: String = db
+            let parent_company_id: String = db
                 .query_row(
-                    "SELECT trust_id FROM roles WHERE id = ?1",
+                    "SELECT company_id FROM roles WHERE id = ?1",
                     params![parent_id],
                     |row| row.get(0),
                 )
                 .optional()?
                 .ok_or_else(|| anyhow::anyhow!("parent role not found: {parent_id}"))?;
-            if parent_trust_id != trust_id {
+            if parent_company_id != company_id {
                 bail!("role edge crosses entity boundary");
             }
             let would_cycle: Option<i64> = db
@@ -800,9 +809,9 @@ impl RoleRegistry {
 
         let now = Utc::now().to_rfc3339();
         let db = self.db.lock().await;
-        let trust_id: String = db
+        let company_id: String = db
             .query_row(
-                "SELECT trust_id FROM roles WHERE id = ?1",
+                "SELECT company_id FROM roles WHERE id = ?1",
                 params![role_id],
                 |row| row.get(0),
             )
@@ -810,15 +819,15 @@ impl RoleRegistry {
             .ok_or_else(|| anyhow::anyhow!("role not found"))?;
 
         for child_id in &children {
-            let child_trust_id: String = db
+            let child_company_id: String = db
                 .query_row(
-                    "SELECT trust_id FROM roles WHERE id = ?1",
+                    "SELECT company_id FROM roles WHERE id = ?1",
                     params![child_id],
                     |row| row.get(0),
                 )
                 .optional()?
                 .ok_or_else(|| anyhow::anyhow!("child role not found: {child_id}"))?;
-            if child_trust_id != trust_id {
+            if child_company_id != company_id {
                 bail!("role edge crosses entity boundary");
             }
             let would_cycle: Option<i64> = db
@@ -885,30 +894,33 @@ impl RoleRegistry {
     /// the agent_registry's spawn-time auto-roles get cleared so the
     /// declared structure can be installed fresh, in a single transaction
     /// with the redeclaration. Edges go first (FK to roles).
-    pub async fn delete_for_entity(&self, trust_id: &str) -> Result<()> {
+    pub async fn delete_for_entity(&self, company_id: &str) -> Result<()> {
         let db = self.db.lock().await;
         db.execute(
             "DELETE FROM role_edges
-             WHERE parent_role_id IN (SELECT id FROM roles WHERE trust_id = ?1)
-                OR child_role_id IN (SELECT id FROM roles WHERE trust_id = ?1)",
-            params![trust_id],
+             WHERE parent_role_id IN (SELECT id FROM roles WHERE company_id = ?1)
+                OR child_role_id IN (SELECT id FROM roles WHERE company_id = ?1)",
+            params![company_id],
         )?;
-        db.execute("DELETE FROM roles WHERE trust_id = ?1", params![trust_id])?;
+        db.execute(
+            "DELETE FROM roles WHERE company_id = ?1",
+            params![company_id],
+        )?;
         Ok(())
     }
 
     // ── Quest 67-213 phase-1: quest assignee role-binding ────────────────────
 
     /// Cheap existence check scoped to an entity. Returns true iff a role
-    /// with `role_id` exists AND belongs to `trust_id`. Used by the
+    /// with `role_id` exists AND belongs to `company_id`. Used by the
     /// `validate_assignee` cross-entity guard to keep `role:<id>` from
-    /// leaking across TRUSTs.
-    pub async fn role_exists(&self, role_id: &str, trust_id: &str) -> Result<bool> {
+    /// leaking across Companies.
+    pub async fn role_exists(&self, role_id: &str, company_id: &str) -> Result<bool> {
         let db = self.db.lock().await;
         let exists: Option<i64> = db
             .query_row(
-                "SELECT 1 FROM roles WHERE id = ?1 AND trust_id = ?2",
-                params![role_id, trust_id],
+                "SELECT 1 FROM roles WHERE id = ?1 AND company_id = ?2",
+                params![role_id, company_id],
                 |row| row.get(0),
             )
             .optional()?;
@@ -918,14 +930,14 @@ impl RoleRegistry {
     /// Authority check for `role:<id>`-assigned quests.
     ///
     /// Returns true iff `caller` is allowed to claim a quest whose assignee
-    /// is `role:<target_role_id>` within `trust_id`. The semantic (per idea
+    /// is `role:<target_role_id>` within `company_id`. The semantic (per idea
     /// `f1b46048` / quest 67-213) is:
     ///
     /// - `caller` is the direct occupant of `target_role_id`, OR
     /// - `caller` occupies a role R' such that there is a directed path
     ///   R' → … → target via `role_edges` (transitive ancestor).
     ///
-    /// All checks are scoped to `trust_id`: a principal occupying a role in
+    /// All checks are scoped to `company_id`: a principal occupying a role in
     /// another entity cannot reach into this entity's quests. Returns false
     /// (not error) when the target role does not exist or belongs to a
     /// different entity — the validate path is responsible for surfacing
@@ -934,7 +946,7 @@ impl RoleRegistry {
         &self,
         caller: &QuestCallerPrincipal,
         target_role_id: &str,
-        trust_id: &str,
+        company_id: &str,
     ) -> Result<bool> {
         let (occupant_kind, occupant_id) = match caller {
             QuestCallerPrincipal::User(id) => ("human", id.as_str()),
@@ -947,8 +959,8 @@ impl RoleRegistry {
         // surprising authority reads when callers misuse the API.
         let target_belongs: Option<i64> = db
             .query_row(
-                "SELECT 1 FROM roles WHERE id = ?1 AND trust_id = ?2",
-                params![target_role_id, trust_id],
+                "SELECT 1 FROM roles WHERE id = ?1 AND company_id = ?2",
+                params![target_role_id, company_id],
                 |row| row.get(0),
             )
             .optional()?;
@@ -961,10 +973,10 @@ impl RoleRegistry {
             .query_row(
                 "SELECT 1 FROM roles
                  WHERE id = ?1
-                   AND trust_id = ?2
+                   AND company_id = ?2
                    AND occupant_kind = ?3
                    AND occupant_id = ?4",
-                params![target_role_id, trust_id, occupant_kind, occupant_id],
+                params![target_role_id, company_id, occupant_kind, occupant_id],
                 |row| row.get(0),
             )
             .optional()?;
@@ -983,7 +995,7 @@ impl RoleRegistry {
             .query_row(
                 "WITH RECURSIVE controlled(role_id) AS (
                      SELECT id FROM roles
-                     WHERE trust_id = ?1
+                     WHERE company_id = ?1
                        AND occupant_kind = ?2
                        AND occupant_id = ?3
                      UNION
@@ -991,10 +1003,10 @@ impl RoleRegistry {
                      FROM role_edges e
                      JOIN controlled c ON c.role_id = e.parent_role_id
                      JOIN roles cr ON cr.id = e.child_role_id
-                     WHERE cr.trust_id = ?1
+                     WHERE cr.company_id = ?1
                  )
                  SELECT 1 FROM controlled WHERE role_id = ?4 LIMIT 1",
-                params![trust_id, occupant_kind, occupant_id, target_role_id],
+                params![company_id, occupant_kind, occupant_id, target_role_id],
                 |row| row.get(0),
             )
             .optional()?;
@@ -1005,24 +1017,24 @@ impl RoleRegistry {
     /// doesn't already exist. Used by both the spawn flow (always invoked)
     /// and a one-shot endpoint for migrating pre-rework entities.
     ///
-    /// A founding Director is defined as: `trust_id = ? AND role_type =
+    /// A founding Director is defined as: `company_id = ? AND role_type =
     /// 'director' AND founder = 1`. If one already exists, the existing role
     /// is returned unchanged. Otherwise, a new Director role with all 6
     /// default grants is created with `user_id` as the occupant.
-    pub async fn ensure_founding_director(&self, trust_id: &str, user_id: &str) -> Result<Role> {
+    pub async fn ensure_founding_director(&self, company_id: &str, user_id: &str) -> Result<Role> {
         // Check for an existing founding Director before acquiring the write lock.
         {
             let db = self.db.lock().await;
             let existing = db
                 .query_row(
-                    "SELECT id, trust_id, title, occupant_kind, occupant_id,
+                    "SELECT id, company_id, title, occupant_kind, occupant_id,
                             role_type, founder, created_at, updated_at, description_idea_id
                      FROM roles
-                     WHERE trust_id = ?1
+                     WHERE company_id = ?1
                        AND role_type = 'director'
                        AND founder = 1
                      LIMIT 1",
-                    params![trust_id],
+                    params![company_id],
                     row_to_role,
                 )
                 .optional()?;
@@ -1039,7 +1051,7 @@ impl RoleRegistry {
         }
         // No founding Director — create one.
         self.create_with_type(
-            trust_id,
+            company_id,
             "Director",
             OccupantKind::Human,
             Some(user_id),

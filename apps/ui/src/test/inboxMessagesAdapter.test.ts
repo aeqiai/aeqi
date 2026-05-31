@@ -9,7 +9,7 @@ describe("inboxMessagesAdapter", () => {
         {
           id: 1,
           role: "user",
-          content: "Set up the first trust quests.",
+          content: "Set up the first company quests.",
           created_at: "2026-05-23T10:00:00Z",
           from_kind: "user",
           from_id: "user-1",
@@ -83,7 +83,7 @@ describe("inboxMessagesAdapter", () => {
     });
 
     expect(messages.map((message) => message.role)).toEqual(["user", "assistant"]);
-    expect(messages[0].content).toBe("Set up the first trust quests.");
+    expect(messages[0].content).toBe("Set up the first company quests.");
 
     const assistant = messages[1];
     expect(assistant.content).toBe(

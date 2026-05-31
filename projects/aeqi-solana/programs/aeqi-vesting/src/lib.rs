@@ -7,15 +7,15 @@
 //!   elif now >= end_time:       total - claimed
 //!   else:                        total * (now - start) / (end - start) - claimed
 //!
-//! Tokens are held in a per-trust vesting vault PDA seeded
-//! `[b"vesting_vault_authority", trust]`. At claim time the program signs
+//! Tokens are held in a per-company vesting vault PDA seeded
+//! `[b"vesting_vault_authority", company]`. At claim time the program signs
 //! via PDA seeds to transfer the claimable amount to the recipient's ATA.
 
 // Anchor 0.31 emits external macro warnings under newer Rust check-cfg/deprecation
 // lints. Keep this crate's warning output focused on protocol code.
 #![allow(clippy::too_many_arguments, deprecated, unexpected_cfgs)]
 
-use aeqi_trust::state::Trust;
+use aeqi_company::state::Company;
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{
     burn, transfer_checked, Burn, Mint, TokenAccount, TokenInterface, TransferChecked,
@@ -23,24 +23,24 @@ use anchor_spl::token_interface::{
 
 declare_id!("DCZKRmxjUyAZ3nptbkCBnAGqTe4E7xTvXfLbnf95uj7y");
 
-/// aeqi_trust program id — used for cross-program PDA derivation so module
-/// setup paths cannot accept arbitrary trust pubkeys.
-pub const AEQI_TRUST_ID: Pubkey =
+/// aeqi_company program id — used for cross-program PDA derivation so module
+/// setup paths cannot accept arbitrary company pubkeys.
+pub const AEQI_COMPANY_ID: Pubkey =
     anchor_lang::pubkey!("CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV");
 
 #[program]
 pub mod aeqi_vesting {
     use super::*;
 
-    /// Module init — gated to the trust authority during creation mode so
+    /// Module init — gated to the company authority during creation mode so
     /// the module_state PDA cannot be squatted by an attacker.
     pub fn init(ctx: Context<InitVesting>) -> Result<()> {
-        let trust = &ctx.accounts.trust;
-        require!(trust.creation_mode, VestingError::TrustNotInCreationMode);
-        require_keys_eq!(ctx.accounts.payer.key(), trust.authority, VestingError::Unauthorized);
+        let company = &ctx.accounts.company;
+        require!(company.creation_mode, VestingError::CompanyNotInCreationMode);
+        require_keys_eq!(ctx.accounts.payer.key(), company.authority, VestingError::Unauthorized);
 
         let m = &mut ctx.accounts.module_state;
-        m.trust = ctx.accounts.trust.key();
+        m.company = ctx.accounts.company.key();
         m.position_count = 0;
         m.bump = ctx.bumps.module_state;
         Ok(())
@@ -67,7 +67,7 @@ pub mod aeqi_vesting {
         require!(total_amount > 0, VestingError::ZeroAmount);
 
         let p = &mut ctx.accounts.position;
-        p.trust = ctx.accounts.trust.key();
+        p.company = ctx.accounts.company.key();
         p.position_id = position_id;
         p.recipient = recipient;
         p.mint = ctx.accounts.mint.key();
@@ -88,7 +88,7 @@ pub mod aeqi_vesting {
             m.position_count.checked_add(1).ok_or(error!(VestingError::MathOverflow))?;
 
         emit!(PositionCreated {
-            trust: p.trust,
+            company: p.company,
             position_id,
             recipient,
             mint: p.mint,
@@ -127,7 +127,7 @@ pub mod aeqi_vesting {
 
         p.contribution_paid = true;
         emit!(ContributionPaid {
-            trust: p.trust,
+            company: p.company,
             position_id: p.position_id,
             recipient: p.recipient,
             amount: p.contribution_required,
@@ -146,7 +146,7 @@ pub mod aeqi_vesting {
         require!(!p.fdv_milestone_unlocked, VestingError::AlreadyUnlocked);
         p.fdv_milestone_unlocked = true;
         emit!(FdvMilestoneHit {
-            trust: p.trust,
+            company: p.company,
             position_id: p.position_id,
             recipient: p.recipient,
             total_amount: p.total_amount,
@@ -177,9 +177,9 @@ pub mod aeqi_vesting {
             vested.checked_sub(p.claimed_amount).ok_or(error!(VestingError::MathOverflow))?;
         require!(claimable > 0, VestingError::NothingToClaim);
 
-        let trust_key = ctx.accounts.trust.key();
+        let company_key = ctx.accounts.company.key();
         let bump = ctx.bumps.vault_authority;
-        let seeds: &[&[&[u8]]] = &[&[b"vesting_vault_authority", trust_key.as_ref(), &[bump]]];
+        let seeds: &[&[&[u8]]] = &[&[b"vesting_vault_authority", company_key.as_ref(), &[bump]]];
 
         let cpi = TransferChecked {
             from: ctx.accounts.vault.to_account_info(),
@@ -195,7 +195,7 @@ pub mod aeqi_vesting {
             p.claimed_amount.checked_add(claimable).ok_or(error!(VestingError::MathOverflow))?;
 
         emit!(Claimed {
-            trust: p.trust,
+            company: p.company,
             position_id: p.position_id,
             recipient: p.recipient,
             amount: claimable,
@@ -222,7 +222,7 @@ fn vested_amount_at(p: &VestingPosition, now: i64) -> Option<u64> {
 #[account]
 #[derive(InitSpace)]
 pub struct VestingModuleState {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub position_count: u64,
     pub bump: u8,
 }
@@ -230,7 +230,7 @@ pub struct VestingModuleState {
 #[account]
 #[derive(InitSpace)]
 pub struct VestingPosition {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub position_id: [u8; 32],
     pub recipient: Pubkey,
     pub mint: Pubkey,
@@ -254,18 +254,18 @@ pub struct VestingPosition {
 
 #[derive(Accounts)]
 pub struct InitVesting<'info> {
-    /// Trust PDA — must be a real Trust account owned by aeqi_trust.
+    /// Company PDA — must be a real Company account owned by aeqi_company.
     #[account(
-        seeds = [b"trust", trust.trust_id.as_ref()],
-        bump = trust.bump,
-        seeds::program = AEQI_TRUST_ID,
+        seeds = [b"company", company.company_id.as_ref()],
+        bump = company.bump,
+        seeds::program = AEQI_COMPANY_ID,
     )]
-    pub trust: Account<'info, Trust>,
+    pub company: Account<'info, Company>,
     #[account(
         init,
         payer = payer,
         space = 8 + VestingModuleState::INIT_SPACE,
-        seeds = [b"vesting_module", trust.key().as_ref()],
+        seeds = [b"vesting_module", company.key().as_ref()],
         bump,
     )]
     pub module_state: Account<'info, VestingModuleState>,
@@ -277,11 +277,11 @@ pub struct InitVesting<'info> {
 #[derive(Accounts)]
 #[instruction(position_id: [u8; 32])]
 pub struct CreatePosition<'info> {
-    /// CHECK: trust pda
-    pub trust: UncheckedAccount<'info>,
+    /// CHECK: company pda
+    pub company: UncheckedAccount<'info>,
     #[account(
         mut,
-        seeds = [b"vesting_module", trust.key().as_ref()],
+        seeds = [b"vesting_module", company.key().as_ref()],
         bump = module_state.bump,
     )]
     pub module_state: Account<'info, VestingModuleState>,
@@ -289,7 +289,7 @@ pub struct CreatePosition<'info> {
         init,
         payer = grantor,
         space = 8 + VestingPosition::INIT_SPACE,
-        seeds = [b"vesting_pos", trust.key().as_ref(), position_id.as_ref()],
+        seeds = [b"vesting_pos", company.key().as_ref(), position_id.as_ref()],
         bump,
     )]
     pub position: Account<'info, VestingPosition>,
@@ -303,7 +303,7 @@ pub struct CreatePosition<'info> {
 pub struct PayContribution<'info> {
     #[account(
         mut,
-        seeds = [b"vesting_pos", position.trust.as_ref(), position.position_id.as_ref()],
+        seeds = [b"vesting_pos", position.company.as_ref(), position.position_id.as_ref()],
         bump = position.bump,
     )]
     pub position: Account<'info, VestingPosition>,
@@ -319,7 +319,7 @@ pub struct PayContribution<'info> {
 pub struct MarkFdvMilestone<'info> {
     #[account(
         mut,
-        seeds = [b"vesting_pos", position.trust.as_ref(), position.position_id.as_ref()],
+        seeds = [b"vesting_pos", position.company.as_ref(), position.position_id.as_ref()],
         bump = position.bump,
     )]
     pub position: Account<'info, VestingPosition>,
@@ -328,16 +328,16 @@ pub struct MarkFdvMilestone<'info> {
 
 #[derive(Accounts)]
 pub struct Claim<'info> {
-    /// CHECK: trust pda
-    pub trust: UncheckedAccount<'info>,
+    /// CHECK: company pda
+    pub company: UncheckedAccount<'info>,
     #[account(
         mut,
-        seeds = [b"vesting_pos", trust.key().as_ref(), position.position_id.as_ref()],
+        seeds = [b"vesting_pos", company.key().as_ref(), position.position_id.as_ref()],
         bump = position.bump,
     )]
     pub position: Account<'info, VestingPosition>,
     /// CHECK: program-controlled vault authority PDA. Signs the vault transfer.
-    #[account(seeds = [b"vesting_vault_authority", trust.key().as_ref()], bump)]
+    #[account(seeds = [b"vesting_vault_authority", company.key().as_ref()], bump)]
     pub vault_authority: UncheckedAccount<'info>,
     pub mint: InterfaceAccount<'info, Mint>,
     #[account(mut, token::mint = mint, token::authority = vault_authority)]
@@ -349,7 +349,7 @@ pub struct Claim<'info> {
 
 #[event]
 pub struct PositionCreated {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub position_id: [u8; 32],
     pub recipient: Pubkey,
     pub mint: Pubkey,
@@ -361,7 +361,7 @@ pub struct PositionCreated {
 
 #[event]
 pub struct Claimed {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub position_id: [u8; 32],
     pub recipient: Pubkey,
     pub amount: u64,
@@ -370,7 +370,7 @@ pub struct Claimed {
 
 #[event]
 pub struct FdvMilestoneHit {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub position_id: [u8; 32],
     pub recipient: Pubkey,
     pub total_amount: u64,
@@ -378,7 +378,7 @@ pub struct FdvMilestoneHit {
 
 #[event]
 pub struct ContributionPaid {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub position_id: [u8; 32],
     pub recipient: Pubkey,
     pub amount: u64,
@@ -406,6 +406,6 @@ pub enum VestingError {
     ContributionMintMismatch,
     #[msg("math overflow")]
     MathOverflow,
-    #[msg("trust must be in creation mode to initialize the vesting module")]
-    TrustNotInCreationMode,
+    #[msg("company must be in creation mode to initialize the vesting module")]
+    CompanyNotInCreationMode,
 }

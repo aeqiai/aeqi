@@ -149,13 +149,13 @@ function computeProvisioningState({
       kind: "canonical",
       label: "Live · canonical",
       tooltip:
-        "Registry mint matches the derived cap-table PDA. This TRUST is on the canonical provisioning path.",
+        "Registry mint matches the derived cap-table PDA. This COMPANY is on the canonical provisioning path.",
     };
   }
   return {
     kind: "alt",
     label: "Live · alt mint",
-    tooltip: `Registry points to ${shortAddress(registryMint)}, which is not the canonical derived PDA. This TRUST was provisioned through an alt path or migrated from a legacy mint.`,
+    tooltip: `Registry points to ${shortAddress(registryMint)}, which is not the canonical derived PDA. This COMPANY was provisioned through an alt path or migrated from a legacy mint.`,
   };
 }
 
@@ -291,7 +291,7 @@ export function MintIdentitySection({
                 {/* iter-11: provisioning status pill leads the badge row so
                     "is this thing actually wired up on chain?" is the
                     first read. The canonical/alt distinction matters when
-                    diagnosing TRUSTs that bridged through a legacy mint
+                    diagnosing Companies that bridged through a legacy mint
                     path; the pending case matters when the bridge wrote
                     the registry but the finalize step never landed. */}
                 <Tooltip content={provisioning.tooltip}>

@@ -9,7 +9,7 @@ import { ROLE_TYPE_OPTIONS } from "./roleOptions";
 interface NewRoleModalProps {
   open: boolean;
   onClose: () => void;
-  trustId: string;
+  companyId: string;
   roles: Role[];
   agents: Agent[];
   onCreated: (role: Role) => void;
@@ -30,7 +30,7 @@ const KIND_OPTIONS = [
 export default function NewRoleModal({
   open,
   onClose,
-  trustId,
+  companyId,
   roles,
   agents,
   onCreated,
@@ -46,8 +46,8 @@ export default function NewRoleModal({
   const [error, setError] = useState<string | null>(null);
 
   const scopedAgents = useMemo(
-    () => agents.filter((a) => a.trust_id === trustId || a.id === trustId),
-    [agents, trustId],
+    () => agents.filter((a) => a.company_id === companyId || a.id === companyId),
+    [agents, companyId],
   );
 
   const agentOptions = useMemo(
@@ -123,14 +123,14 @@ export default function NewRoleModal({
           name: trimmedTitle,
           content: "",
           tags: ["role"],
-          agent_id: trustId,
+          agent_id: companyId,
           scope: "global",
           kind: "custom:role",
         },
-        trustId,
+        companyId,
       );
       const resp = await api.createRole({
-        trust_id: trustId,
+        company_id: companyId,
         title: trimmedTitle,
         occupant_kind: kind,
         ...(occupantId ? { occupant_id: occupantId } : {}),

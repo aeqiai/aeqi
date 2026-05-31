@@ -26,9 +26,9 @@ describe("MessageItem", () => {
     });
 
     render(
-      <MemoryRouter initialEntries={["/trust/root-1/sessions"]}>
+      <MemoryRouter initialEntries={["/company/root-1/sessions"]}>
         <QueryClientProvider client={queryClient}>
-          <MessageItem msg={msg} sessionTrustId="root-1" />
+          <MessageItem msg={msg} sessionCompanyId="root-1" />
         </QueryClientProvider>
       </MemoryRouter>,
     );

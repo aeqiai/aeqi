@@ -4,7 +4,7 @@
  *
  * The static `TOKEN_REGISTRY` in `src/solana/assets.ts` covers the
  * stablecoin mints we care about for USD valuation. Every other mint
- * the TRUST holds (Token-2022 equity shares, externally-airdropped
+ * the COMPANY holds (Token-2022 equity shares, externally-airdropped
  * SPLs, governance tokens) renders as "Unknown · raw base units"
  * without a live read against the chain. That's the iter-1 noted next:
  * surface symbol + decimals so non-stable holdings render legibly.

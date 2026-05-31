@@ -26,7 +26,7 @@ pub fn routes() -> Router<AppState> {
 
 #[derive(serde::Deserialize)]
 struct ListQuery {
-    trust_id: Option<String>,
+    company_id: Option<String>,
 }
 
 async fn list_roles(
@@ -34,12 +34,12 @@ async fn list_roles(
     scope: Scope,
     Query(q): Query<ListQuery>,
 ) -> Response {
-    let trust_id = q.trust_id.unwrap_or_default();
+    let company_id = q.company_id.unwrap_or_default();
     let mut resp = match ipc_value(
         &state,
         scope.as_ref(),
         "list_roles",
-        serde_json::json!({"trust_id": trust_id}),
+        serde_json::json!({"company_id": company_id}),
     )
     .await
     {
@@ -142,12 +142,12 @@ async fn change_occupant(
     ipc_proxy(state, scope.as_ref(), "change_occupant", body).await
 }
 
-/// GET /api/roles/grants?trust_id=X&user_id=Y
+/// GET /api/roles/grants?company_id=X&user_id=Y
 ///
 /// Returns the union of grants for the given user at the given entity.
 #[derive(serde::Deserialize)]
 struct GrantsQuery {
-    trust_id: Option<String>,
+    company_id: Option<String>,
     user_id: Option<String>,
 }
 
@@ -156,12 +156,12 @@ async fn user_grants(
     scope: Scope,
     Query(q): Query<GrantsQuery>,
 ) -> Response {
-    let trust_id = match q.trust_id.filter(|s| !s.is_empty()) {
+    let company_id = match q.company_id.filter(|s| !s.is_empty()) {
         Some(id) => id,
         None => {
             return (
                 StatusCode::BAD_REQUEST,
-                Json(serde_json::json!({"ok": false, "error": "trust_id is required"})),
+                Json(serde_json::json!({"ok": false, "error": "company_id is required"})),
             )
                 .into_response();
         }
@@ -180,7 +180,7 @@ async fn user_grants(
         state,
         scope.as_ref(),
         "user_grants",
-        serde_json::json!({"trust_id": trust_id, "user_id": user_id}),
+        serde_json::json!({"company_id": company_id, "user_id": user_id}),
     )
     .await
 }

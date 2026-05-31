@@ -33,7 +33,7 @@ This exists in:
 - `crates/aeqi-orchestrator/src/ipc/quests.rs`
 - `crates/aeqi-web/src/routes/quests.rs`
 
-That shape is useful, but it is not yet enough evidence for high-trust
+That shape is useful, but it is not yet enough evidence for high-company
 operation. The missing parts are artifact identity, verification, residual risk,
 and rollback/recovery guidance.
 

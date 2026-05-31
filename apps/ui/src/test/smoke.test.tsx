@@ -103,7 +103,7 @@ describe("AgentQuestsTab smoke", () => {
           name: "Root",
           model: "opus",
           status: "active",
-          trust_id: "root-1",
+          company_id: "root-1",
         },
       ] as never,
       quests: [],
@@ -119,10 +119,10 @@ describe("AgentQuestsTab smoke", () => {
     expect(() =>
       render(
         <StrictMode>
-          <MemoryRouter initialEntries={["/trust/root-1/quests"]}>
+          <MemoryRouter initialEntries={["/company/root-1/quests"]}>
             <Routes>
               <Route
-                path="trust/:trustAddress/:tab/*"
+                path="company/:companyAddress/:tab/*"
                 element={<AgentQuestsTab agentId="root-1" />}
               />
             </Routes>
@@ -135,10 +135,10 @@ describe("AgentQuestsTab smoke", () => {
   it("exposes a New quest button on the empty board", () => {
     const { container } = render(
       <StrictMode>
-        <MemoryRouter initialEntries={["/trust/root-1/quests"]}>
+        <MemoryRouter initialEntries={["/company/root-1/quests"]}>
           <Routes>
             <Route
-              path="trust/:trustAddress/:tab/*"
+              path="company/:companyAddress/:tab/*"
               element={<AgentQuestsTab agentId="root-1" />}
             />
           </Routes>
@@ -156,10 +156,10 @@ describe("AgentQuestsTab smoke", () => {
     render(
       withQueryClient(
         <StrictMode>
-          <MemoryRouter initialEntries={["/trust/root-1/quests/new?fromIdea=idea-track"]}>
+          <MemoryRouter initialEntries={["/company/root-1/quests/new?fromIdea=idea-track"]}>
             <Routes>
               <Route
-                path="trust/:trustAddress/:tab/:itemId"
+                path="company/:companyAddress/:tab/:itemId"
                 element={<AgentQuestsTab agentId="root-1" scope="entity" />}
               />
             </Routes>
@@ -201,10 +201,10 @@ describe("AgentQuestsTab smoke", () => {
 
     render(
       <StrictMode>
-        <MemoryRouter initialEntries={["/trust/root-1/quests"]}>
+        <MemoryRouter initialEntries={["/company/root-1/quests"]}>
           <Routes>
             <Route
-              path="trust/:trustAddress/:tab/*"
+              path="company/:companyAddress/:tab/*"
               element={<AgentQuestsTab agentId="root-1" scope="entity" />}
             />
           </Routes>
@@ -244,10 +244,10 @@ describe("AgentQuestsTab smoke", () => {
 
     render(
       <StrictMode>
-        <MemoryRouter initialEntries={["/trust/root-1/quests"]}>
+        <MemoryRouter initialEntries={["/company/root-1/quests"]}>
           <Routes>
             <Route
-              path="trust/:trustAddress/:tab/*"
+              path="company/:companyAddress/:tab/*"
               element={<AgentQuestsTab agentId="root-1" />}
             />
           </Routes>
@@ -280,10 +280,10 @@ describe("AgentQuestsTab smoke", () => {
 
     render(
       <StrictMode>
-        <MemoryRouter initialEntries={["/trust/root-1/quests?view=list"]}>
+        <MemoryRouter initialEntries={["/company/root-1/quests?view=list"]}>
           <Routes>
             <Route
-              path="trust/:trustAddress/:tab/*"
+              path="company/:companyAddress/:tab/*"
               element={<AgentQuestsTab agentId="root-1" />}
             />
           </Routes>
@@ -307,10 +307,10 @@ describe("AgentQuestsTab smoke", () => {
 
     render(
       <StrictMode>
-        <MemoryRouter initialEntries={["/trust/root-1/quests?view=list"]}>
+        <MemoryRouter initialEntries={["/company/root-1/quests?view=list"]}>
           <Routes>
             <Route
-              path="trust/:trustAddress/:tab/*"
+              path="company/:companyAddress/:tab/*"
               element={<AgentQuestsTab agentId="root-1" />}
             />
           </Routes>
@@ -333,16 +333,16 @@ describe("AgentQuestsTab smoke", () => {
     useDaemonStore.setState({
       quests: [
         questFixture("67-self", "Role quest", "todo", "self"),
-        questFixture("67-global", "TRUST quest", "todo", "global", undefined),
+        questFixture("67-global", "COMPANY quest", "todo", "global", undefined),
       ] as never,
     });
 
     render(
       <StrictMode>
-        <MemoryRouter initialEntries={["/trust/root-1/quests?view=list"]}>
+        <MemoryRouter initialEntries={["/company/root-1/quests?view=list"]}>
           <Routes>
             <Route
-              path="trust/:trustAddress/:tab/*"
+              path="company/:companyAddress/:tab/*"
               element={<AgentQuestsTab agentId="root-1" />}
             />
           </Routes>
@@ -351,22 +351,22 @@ describe("AgentQuestsTab smoke", () => {
     );
 
     expect(screen.getByText("Role quest")).toBeInTheDocument();
-    expect(screen.getByText("TRUST quest")).toBeInTheDocument();
+    expect(screen.getByText("COMPANY quest")).toBeInTheDocument();
 
     fireEvent.click(screen.getByTitle("Filter"));
-    fireEvent.click(screen.getByRole("radio", { name: /TRUST/ }));
+    fireEvent.click(screen.getByRole("radio", { name: /COMPANY/ }));
 
     expect(screen.queryByText("Role quest")).not.toBeInTheDocument();
-    expect(screen.getByText("TRUST quest")).toBeInTheDocument();
+    expect(screen.getByText("COMPANY quest")).toBeInTheDocument();
   });
 
   it("does not log a React error during render", () => {
     const errors = captureRenderErrors(
       <StrictMode>
-        <MemoryRouter initialEntries={["/trust/root-1/quests"]}>
+        <MemoryRouter initialEntries={["/company/root-1/quests"]}>
           <Routes>
             <Route
-              path="trust/:trustAddress/:tab/*"
+              path="company/:companyAddress/:tab/*"
               element={<AgentQuestsTab agentId="root-1" />}
             />
           </Routes>
@@ -389,12 +389,12 @@ describe("shell components smoke", () => {
         {
           id: "root-1",
           name: "Root",
-          type: "trust",
+          type: "company",
           status: "active",
           created_at: "2026-04-28T00:00:00Z",
         },
       ],
-      agents: [{ id: "root-1", name: "Root", status: "active", trust_id: "root-1" }] as never,
+      agents: [{ id: "root-1", name: "Root", status: "active", company_id: "root-1" }] as never,
       quests: [],
       events: [],
       workerEvents: [],
@@ -412,9 +412,9 @@ describe("shell components smoke", () => {
           <MemoryRouter initialEntries={["/"]}>
             <Routes>
               <Route index element={<ShellUnderTest />} />
-              <Route path="c/:trustId" element={<ShellUnderTest />} />
-              <Route path="c/:trustId/:tab" element={<ShellUnderTest />} />
-              <Route path="c/:trustId/:tab/:itemId" element={<ShellUnderTest />} />
+              <Route path="c/:companyId" element={<ShellUnderTest />} />
+              <Route path="c/:companyId/:tab" element={<ShellUnderTest />} />
+              <Route path="c/:companyId/:tab/:itemId" element={<ShellUnderTest />} />
             </Routes>
           </MemoryRouter>
         </StrictMode>,
@@ -437,11 +437,11 @@ describe("shell components smoke", () => {
     const errors = captureRenderErrors(
       withQueryClient(
         <StrictMode>
-          <MemoryRouter initialEntries={["/trust/root-1"]}>
+          <MemoryRouter initialEntries={["/company/root-1"]}>
             <Routes>
               <Route
-                path="/trust/:trustId/*"
-                element={<LeftSidebar trustId="root-1" path="/trust/root-1" />}
+                path="/company/:companyId/*"
+                element={<LeftSidebar companyId="root-1" path="/company/root-1" />}
               />
             </Routes>
           </MemoryRouter>
@@ -455,11 +455,13 @@ describe("shell components smoke", () => {
     const errors = captureRenderErrors(
       withQueryClient(
         <StrictMode>
-          <MemoryRouter initialEntries={["/trust/root-1/agents/child-1/inbox"]}>
+          <MemoryRouter initialEntries={["/company/root-1/agents/child-1/inbox"]}>
             <Routes>
               <Route
-                path="/trust/:trustId/*"
-                element={<LeftSidebar trustId="root-1" path="/trust/root-1/agents/child-1/inbox" />}
+                path="/company/:companyId/*"
+                element={
+                  <LeftSidebar companyId="root-1" path="/company/root-1/agents/child-1/inbox" />
+                }
               />
             </Routes>
           </MemoryRouter>
@@ -478,13 +480,13 @@ describe("shell components smoke", () => {
         {
           id: "root-1",
           name: "Root",
-          type: "trust",
+          type: "company",
           status: "active",
           created_at: "2026-04-28T00:00:00Z",
-          trust_address: "0xabc123",
+          company_address: "0xabc123",
         },
       ],
-      agents: [{ id: "root-1", name: "Root", status: "active", trust_id: "root-1" }] as never,
+      agents: [{ id: "root-1", name: "Root", status: "active", company_id: "root-1" }] as never,
       quests: [],
       events: [],
       workerEvents: [],
@@ -508,18 +510,22 @@ describe("shell components smoke", () => {
     );
 
     await waitFor(() =>
-      expect(screen.getByTestId("location").textContent).toBe("/trust/0xabc123/sessions?view=mine"),
+      expect(screen.getByTestId("location").textContent).toBe(
+        "/company/0xabc123/sessions?view=mine",
+      ),
     );
   });
 
   it("ComposerRow renders without a mounted chat (pending-message path)", () => {
     const errors = captureRenderErrors(
       <StrictMode>
-        <MemoryRouter initialEntries={["/trust/root-1"]}>
+        <MemoryRouter initialEntries={["/company/root-1"]}>
           <Routes>
             <Route
-              path="c/:trustId/*"
-              element={<ComposerRow agentId={null} base="/trust/root-1" sessionsMounted={false} />}
+              path="c/:companyId/*"
+              element={
+                <ComposerRow agentId={null} base="/company/root-1" sessionsMounted={false} />
+              }
             />
           </Routes>
         </MemoryRouter>
@@ -531,11 +537,13 @@ describe("shell components smoke", () => {
   it("ComposerRow renders with a mounted chat (event-bridge path)", () => {
     const errors = captureRenderErrors(
       <StrictMode>
-        <MemoryRouter initialEntries={["/trust/root-1/inbox"]}>
+        <MemoryRouter initialEntries={["/company/root-1/inbox"]}>
           <Routes>
             <Route
-              path="c/:trustId/*"
-              element={<ComposerRow agentId="root-1" base="/trust/root-1" sessionsMounted={true} />}
+              path="c/:companyId/*"
+              element={
+                <ComposerRow agentId="root-1" base="/company/root-1" sessionsMounted={true} />
+              }
             />
           </Routes>
         </MemoryRouter>
@@ -551,7 +559,7 @@ describe("shell components smoke", () => {
           id: "agent-default",
           name: "Default",
           status: "active",
-          trust_id: "runtime-local-entity",
+          company_id: "runtime-local-entity",
         },
       ],
       { agent_id: "agent-default" },
@@ -561,14 +569,14 @@ describe("shell components smoke", () => {
     expect(resolved?.id).toBe("agent-default");
   });
 
-  it("falls back to the legacy agent trust_id match", () => {
+  it("falls back to the legacy agent company_id match", () => {
     const resolved = resolveDefaultAgent(
       [
         {
           id: "legacy-default",
           name: "Default",
           status: "active",
-          trust_id: "platform-entity",
+          company_id: "platform-entity",
         },
       ],
       null,

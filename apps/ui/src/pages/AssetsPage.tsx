@@ -26,10 +26,10 @@ import { CapitalizeSection, HoldingsSection, TreasuryOverviewSection } from "./A
 /**
  * Assets — `a` in the AEQI grammar (assets · equity · quorum · identity).
  *
- * The TRUST's wealth surface — "what does this TRUST hold?" — and the
- * public-facing answer to the "TRUST capitalizes self → buys runtime"
+ * The COMPANY's wealth surface — "what does this COMPANY hold?" — and the
+ * public-facing answer to the "COMPANY capitalizes self → buys runtime"
  * model. The hero affordance is the vault deposit address: any Solana
- * wallet sending USDC to it credits the TRUST. Everything else is
+ * wallet sending USDC to it credits the COMPANY. Everything else is
  * supporting context (holdings, budgets, vesting list).
  *
  * Sections (order is load-bearing — the deposit CTA sits before the
@@ -37,7 +37,7 @@ import { CapitalizeSection, HoldingsSection, TreasuryOverviewSection } from "./A
  *   1. Treasury overview — USD value + holdings/budgets/vesting counts
  *      + 30d USD curve (replayed from decoded stablecoin flows) or
  *      signature-count fallback when no decoded events yet.
- *   2. Capitalize your TRUST — vault deposit address + Deposit USDC /
+ *   2. Capitalize your COMPANY — vault deposit address + Deposit USDC /
  *      Receive other token / Withdraw action row.
  *   3. Vault identity — module-state + vault authority PDAs, treasury
  *      authority, per-module program / version / initialized state.
@@ -52,14 +52,14 @@ import { CapitalizeSection, HoldingsSection, TreasuryOverviewSection } from "./A
  */
 const USDC_MAINNET_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 
-export default function AssetsPage({ trustId }: { trustId: string }) {
+export default function AssetsPage({ companyId }: { companyId: string }) {
   const entities = useDaemonStore((s) => s.entities);
-  const entity = useMemo(() => entities.find((e) => e.id === trustId), [entities, trustId]);
-  const trustAddress = entity?.trust_address ?? null;
+  const entity = useMemo(() => entities.find((e) => e.id === companyId), [entities, companyId]);
+  const companyAddress = entity?.company_address ?? null;
 
   const { vault, holdings, budgets, vestingPositions, isLoading, isFetching, error, refetch } =
-    useAssets(trustAddress);
-  const incorporation = useIncorporation(trustAddress);
+    useAssets(companyAddress);
+  const incorporation = useIncorporation(companyAddress);
   const vaultAuthorityB58 = vault?.vaultAuthorityPda.toBase58() ?? null;
   const vaultActivity = useVaultActivity(vaultAuthorityB58);
   const decodedActivity = useDecodedVaultActivity(
@@ -113,14 +113,14 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
     symbol: string | null;
   } | null>(null);
 
-  if (!trustAddress) {
+  if (!companyAddress) {
     return (
       <Page>
-        <PageHeader title="Assets" description="What the TRUST holds." />
+        <PageHeader title="Assets" description="What the COMPANY holds." />
         <PageBody>
           <EmptyState
             title="Not yet on-chain"
-            description="This entity does not have a TRUST proxy address yet. Once the click-to-DAO bridge fires, the treasury vault and on-chain holdings will render here."
+            description="This entity does not have a COMPANY proxy address yet. Once the click-to-DAO bridge fires, the treasury vault and on-chain holdings will render here."
           />
         </PageBody>
       </Page>
@@ -130,7 +130,7 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
   if (isLoading) {
     return (
       <Page>
-        <PageHeader title="Assets" description="What the TRUST holds." />
+        <PageHeader title="Assets" description="What the COMPANY holds." />
         <PageBody>
           <Loading variant="section" label="Loading treasury snapshot" />
         </PageBody>
@@ -141,7 +141,7 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
   if (error) {
     return (
       <Page>
-        <PageHeader title="Assets" description="What the TRUST holds." />
+        <PageHeader title="Assets" description="What the COMPANY holds." />
         <PageBody>
           <EmptyState
             title="Couldn't read treasury state"
@@ -155,11 +155,11 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
   if (!vault) {
     return (
       <Page>
-        <PageHeader title="Assets" description="What the TRUST holds." />
+        <PageHeader title="Assets" description="What the COMPANY holds." />
         <PageBody>
           <EmptyState
             title="Treasury vault unavailable"
-            description="The treasury vault PDAs could not be derived for this TRUST."
+            description="The treasury vault PDAs could not be derived for this COMPANY."
           />
         </PageBody>
       </Page>
@@ -180,13 +180,13 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
 
   return (
     <Page>
-      <PageHeader title="Assets" description="What the TRUST holds." actions={headerActions} />
+      <PageHeader title="Assets" description="What the COMPANY holds." actions={headerActions} />
       <PageBody>
         {!vault.moduleState && (
           <Banner kind="info">
             Treasury module not yet initialized. Deposits to the vault address still credit the
-            TRUST — the module-state record only flips on the first programmatic deposit or on-chain
-            registration.
+            COMPANY — the module-state record only flips on the first programmatic deposit or
+            on-chain registration.
           </Banner>
         )}
         <TreasuryAlertsBanner
@@ -213,7 +213,7 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
             downloadVaultSnapshot(
               {
                 entity,
-                trustAddress,
+                companyAddress,
                 vault: {
                   moduleStatePda: vault.moduleStatePda.toBase58(),
                   vaultAuthorityPda: vault.vaultAuthorityPda.toBase58(),
@@ -250,7 +250,7 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
           moduleStatePda={vault.moduleStatePda.toBase58()}
           vaultAuthorityPda={vault.vaultAuthorityPda.toBase58()}
           treasuryAuthority={vault.moduleState?.treasuryAuthority.toBase58() ?? null}
-          trustAuthority={incorporation.trust?.authority.toBase58() ?? null}
+          trustAuthority={incorporation.company?.authority.toBase58() ?? null}
           moduleInitialized={!!vault.moduleState}
           modules={incorporation.modules ?? []}
           onSelectModule={(m) => setModuleDetail(m)}
@@ -300,14 +300,14 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
         <BudgetDetailModal
           budget={budgetDetail}
           budgets={budgets ?? []}
-          trustAuthority={incorporation.trust?.authority.toBase58() ?? null}
+          trustAuthority={incorporation.company?.authority.toBase58() ?? null}
           metas={metas}
           onClose={() => setBudgetDetail(null)}
         />
         <NewBudgetModal
           open={newBudgetOpen}
           onClose={() => setNewBudgetOpen(false)}
-          trustId={trustId}
+          companyId={companyId}
           onCreated={() => {
             refetch();
           }}
@@ -321,7 +321,7 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
         />
         <NewAllocateModal
           parent={allocateParent}
-          trustId={trustId}
+          companyId={companyId}
           onClose={() => setAllocateParent(null)}
           onAllocated={() => {
             refetch();
@@ -329,7 +329,7 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
         />
         <FreezeBudgetModal
           budget={freezeBudget}
-          trustId={trustId}
+          companyId={companyId}
           onClose={() => setFreezeBudget(null)}
           onFlipped={() => {
             refetch();

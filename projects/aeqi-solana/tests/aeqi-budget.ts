@@ -2,10 +2,10 @@ import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { AeqiBudget } from "../target/types/aeqi_budget";
 import { AeqiRole } from "../target/types/aeqi_role";
-import { AeqiTrust } from "../target/types/aeqi_trust";
+import { AeqiCompany } from "../target/types/aeqi_company";
 import { PublicKey } from "@solana/web3.js";
 import { expect } from "chai";
-import { createTrust, expectTxFail, fundKeypair } from "./support";
+import { createCompany, expectTxFail, fundKeypair } from "./support";
 
 describe("aeqi_budget", () => {
   const provider = anchor.AnchorProvider.env();
@@ -13,9 +13,9 @@ describe("aeqi_budget", () => {
 
   const program = anchor.workspace.aeqiBudget as Program<AeqiBudget>;
   const roleProgram = anchor.workspace.aeqiRole as Program<AeqiRole>;
-  const trustProgram = anchor.workspace.aeqiTrust as Program<AeqiTrust>;
+  const trustProgram = anchor.workspace.aeqiCompany as Program<AeqiCompany>;
 
-  let fakeTrust: PublicKey;
+  let fakeCompany: PublicKey;
   let modulePda: PublicKey;
   let targetRolePda: PublicKey;
 
@@ -25,32 +25,32 @@ describe("aeqi_budget", () => {
   targetRoleId[0] = 0x65;
 
   before(async () => {
-    fakeTrust = await createTrust(provider, trustProgram, "aeqi-budget");
+    fakeCompany = await createCompany(provider, trustProgram, "aeqi-budget");
 
     [modulePda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("budget_module"), fakeTrust.toBuffer()],
+      [Buffer.from("budget_module"), fakeCompany.toBuffer()],
       program.programId,
     );
     const [roleModulePda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("role_module"), fakeTrust.toBuffer()],
+      [Buffer.from("role_module"), fakeCompany.toBuffer()],
       roleProgram.programId,
     );
     const [roleTypePda] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("role_type"),
-        fakeTrust.toBuffer(),
+        fakeCompany.toBuffer(),
         Buffer.from(targetRoleTypeId),
       ],
       roleProgram.programId,
     );
     [targetRolePda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("role"), fakeTrust.toBuffer(), Buffer.from(targetRoleId)],
+      [Buffer.from("role"), fakeCompany.toBuffer(), Buffer.from(targetRoleId)],
       roleProgram.programId,
     );
     const [checkpointPda] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("role_ckpt"),
-        fakeTrust.toBuffer(),
+        fakeCompany.toBuffer(),
         Buffer.from(targetRoleTypeId),
         provider.wallet.publicKey.toBuffer(),
       ],
@@ -60,7 +60,7 @@ describe("aeqi_budget", () => {
     await roleProgram.methods
       .init()
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         moduleState: roleModulePda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -79,7 +79,7 @@ describe("aeqi_budget", () => {
         contribution: false,
       })
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         roleType: roleTypePda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -93,7 +93,7 @@ describe("aeqi_budget", () => {
         Array.from(new Uint8Array(64)),
       )
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         roleType: roleTypePda,
         role: targetRolePda,
         callerRole: null,
@@ -106,7 +106,7 @@ describe("aeqi_budget", () => {
       .accountsPartial({
         role: targetRolePda,
         roleType: roleTypePda,
-        trust: fakeTrust,
+        company: fakeCompany,
         callerRole: null,
         checkpoint: checkpointPda,
         payer: provider.wallet.publicKey,
@@ -119,7 +119,7 @@ describe("aeqi_budget", () => {
     await program.methods
       .init()
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         moduleState: modulePda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -127,18 +127,18 @@ describe("aeqi_budget", () => {
       .rpc();
 
     const m = await program.account.budgetModuleState.fetch(modulePda);
-    expect(m.trust.toBase58()).to.eq(fakeTrust.toBase58());
+    expect(m.company.toBase58()).to.eq(fakeCompany.toBase58());
     expect(m.budgetCount.toString()).to.eq("0");
   });
 
-  it("init rejects a payer that is not the trust authority", async () => {
-    const trust = await createTrust(
+  it("init rejects a payer that is not the company authority", async () => {
+    const company = await createCompany(
       provider,
       trustProgram,
       "aeqi-budget-unauthorized-init",
     );
     const [moduleStatePda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("budget_module"), trust.toBuffer()],
+      [Buffer.from("budget_module"), company.toBuffer()],
       program.programId,
     );
     const payer = await fundKeypair(provider);
@@ -148,7 +148,7 @@ describe("aeqi_budget", () => {
         program.methods
           .init()
           .accountsPartial({
-            trust,
+            company,
             moduleState: moduleStatePda,
             payer: payer.publicKey,
             systemProgram: anchor.web3.SystemProgram.programId,
@@ -164,7 +164,7 @@ describe("aeqi_budget", () => {
     budgetId[0] = 0xb1;
 
     const [budgetPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("budget"), fakeTrust.toBuffer(), Buffer.from(budgetId)],
+      [Buffer.from("budget"), fakeCompany.toBuffer(), Buffer.from(budgetId)],
       program.programId,
     );
 
@@ -177,7 +177,7 @@ describe("aeqi_budget", () => {
         null, // no parent
       )
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         moduleState: modulePda,
         budget: budgetPda,
         grantor: provider.wallet.publicKey,
@@ -234,7 +234,7 @@ describe("aeqi_budget", () => {
     budgetId[0] = 0xb4;
 
     const [budgetPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("budget"), fakeTrust.toBuffer(), Buffer.from(budgetId)],
+      [Buffer.from("budget"), fakeCompany.toBuffer(), Buffer.from(budgetId)],
       program.programId,
     );
 
@@ -247,7 +247,7 @@ describe("aeqi_budget", () => {
         null,
       )
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         moduleState: modulePda,
         budget: budgetPda,
         grantor: provider.wallet.publicKey,
@@ -277,7 +277,7 @@ describe("aeqi_budget", () => {
     budgetId[0] = 0xb2;
 
     const [budgetPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("budget"), fakeTrust.toBuffer(), Buffer.from(budgetId)],
+      [Buffer.from("budget"), fakeCompany.toBuffer(), Buffer.from(budgetId)],
       program.programId,
     );
 
@@ -290,7 +290,7 @@ describe("aeqi_budget", () => {
         null,
       )
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         moduleState: modulePda,
         budget: budgetPda,
         grantor: provider.wallet.publicKey,
@@ -349,7 +349,7 @@ describe("aeqi_budget", () => {
     budgetId[0] = 0xb3;
 
     const [budgetPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("budget"), fakeTrust.toBuffer(), Buffer.from(budgetId)],
+      [Buffer.from("budget"), fakeCompany.toBuffer(), Buffer.from(budgetId)],
       program.programId,
     );
 
@@ -362,7 +362,7 @@ describe("aeqi_budget", () => {
         null,
       )
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         moduleState: modulePda,
         budget: budgetPda,
         grantor: provider.wallet.publicKey,

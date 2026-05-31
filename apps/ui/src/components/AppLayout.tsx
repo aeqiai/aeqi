@@ -13,8 +13,8 @@ import { useShellSurface } from "@/hooks/useShellSurface";
 import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
 import { isRateLimited } from "@/lib/rateLimit";
 import RateLimitBanner from "./shell/RateLimitBanner";
-import { useCurrentTrust } from "@/hooks/useCurrentTrust";
-import type { Agent, Trust } from "@/lib/types";
+import { useCurrentCompany } from "@/hooks/useCurrentCompany";
+import type { Agent, Company } from "@/lib/types";
 import { entityPathFromId } from "@/lib/entityPath";
 import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
 import { userSessionsPath, withUserSessionsView } from "@/lib/sessionViews";
@@ -26,14 +26,14 @@ const ComposerRow = lazy(() => import("./shell/ComposerRow"));
 const ShortcutsOverlay = lazy(() => import("./ShortcutsOverlay"));
 const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
 const AdminPage = lazy(() => import("@/pages/AdminPage"));
-const TrustSetupPage = lazy(() => import("@/pages/TrustSetupPage"));
+const CompanySetupPage = lazy(() => import("@/pages/CompanySetupPage"));
 const BlueprintsPage = lazy(() => import("@/pages/BlueprintsPage"));
 const EconomyPage = lazy(() => import("@/pages/EconomyPage"));
 const ReferralsPage = lazy(() => import("@/pages/ReferralsPage"));
-const TrustPage = lazy(() => import("@/pages/TrustPage"));
+const CompanyPage = lazy(() => import("@/pages/CompanyPage"));
 const StartPage = lazy(() => import("@/pages/StartPage"));
 const BlueprintDetailPage = lazy(() => import("@/pages/BlueprintDetailPage"));
-const TrustTabPage = lazy(() => import("@/pages/TrustTabPage"));
+const CompanyTabPage = lazy(() => import("@/pages/CompanyTabPage"));
 const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
 const RoleInvitePage = lazy(() => import("@/pages/RoleInvitePage"));
 const AgentHealthPage = lazy(() => import("@/pages/AgentHealthPage"));
@@ -51,19 +51,19 @@ const RELOCATED_AGENT_TABS = new Set(["overview", "quests", "events", "ideas", "
 // id and dispatches BlueprintDetailPage.
 const BLUEPRINT_KINDS = new Set(["companies", "agents", "events", "quests", "ideas"]);
 
-// Tabs that route through TrustTabPage. TrustTabPage is a thin per-tab
+// Tabs that route through CompanyTabPage. CompanyTabPage is a thin per-tab
 // dispatcher for entity-scoped surfaces. The sidebar presents primitive
 // registries grouped as Operations, Ownership, and Infrastructure; concrete
 // apps like Mails/Websites/Campaigns stay deep-linked but roll up under Apps.
-// Views is the composable trust landing at the bare entity URL.
+// Views is the composable company landing at the bare entity URL.
 //
 // The runtime primitive tabs (agents/events/quests/ideas) ALSO route through
-// TrustTabPage at the entity scope. Without this, `/trust/<addr>/agents`
+// CompanyTabPage at the entity scope. Without this, `/company/<addr>/agents`
 // falls through to AgentPage(defaultAgent) — which ignores its `tab` prop
 // and renders the default agent's chat surface instead of the entity-scope
 // LIST. Dispatch hole fix: 2026-05-09. The drilled-agent route
-// `/trust/<addr>/agents/<aid>/...` is unaffected — that path has a
-// non-null `routeAgentId` and bypasses TrustTabPage entirely upstream.
+// `/company/<addr>/agents/<aid>/...` is unaffected — that path has a
+// non-null `routeAgentId` and bypasses CompanyTabPage entirely upstream.
 const COMPANY_PAGE_TABS = new Set([
   "overview",
   "views",
@@ -90,8 +90,8 @@ const COMPANY_PAGE_TABS = new Set([
   "assets",
   "transactions",
   "gateways",
-  // Legacy alias: Channels was renamed to Gateways. TrustTabPage redirects
-  // `/trust/<addr>/channels` to `/trust/<addr>/gateways`.
+  // Legacy alias: Channels was renamed to Gateways. CompanyTabPage redirects
+  // `/company/<addr>/channels` to `/company/<addr>/gateways`.
   "channels",
   "integrations",
   // Apps is now the operating-surface registry (Mails, Websites, Campaigns).
@@ -107,18 +107,18 @@ const COMPANY_PAGE_TABS = new Set([
   "skills",
   "health",
   // Legacy alias: singular Website moved to the first-class Websites
-  // primitive. TrustTabPage redirects `/trust/<addr>/website` to
-  // `/trust/<addr>/websites`.
+  // primitive. CompanyTabPage redirects `/company/<addr>/website` to
+  // `/company/<addr>/websites`.
   "website",
-  // Trust-level Settings surface: irreversible administrative actions
+  // Company-level Settings surface: irreversible administrative actions
   // (ownership transfer; future archival / principal rotation). Reachable
-  // from the Ownership group footer link on TrustOverviewTab.
+  // from the Ownership group footer link on CompanyOverviewTab.
   "settings",
 ]);
 
 export function resolveDefaultAgent(
   agents: Agent[],
-  entity: Pick<Trust, "agent_id"> | null,
+  entity: Pick<Company, "agent_id"> | null,
   effectiveRouteEntityId: string,
 ): Agent | null {
   if (entity?.agent_id) {
@@ -127,7 +127,7 @@ export function resolveDefaultAgent(
   }
 
   return effectiveRouteEntityId
-    ? (agents.find((a) => a.trust_id === effectiveRouteEntityId) ?? null)
+    ? (agents.find((a) => a.company_id === effectiveRouteEntityId) ?? null)
     : null;
 }
 
@@ -138,16 +138,16 @@ export default function AppLayout() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   const {
-    trustId: routeEntityId = "",
-    trustAddress: routeTrustAddress = "",
+    companyId: routeEntityId = "",
+    companyAddress: routeCompanyAddress = "",
     agentId: routeAgentId = "",
     roleId = "",
     tab,
     itemId,
     settingsTab,
   } = useParams<{
-    trustId?: string;
-    trustAddress?: string;
+    companyId?: string;
+    companyAddress?: string;
     agentId?: string;
     roleId?: string;
     tab?: string;
@@ -162,21 +162,21 @@ export default function AppLayout() {
 
   const surface = useShellSurface(path);
 
-  // Resolve entity from the canonical trust route and return a stable id.
-  const { entity, trustId: resolvedEntityId } = useCurrentTrust();
-  // The effective route entity id — prefer the resolved id from the trust
+  // Resolve entity from the canonical company route and return a stable id.
+  const { entity, companyId: resolvedEntityId } = useCurrentCompany();
+  // The effective route entity id — prefer the resolved id from the company
   // route and fall back to any raw route token only if one was somehow present.
   const effectiveRouteEntityId = resolvedEntityId || routeEntityId;
 
   // Prefer the platform placement's default-agent id from `/api/entities`.
-  // Some hosted runtimes carry a runtime-local `agent.trust_id`, so the
-  // older `agent.trust_id === trustId` match is only a fallback.
+  // Some hosted runtimes carry a runtime-local `agent.company_id`, so the
+  // older `agent.company_id === companyId` match is only a fallback.
   const defaultAgent = useMemo(
     () => resolveDefaultAgent(agents, entity, effectiveRouteEntityId),
     [agents, entity, effectiveRouteEntityId],
   );
 
-  // When `/trust/<addr>/agents/<agent>/...` is open, the inner agentId
+  // When `/company/<addr>/agents/<agent>/...` is open, the inner agentId
   // is a direct lookup — no fuzzy matching, agents are entity-owned.
   const drilledAgent = useMemo(
     () => (routeAgentId ? (agents.find((a) => a.id === routeAgentId) ?? null) : null),
@@ -191,13 +191,13 @@ export default function AppLayout() {
     () => (activeEntity && entities.some((e) => e.id === activeEntity) ? activeEntity : null),
     [entities, activeEntity],
   );
-  const trustId = effectiveRouteEntityId || activeEntityValid || firstRoot || "";
+  const companyId = effectiveRouteEntityId || activeEntityValid || firstRoot || "";
 
   // Only commit a verified-real entity — otherwise the pre-load render
   // can persist a bogus value into localStorage.
   useEffect(() => {
-    if (trustId && entities.some((e) => e.id === trustId)) setActiveEntity(trustId);
-  }, [trustId, entities, setActiveEntity]);
+    if (companyId && entities.some((e) => e.id === companyId)) setActiveEntity(companyId);
+  }, [companyId, entities, setActiveEntity]);
 
   useEffect(() => {
     document.title = "aeqi";
@@ -223,13 +223,13 @@ export default function AppLayout() {
       invalidateShellQueries();
     }, 30000);
     return () => clearInterval(i);
-  }, [fetchAll, trustId, invalidateShellQueries]);
+  }, [fetchAll, companyId, invalidateShellQueries]);
   useDaemonSocket();
 
   const openSearch = useCallback(() => setSearching(true), []);
   const closeSearch = useCallback(() => setSearching(false), []);
   useGlobalShortcuts({
-    trustId,
+    companyId,
     searching,
     shortcutsOpen,
     openSearch,
@@ -241,8 +241,8 @@ export default function AppLayout() {
   const agentsLoaded = useDaemonStore((s) => s.agentsLoaded);
   const appMode = useAuthStore((s) => s.appMode);
   // The agent surface mounts on either the entity's default agent (company
-  // tabs: /trust/<addr>/quests, /trust/<addr>/events, …) or the drilled
-  // agent (per-agent tab: /trust/<addr>/agents/<agent>/…). The active id
+  // tabs: /company/<addr>/quests, /company/<addr>/events, …) or the drilled
+  // agent (per-agent tab: /company/<addr>/agents/<agent>/…). The active id
   // is the agent record's id — what AgentPage and the sub-tabs expect.
   const activeAgent = drilledAgent ?? defaultAgent;
   const activeAgentId = activeAgent?.id ?? "";
@@ -259,7 +259,7 @@ export default function AppLayout() {
     isReferrals,
     isInbox,
     isStart,
-    isTrustsPicker,
+    isCompaniesPicker,
     isNotFound,
     isAdmin,
     isRolesNew,
@@ -270,7 +270,7 @@ export default function AppLayout() {
 
   if (!initialLoaded) return <BootLoader />;
 
-  const encodedEntityId = trustId ? encodeURIComponent(trustId) : "";
+  const encodedEntityId = companyId ? encodeURIComponent(companyId) : "";
   const search = location.search || "";
 
   if (entities.length === 0 && (isHome || isStart)) {
@@ -278,8 +278,8 @@ export default function AppLayout() {
   }
 
   // Drilled-agent pages depend on the agent directory itself, not just the
-  // trust root. Hold the shell on the loader until that directory has
-  // settled so a refresh does not bounce the user back to the trust cockpit
+  // company root. Hold the shell on the loader until that directory has
+  // settled so a refresh does not bounce the user back to the company cockpit
   // before the agent rows finish hydrating.
   if (routeAgentId && !agentsLoaded) {
     return <BootLoader />;
@@ -287,22 +287,22 @@ export default function AppLayout() {
 
   // Stale entity ref after a data reset would point at a non-existent
   // entity. Bounce home; the user picks (or creates) a fresh entity from
-  // there. Applies to the trust route.
+  // there. Applies to the company route.
   //
-  // Welcome users land on `/trust/<addr>/` immediately after auth, BEFORE
+  // Welcome users land on `/company/<addr>/` immediately after auth, BEFORE
   // any aeqi-host runtime is provisioned for their company — `/api/agents`
   // returns []. Don't gate the shell on `defaultAgent`; render the entity
   // shell as soon as entities is settled and the entity is known. Surfaces
   // that need an agent (drilled-agent routes, sessions) handle their own
   // empty state.
-  if (routeTrustAddress) {
+  if (routeCompanyAddress) {
     const entityKnown = effectiveRouteEntityId
       ? entities.some((e) => e.id === effectiveRouteEntityId)
       : false;
     const entityListSettled = initialLoaded && entities.length > 0;
     if (entityListSettled && !entityKnown) {
-      // Keep the trust shell mounted instead of kicking the user back to
-      // the home picker. A stale cache or slow trust hydration should not
+      // Keep the company shell mounted instead of kicking the user back to
+      // the home picker. A stale cache or slow company hydration should not
       // hide the actual detail route.
       return <BootLoader />;
     }
@@ -315,9 +315,9 @@ export default function AppLayout() {
     // even when defaultAgent is null (no runtime provisioned yet).
   }
 
-  // Base path for the current entity. Everything is trust-scoped now.
+  // Base path for the current entity. Everything is company-scoped now.
   const base = (() => {
-    if (routeTrustAddress) return `/trust/${routeTrustAddress}`;
+    if (routeCompanyAddress) return `/company/${routeCompanyAddress}`;
     return "";
   })();
   const roleCreateTarget = (() => {
@@ -332,8 +332,8 @@ export default function AppLayout() {
   })();
   // No-tab default at entity scope = "overview" internally. The product
   // label is Views, but the legacy tab id remains the compatibility path
-  // behind the canonical bare trust URL.
-  const isEntityRoute = !!routeTrustAddress;
+  // behind the canonical bare company URL.
+  const isEntityRoute = !!routeCompanyAddress;
   // Are we on the agent's settings sub-surface? The route shape is
   // `agents/:agentId/settings[/:settingsTab[/:itemId]]`. We detect via
   // the path segment so the sub-surface dispatches before any
@@ -352,21 +352,21 @@ export default function AppLayout() {
   }
 
   // Legacy top-level inbox route — the user-filtered queue is now the
-  // blueprint-seeded "My sessions" pinned view under the active TRUST.
+  // blueprint-seeded "My sessions" pinned view under the active COMPANY.
   if (isInbox) {
-    if (!trustId) {
-      return <Navigate to="/trust" replace />;
+    if (!companyId) {
+      return <Navigate to="/company" replace />;
     }
     return (
       <Navigate
-        to={withUserSessionsView(entityPathFromId(entities, trustId, "sessions"), search)}
+        to={withUserSessionsView(entityPathFromId(entities, companyId, "sessions"), search)}
         replace
       />
     );
   }
 
-  // Bare `/trust/<addr>` doesn't render independently — `effectiveTab`
-  // defaults to the legacy "overview" id so TrustTabPage handles the
+  // Bare `/company/<addr>` doesn't render independently — `effectiveTab`
+  // defaults to the legacy "overview" id so CompanyTabPage handles the
   // canonical Views landing. The sidebar row points at this bare URL and
   // lights up only when no sub-tab is active.
 
@@ -376,7 +376,7 @@ export default function AppLayout() {
     return <Navigate to={`${base}${search}`} replace />;
   }
 
-  // Legacy drilled-agent session URLs rewrite to the trust-level Sessions
+  // Legacy drilled-agent session URLs rewrite to the company-level Sessions
   // primitive. The nested agent inbox page is retired.
   if (drilledAgent && tab === "sessions" && encodedEntityId) {
     const target = itemId
@@ -417,7 +417,7 @@ export default function AppLayout() {
     return <NotFoundPage />;
   }
 
-  // The bare `/trust/<addr>` URL IS the canonical Views landing — there is
+  // The bare `/company/<addr>` URL IS the canonical Views landing — there is
   // no separate `/overview` or `/views` segment. Replace-navigate stale or
   // guessed links onto the bare URL so the sidebar activates correctly.
   if ((tab === "overview" || tab === "views") && isEntityRoute && !drilledAgent) {
@@ -444,9 +444,9 @@ export default function AppLayout() {
     if (isNotFound) return <NotFoundPage />;
     if (isRolesInvite) return <RoleInvitePage />;
     if (isLaunch) {
-      // When the URL omits a blueprint id, TrustSetupPage resolves the
+      // When the URL omits a blueprint id, CompanySetupPage resolves the
       // default blueprint internally so the launch surface is a single wizard.
-      return <TrustSetupPage />;
+      return <CompanySetupPage />;
     }
     if (isAdmin) return <AdminPage />;
     if (isAccount) return <ProfilePage />;
@@ -455,10 +455,10 @@ export default function AppLayout() {
     // `/` is the Start surface (welcome + previews). The legacy `/start`
     // URL keeps working as an alias for any link already in circulation.
     if (isHome || isStart) return <StartPage />;
-    // `/trust` (bare, no address) is the canonical trusts picker. The
+    // `/company` (bare, no address) is the canonical companies picker. The
     // 2026-05-19 back-compat aliases (`/network`, `/identity`,
-    // `/acting-as`) were retired the same day — only `/trust` is mounted.
-    if (isTrustsPicker) return <TrustPage />;
+    // `/acting-as`) were retired the same day — only `/company` is mounted.
+    if (isCompaniesPicker) return <CompanyPage />;
     if (isBlueprints) {
       // /templates/<seg> where <seg> is a known kind (companies / agents /
       // events / quests / ideas) → catalog tab. Otherwise <seg> is a template
@@ -472,9 +472,9 @@ export default function AppLayout() {
     }
     if (isRolesDetail && roleId) {
       return (
-        <TrustTabPage
+        <CompanyTabPage
           agentId={activeAgentId}
-          trustId={effectiveRouteEntityId}
+          companyId={effectiveRouteEntityId}
           tab="roles"
           itemId={roleId}
         />
@@ -485,9 +485,9 @@ export default function AppLayout() {
     }
     if (isEntityRoute && !drilledAgent && COMPANY_PAGE_TABS.has(effectiveTab)) {
       return (
-        <TrustTabPage
+        <CompanyTabPage
           agentId={activeAgentId}
-          trustId={effectiveRouteEntityId}
+          companyId={effectiveRouteEntityId}
           tab={effectiveTab}
           itemId={itemId}
         />
@@ -501,7 +501,7 @@ export default function AppLayout() {
       return <AgentSettingsPage agentId={activeAgentId} />;
     }
     // Default drilled-agent surface: simple agent detail card. Sessions
-    // live only on the trust-level Sessions primitive.
+    // live only on the company-level Sessions primitive.
     return <AgentPage agentId={activeAgentId} tab={effectiveTab} itemId={itemId} />;
   })();
 
@@ -516,7 +516,7 @@ export default function AppLayout() {
     !isBlueprints &&
     !isEconomy &&
     !isStart &&
-    !isTrustsPicker &&
+    !isCompaniesPicker &&
     isEntityRoute &&
     !drilledAgent &&
     !!activeAgentId &&
@@ -533,7 +533,7 @@ export default function AppLayout() {
     ? `${base}/sessions?agent=${encodeURIComponent(activeAgentId)}`
     : userSessionsPath(base);
   const dockSessionHref = dockSession
-    ? sessionDeepUrlFromId(entities, trustId, activeAgentId, dockSession.id)
+    ? sessionDeepUrlFromId(entities, companyId, activeAgentId, dockSession.id)
     : dockComposeHref;
 
   const contentBody = (
@@ -557,7 +557,7 @@ export default function AppLayout() {
         Skip to main content
       </a>
       <div className="shell">
-        <LeftSidebar trustId={trustId} path={path} />
+        <LeftSidebar companyId={companyId} path={path} />
 
         <div className="content-column">
           <div className="content-card">

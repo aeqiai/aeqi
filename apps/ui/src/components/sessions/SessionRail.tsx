@@ -101,7 +101,7 @@ export function SessionRailEmptyState({
  *
  * Adopters today:
  *  - shell/SessionsRail.tsx — agent surface, drives from useChatStore
- *  - TrustSessionsTab.tsx — trust sessions and user-filtered pinned views
+ *  - CompanySessionsTab.tsx — company sessions and user-filtered pinned views
  */
 export default function SessionRail({
   rows,

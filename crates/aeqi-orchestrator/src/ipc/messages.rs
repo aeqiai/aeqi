@@ -213,7 +213,7 @@ pub async fn handle_message_to(
             let occupant_kind_str = match occupant_kind {
                 crate::role_registry::OccupantKind::Human => "user",
                 crate::role_registry::OccupantKind::Agent => "agent",
-                crate::role_registry::OccupantKind::Trust => "trust",
+                crate::role_registry::OccupantKind::Company => "company",
                 crate::role_registry::OccupantKind::Vacant => unreachable!(),
             };
             let _ = ss

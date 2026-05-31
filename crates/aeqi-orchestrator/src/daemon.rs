@@ -1886,11 +1886,11 @@ impl Daemon {
                 // `architect.deploy` was retired; the architect deploy path
                 // now goes through the platform's `POST /api/architect/deploy`
                 // route which writes `runtime_placements`, spawns the
-                // sandbox, fires `provision_trust`, and ferries the inline
+                // sandbox, fires `provision_company`, and ferries the inline
                 // blueprint to the new runtime via `spawn_blueprint`'s
                 // `inline_blueprint` payload. The runtime-only deploy verb
                 // half-shipped (entity + agents + roles in the runtime DB,
-                // no platform placement, no on-chain TRUST, UI bounced to
+                // no platform placement, no on-chain COMPANY, UI bounced to
                 // /me/inbox) and is explicitly removed to prevent it being
                 // re-introduced.
                 "list_blueprints" => {

@@ -682,7 +682,7 @@
   color: var(--color-text-muted);
 }
 
-/* Runtime-gated row when the TRUST has no runtime attached.
+/* Runtime-gated row when the COMPANY has no runtime attached.
    Stays clickable on purpose — clicking opens the in-tab upsell which
    IS the conversion surface. The dim is the cue, not a block. */
 .sidebar-nav-item--locked {
@@ -997,7 +997,7 @@
   gap: 2px;
 }
 
-.sidebar-surface-nav.sidebar-trust-nav {
+.sidebar-surface-nav.sidebar-company-nav {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
@@ -1005,30 +1005,30 @@
   gap: 3px;
   scrollbar-width: thin;
 }
-.sidebar-surface-nav.sidebar-trust-nav .sidebar-section-label {
+.sidebar-surface-nav.sidebar-company-nav .sidebar-section-label {
   margin: 6px 8px 4px;
   font-size: var(--section-label-size);
   font-weight: 650;
   letter-spacing: 0.08em;
 }
-.sidebar-surface-nav.sidebar-trust-nav .sidebar-section-label:first-child {
+.sidebar-surface-nav.sidebar-company-nav .sidebar-section-label:first-child {
   margin-top: 2px;
 }
-.sidebar-surface-nav.sidebar-trust-nav .sidebar-section-label.active {
+.sidebar-surface-nav.sidebar-company-nav .sidebar-section-label.active {
   color: var(--color-text-title);
 }
-.sidebar-surface-nav.sidebar-trust-nav .acting-as-trigger {
+.sidebar-surface-nav.sidebar-company-nav .acting-as-trigger {
   margin-bottom: 6px;
   padding: 8px 10px;
 }
-.sidebar-surface-nav.sidebar-trust-nav .sidebar-nav-item {
+.sidebar-surface-nav.sidebar-company-nav .sidebar-nav-item {
   gap: 9px;
   padding-inline: 8px;
 }
-.sidebar-surface-nav.sidebar-trust-nav .sidebar-group + .sidebar-group {
+.sidebar-surface-nav.sidebar-company-nav .sidebar-group + .sidebar-group {
   margin-top: 6px;
 }
-.sidebar-surface-nav.sidebar-trust-nav .sidebar-group-title {
+.sidebar-surface-nav.sidebar-company-nav .sidebar-group-title {
   margin-inline: 0;
   min-height: var(--sidebar-row-h);
   padding-inline: 8px;
@@ -1036,7 +1036,7 @@
   font-weight: 650;
   letter-spacing: 0.08em;
 }
-.sidebar-surface-nav.sidebar-trust-nav .sidebar-group-items {
+.sidebar-surface-nav.sidebar-company-nav .sidebar-group-items {
   gap: 3px;
   padding-inline: 0;
 }
@@ -1046,35 +1046,35 @@
     padding-bottom: 4px;
   }
 
-  .sidebar-surface-nav.sidebar-trust-nav {
+  .sidebar-surface-nav.sidebar-company-nav {
     padding-top: 2px;
     padding-bottom: 4px;
     gap: 2px;
   }
 
-  .sidebar-surface-nav.sidebar-trust-nav .sidebar-section-label {
+  .sidebar-surface-nav.sidebar-company-nav .sidebar-section-label {
     margin: 4px 8px 2px;
   }
 
-  .sidebar-surface-nav.sidebar-trust-nav .sidebar-section-label:first-child {
+  .sidebar-surface-nav.sidebar-company-nav .sidebar-section-label:first-child {
     margin-top: 1px;
   }
 
-  .sidebar-surface-nav.sidebar-trust-nav .acting-as-trigger {
+  .sidebar-surface-nav.sidebar-company-nav .acting-as-trigger {
     gap: 9px;
     margin-bottom: 4px;
     padding: 6px 9px;
   }
 
-  .sidebar-surface-nav.sidebar-trust-nav .sidebar-group + .sidebar-group {
+  .sidebar-surface-nav.sidebar-company-nav .sidebar-group + .sidebar-group {
     margin-top: 4px;
   }
 
-  .sidebar-surface-nav.sidebar-trust-nav .sidebar-group-title {
+  .sidebar-surface-nav.sidebar-company-nav .sidebar-group-title {
     min-height: var(--sidebar-row-h);
   }
 
-  .sidebar-surface-nav.sidebar-trust-nav .sidebar-group-items {
+  .sidebar-surface-nav.sidebar-company-nav .sidebar-group-items {
     gap: 2px;
   }
 
@@ -1161,7 +1161,7 @@
   color: var(--color-error);
 }
 
-/* Group titles (TRUST · OWNERSHIP · EXECUTION). Smaller + tracked
+/* Group titles (COMPANY · OWNERSHIP · EXECUTION). Smaller + tracked
    harder so they read as eyebrows over their group, with deliberate
    vertical air above (24px) that gives the rail rhythm instead of
    labels floating tight against the row above. The 8px below keeps
@@ -1289,7 +1289,7 @@
      background on top; only the empty insets show this color. */
   background: var(--bg-sidebar);
   /* Tight top inset for the global chrome; left/right/bottom share one
-     frame inset so trust workspaces do not drift toward the sidebar. */
+     frame inset so company workspaces do not drift toward the sidebar. */
   padding-top: var(--shell-top-inset, 6px);
   padding-bottom: var(--shell-footer-h);
   padding-left: var(--shell-footer-h);
@@ -1340,11 +1340,11 @@
     0 14px 34px -24px rgba(10, 10, 11, 0.22);
 }
 
-/* Canonical trust primitive shell: title/search/actions live in the
+/* Canonical company primitive shell: title/search/actions live in the
    transparent app chrome, while the working surface below owns elevation.
-   Trust primitive pages should consume these classes instead of rebuilding
+   Company primitive pages should consume these classes instead of rebuilding
    page-local spacing. */
-.trust-primitive-shell {
+.company-primitive-shell {
   --toolbar-control-h: 32px;
 
   display: grid;
@@ -1360,7 +1360,7 @@
   padding: 0;
 }
 
-.trust-primitive-shell-header {
+.company-primitive-shell-header {
   grid-area: header;
   align-items: center;
   min-height: var(--shell-top-rail-h, 40px);
@@ -1369,7 +1369,7 @@
   gap: var(--space-3);
 }
 
-.trust-primitive-shell-surface {
+.company-primitive-shell-surface {
   grid-area: main;
   display: flex;
   flex-direction: column;
@@ -1383,12 +1383,12 @@
 }
 
 @media (max-width: 720px) {
-  .trust-primitive-shell {
+  .company-primitive-shell {
     padding: 0 var(--space-3) var(--space-3);
     row-gap: var(--space-3);
   }
 
-  .trust-primitive-shell-header {
+  .company-primitive-shell-header {
     min-height: auto;
   }
 }
@@ -1397,15 +1397,15 @@
    the working canvas below owns elevation. Roles and Agents already
    compose their own main/inspector surfaces, so the global paper sheet
    steps out of the way for those pages. */
-.content-paper:has(.trust-primitive-shell),
-.content-paper:has(.trust-roles),
-.content-paper:has(.trust-agents),
-.content-paper:has(.trust-members),
-.content-paper:has(.trust-quests),
+.content-paper:has(.company-primitive-shell),
+.content-paper:has(.company-roles),
+.content-paper:has(.company-agents),
+.content-paper:has(.company-members),
+.content-paper:has(.company-quests),
 .content-paper:has(.quest-detail-page),
-.content-paper:has(.trust-sessions),
+.content-paper:has(.company-sessions),
 .content-paper:has(.ideas-workspace),
-.content-paper:has(.trust-tools-page) {
+.content-paper:has(.company-tools-page) {
   background: transparent;
   border-radius: 0;
   box-shadow: none;
@@ -3851,33 +3851,33 @@
   box-shadow: var(--card-elevation);
 }
 
-.trust-tools-page-header {
+.company-tools-page-header {
   flex-shrink: 0;
 }
 
-.trust-tools-page-body.agent-settings-page {
+.company-tools-page-body.agent-settings-page {
   max-width: none;
   padding: 0 var(--space-6) var(--space-5);
   background: transparent;
 }
 
-.trust-tools-toolbar {
+.company-tools-toolbar {
   justify-content: flex-start;
 }
 
-.trust-tools-toolbar-summary {
+.company-tools-toolbar-summary {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.trust-tools-toolbar-count {
+.company-tools-toolbar-count {
   min-width: 64px;
   text-align: right;
 }
 
-.trust-tools-page-header .tools-list-summary-n {
+.company-tools-page-header .tools-list-summary-n {
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
   font-weight: 500;
@@ -4067,11 +4067,11 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .trust-tools-page-body.agent-settings-page {
+  .company-tools-page-body.agent-settings-page {
     padding: 0 var(--space-4) var(--space-4);
   }
 
-  .trust-tools-toolbar-summary {
+  .company-tools-toolbar-summary {
     white-space: normal;
     line-height: 1.35;
   }
@@ -4817,7 +4817,7 @@
     display: flex;
   }
 
-  .left-sidebar.collapsed.mobile-open .sidebar-trust-nav .sidebar-group-items {
+  .left-sidebar.collapsed.mobile-open .sidebar-company-nav .sidebar-group-items {
     padding-inline: 4px;
   }
 
@@ -4836,11 +4836,11 @@
     white-space: nowrap;
   }
 
-  .left-sidebar.mobile-open .sidebar-trust-nav .sidebar-nav-item {
+  .left-sidebar.mobile-open .sidebar-company-nav .sidebar-nav-item {
     min-height: 30px;
   }
 
-  .left-sidebar.mobile-open .sidebar-trust-nav .sidebar-group-title {
+  .left-sidebar.mobile-open .sidebar-company-nav .sidebar-group-title {
     min-height: 28px;
   }
 
@@ -5176,7 +5176,7 @@
   gap: 8px;
 }
 
-/* Ideas workspace — TRUST root tree + document + inspector. */
+/* Ideas workspace — COMPANY root tree + document + inspector. */
 .ideas-workspace {
   --toolbar-control-h: 32px;
   --detail-control-h: var(--toolbar-control-h);
@@ -5905,20 +5905,20 @@
   color: var(--btn-primary-text, #fff);
 }
 
-.trust-primitive-page-title {
+.company-primitive-page-title {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
 }
 
-.trust-primitive-page-title-text {
+.company-primitive-page-title-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.trust-primitive-page-count {
+.company-primitive-page-count {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -9768,7 +9768,7 @@ button.ideas-ref-add.ideas-content-pill:focus-visible {
 
 /* ------------------------------------------------------------------ *
  * Referrals - top-level aeqi growth loop. This page is global, not
- * trust-owned, so it sits directly in the shell paper with an elevated
+ * company-owned, so it sits directly in the shell paper with an elevated
  * action panel and recessed playbook sections.
  * ------------------------------------------------------------------ */
 .referrals-page {
@@ -11042,13 +11042,13 @@ button.ideas-ref-add.ideas-content-pill:focus-visible {
   justify-content: flex-end;
 }
 
-/* ── Acting-as selector — trust credential card in the sidebar's TRUST
+/* ── Acting-as selector — company credential card in the sidebar's COMPANY
    group. Horizontal flow:
 
-     [avatar]  Trust Name              ›
+     [avatar]  Company Name              ›
                DIRECTOR
 
-   Avatar on the left anchors trust identity; name + role stack in the
+   Avatar on the left anchors company identity; name + role stack in the
    middle carries the credential payload; chevron centered on the right
    signals "switch context." A small horizontal outer inset (4px each
    side) sets the black panel slightly back from the nav-row width so
@@ -11082,9 +11082,9 @@ button.ideas-ref-add.ideas-content-pill:focus-visible {
     0 0 0 3px var(--color-accent);
 }
 
-/* Trust visual on the left edge of the credential. The BlockAvatar's
+/* Company visual on the left edge of the credential. The BlockAvatar's
    rounded-square geometry gives the card an anchor that immediately
-   identifies WHICH trust this is. */
+   identifies WHICH company this is. */
 .acting-as-badge {
   display: inline-flex;
   align-items: center;
@@ -11097,8 +11097,8 @@ button.ideas-ref-add.ideas-content-pill:focus-visible {
   display: none;
 }
 
-/* Middle column — trust name on top, role caption below. min-width: 0
-   on a flex child enables ellipsis on the trust name when the rail is
+/* Middle column — company name on top, role caption below. min-width: 0
+   on a flex child enables ellipsis on the company name when the rail is
    narrow or the name runs long. */
 .acting-as-meta {
   flex: 1;
@@ -11108,8 +11108,8 @@ button.ideas-ref-add.ideas-content-pill:focus-visible {
   gap: 2px;
 }
 
-/* Trust name — the headline of the credential, ellipsis on overflow. */
-.acting-as-trust {
+/* Company name — the headline of the credential, ellipsis on overflow. */
+.acting-as-company {
   font-size: var(--font-size-sm);
   font-weight: 600;
   line-height: 1.2;
@@ -11120,7 +11120,7 @@ button.ideas-ref-add.ideas-content-pill:focus-visible {
 }
 
 /* Role caption — uppercase + tracked, reads as a credential rank. Muted
-   so the trust name remains the headline; the role is the capacity in
+   so the company name remains the headline; the role is the capacity in
    which the actor is operating. */
 .acting-as-role {
   font-size: 10px;
@@ -11150,7 +11150,7 @@ button.ideas-ref-add.ideas-content-pill:focus-visible {
 }
 
 /* Collapsed sidebar — single small avatar tile, drop everything else.
-   The avatar swap (expanded 36px ↔ collapsed 18px) keeps the same trust
+   The avatar swap (expanded 36px ↔ collapsed 18px) keeps the same company
    identity visible at both rail widths without overflowing the 32px
    row geometry. */
 .left-sidebar.collapsed .acting-as-trigger {
@@ -11196,7 +11196,7 @@ button.ideas-ref-add.ideas-content-pill:focus-visible {
 
 /* ── Home picker — the root `/` surface. Anchored on the user (avatar +
    personalised greeting in display type), then a node grid of available
-   (actor × role × trust) contexts, then a quiet footer of secondary
+   (actor × role × company) contexts, then a quiet footer of secondary
    destinations. The "ethereal" feel comes from composition + whitespace,
    not flourish (per .impeccable.md: no hairlines, no gradients, no
    animations beyond 0.12s ease). ── */
@@ -11287,7 +11287,7 @@ button.ideas-ref-add.ideas-content-pill:focus-visible {
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
 }
-/* Quieter "Create new trust" tile: transparent at rest so it doesn't
+/* Quieter "Create new company" tile: transparent at rest so it doesn't
    compete with real contexts for the eye, same hover treatment so it
    still feels like a peer affordance. */
 .home-picker-node--create {
@@ -11300,7 +11300,7 @@ button.ideas-ref-add.ideas-content-pill:focus-visible {
   color: var(--color-text-secondary);
 }
 /* ── Empty-state hero card. Replaces the grid + lone "+" tile when the
-   user has no trusts yet. Single inviting card centred on the page. ── */
+   user has no companies yet. Single inviting card centred on the page. ── */
 .home-picker-hero {
   display: flex;
   flex-direction: column;
@@ -11380,9 +11380,9 @@ button.ideas-ref-add.ideas-content-pill:focus-visible {
 }
 
 /* ── Home surface at `/`:
-   1. Hero states the page job for operating across TRUSTs.
-   2. Active TRUST card carries the primary Open/Launch TRUST action.
-   3. Secondary surfaces expose Blueprints, other TRUSTs, Inbox, and Economy.
+   1. Hero states the page job for operating across Companies.
+   2. Active COMPANY card carries the primary Open/Launch COMPANY action.
+   3. Secondary surfaces expose Blueprints, other Companies, Inbox, and Economy.
    4. Thesis CARD links the canonical /blog/the-uncompiled-institution post.
    Graphite + ink palette, no hairlines, no decorative motion. ── */
 .home-page {
@@ -11396,7 +11396,7 @@ button.ideas-ref-add.ideas-content-pill:focus-visible {
   padding: 0 0 80px;
 }
 .home-row-two,
-.home-row-trusts,
+.home-row-companies,
 .home-row-promos,
 .home-learn,
 .home-thesis {
@@ -11409,7 +11409,7 @@ button.ideas-ref-add.ideas-content-pill:focus-visible {
 
 /* Hero — wide image (start-hero.png) with a quiet operator identity
    overlay on the lighter left third. The hero is orientation and mood;
-   cards below own actions and current TRUST context. */
+   cards below own actions and current COMPANY context. */
 .home-hero {
   position: relative;
   width: 100%;
@@ -11505,7 +11505,7 @@ button.ideas-ref-add.ideas-content-pill:focus-visible {
   gap: 1px;
   min-width: 0;
 }
-/* Card shell — shared by trust card, inbox, economy, and thesis.
+/* Card shell — shared by company card, inbox, economy, and thesis.
    Generous padding (28px) so every card reads as a deliberate
    component, not a thin row. Resting bg is --color-card-elevated
    because the StartPage sits inside .content-paper (paper tier =
@@ -11604,14 +11604,14 @@ button.home-card:focus-visible {
   font-weight: 600;
 }
 
-/* Trust row — three side-by-side cards above the inbox/economy row:
-   Active TRUST · Blueprints/create · Other TRUSTs. Cards stretch to the same
+/* Company row — three side-by-side cards above the inbox/economy row:
+   Active COMPANY · Blueprints/create · Other Companies. Cards stretch to the same
    height so the row reads as a single horizontal beat. Collapses to a
    single column at narrow widths. */
-/* Trust row — Personal is the anchor (2fr); create/Blueprints + Other TRUSTs are satellites
+/* Company row — Personal is the anchor (2fr); create/Blueprints + Other Companies are satellites
    (1fr each). The asymmetry establishes "this is where you live" vs
    "these are options" without needing different surface tones. */
-.home-row-trusts {
+.home-row-companies {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr;
   gap: 16px;
@@ -11633,8 +11633,8 @@ button.home-card:focus-visible {
   color: var(--color-text-secondary);
 }
 
-/* Personal TRUST card — the row's anchor (2fr column). Big 64px
-   avatar, name in display weight at 28px, Open/Launch TRUST CTA at the foot.
+/* Personal COMPANY card — the row's anchor (2fr column). Big 64px
+   avatar, name in display weight at 28px, Open/Launch COMPANY CTA at the foot.
    The eyebrow was dropped — the avatar + display name already tells
    the user "this is yours" without a label. */
 .home-personal-body {
@@ -11654,7 +11654,7 @@ button.home-card:focus-visible {
   flex-shrink: 0;
 }
 /* First-touch ghost avatar uses the same ink-on-paper treatment as the
-   dominant CTA so Launch TRUST owns the no-TRUST state. */
+   dominant CTA so Launch COMPANY owns the no-COMPANY state. */
 .home-personal-avatar--ghost {
   background: var(--color-text-primary);
   color: var(--btn-primary-text);
@@ -11676,7 +11676,7 @@ button.home-card:focus-visible {
 }
 
 /* Blueprints/create card — the center beat. It stays secondary so the
-   active TRUST card remains the primary action. */
+   active COMPANY card remains the primary action. */
 .home-step-body {
   display: flex;
   flex-direction: column;
@@ -11697,9 +11697,9 @@ button.home-card:focus-visible {
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
 }
-/* All TRUSTs card — count headline + a quiet row of avatars previewing
+/* All Companies card — count headline + a quiet row of avatars previewing
    the other contexts the user can step into. The full list lives at
-   /trust; the avatar row is a teaser, not the picker. */
+   /company; the avatar row is a teaser, not the picker. */
 .home-all-body {
   display: flex;
   flex-direction: column;
@@ -11765,7 +11765,7 @@ button.home-card:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--color-accent);
 }
-/* Activity indicator on each TRUST tile — promotes the avatar grid from
+/* Activity indicator on each COMPANY tile — promotes the avatar grid from
    static thumbnails to "live contexts". Same 7px / 999px shape as the
    hero-pill dot and the inbox-status dots so the home page reads as one
    dot vocabulary. The 2px halo in --color-card-elevated separates the
@@ -11810,7 +11810,7 @@ button.home-card:focus-visible {
   background: var(--state-review);
 }
 @media (max-width: 960px) {
-  .home-row-trusts {
+  .home-row-companies {
     grid-template-columns: 1fr;
   }
 }
@@ -11892,7 +11892,7 @@ button.home-card:focus-visible {
 /* First-touch quiet variant. The Inbox card stays in its column so the
    home-row-two grid keeps its two-column composition during onboarding,
    but its visual weight steps down: the head icon + title fade to
-   secondary ink. Once the user has a TRUST, the modifier is dropped by
+   secondary ink. Once the user has a COMPANY, the modifier is dropped by
    StartPage and the card returns to full weight. */
 .home-card--quiet .home-card-icon {
   /* Drop the head puck entirely while quiet so it joins meta + dot in
@@ -11906,12 +11906,12 @@ button.home-card:focus-visible {
   color: var(--color-text-secondary);
   font-weight: 500;
 }
-/* All-TRUSTs satellite (c9) reuses the same quiet pattern: when the user
-   has no other TRUSTs to step into, the display-weight headline and the
+/* All-Companies satellite (c9) reuses the same quiet pattern: when the user
+   has no other Companies to step into, the display-weight headline and the
    empty Users-icon circle stage an empty state the user can't act on.
    Step the body type down to secondary ink and quiet the empty avatar
-   slot so StepIntoTrustCard becomes the row's gravity center until a
-   second TRUST exists. Eyebrow already paints secondary by default. */
+   slot so StepIntoCompanyCard becomes the row's gravity center until a
+   second COMPANY exists. Eyebrow already paints secondary by default. */
 .home-card--quiet .home-all-title {
   color: var(--color-text-secondary);
   font-weight: 300;
@@ -12052,7 +12052,7 @@ button.home-card:focus-visible {
   }
 }
 
-/* Home v2 — user identity first, then the active Role × TRUST context. */
+/* Home v2 — user identity first, then the active Role × COMPANY context. */
 .home-hero-title {
   letter-spacing: 0;
 }
@@ -12077,12 +12077,12 @@ button.home-card:focus-visible {
   color: var(--color-text-muted);
 }
 
-.home-row-trusts {
+.home-row-companies {
   grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.95fr) minmax(280px, 340px);
 }
 
 .home-card--context,
-.home-card--trust-list,
+.home-card--company-list,
 .home-card--launch {
   min-height: 260px;
 }
@@ -12094,7 +12094,7 @@ button.home-card:focus-visible {
 }
 
 .home-card--recessed.home-card--context,
-.home-card--recessed.home-card--trust-list,
+.home-card--recessed.home-card--company-list,
 .home-card--recessed.home-card--inbox,
 .home-card--recessed.home-card--learn {
   background: var(--bg-row);
@@ -12192,7 +12192,7 @@ button.home-card:focus-visible {
   background: var(--color-card-elevated);
 }
 
-.home-context-role-card.trust-role-option-card {
+.home-context-role-card.company-role-option-card {
   width: 100%;
 }
 
@@ -12300,19 +12300,19 @@ button.home-card:focus-visible {
     transform 0.12s ease;
 }
 
-.home-card--trust-list {
+.home-card--company-list {
   gap: 14px;
   padding: 22px;
 }
 
-.home-trust-list-head {
+.home-company-list-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
 }
 
-.home-trust-list-title {
+.home-company-list-title {
   margin: 0;
   min-width: 0;
   font-family: var(--font-display);
@@ -12323,7 +12323,7 @@ button.home-card:focus-visible {
   color: var(--color-text-primary);
 }
 
-.home-trust-list-cta {
+.home-company-list-cta {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -12342,17 +12342,17 @@ button.home-card:focus-visible {
     transform 0.12s ease;
 }
 
-.home-trust-list-cta:hover {
+.home-company-list-cta:hover {
   background: var(--color-card);
   transform: translateY(-1px);
 }
 
-.home-trust-list-cta:focus-visible {
+.home-company-list-cta:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--color-accent);
 }
 
-.home-trust-list {
+.home-company-list {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -12363,11 +12363,11 @@ button.home-card:focus-visible {
   list-style: none;
 }
 
-.home-trust-list li {
+.home-company-list li {
   margin: 0;
 }
 
-.home-trust-row {
+.home-company-row {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -12384,21 +12384,21 @@ button.home-card:focus-visible {
     transform 0.12s ease;
 }
 
-.home-trust-row:hover {
+.home-company-row:hover {
   background: var(--color-card);
   transform: translateY(-1px);
 }
 
-.home-trust-row:focus-visible {
+.home-company-row:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--color-accent);
 }
 
-.home-trust-row.is-active {
+.home-company-row.is-active {
   box-shadow: inset 0 0 0 1px var(--color-warmth);
 }
 
-.home-trust-mini-mark {
+.home-company-mini-mark {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -12412,12 +12412,12 @@ button.home-card:focus-visible {
   flex-shrink: 0;
 }
 
-.home-trust-mini-mark.is-active {
+.home-company-mini-mark.is-active {
   background: var(--color-warmth-bg);
   color: var(--color-warmth);
 }
 
-.home-trust-row-copy {
+.home-company-row-copy {
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -12425,30 +12425,30 @@ button.home-card:focus-visible {
   flex: 1;
 }
 
-.home-trust-row-name,
-.home-trust-row-meta {
+.home-company-row-name,
+.home-company-row-meta {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.home-trust-row-name {
+.home-company-row-name {
   font-size: var(--font-size-sm);
   font-weight: 650;
   color: var(--color-text-primary);
 }
 
-.home-trust-row-meta {
+.home-company-row-meta {
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
 }
 
-.home-trust-row > svg {
+.home-company-row > svg {
   flex-shrink: 0;
   color: var(--color-text-muted);
 }
 
-.home-trust-list-empty {
+.home-company-list-empty {
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -12462,7 +12462,7 @@ button.home-card:focus-visible {
   font-size: var(--font-size-sm);
 }
 
-.home-trust-list-empty a {
+.home-company-list-empty a {
   align-self: flex-start;
   color: var(--color-text-primary);
   font-weight: 650;
@@ -12564,7 +12564,7 @@ button.role-context-card:disabled {
   min-width: 0;
 }
 
-.role-context-card-trust-avatar,
+.role-context-card-company-avatar,
 .role-context-card-occupant-avatar {
   display: inline-flex;
   align-items: center;
@@ -12582,7 +12582,7 @@ button.role-context-card:disabled {
 
 .role-context-card-kicker,
 .role-context-card-title,
-.role-context-card-trust-name,
+.role-context-card-company-name,
 .role-context-card-holder-label,
 .role-context-card-route {
   overflow: hidden;
@@ -12604,7 +12604,7 @@ button.role-context-card:disabled {
   color: inherit;
 }
 
-.role-context-card-trust-name {
+.role-context-card-company-name {
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
 }
@@ -12666,7 +12666,7 @@ button.role-context-card:disabled {
   color: var(--btn-primary-text);
 }
 
-.role-context-card-occupant-avatar--trust {
+.role-context-card-occupant-avatar--company {
   border: 1px solid var(--accent);
   border-radius: var(--radius-sm);
   background: var(--color-card);
@@ -12679,15 +12679,15 @@ button.role-context-card:disabled {
 }
 
 .role-context-card.is-selected .role-context-card-kicker,
-.role-context-card.is-selected .role-context-card-trust-name,
+.role-context-card.is-selected .role-context-card-company-name,
 .role-context-card.is-selected .role-context-card-foot,
 .role-context-card.is-selected .role-context-card-pill,
-.role-context-card.is-selected .role-context-card-occupant-avatar--trust {
+.role-context-card.is-selected .role-context-card-occupant-avatar--company {
   color: var(--btn-primary-text);
 }
 
 .role-context-card.is-selected .role-context-card-pill,
-.role-context-card.is-selected .role-context-card-occupant-avatar--trust {
+.role-context-card.is-selected .role-context-card-occupant-avatar--company {
   border-color: var(--btn-primary-text);
   background: transparent;
 }
@@ -12719,7 +12719,7 @@ button.role-context-card:disabled {
   display: none;
 }
 
-.trust-role-option-card {
+.company-role-option-card {
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -12731,30 +12731,30 @@ button.role-context-card:disabled {
   color: var(--color-text-primary);
 }
 
-.trust-role-option-card.is-active-path {
+.company-role-option-card.is-active-path {
   border-color: var(--color-accent);
   box-shadow: 0 0 0 1px var(--color-accent);
 }
 
-.trust-role-option-card.is-selected {
+.company-role-option-card.is-selected {
   border-color: var(--color-accent);
   box-shadow:
     0 0 0 1px var(--color-accent),
     0 0 14px color-mix(in srgb, var(--color-accent) 14%, transparent);
 }
 
-.trust-role-option-card-head {
+.company-role-option-card-head {
   display: flex;
   align-items: center;
   gap: 10px;
   min-width: 0;
 }
 
-.trust-role-option-card-avatar {
+.company-role-option-card-avatar {
   display: inline-flex;
 }
 
-.trust-role-option-card-copy {
+.company-role-option-card-copy {
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -12762,22 +12762,22 @@ button.role-context-card:disabled {
   flex: 1;
 }
 
-.trust-role-option-card-kicker,
-.trust-role-option-card-copy h3,
-.trust-role-option-card-stats {
+.company-role-option-card-kicker,
+.company-role-option-card-copy h3,
+.company-role-option-card-stats {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.trust-role-option-card-kicker {
+.company-role-option-card-kicker {
   font-size: var(--font-size-xs);
   font-weight: 700;
   text-transform: uppercase;
   color: var(--color-text-secondary);
 }
 
-.trust-role-option-card-copy h3 {
+.company-role-option-card-copy h3 {
   margin: 0;
   font-size: var(--font-size-sm);
   font-family: var(--font-sans);
@@ -12786,7 +12786,7 @@ button.role-context-card:disabled {
   color: var(--color-text-primary);
 }
 
-.trust-role-option-card-stats {
+.company-role-option-card-stats {
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
@@ -12799,7 +12799,7 @@ button.role-context-card:disabled {
   font-weight: 650;
 }
 
-.trust-role-option-card-role.role-context-card {
+.company-role-option-card-role.role-context-card {
   width: 100%;
   min-height: 0;
   padding: 10px 12px;
@@ -12808,26 +12808,27 @@ button.role-context-card:disabled {
   border-radius: var(--radius-sm);
 }
 
-.trust-role-option-card-role.role-context-card.is-clickable:hover {
+.company-role-option-card-role.role-context-card.is-clickable:hover {
   background: var(--color-card-muted);
   box-shadow: none;
 }
 
-.trust-role-option-card-role .role-context-card-trust-avatar,
-.trust-role-option-card-role:not(.role-context-card--holder-title) .role-context-card-trust-name {
+.company-role-option-card-role .role-context-card-company-avatar,
+.company-role-option-card-role:not(.role-context-card--holder-title)
+  .role-context-card-company-name {
   display: none;
 }
 
-.trust-role-option-card--map {
+.company-role-option-card--map {
   gap: 8px;
   padding: 10px;
 }
 
-.trust-role-option-card--map .trust-role-option-card-head {
+.company-role-option-card--map .company-role-option-card-head {
   gap: 8px;
 }
 
-.trust-role-option-card--map .trust-role-option-card-role.role-context-card {
+.company-role-option-card--map .company-role-option-card-role.role-context-card {
   min-height: 0;
   padding: 8px 10px;
 }
@@ -13320,7 +13321,7 @@ button.role-context-card:disabled {
 }
 
 @media (max-width: 960px) {
-  .home-row-trusts {
+  .home-row-companies {
     grid-template-columns: 1fr;
   }
   .home-row-two,
@@ -13376,7 +13377,7 @@ button.role-context-card:disabled {
 
   .home-hero,
   .home-row-two,
-  .home-row-trusts,
+  .home-row-companies,
   .home-thesis,
   .home-learn {
     padding: 0 12px;
@@ -13441,7 +13442,7 @@ button.role-context-card:disabled {
     padding: 10px;
   }
 
-  .home-context-role-card.trust-role-option-card,
+  .home-context-role-card.company-role-option-card,
   .home-context-role-empty {
     padding: 12px;
   }
@@ -13455,8 +13456,8 @@ button.role-context-card:disabled {
   }
 }
 
-/* ── TRUST role map — `/trust`.
-   TRUST identities are nodes; roles are the connecting edges. ── */
+/* ── COMPANY role map — `/company`.
+   COMPANY identities are nodes; roles are the connecting edges. ── */
 .sr-only {
   position: absolute;
   width: 1px;
@@ -13469,7 +13470,7 @@ button.role-context-card:disabled {
   border: 0;
 }
 
-.trust-context-page {
+.company-context-page {
   flex: 1;
   height: 100%;
   min-height: 0;
@@ -13480,7 +13481,7 @@ button.role-context-card:disabled {
   padding: 0;
 }
 
-.trust-context-active {
+.company-context-active {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -13489,19 +13490,19 @@ button.role-context-card:disabled {
   color: var(--color-text-secondary);
 }
 
-.trust-context-active-avatar {
+.company-context-active-avatar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 
-.trust-context-active-copy,
-.trust-context-inspector-head {
+.company-context-active-copy,
+.company-context-inspector-head {
   min-width: 0;
 }
 
-.trust-context-kicker {
+.company-context-kicker {
   margin: 0 0 4px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -13513,8 +13514,8 @@ button.role-context-card:disabled {
   color: var(--color-text-secondary);
 }
 
-.trust-context-section-title,
-.trust-context-inspector-head h2 {
+.company-context-section-title,
+.company-context-inspector-head h2 {
   margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -13527,8 +13528,8 @@ button.role-context-card:disabled {
   color: var(--color-text-primary);
 }
 
-.trust-context-active-title,
-.trust-context-inspector-head > span {
+.company-context-active-title,
+.company-context-inspector-head > span {
   display: block;
   min-width: 0;
   margin: 0;
@@ -13540,12 +13541,12 @@ button.role-context-card:disabled {
   color: var(--color-text-secondary);
 }
 
-.trust-context-map-node:focus-visible {
+.company-context-map-node:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--color-accent);
 }
 
-.trust-context-overview {
+.company-context-overview {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--space-4);
@@ -13556,11 +13557,11 @@ button.role-context-card:disabled {
   box-shadow: inset 0 0 0 1px var(--color-border-faint);
 }
 
-.trust-context-overview-copy {
+.company-context-overview-copy {
   min-width: 0;
 }
 
-.trust-context-overview-kicker {
+.company-context-overview-kicker {
   display: block;
   margin-bottom: 4px;
   font-size: var(--font-size-xs);
@@ -13569,7 +13570,7 @@ button.role-context-card:disabled {
   color: var(--color-text-secondary);
 }
 
-.trust-context-overview-title {
+.company-context-overview-title {
   margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -13581,7 +13582,7 @@ button.role-context-card:disabled {
   color: var(--color-text-primary);
 }
 
-.trust-context-overview-copy p {
+.company-context-overview-copy p {
   margin: 6px 0 0;
   max-width: 760px;
   font-size: var(--font-size-sm);
@@ -13589,14 +13590,14 @@ button.role-context-card:disabled {
   color: var(--color-text-secondary);
 }
 
-.trust-context-overview-chips {
+.company-context-overview-chips {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
   margin-top: var(--space-3);
 }
 
-.trust-context-overview-chips span {
+.company-context-overview-chips span {
   display: inline-flex;
   align-items: center;
   min-height: 24px;
@@ -13608,7 +13609,7 @@ button.role-context-card:disabled {
   font-weight: 600;
 }
 
-.trust-context-overview-stats {
+.company-context-overview-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(74px, auto));
   gap: 1px;
@@ -13619,18 +13620,18 @@ button.role-context-card:disabled {
   background: var(--color-border-faint);
 }
 
-.trust-context-overview-stats > div {
+.company-context-overview-stats > div {
   min-width: 0;
   padding: 9px 11px;
   background: var(--color-card-elevated);
 }
 
-.trust-context-overview-stats dt,
-.trust-context-overview-stats dd {
+.company-context-overview-stats dt,
+.company-context-overview-stats dd {
   margin: 0;
 }
 
-.trust-context-overview-stats dt {
+.company-context-overview-stats dt {
   margin-bottom: 3px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -13639,7 +13640,7 @@ button.role-context-card:disabled {
   color: var(--color-text-secondary);
 }
 
-.trust-context-overview-stats dd {
+.company-context-overview-stats dd {
   font-family: var(--font-mono);
   font-size: var(--font-size-lg);
   font-weight: 650;
@@ -13648,7 +13649,7 @@ button.role-context-card:disabled {
   font-variant-numeric: tabular-nums;
 }
 
-.trust-context-workbench {
+.company-context-workbench {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(288px, 328px);
   gap: var(--space-3);
@@ -13658,7 +13659,7 @@ button.role-context-card:disabled {
   overflow: hidden;
 }
 
-.trust-context-canvas {
+.company-context-canvas {
   min-width: 0;
   min-height: 0;
   border-radius: var(--radius-lg);
@@ -13666,13 +13667,13 @@ button.role-context-card:disabled {
   box-shadow: inset 0 0 0 1px var(--color-border-faint);
 }
 
-.trust-context-canvas {
+.company-context-canvas {
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
-.trust-context-canvas-top {
+.company-context-canvas-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -13682,11 +13683,11 @@ button.role-context-card:disabled {
   border-bottom: 1px solid var(--color-border-faint);
 }
 
-.trust-context-canvas-heading {
+.company-context-canvas-heading {
   min-width: 0;
 }
 
-.trust-context-canvas-kicker {
+.company-context-canvas-kicker {
   display: block;
   margin-bottom: 2px;
   color: var(--color-text-muted);
@@ -13694,7 +13695,7 @@ button.role-context-card:disabled {
   font-weight: 600;
 }
 
-.trust-context-canvas-heading h2 {
+.company-context-canvas-heading h2 {
   margin: 0;
   overflow: hidden;
   color: var(--color-text-primary);
@@ -13705,7 +13706,7 @@ button.role-context-card:disabled {
   white-space: nowrap;
 }
 
-.trust-context-canvas-status {
+.company-context-canvas-status {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
@@ -13715,7 +13716,7 @@ button.role-context-card:disabled {
   white-space: nowrap;
 }
 
-.trust-context-canvas-status span {
+.company-context-canvas-status span {
   display: inline-flex;
   align-items: center;
   min-height: 24px;
@@ -13724,7 +13725,7 @@ button.role-context-card:disabled {
   background: var(--bg-row);
 }
 
-.trust-registry-strip {
+.company-registry-strip {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-2);
@@ -13733,7 +13734,7 @@ button.role-context-card:disabled {
   background: var(--color-card);
 }
 
-.trust-registry-card {
+.company-registry-card {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
@@ -13754,62 +13755,62 @@ button.role-context-card:disabled {
     box-shadow 0.12s ease;
 }
 
-.trust-registry-card:hover,
-.trust-registry-card:focus-visible {
+.company-registry-card:hover,
+.company-registry-card:focus-visible {
   outline: none;
   background: var(--bg-row);
   box-shadow: inset 0 0 0 1px var(--color-border-subtle);
 }
 
-.trust-registry-card.is-active {
+.company-registry-card.is-active {
   box-shadow: inset 0 0 0 1px var(--color-accent);
 }
 
-.trust-registry-avatar {
+.company-registry-avatar {
   flex: 0 0 auto;
 }
 
-.trust-registry-copy {
+.company-registry-copy {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
 }
 
-.trust-registry-name,
-.trust-registry-meta {
+.company-registry-name,
+.company-registry-meta {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.trust-registry-name {
+.company-registry-name {
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
   font-weight: 650;
 }
 
-.trust-registry-meta {
+.company-registry-meta {
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
 }
 
-.trust-registry-card > svg {
+.company-registry-card > svg {
   color: var(--color-text-secondary);
 }
 
-.trust-registry-card .trust-registry-arrow {
+.company-registry-card .company-registry-arrow {
   opacity: 0;
   transition: opacity 0.12s ease;
 }
 
-.trust-registry-card:hover .trust-registry-arrow,
-.trust-registry-card:focus-visible .trust-registry-arrow,
-.trust-registry-card.is-active .trust-registry-arrow {
+.company-registry-card:hover .company-registry-arrow,
+.company-registry-card:focus-visible .company-registry-arrow,
+.company-registry-card.is-active .company-registry-arrow {
   opacity: 1;
 }
 
-.trust-registry-empty {
+.company-registry-empty {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -13819,7 +13820,7 @@ button.role-context-card:disabled {
   font-size: var(--font-size-sm);
 }
 
-.trust-context-card-grid {
+.company-context-card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   align-content: start;
@@ -13831,11 +13832,11 @@ button.role-context-card:disabled {
   background: var(--bg-row);
 }
 
-.trust-context-grid-card.trust-role-option-card {
+.company-context-grid-card.company-role-option-card {
   min-height: 136px;
 }
 
-.trust-context-map-viewport {
+.company-context-map-viewport {
   position: relative;
   width: 100%;
   flex: 1;
@@ -13848,29 +13849,29 @@ button.role-context-card:disabled {
   -webkit-user-select: none;
 }
 
-.trust-context-map-inner {
+.company-context-map-inner {
   position: absolute;
   top: 0;
   left: 0;
   transform-origin: top left;
 }
 
-.trust-context-map-stage {
+.company-context-map-stage {
   position: relative;
-  width: var(--trust-map-width);
-  height: var(--trust-map-height);
+  width: var(--company-map-width);
+  height: var(--company-map-height);
   flex-shrink: 0;
 }
 
-.trust-context-map-edges {
+.company-context-map-edges {
   position: absolute;
   inset: 0;
-  width: var(--trust-map-width);
-  height: var(--trust-map-height);
+  width: var(--company-map-width);
+  height: var(--company-map-height);
   pointer-events: none;
 }
 
-.trust-context-map-edge {
+.company-context-map-edge {
   fill: none;
   stroke: var(--color-text-muted);
   stroke-width: 1.25;
@@ -13883,27 +13884,27 @@ button.role-context-card:disabled {
     stroke-width 0.12s ease;
 }
 
-.trust-context-map-edge--role {
+.company-context-map-edge--role {
   stroke-dasharray: none;
   opacity: 0.66;
 }
 
-.trust-context-map-edge--identity {
+.company-context-map-edge--identity {
   opacity: 0.24;
 }
 
-.trust-context-map-edge.is-active {
+.company-context-map-edge.is-active {
   stroke: var(--color-warmth);
   stroke-width: 2;
   opacity: 1;
 }
 
-.trust-context-edge-fo {
+.company-context-edge-fo {
   overflow: visible;
   pointer-events: all;
 }
 
-.trust-context-edge-pill {
+.company-context-edge-pill {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -13926,20 +13927,20 @@ button.role-context-card:disabled {
     transform 0.12s ease;
 }
 
-.trust-context-edge-pill:hover,
-.trust-context-edge-pill:focus-visible,
-.trust-context-edge-pill.is-active {
+.company-context-edge-pill:hover,
+.company-context-edge-pill:focus-visible,
+.company-context-edge-pill.is-active {
   outline: none;
   background: var(--color-warmth-bg);
   box-shadow: inset 0 0 0 1px var(--color-warmth);
   color: var(--color-warmth);
 }
 
-.trust-context-edge-pill:hover {
+.company-context-edge-pill:hover {
   transform: translateY(-1px);
 }
 
-.trust-context-map-controls {
+.company-context-map-controls {
   position: absolute;
   right: 12px;
   bottom: 12px;
@@ -13949,7 +13950,7 @@ button.role-context-card:disabled {
   gap: 4px;
 }
 
-.trust-context-map-node {
+.company-context-map-node {
   position: absolute;
   display: flex;
   flex-direction: column;
@@ -13970,66 +13971,66 @@ button.role-context-card:disabled {
     opacity 0.12s ease;
 }
 
-.trust-context-map-node:hover {
+.company-context-map-node:hover {
   transform: translateY(-1px);
   border-color: var(--color-text-secondary);
 }
 
-.trust-context-map-node--role-options {
+.company-context-map-node--role-options {
   padding: 0;
   border: 0;
   background: transparent;
 }
 
-.trust-context-map-node--role-options:hover {
+.company-context-map-node--role-options:hover {
   border-color: transparent;
 }
 
-.trust-context-map-node.is-active-path {
+.company-context-map-node.is-active-path {
   border-color: var(--color-accent);
   box-shadow:
     0 0 0 1px var(--color-accent),
     0 0 14px color-mix(in srgb, var(--color-accent) 16%, transparent);
 }
 
-.trust-context-map-node.is-selected {
+.company-context-map-node.is-selected {
   background: var(--color-card-elevated);
   border-color: var(--color-accent);
   color: var(--color-text-primary);
 }
 
-.trust-context-map-node--role-options.is-selected,
-.trust-context-map-node--role-options.is-active-path {
+.company-context-map-node--role-options.is-selected,
+.company-context-map-node--role-options.is-active-path {
   background: transparent;
   border-color: transparent;
   box-shadow: none;
 }
 
-.trust-context-map-node--self {
+.company-context-map-node--self {
   background: var(--color-card-muted);
   cursor: pointer;
 }
 
-.trust-context-map-node-kicker {
+.company-context-map-node-kicker {
   font-size: var(--font-size-xs);
   font-weight: 700;
   text-transform: uppercase;
   color: var(--color-text-secondary);
 }
 
-.trust-context-role-avatar {
+.company-context-role-avatar {
   display: inline-flex;
   flex-shrink: 0;
 }
 
-.trust-context-map-node-head {
+.company-context-map-node-head {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
 }
 
-.trust-context-map-node-head-button {
+.company-context-map-node-head-button {
   width: 100%;
   padding: 0;
   border: 0;
@@ -14040,18 +14041,18 @@ button.role-context-card:disabled {
   cursor: pointer;
 }
 
-.trust-context-map-role-stack {
+.company-context-map-role-stack {
   display: flex;
   flex-direction: column;
   gap: 8px;
   min-width: 0;
 }
 
-.trust-context-map-role-card.trust-role-option-card {
+.company-context-map-role-card.company-role-option-card {
   width: 100%;
 }
 
-.trust-context-map-role-more {
+.company-context-map-role-more {
   display: inline-flex;
   align-self: flex-start;
   padding: 4px 8px;
@@ -14062,42 +14063,42 @@ button.role-context-card:disabled {
   color: var(--color-text-secondary);
 }
 
-.trust-context-map-node-copy {
+.company-context-map-node-copy {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
 }
 
-.trust-context-map-node-title,
-.trust-context-map-node-meta {
+.company-context-map-node-title,
+.company-context-map-node-meta {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.trust-context-map-node-title {
+.company-context-map-node-title {
   font-size: var(--font-size-sm);
   font-weight: 650;
   line-height: 1.2;
 }
 
-.trust-context-map-node-meta {
+.company-context-map-node-meta {
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
 }
 
-.trust-context-map-node.is-selected .trust-context-map-node-meta,
-.trust-context-map-node.is-selected .trust-context-map-node-kicker {
+.company-context-map-node.is-selected .company-context-map-node-meta,
+.company-context-map-node.is-selected .company-context-map-node-kicker {
   color: var(--color-text-secondary);
 }
 
-.trust-context-inspector {
+.company-context-inspector {
   min-width: 0;
   min-height: 0;
 }
 
-.trust-context-route-steps {
+.company-context-route-steps {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -14106,7 +14107,7 @@ button.role-context-card:disabled {
   list-style: none;
 }
 
-.trust-context-route-steps li {
+.company-context-route-steps li {
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -14115,7 +14116,7 @@ button.role-context-card:disabled {
   background: var(--bg-row);
 }
 
-.trust-context-route-steps span {
+.company-context-route-steps span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -14124,12 +14125,12 @@ button.role-context-card:disabled {
   color: var(--color-text-primary);
 }
 
-.trust-context-route-steps small {
+.company-context-route-steps small {
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
 }
 
-.trust-context-grants span {
+.company-context-grants span {
   display: inline-flex;
   align-items: center;
   min-height: 26px;
@@ -14141,7 +14142,7 @@ button.role-context-card:disabled {
   color: var(--color-text-secondary);
 }
 
-.trust-context-inspector-copy {
+.company-context-inspector-copy {
   display: block;
   min-width: 0;
   margin: 0;
@@ -14153,7 +14154,7 @@ button.role-context-card:disabled {
   color: var(--color-text-secondary);
 }
 
-.trust-context-empty {
+.company-context-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -14165,79 +14166,79 @@ button.role-context-card:disabled {
   text-align: center;
 }
 
-.trust-context-empty strong {
+.company-context-empty strong {
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
 }
 
-.trust-context-empty span {
+.company-context-empty span {
   max-width: 360px;
   font-size: var(--font-size-sm);
   line-height: 1.45;
 }
 
-.trust-context-empty--inspector {
+.company-context-empty--inspector {
   flex: 1;
   min-height: 0;
 }
 
 @media (max-width: 1120px) {
-  .trust-context-workbench {
+  .company-context-workbench {
     grid-template-columns: 1fr;
   }
 
-  .trust-context-overview {
+  .company-context-overview {
     grid-template-columns: 1fr;
   }
 
-  .trust-registry-strip {
+  .company-registry-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 760px) {
-  .trust-context-page {
+  .company-context-page {
     height: auto;
     gap: var(--space-3);
     overflow-y: auto;
   }
 
-  .trust-context-section-title,
-  .trust-context-inspector-head h2 {
+  .company-context-section-title,
+  .company-context-inspector-head h2 {
     font-size: 24px;
     white-space: normal;
   }
 
-  .trust-context-overview,
-  .trust-context-workbench {
+  .company-context-overview,
+  .company-context-workbench {
     margin-right: 0;
     margin-left: 0;
   }
 
-  .trust-context-canvas,
-  .trust-context-inspector {
+  .company-context-canvas,
+  .company-context-inspector {
     min-height: auto;
   }
 
-  .trust-context-canvas {
+  .company-context-canvas {
     min-height: 560px;
   }
 
-  .trust-context-map-viewport {
+  .company-context-map-viewport {
     min-height: 560px;
   }
 
-  .trust-context-canvas-top {
+  .company-context-canvas-top {
     align-items: flex-start;
     flex-direction: column;
   }
 
-  .trust-context-canvas-status {
+  .company-context-canvas-status {
     flex-wrap: wrap;
     white-space: normal;
   }
 
-  .trust-registry-strip {
+  .company-registry-strip {
     grid-template-columns: 1fr;
   }
 }

@@ -32,13 +32,13 @@ function questFixture(
   };
 }
 
-function renderQuests(initialEntry = "/trust/root-1/quests") {
+function renderQuests(initialEntry = "/company/root-1/quests") {
   render(
     <StrictMode>
       <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
           <Route
-            path="trust/:trustAddress/:tab/*"
+            path="company/:companyAddress/:tab/*"
             element={
               <>
                 <AgentQuestsTab agentId="root-1" />
@@ -65,7 +65,7 @@ describe("quest toolbar", () => {
           name: "Root",
           model: "opus",
           status: "active",
-          trust_id: "root-1",
+          company_id: "root-1",
         },
       ] as never,
       quests: [],
@@ -112,20 +112,20 @@ describe("quest toolbar", () => {
     useDaemonStore.setState({
       quests: [
         questFixture("67-self", "Role quest", "todo", "self"),
-        questFixture("67-global", "TRUST quest", "todo", "global", undefined),
+        questFixture("67-global", "COMPANY quest", "todo", "global", undefined),
       ] as never,
     });
 
-    renderQuests("/trust/root-1/quests?view=list");
+    renderQuests("/company/root-1/quests?view=list");
 
     fireEvent.click(screen.getByTitle("Filter"));
-    fireEvent.click(screen.getByRole("radio", { name: /TRUST/ }));
+    fireEvent.click(screen.getByRole("radio", { name: /COMPANY/ }));
 
     await waitFor(() => {
       expect(screen.getByTestId("location-search")).toHaveTextContent("visibility=global");
     });
     expect(screen.queryByText("Role quest")).not.toBeInTheDocument();
-    expect(screen.getByText("TRUST quest")).toBeInTheDocument();
+    expect(screen.getByText("COMPANY quest")).toBeInTheDocument();
   });
 
   it("keeps completed quests collapsed until requested", async () => {

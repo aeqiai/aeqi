@@ -8,7 +8,7 @@ import "@/styles/blueprints-store.css";
 
 interface ImportMenuProps {
   /** Host entity that the blueprint spawn lands in. */
-  trustId: string;
+  companyId: string;
   /**
    * Which seed parts the "From a blueprint" path materializes. Pass
    * `["ideas"]` from the Ideas tab, `["quests"]` from the Quests tab.
@@ -40,7 +40,7 @@ interface ImportMenuProps {
  * The dropdown caret is the only visual deviation from a plain secondary button.
  */
 export function ImportMenu({
-  trustId,
+  companyId,
   parts,
   blueprintTitle,
   accept = ".md,.markdown",
@@ -105,7 +105,7 @@ export function ImportMenu({
       <BlueprintPickerModal
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
-        trustId={trustId}
+        companyId={companyId}
         parts={parts}
         title={blueprintTitle}
         onSpawned={onBlueprintSpawned}

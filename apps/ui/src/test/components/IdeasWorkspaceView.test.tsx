@@ -11,7 +11,7 @@ import type { FilterState, IdeasFilter } from "@/components/ideas/types";
 vi.mock("@/hooks/useNav", () => ({
   useNav: () => ({
     goEntity: vi.fn(),
-    trustId: "trust-1",
+    companyId: "company-1",
   }),
 }));
 
@@ -68,10 +68,10 @@ const rootIdea: Idea = {
   id: "idea-root",
   name: "Eich Holding",
   content: "",
-  tags: ["trust"],
+  tags: ["company"],
   scope: "global",
   parent_idea_id: null,
-  properties: { aeqi_trust_root: true },
+  properties: { aeqi_company_root: true },
 };
 
 const childIdea: Idea = {

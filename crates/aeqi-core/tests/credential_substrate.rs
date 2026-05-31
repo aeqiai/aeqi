@@ -407,12 +407,12 @@ async fn test_09_oauth2_resolve_returns_bearer_header() {
 }
 
 #[tokio::test]
-async fn test_09a_agent_hint_resolves_trust_credential_when_agent_missing() {
+async fn test_09a_agent_hint_resolves_company_credential_when_agent_missing() {
     let env = env();
     insert_oauth_row_scoped(
         &env,
-        ScopeKind::Trust,
-        "trust-a",
+        ScopeKind::Company,
+        "company-a",
         "https://example/token",
         None,
     )
@@ -420,23 +420,23 @@ async fn test_09a_agent_hint_resolves_trust_credential_when_agent_missing() {
     let resolver = CredentialResolver::new(env.store.clone(), default_lifecycles());
     let need = CredentialNeed::new("google", "oauth_token", ScopeHint::Agent);
     let scope = ResolutionScope {
-        trust_id: Some("trust-a".into()),
+        company_id: Some("company-a".into()),
         agent_id: Some("agent-a".into()),
         ..Default::default()
     };
 
     let usable = resolver.resolve(&need, &scope).await.unwrap().unwrap();
 
-    assert_eq!(usable.bearer.as_deref(), Some("old-access-trust-a"));
+    assert_eq!(usable.bearer.as_deref(), Some("old-access-company-a"));
 }
 
 #[tokio::test]
-async fn test_09b_agent_hint_prefers_agent_over_trust() {
+async fn test_09b_agent_hint_prefers_agent_over_company() {
     let env = env();
     insert_oauth_row_scoped(
         &env,
-        ScopeKind::Trust,
-        "trust-a",
+        ScopeKind::Company,
+        "company-a",
         "https://example/token",
         None,
     )
@@ -452,7 +452,7 @@ async fn test_09b_agent_hint_prefers_agent_over_trust() {
     let resolver = CredentialResolver::new(env.store.clone(), default_lifecycles());
     let need = CredentialNeed::new("google", "oauth_token", ScopeHint::Agent);
     let scope = ResolutionScope {
-        trust_id: Some("trust-a".into()),
+        company_id: Some("company-a".into()),
         agent_id: Some("agent-a".into()),
         ..Default::default()
     };
@@ -463,14 +463,14 @@ async fn test_09b_agent_hint_prefers_agent_over_trust() {
 }
 
 #[tokio::test]
-async fn test_09c_trust_hint_falls_back_to_global() {
+async fn test_09c_company_hint_falls_back_to_global() {
     let env = env();
     insert_oauth_row(&env, "https://example/token", None).await;
     let resolver = CredentialResolver::new(env.store.clone(), default_lifecycles());
-    let need = CredentialNeed::new("google", "oauth_token", ScopeHint::Trust);
+    let need = CredentialNeed::new("google", "oauth_token", ScopeHint::Company);
 
     let usable = resolver
-        .resolve(&need, &ResolutionScope::for_trust("trust-a"))
+        .resolve(&need, &ResolutionScope::for_company("company-a"))
         .await
         .unwrap()
         .unwrap();

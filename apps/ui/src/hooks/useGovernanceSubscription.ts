@@ -5,21 +5,21 @@
  * explicit writes (via `useQuorumInvalidator`) or after the 30s
  * `staleTime` elapses on the React Query caches behind `useQuorum`.
  * When a sibling agent / RPC writer / async worker opens a proposal or
- * casts a vote against the same TRUST, the operator sees nothing until
+ * casts a vote against the same COMPANY, the operator sees nothing until
  * they refresh — that breaks the "watch the room" expectation a
  * governance surface implies.
  *
  * This hook closes the gap with a thin `onProgramAccountChange`
  * subscription on `aeqi_governance`, filtered with the same memcmp
- * pattern the read helpers use (trust pubkey at offset 8). On every
+ * pattern the read helpers use (company pubkey at offset 8). On every
  * change event we invalidate the proposal + vote-record + config caches
- * for this TRUST. React Query handles the actual refetch + diff, so the
+ * for this COMPANY. React Query handles the actual refetch + diff, so the
  * UI updates in one render cycle once the new account state lands.
  *
  * Cheap by construction:
  *   - ONE WS subscription per page mount (not per primitive). The
  *     governance program owns proposals, vote_records, and
- *     governance_configs; one filter scopes all three to this TRUST.
+ *     governance_configs; one filter scopes all three to this COMPANY.
  *   - The subscription IS the diff — we don't poll. The cluster pushes
  *     account-change notifications, we react.
  *   - On unmount we tear down the subscription so navigating away from
@@ -39,27 +39,27 @@ import { AEQI_GOVERNANCE_PROGRAM_ID } from "@/solana/pdas";
 
 /**
  * Subscribe to every governance-program account change scoped to one
- * TRUST and invalidate the matching React Query caches. The hook is a
- * no-op when `trustAddress` is null/empty so the pre-bridge state stays
+ * COMPANY and invalidate the matching React Query caches. The hook is a
+ * no-op when `companyAddress` is null/empty so the pre-bridge state stays
  * inert.
  *
- * The single memcmp filter (TRUST pubkey @ offset 8) matches the layout
+ * The single memcmp filter (COMPANY pubkey @ offset 8) matches the layout
  * of `Proposal`, `VoteRecord`, and `GovernanceConfig` — every account
- * type the surface reads carries `trust: pubkey` as its first non-
+ * type the surface reads carries `company: pubkey` as its first non-
  * discriminator field. One subscription, three caches refreshed.
  */
-export function useGovernanceSubscription(trustAddress: string | null | undefined): void {
+export function useGovernanceSubscription(companyAddress: string | null | undefined): void {
   const qc = useQueryClient();
 
   useEffect(() => {
-    if (!trustAddress || !isDirectSolanaRpcEnabled()) return;
+    if (!companyAddress || !isDirectSolanaRpcEnabled()) return;
 
     const conn = getConnection();
     let trustPda: PublicKey;
     try {
-      trustPda = new PublicKey(trustAddress);
+      trustPda = new PublicKey(companyAddress);
     } catch {
-      // Hand-crafted bookmark with a garbage trust address — silently
+      // Hand-crafted bookmark with a garbage company address — silently
       // skip the subscription instead of throwing inside an effect.
       return;
     }
@@ -68,14 +68,14 @@ export function useGovernanceSubscription(trustAddress: string | null | undefine
       // Fire all three invalidations in one tick. React Query coalesces
       // back-to-back invalidations on the same key so this stays a
       // single refetch per cache when a single account change arrives.
-      void qc.invalidateQueries({ queryKey: ["quorum", "proposals", trustAddress] });
-      void qc.invalidateQueries({ queryKey: ["quorum", "configs", trustAddress] });
-      void qc.invalidateQueries({ queryKey: ["quorum", "allVoteRecords", trustAddress] });
+      void qc.invalidateQueries({ queryKey: ["quorum", "proposals", companyAddress] });
+      void qc.invalidateQueries({ queryKey: ["quorum", "configs", companyAddress] });
+      void qc.invalidateQueries({ queryKey: ["quorum", "allVoteRecords", companyAddress] });
       // The single-proposal vote-record query is keyed by proposalId
       // hex which we don't know without decoding the account that just
       // changed. Invalidating the broader prefix triggers the right
       // refetch when the detail modal is open.
-      void qc.invalidateQueries({ queryKey: ["quorum", "voteRecords", trustAddress] });
+      void qc.invalidateQueries({ queryKey: ["quorum", "voteRecords", companyAddress] });
     };
 
     let subId: number | null = null;
@@ -84,7 +84,7 @@ export function useGovernanceSubscription(trustAddress: string | null | undefine
     try {
       // memcmp on offset 8 (right after the 8-byte Anchor discriminator)
       // matches every Proposal / VoteRecord / GovernanceConfig that
-      // carries this trust as its first field. The filter shape mirrors
+      // carries this company as its first field. The filter shape mirrors
       // `readProposals` / `readVoteRecords` / `readGovernanceConfigs` so
       // we cover the same account set.
       subId = conn.onProgramAccountChange(
@@ -124,5 +124,5 @@ export function useGovernanceSubscription(trustAddress: string | null | undefine
         void conn.removeProgramAccountChangeListener(subId);
       }
     };
-  }, [trustAddress, qc]);
+  }, [companyAddress, qc]);
 }

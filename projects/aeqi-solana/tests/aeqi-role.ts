@@ -1,34 +1,34 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { AeqiRole } from "../target/types/aeqi_role";
-import { AeqiTrust } from "../target/types/aeqi_trust";
+import { AeqiCompany } from "../target/types/aeqi_company";
 import { PublicKey, Keypair } from "@solana/web3.js";
 import { expect } from "chai";
-import { createTrust, expectTxFail, fundKeypair } from "./support";
+import { createCompany, expectTxFail, fundKeypair } from "./support";
 
 describe("aeqi_role", () => {
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
 
   const program = anchor.workspace.aeqiRole as Program<AeqiRole>;
-  const trustProgram = anchor.workspace.aeqiTrust as Program<AeqiTrust>;
+  const trustProgram = anchor.workspace.aeqiCompany as Program<AeqiCompany>;
 
-  let fakeTrust: PublicKey;
+  let fakeCompany: PublicKey;
 
   before(async () => {
-    fakeTrust = await createTrust(provider, trustProgram, "aeqi-role-main");
+    fakeCompany = await createCompany(provider, trustProgram, "aeqi-role-main");
   });
 
   it("init creates the role module state", async () => {
     const [moduleStatePda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("role_module"), fakeTrust.toBuffer()],
+      [Buffer.from("role_module"), fakeCompany.toBuffer()],
       program.programId,
     );
 
     await program.methods
       .init()
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         moduleState: moduleStatePda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -36,18 +36,18 @@ describe("aeqi_role", () => {
       .rpc();
 
     const m = await program.account.roleModuleState.fetch(moduleStatePda);
-    expect(m.trust.toBase58()).to.eq(fakeTrust.toBase58());
+    expect(m.company.toBase58()).to.eq(fakeCompany.toBase58());
     expect(m.initialized).to.eq(true);
   });
 
-  it("init rejects a payer that is not the trust authority", async () => {
-    const trust = await createTrust(
+  it("init rejects a payer that is not the company authority", async () => {
+    const company = await createCompany(
       provider,
       trustProgram,
       "aeqi-role-unauthorized-init",
     );
     const [moduleStatePda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("role_module"), trust.toBuffer()],
+      [Buffer.from("role_module"), company.toBuffer()],
       program.programId,
     );
     const payer = await fundKeypair(provider);
@@ -57,7 +57,7 @@ describe("aeqi_role", () => {
         program.methods
           .init()
           .accountsPartial({
-            trust,
+            company,
             moduleState: moduleStatePda,
             payer: payer.publicKey,
             systemProgram: anchor.web3.SystemProgram.programId,
@@ -76,7 +76,7 @@ describe("aeqi_role", () => {
     directorId[2] = 0x52; // 'R'
 
     const [rtPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("role_type"), fakeTrust.toBuffer(), Buffer.from(directorId)],
+      [Buffer.from("role_type"), fakeCompany.toBuffer(), Buffer.from(directorId)],
       program.programId,
     );
 
@@ -94,7 +94,7 @@ describe("aeqi_role", () => {
         contribution: false,
       })
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         roleType: rtPda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -124,13 +124,13 @@ describe("aeqi_role", () => {
     const [rtPda] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("role_type"),
-        fakeTrust.toBuffer(),
+        fakeCompany.toBuffer(),
         Buffer.from(directorTypeId),
       ],
       program.programId,
     );
     const [rolePda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("role"), fakeTrust.toBuffer(), Buffer.from(roleId)],
+      [Buffer.from("role"), fakeCompany.toBuffer(), Buffer.from(roleId)],
       program.programId,
     );
 
@@ -144,7 +144,7 @@ describe("aeqi_role", () => {
         Array.from(ipfsCid),
       )
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         roleType: rtPda,
         role: rolePda,
         callerRole: null, // first root role bootstrap
@@ -185,13 +185,13 @@ describe("aeqi_role", () => {
     const [rtPda] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("role_type"),
-        fakeTrust.toBuffer(),
+        fakeCompany.toBuffer(),
         Buffer.from(directorTypeId),
       ],
       program.programId,
     );
     const [childRolePda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("role"), fakeTrust.toBuffer(), Buffer.from(childRoleId)],
+      [Buffer.from("role"), fakeCompany.toBuffer(), Buffer.from(childRoleId)],
       program.programId,
     );
 
@@ -205,7 +205,7 @@ describe("aeqi_role", () => {
           Array.from(new Uint8Array(64)),
         )
         .accountsPartial({
-          trust: fakeTrust,
+          company: fakeCompany,
           roleType: rtPda,
           role: childRolePda,
           callerRole: null,
@@ -234,13 +234,13 @@ describe("aeqi_role", () => {
     const [rtPda] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("role_type"),
-        fakeTrust.toBuffer(),
+        fakeCompany.toBuffer(),
         Buffer.from(directorTypeId),
       ],
       program.programId,
     );
     const [rolePda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("role"), fakeTrust.toBuffer(), Buffer.from(roleId)],
+      [Buffer.from("role"), fakeCompany.toBuffer(), Buffer.from(roleId)],
       program.programId,
     );
 
@@ -248,7 +248,7 @@ describe("aeqi_role", () => {
     const [checkpointPda] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("role_ckpt"),
-        fakeTrust.toBuffer(),
+        fakeCompany.toBuffer(),
         Buffer.from(directorTypeId),
         occupant.toBuffer(),
       ],
@@ -260,7 +260,7 @@ describe("aeqi_role", () => {
       .accountsPartial({
         role: rolePda,
         roleType: rtPda,
-        trust: fakeTrust,
+        company: fakeCompany,
         callerRole: null,
         checkpoint: checkpointPda,
         payer: provider.wallet.publicKey,
@@ -278,7 +278,7 @@ describe("aeqi_role", () => {
   });
 
   it("assign_role rejects child assignment without an authorized caller role", async () => {
-    const trustA = await createTrust(
+    const trustA = await createCompany(
       provider,
       trustProgram,
       "aeqi-role-assign-child",
@@ -290,7 +290,7 @@ describe("aeqi_role", () => {
     await program.methods
       .init()
       .accountsPartial({
-        trust: trustA,
+        company: trustA,
         moduleState: moduleStatePda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -329,7 +329,7 @@ describe("aeqi_role", () => {
         contribution: false,
       })
       .accountsPartial({
-        trust: trustA,
+        company: trustA,
         roleType: rtPda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -354,7 +354,7 @@ describe("aeqi_role", () => {
         Array.from(new Uint8Array(64)),
       )
       .accountsPartial({
-        trust: trustA,
+        company: trustA,
         roleType: rtPda,
         role: parentRolePda,
         callerRole: null,
@@ -378,7 +378,7 @@ describe("aeqi_role", () => {
       .accountsPartial({
         role: parentRolePda,
         roleType: rtPda,
-        trust: trustA,
+        company: trustA,
         callerRole: null,
         checkpoint: parentCheckpointPda,
         payer: provider.wallet.publicKey,
@@ -395,7 +395,7 @@ describe("aeqi_role", () => {
         Array.from(new Uint8Array(64)),
       )
       .accountsPartial({
-        trust: trustA,
+        company: trustA,
         roleType: rtPda,
         role: childRolePda,
         callerRole: parentRolePda,
@@ -422,7 +422,7 @@ describe("aeqi_role", () => {
         .accountsPartial({
           role: childRolePda,
           roleType: rtPda,
-          trust: trustA,
+          company: trustA,
           callerRole: null,
           checkpoint: checkpointPda,
           payer: provider.wallet.publicKey,
@@ -440,7 +440,7 @@ describe("aeqi_role", () => {
       .accountsPartial({
         role: childRolePda,
         roleType: rtPda,
-        trust: trustA,
+        company: trustA,
         callerRole: parentRolePda,
         checkpoint: checkpointPda,
         payer: provider.wallet.publicKey,
@@ -457,7 +457,7 @@ describe("aeqi_role", () => {
   });
 
   it("resign_role transitions Occupied → Resigned + decrements checkpoint", async () => {
-    const trustR = await createTrust(
+    const trustR = await createCompany(
       provider,
       trustProgram,
       "aeqi-role-resign",
@@ -470,7 +470,7 @@ describe("aeqi_role", () => {
     await program.methods
       .init()
       .accountsPartial({
-        trust: trustR,
+        company: trustR,
         moduleState: moduleStatePda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -496,7 +496,7 @@ describe("aeqi_role", () => {
         contribution: false,
       })
       .accountsPartial({
-        trust: trustR,
+        company: trustR,
         roleType: rtPda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -518,7 +518,7 @@ describe("aeqi_role", () => {
         Array.from(new Uint8Array(64)),
       )
       .accountsPartial({
-        trust: trustR,
+        company: trustR,
         roleType: rtPda,
         role: rolePda,
         callerRole: null,
@@ -542,7 +542,7 @@ describe("aeqi_role", () => {
       .accountsPartial({
         role: rolePda,
         roleType: rtPda,
-        trust: trustR,
+        company: trustR,
         callerRole: null,
         checkpoint: aCkpt,
         payer: provider.wallet.publicKey,
@@ -558,7 +558,7 @@ describe("aeqi_role", () => {
       .accountsPartial({
         role: rolePda,
         roleType: rtPda,
-        trust: trustR,
+        company: trustR,
         checkpoint: aCkpt,
         payer: provider.wallet.publicKey,
       })
@@ -573,7 +573,7 @@ describe("aeqi_role", () => {
   });
 
   it("transfer_role hands off the role + moves the vote checkpoint", async () => {
-    const trustT = await createTrust(
+    const trustT = await createCompany(
       provider,
       trustProgram,
       "aeqi-role-transfer",
@@ -587,7 +587,7 @@ describe("aeqi_role", () => {
     await program.methods
       .init()
       .accountsPartial({
-        trust: trustT,
+        company: trustT,
         moduleState: moduleStatePda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -614,7 +614,7 @@ describe("aeqi_role", () => {
         contribution: false,
       })
       .accountsPartial({
-        trust: trustT,
+        company: trustT,
         roleType: rtPda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -637,7 +637,7 @@ describe("aeqi_role", () => {
         Array.from(new Uint8Array(64)),
       )
       .accountsPartial({
-        trust: trustT,
+        company: trustT,
         roleType: rtPda,
         role: rolePda,
         callerRole: null,
@@ -662,7 +662,7 @@ describe("aeqi_role", () => {
       .accountsPartial({
         role: rolePda,
         roleType: rtPda,
-        trust: trustT,
+        company: trustT,
         callerRole: null,
         checkpoint: aCkpt,
         payer: provider.wallet.publicKey,
@@ -691,7 +691,7 @@ describe("aeqi_role", () => {
       .accountsPartial({
         role: rolePda,
         roleType: rtPda,
-        trust: trustT,
+        company: trustT,
         prevCheckpoint: aCkpt,
         newCheckpoint: bCkpt,
         newAccount: userB,
@@ -713,8 +713,8 @@ describe("aeqi_role", () => {
   });
 
   it("delegate_role transfers vote-power from self to a delegatee", async () => {
-    // Fresh trust so PDAs don't collide with previous tests
-    const trustD = await createTrust(
+    // Fresh company so PDAs don't collide with previous tests
+    const trustD = await createCompany(
       provider,
       trustProgram,
       "aeqi-role-delegate",
@@ -727,7 +727,7 @@ describe("aeqi_role", () => {
     await program.methods
       .init()
       .accountsPartial({
-        trust: trustD,
+        company: trustD,
         moduleState: moduleStatePda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -757,7 +757,7 @@ describe("aeqi_role", () => {
         contribution: false,
       })
       .accountsPartial({
-        trust: trustD,
+        company: trustD,
         roleType: rtPda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -779,7 +779,7 @@ describe("aeqi_role", () => {
         Array.from(new Uint8Array(64)),
       )
       .accountsPartial({
-        trust: trustD,
+        company: trustD,
         roleType: rtPda,
         role: rolePda,
         callerRole: null,
@@ -804,7 +804,7 @@ describe("aeqi_role", () => {
       .accountsPartial({
         role: rolePda,
         roleType: rtPda,
-        trust: trustD,
+        company: trustD,
         callerRole: null,
         checkpoint: aCkptPda,
         payer: provider.wallet.publicKey,
@@ -877,8 +877,8 @@ describe("aeqi_role", () => {
   });
 
   it("authority walk authorizes ancestor over deep descendant", async () => {
-    // Use a fresh trust so PDAs don't collide with previous tests.
-    const trust2 = await createTrust(
+    // Use a fresh company so PDAs don't collide with previous tests.
+    const trust2 = await createCompany(
       provider,
       trustProgram,
       "aeqi-role-authority-walk",
@@ -892,7 +892,7 @@ describe("aeqi_role", () => {
     await program.methods
       .init()
       .accountsPartial({
-        trust: trust2,
+        company: trust2,
         moduleState: moduleStatePda2,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -928,7 +928,7 @@ describe("aeqi_role", () => {
           contribution: false,
         })
         .accountsPartial({
-          trust: trust2,
+          company: trust2,
           roleType: pda,
           payer: provider.wallet.publicKey,
           systemProgram: anchor.web3.SystemProgram.programId,
@@ -959,7 +959,7 @@ describe("aeqi_role", () => {
         Array.from(new Uint8Array(64)),
       )
       .accountsPartial({
-        trust: trust2,
+        company: trust2,
         roleType: directorRtPda,
         role: founderPda,
         callerRole: null,
@@ -983,7 +983,7 @@ describe("aeqi_role", () => {
       .accountsPartial({
         role: founderPda,
         roleType: directorRtPda,
-        trust: trust2,
+        company: trust2,
         callerRole: null,
         checkpoint: founderCkpt,
         payer: provider.wallet.publicKey,
@@ -1011,7 +1011,7 @@ describe("aeqi_role", () => {
         Array.from(new Uint8Array(64)),
       )
       .accountsPartial({
-        trust: trust2,
+        company: trust2,
         roleType: ceoRtPda,
         role: ceoPda,
         callerRole: founderPda,
@@ -1043,7 +1043,7 @@ describe("aeqi_role", () => {
         Array.from(new Uint8Array(64)),
       )
       .accountsPartial({
-        trust: trust2,
+        company: trust2,
         roleType: engRtPda,
         role: engPda,
         callerRole: founderPda, // founder authorizing
@@ -1064,7 +1064,7 @@ describe("aeqi_role", () => {
   });
 
   it("authority walk REJECTS unrelated caller (not in target's ancestor chain)", async () => {
-    const trustN = await createTrust(
+    const trustN = await createCompany(
       provider,
       trustProgram,
       "aeqi-role-authority-reject",
@@ -1078,7 +1078,7 @@ describe("aeqi_role", () => {
     await program.methods
       .init()
       .accountsPartial({
-        trust: trustN,
+        company: trustN,
         moduleState: moduleStatePda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -1105,7 +1105,7 @@ describe("aeqi_role", () => {
         contribution: false,
       })
       .accountsPartial({
-        trust: trustN,
+        company: trustN,
         roleType: rtPda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -1127,7 +1127,7 @@ describe("aeqi_role", () => {
         Array.from(new Uint8Array(64)),
       )
       .accountsPartial({
-        trust: trustN,
+        company: trustN,
         roleType: rtPda,
         role: aPda,
         callerRole: null,
@@ -1150,7 +1150,7 @@ describe("aeqi_role", () => {
       .accountsPartial({
         role: aPda,
         roleType: rtPda,
-        trust: trustN,
+        company: trustN,
         callerRole: null,
         checkpoint: aCkpt,
         payer: provider.wallet.publicKey,
@@ -1173,7 +1173,7 @@ describe("aeqi_role", () => {
         Array.from(new Uint8Array(64)),
       )
       .accountsPartial({
-        trust: trustN,
+        company: trustN,
         roleType: rtPda,
         role: bPda,
         callerRole: aPda,
@@ -1186,7 +1186,7 @@ describe("aeqi_role", () => {
       .accountsPartial({
         role: bPda,
         roleType: rtPda,
-        trust: trustN,
+        company: trustN,
         callerRole: aPda,
         checkpoint: aCkpt,
         payer: provider.wallet.publicKey,
@@ -1213,7 +1213,7 @@ describe("aeqi_role", () => {
           Array.from(new Uint8Array(64)),
         )
         .accountsPartial({
-          trust: trustN,
+          company: trustN,
           roleType: rtPda,
           role: xPda,
           callerRole: bPda, // caller = B, an unrelated role
@@ -1239,7 +1239,7 @@ describe("aeqi_role", () => {
     ceoId[2] = 0x4f; // 'O'
 
     const [ceoPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("role_type"), fakeTrust.toBuffer(), Buffer.from(ceoId)],
+      [Buffer.from("role_type"), fakeCompany.toBuffer(), Buffer.from(ceoId)],
       program.programId,
     );
 
@@ -1256,7 +1256,7 @@ describe("aeqi_role", () => {
         contribution: false,
       })
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         roleType: ceoPda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,

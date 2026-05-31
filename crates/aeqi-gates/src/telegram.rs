@@ -339,7 +339,7 @@ impl Channel for TelegramChannel {
                                                             ))
                                                             .json(&serde_json::json!({
                                                                 "chat_id": chat_id,
-                                                                "text": "Won't message you about your TRUST(s) again. Type /resume to re-enable.",
+                                                                "text": "Won't message you about your COMPANY(s) again. Type /resume to re-enable.",
                                                             }))
                                                             .send()
                                                             .await;
@@ -368,7 +368,7 @@ impl Channel for TelegramChannel {
                                                             ))
                                                             .json(&serde_json::json!({
                                                                 "chat_id": chat_id,
-                                                                "text": "Notifications re-enabled. You'll hear from your TRUST again.",
+                                                                "text": "Notifications re-enabled. You'll hear from your COMPANY again.",
                                                             }))
                                                             .send()
                                                             .await;

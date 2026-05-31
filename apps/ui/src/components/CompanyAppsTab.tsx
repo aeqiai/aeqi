@@ -1,0 +1,558 @@
+import { useState } from "react";
+import type { ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  CalendarDays,
+  Cloud,
+  CreditCard,
+  FileText,
+  FolderOpen,
+  Mail,
+  MessageCircle,
+  Plus,
+  Presentation,
+  Send,
+  ShoppingBag,
+  Table2,
+  Video,
+} from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+
+import { integrationsApi } from "@/api/integrations";
+import { useCompanyApps } from "@/hooks/useCompanyApps";
+import { api } from "@/lib/api";
+import { entityBasePath } from "@/lib/entityPath";
+import { formatInteger } from "@/lib/i18n";
+import { goExternal } from "@/lib/navigation";
+import { publicWebsiteDomain, publicWebsiteUrl } from "@/lib/publicWebsite";
+import { companyEmailAddress, companyEmailDomain } from "@/lib/companyEmail";
+import type { CompanyAppKind } from "@/lib/companyApps";
+import { useDaemonStore } from "@/store/daemon";
+import { Button, CardTrigger, PrimitivePageHeader } from "./ui";
+import { AppRegistryPage, buildOperatingAppItems } from "./CompanyAppsRegistry";
+import IntegrationDetail, { type IntegrationItem } from "./CompanyIntegrationDetail";
+import CompanyIntegrationCreateModal from "./CompanyIntegrationCreateModal";
+import {
+  MailPrimitivePage,
+  WebsitesPrimitivePage,
+  normalizeEmailIdentities,
+  normalizeWebsiteDomains,
+} from "./CompanyPrimitiveApps";
+import "@/styles/overview.css";
+
+const APP_ICONS: Record<CompanyAppKind, ReactNode> = {
+  telegram: <AppLogo kind="telegram" icon={<Send size={18} strokeWidth={1.5} />} />,
+  whatsapp: <AppLogo kind="whatsapp" icon={<MessageCircle size={18} strokeWidth={1.5} />} />,
+  stripe: <AppLogo kind="stripe" icon={<CreditCard size={18} strokeWidth={1.5} />} />,
+};
+
+export type CompanyAppsSurface = "apps" | "integrations" | "mail" | "websites";
+
+type WorkspaceAppKind = "gmail" | "calendar" | "drive" | "docs" | "sheets" | "slides" | "meet";
+
+const GOOGLE_WORKSPACE_APPS: readonly {
+  kind: WorkspaceAppKind;
+  name: string;
+  summary: string;
+  access: string;
+  icon: ReactNode;
+}[] = [
+  {
+    kind: "gmail",
+    name: "Gmail",
+    summary: "Read, draft, and send company mail",
+    access: "Mail",
+    icon: <Mail size={18} strokeWidth={1.5} />,
+  },
+  {
+    kind: "calendar",
+    name: "Calendar",
+    summary: "Schedule meetings and reminders",
+    access: "Schedule",
+    icon: <CalendarDays size={18} strokeWidth={1.5} />,
+  },
+  {
+    kind: "drive",
+    name: "Drive",
+    summary: "Find and organize shared files",
+    access: "Files",
+    icon: <FolderOpen size={18} strokeWidth={1.5} />,
+  },
+  {
+    kind: "docs",
+    name: "Docs",
+    summary: "Create and edit documents",
+    access: "Docs",
+    icon: <FileText size={18} strokeWidth={1.5} />,
+  },
+  {
+    kind: "sheets",
+    name: "Sheets",
+    summary: "Work with spreadsheets and reports",
+    access: "Tables",
+    icon: <Table2 size={18} strokeWidth={1.5} />,
+  },
+  {
+    kind: "slides",
+    name: "Slides",
+    summary: "Draft decks and presentation notes",
+    access: "Decks",
+    icon: <Presentation size={18} strokeWidth={1.5} />,
+  },
+  {
+    kind: "meet",
+    name: "Meet",
+    summary: "Prepare and join video calls",
+    access: "Calls",
+    icon: <Video size={18} strokeWidth={1.5} />,
+  },
+];
+
+export default function CompanyAppsTab({
+  surface = "integrations",
+  companyId,
+}: {
+  surface?: CompanyAppsSurface;
+  companyId: string;
+}) {
+  const navigate = useNavigate();
+  const [mailCreatorOpen, setMailCreatorOpen] = useState(false);
+  const [websiteCreatorOpen, setWebsiteCreatorOpen] = useState(false);
+  const [integrationCreatorOpen, setIntegrationCreatorOpen] = useState(false);
+  const [selectedAppId, setSelectedAppId] = useState("mails");
+  const [selectedIntegrationId, setSelectedIntegrationId] = useState("google-workspace");
+  const [connectingIntegration, setConnectingIntegration] = useState<string | null>(null);
+  const entities = useDaemonStore((s) => s.entities);
+  const entity = entities.find((item) => item.id === companyId);
+  const basePath = entity ? entityBasePath(entity) : "/launch";
+  const { installed, isLoading, summaries, trustAgents } = useCompanyApps(companyId);
+  const googleStatus = useQuery({
+    queryKey: ["company-google-status", companyId],
+    queryFn: () => integrationsApi.getCompanyGoogleStatus(companyId),
+    enabled: Boolean(companyId),
+    staleTime: 20_000,
+  });
+  const etsyStatus = useQuery({
+    queryKey: ["company-etsy-status", companyId],
+    queryFn: () => integrationsApi.getCompanyEtsyStatus(companyId),
+    enabled: Boolean(companyId),
+    staleTime: 20_000,
+  });
+  const emailStatus = useQuery({
+    queryKey: ["company-email-messages", companyId],
+    queryFn: () => api.getCompanyEmailMessages(companyId),
+    enabled: Boolean(entity),
+    staleTime: 20_000,
+  });
+  const websiteAnalytics = useQuery({
+    queryKey: ["company-website-analytics", companyId],
+    queryFn: () => api.getCompanyWebsiteAnalytics(companyId),
+    enabled: Boolean(entity),
+    staleTime: 20_000,
+  });
+  const hostingDomains = useQuery({
+    queryKey: ["hosting-domains", companyId],
+    queryFn: () => api.listHostingDomains(),
+    enabled: (surface === "websites" || surface === "apps") && Boolean(entity),
+    staleTime: 20_000,
+  });
+  const googleConnected = googleStatus.data?.connected === true;
+  const etsyConnected = etsyStatus.data?.connected === true;
+  const workspaceServices = GOOGLE_WORKSPACE_APPS.length;
+  const commerceApps = 1;
+  const messagingApps = 1;
+  const gatewaysPath = `${basePath}/gateways`;
+  const channelApps = summaries.filter((summary) => summary.entry.category === "channel");
+  const billingApps = summaries.filter((summary) => summary.entry.category === "billing");
+  const billingReady = billingApps.length > 0;
+  const email = entity ? companyEmailAddress(entity) : "Company mailbox";
+  const emailDomain = entity ? companyEmailDomain(entity) : "aeqi.ai";
+  const emailMessages = emailStatus.data?.messages ?? [];
+  const emailCount = emailStatus.data?.message_count ?? emailMessages.length;
+  const emailIdentities = normalizeEmailIdentities(emailStatus.data?.identities, email);
+  const primaryWebsiteDomain = entity ? publicWebsiteDomain(entity) : "Company website";
+  const trustDomains = normalizeWebsiteDomains(
+    primaryWebsiteDomain,
+    hostingDomains.data?.domains,
+    companyId,
+  );
+  const externalDomainCount = trustDomains.filter((domain) => domain.kind === "external").length;
+  const websiteViews = websiteAnalytics.data?.stats
+    ? formatInteger(websiteAnalytics.data.stats.last_24h.pageviews)
+    : websiteAnalytics.isLoading
+      ? "Checking"
+      : "Ready";
+  const appItems = buildOperatingAppItems({
+    basePath,
+    emailCount,
+    emailIdentities: emailIdentities.length,
+    emailLoading: emailStatus.isLoading,
+    externalDomainCount,
+    navigate,
+    outboundReady: emailStatus.data?.outbound_status === "ready",
+    trustDomainCount: trustDomains.length,
+    websiteLoading: websiteAnalytics.isLoading || hostingDomains.isLoading,
+    websiteViews,
+  });
+
+  async function startGoogleIntegration(source = "google-workspace") {
+    setConnectingIntegration(source);
+    try {
+      const res = await integrationsApi.startCompanyGoogle(companyId);
+      goExternal(res.authorize_url);
+    } finally {
+      setConnectingIntegration(null);
+    }
+  }
+
+  async function startEtsyIntegration(source = "etsy-shop") {
+    setConnectingIntegration(source);
+    try {
+      const res = await integrationsApi.startCompanyEtsy(companyId);
+      goExternal(res.authorize_url);
+    } finally {
+      setConnectingIntegration(null);
+    }
+  }
+
+  function openGatewayCreate(kind: "telegram" | "whatsapp" | "whatsapp-baileys") {
+    navigate(`${gatewaysPath}?new=1&kind=${encodeURIComponent(kind)}`);
+  }
+
+  const integrationItems: IntegrationItem[] = [
+    {
+      id: "google-workspace",
+      name: "Google Workspace",
+      category: "Workspace",
+      summary: "Mail, calendar, files, docs, sheets, slides, and meetings.",
+      connected: googleConnected,
+      statusLabel: googleStatus.isLoading ? "Checking" : googleConnected ? "Connected" : "Ready",
+      icon: <AppLogo kind="gmail" icon={<Cloud size={18} strokeWidth={1.5} />} />,
+      meta: [
+        { label: "Account", value: googleStatus.data?.account_email || "Company" },
+        { label: "Scopes", value: formatInteger(googleStatus.data?.scopes?.length ?? 0) },
+        { label: "Apps", value: formatInteger(workspaceServices) },
+      ],
+      actionLabel: googleConnected ? "Reconnect" : "Connect",
+      onAction: () => void startGoogleIntegration("google-workspace"),
+      detail: GOOGLE_WORKSPACE_APPS.map((app) => app.name),
+    },
+    {
+      id: "etsy-shop",
+      name: "Etsy Shop",
+      category: "Commerce",
+      summary: "Shop, listings, orders, and draft-safe product creation.",
+      connected: etsyConnected,
+      statusLabel: etsyStatus.isLoading ? "Checking" : etsyConnected ? "Connected" : "Ready",
+      icon: <AppLogo kind="etsy" icon={<ShoppingBag size={18} strokeWidth={1.5} />} />,
+      meta: [
+        { label: "Account", value: etsyStatus.data?.account_email || "Company" },
+        { label: "Scopes", value: formatInteger(etsyStatus.data?.scopes?.length ?? 0) },
+        { label: "Mode", value: "Drafts" },
+      ],
+      actionLabel: etsyConnected ? "Reconnect" : "Connect",
+      onAction: () => void startEtsyIntegration("etsy-shop"),
+      detail: ["Shop discovery", "Listings", "Orders", "Draft listings"],
+    },
+    {
+      id: "wecom",
+      name: "WeCom",
+      category: "Messaging",
+      summary: "Enterprise WeChat messaging for company-owned company channels.",
+      connected: false,
+      statusLabel: "Planned",
+      icon: <AppLogo kind="wecom" icon={<MessageCircle size={18} strokeWidth={1.5} />} />,
+      meta: [
+        { label: "Mode", value: "Callback" },
+        { label: "Scope", value: "Company" },
+        { label: "Access", value: "Roles" },
+      ],
+      actionLabel: "Coming soon",
+      actionDisabled: true,
+      onAction: () => undefined,
+      detail: ["Self-built app", "Encrypted callbacks", "Direct and group replies", "Media"],
+    },
+    ...billingApps.map(
+      (summary): IntegrationItem => ({
+        id: summary.entry.kind,
+        name: summary.entry.name,
+        category: "Billing",
+        summary: summary.entry.summary,
+        connected: summary.status === "connected",
+        statusLabel: summary.status === "connected" ? "Connected" : "Ready",
+        icon: APP_ICONS[summary.entry.kind],
+        meta: [
+          { label: "Scope", value: "Account" },
+          { label: "Checkout", value: "Ready" },
+          { label: "Webhooks", value: "Ready" },
+        ],
+        actionLabel: "Open Billing",
+        onAction: () => navigate("/account/billing"),
+        detail: ["Billing portal", "Checkout", "Webhooks"],
+      }),
+    ),
+    ...channelApps.map(
+      (summary): IntegrationItem => ({
+        id: summary.entry.kind,
+        name: summary.entry.name,
+        category: "Gateway",
+        summary: summary.entry.summary,
+        connected: summary.status === "connected",
+        statusLabel: summary.status === "connected" ? "Connected" : "Ready",
+        icon: APP_ICONS[summary.entry.kind],
+        meta: [
+          { label: "Gateways", value: formatInteger(summary.connectedChannels) },
+          { label: "Routes", value: formatInteger(summary.allowedChats) },
+          { label: "Agents", value: formatInteger(summary.agentCount) },
+        ],
+        actionLabel: "Open Gateways",
+        onAction: () => navigate(gatewaysPath),
+        detail: ["Inbound sessions", "Auto-reply routing", "Read-only routes"],
+      }),
+    ),
+  ];
+  const selectedIntegration =
+    integrationItems.find((item) => item.id === selectedIntegrationId) ?? integrationItems[0];
+  const pageTitle =
+    surface === "apps"
+      ? "Apps"
+      : surface === "mail"
+        ? "Mails"
+        : surface === "websites"
+          ? "Websites"
+          : "Integrations";
+  const primitiveCount =
+    surface === "apps"
+      ? appItems.length
+      : surface === "mail"
+        ? emailIdentities.length
+        : surface === "websites"
+          ? trustDomains.length
+          : workspaceServices +
+            commerceApps +
+            messagingApps +
+            channelApps.length +
+            billingApps.length;
+  const headerTitle = (
+    <span className="company-primitive-page-title">
+      <span className="company-primitive-page-title-text">{pageTitle}</span>
+      <span className="company-primitive-page-count" aria-hidden="true">
+        {primitiveCount}
+      </span>
+    </span>
+  );
+  const toolbarSummary =
+    surface === "apps"
+      ? `${formatInteger(appItems.length)} operating surfaces · ${formatInteger(
+          emailIdentities.length,
+        )} mailboxes · ${formatInteger(trustDomains.length)} websites`
+      : surface === "mail"
+        ? emailStatus.isLoading
+          ? "Checking mailbox"
+          : `${formatInteger(emailIdentities.length)} mailboxes · ${formatInteger(
+              emailCount,
+            )} messages · outbound ${
+              emailStatus.data?.outbound_status === "ready" ? "ready" : "setup"
+            }`
+        : surface === "websites"
+          ? websiteAnalytics.isLoading
+            ? "Checking website status"
+            : `${primaryWebsiteDomain} · ${formatInteger(externalDomainCount)} external domains · ${websiteViews} today`
+          : isLoading
+            ? "Loading integration status"
+            : `${formatInteger(workspaceServices)} workspace apps · ${formatInteger(
+                commerceApps,
+              )} commerce app · ${formatInteger(messagingApps)} messaging app · ${formatInteger(
+                installed.enabledChannels,
+              )} gateway endpoints · ${formatInteger(
+                trustAgents.length,
+              )} agents${billingReady ? " · billing ready" : ""}`;
+  const headerActions =
+    surface === "mail" ? (
+      <Button
+        variant="primary"
+        size="md"
+        onClick={() => setMailCreatorOpen(true)}
+        leadingIcon={<Plus size={14} strokeWidth={1.6} />}
+      >
+        New Mail
+      </Button>
+    ) : surface === "websites" ? (
+      <Button
+        variant="primary"
+        size="md"
+        onClick={() => setWebsiteCreatorOpen(true)}
+        leadingIcon={<Plus size={14} strokeWidth={1.6} />}
+      >
+        New Website
+      </Button>
+    ) : surface === "integrations" ? (
+      <Button
+        variant="primary"
+        size="md"
+        onClick={() => setIntegrationCreatorOpen(true)}
+        leadingIcon={<Plus size={14} strokeWidth={1.6} />}
+      >
+        New Integration
+      </Button>
+    ) : undefined;
+
+  if (surface === "apps") {
+    return (
+      <AppRegistryPage
+        headerTitle={headerTitle}
+        items={appItems}
+        onSelectApp={setSelectedAppId}
+        selectedAppId={selectedAppId}
+        toolbarSummary={toolbarSummary}
+      />
+    );
+  }
+
+  if (surface === "mail" || surface === "websites") {
+    return (
+      <div className="company-apps-page company-primitive-shell">
+        <PrimitivePageHeader
+          className="company-apps-page-header company-primitive-shell-header"
+          title={headerTitle}
+          aria-label={`${pageTitle} controls`}
+          actions={headerActions}
+          padding="none"
+        />
+
+        <main className="company-apps-main company-primitive-shell-surface company-apps-shell-surface">
+          <div className="company-primitive-context-strip" role="status">
+            <span className="company-primitive-context-text">{toolbarSummary}</span>
+          </div>
+
+          {surface === "mail" && entity && (
+            <MailPrimitivePage
+              creatorOpen={mailCreatorOpen}
+              domain={emailDomain}
+              identities={emailIdentities}
+              loading={emailStatus.isLoading}
+              onCreatorClose={() => setMailCreatorOpen(false)}
+              status={emailStatus.data}
+              companyId={companyId}
+            />
+          )}
+
+          {surface === "websites" && entity && (
+            <WebsitesPrimitivePage
+              analytics={websiteAnalytics.data}
+              creatorOpen={websiteCreatorOpen}
+              domains={trustDomains}
+              href={publicWebsiteUrl(entity)}
+              live={entity.public === true}
+              loading={websiteAnalytics.isLoading || hostingDomains.isLoading}
+              onCreatorClose={() => setWebsiteCreatorOpen(false)}
+              onDomainAdded={() => void hostingDomains.refetch()}
+              primaryDomain={primaryWebsiteDomain}
+              companyId={companyId}
+            />
+          )}
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="company-apps-page company-primitive-shell">
+      <PrimitivePageHeader
+        className="company-apps-page-header company-primitive-shell-header company-apps-page-header--summary"
+        title={headerTitle}
+        aria-label={`${pageTitle} controls`}
+        actions={headerActions}
+        padding="none"
+      />
+
+      <main className="company-apps-main company-primitive-shell-surface company-apps-shell-surface">
+        <div className="company-primitive-context-strip" role="status">
+          <span className="company-primitive-context-text">{toolbarSummary}</span>
+        </div>
+
+        {surface === "integrations" && (
+          <div className="company-apps-register-layout" aria-label="Integration management">
+            <section
+              className="company-apps-register-card"
+              aria-labelledby="integration-register-heading"
+            >
+              <header className="company-apps-register-head">
+                <div>
+                  <h2 id="integration-register-heading" className="company-apps-register-title">
+                    Providers
+                  </h2>
+                  <p className="company-apps-register-subtitle">
+                    Accounts and gateways connected to this company.
+                  </p>
+                </div>
+              </header>
+
+              <div
+                className="company-apps-table-head company-apps-table-head--integration"
+                aria-hidden
+              >
+                <span>Provider</span>
+                <span>Type</span>
+                <span>Status</span>
+              </div>
+              <div className="company-apps-register-list">
+                {integrationItems.map((item) => (
+                  <CardTrigger
+                    key={item.id}
+                    className="company-apps-register-row company-apps-register-row--integration"
+                    data-selected={item.id === selectedIntegration?.id ? "true" : undefined}
+                    onClick={() => setSelectedIntegrationId(item.id)}
+                  >
+                    <span className="company-apps-row-main company-apps-row-main--with-icon">
+                      <span className="company-apps-row-icon" aria-hidden>
+                        {item.icon}
+                      </span>
+                      <span>
+                        <span className="company-apps-row-title">{item.name}</span>
+                        <span className="company-apps-row-subtitle">{item.summary}</span>
+                      </span>
+                    </span>
+                    <span className="company-apps-row-cell">{item.category}</span>
+                    <span className="company-apps-row-cell">{item.statusLabel}</span>
+                  </CardTrigger>
+                ))}
+              </div>
+            </section>
+
+            {selectedIntegration && (
+              <IntegrationDetail
+                connecting={connectingIntegration === selectedIntegration.id}
+                item={selectedIntegration}
+              />
+            )}
+
+            <CompanyIntegrationCreateModal
+              connecting={connectingIntegration}
+              onClose={() => setIntegrationCreatorOpen(false)}
+              onGateway={openGatewayCreate}
+              onEtsy={() => void startEtsyIntegration("modal-etsy")}
+              onGoogle={() => void startGoogleIntegration("modal-google")}
+              onStripe={() => navigate("/account/billing")}
+              open={integrationCreatorOpen}
+            />
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
+
+function AppLogo({
+  icon,
+  kind,
+}: {
+  icon: ReactNode;
+  kind: WorkspaceAppKind | CompanyAppKind | "etsy" | "wecom";
+}) {
+  return (
+    <span className="company-app-logo" data-app={kind} aria-hidden>
+      {icon}
+    </span>
+  );
+}

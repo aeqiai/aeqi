@@ -1,9 +1,9 @@
 /**
  * Thin GraphQL client for the aeqi-indexer.
  *
- * Phase C of the click→TRUST milestone. Treasury / Ownership / Governance
- * tabs use this to pull on-chain state (TRUSTs, modules, role assignments,
- * token holders, proposals) for the entity's mirrored TRUST.
+ * Phase C of the click→COMPANY milestone. Treasury / Ownership / Governance
+ * tabs use this to pull on-chain state (Companies, modules, role assignments,
+ * token holders, proposals) for the entity's mirrored COMPANY.
  *
  * Default URL is the relative path `/indexer/graphql`, served by aeqi-platform
  * as a reverse-proxy to its local indexer instance. This keeps hosted
@@ -57,8 +57,8 @@ async function indexerQuery<T>(
 
 // ── GraphQL response shapes ────────────────────────────────────────────────
 
-export interface IndexedTrust {
-  trustId: string;
+export interface IndexedCompany {
+  companyId: string;
   address: string | null;
   creatorAddress: string | null;
   templateId: string | null;
@@ -69,7 +69,7 @@ export interface IndexedTrust {
 }
 
 export interface IndexedModule {
-  trustAddress: string;
+  companyAddress: string;
   moduleId: string;
   moduleAddress: string;
   moduleAcl: string;
@@ -126,20 +126,20 @@ export interface IndexedVotingPower {
 
 // ── Query helpers ──────────────────────────────────────────────────────────
 
-/** Fetch a TRUST row by its on-chain address. */
-export async function fetchTrust(trustAddress: string): Promise<IndexedTrust | null> {
-  const data = await indexerQuery<{ trust: IndexedTrust | null }>(
-    `query($a: String!) { trust(address: $a) { trustId address creatorAddress templateId ipfsCid signersCount valueConfigsCount createdBlock } }`,
-    { a: trustAddress },
+/** Fetch a COMPANY row by its on-chain address. */
+export async function fetchCompany(companyAddress: string): Promise<IndexedCompany | null> {
+  const data = await indexerQuery<{ company: IndexedCompany | null }>(
+    `query($a: String!) { company(address: $a) { companyId address creatorAddress templateId ipfsCid signersCount valueConfigsCount createdBlock } }`,
+    { a: companyAddress },
   );
-  return data?.trust ?? null;
+  return data?.company ?? null;
 }
 
-/** Fetch all modules attached to a TRUST. */
-export async function fetchTrustModules(trustAddress: string): Promise<IndexedModule[]> {
+/** Fetch all modules attached to a COMPANY. */
+export async function fetchCompanyModules(companyAddress: string): Promise<IndexedModule[]> {
   const data = await indexerQuery<{ trustModules: IndexedModule[] }>(
-    `query($a: String!) { trustModules(trustAddress: $a) { trustAddress moduleId moduleAddress moduleAcl attachedBlock } }`,
-    { a: trustAddress },
+    `query($a: String!) { trustModules(companyAddress: $a) { companyAddress moduleId moduleAddress moduleAcl attachedBlock } }`,
+    { a: companyAddress },
   );
   return data?.trustModules ?? [];
 }
@@ -162,20 +162,20 @@ export async function fetchRolesForModule(moduleAddress: string): Promise<Indexe
   return data?.rolesForModule ?? [];
 }
 
-// ── rolesForTrust ──────────────────────────────────────────────────────────
+// ── rolesForCompany ──────────────────────────────────────────────────────────
 //
-// Direct TRUST-scoped query: account assignments keyed by trust_id (bytes32).
+// Direct COMPANY-scoped query: account assignments keyed by company_id (bytes32).
 // This is the v2 Ownership mirror — the indexer field is in-flight; the hook
 // below degrades gracefully on "field not found" GraphQL errors.
 
-export interface TrustRole {
+export interface CompanyRole {
   account: string;
   roleTypeId: string;
   slotIndex: number;
   ipfsCid: string | null;
 }
 
-export interface TrustRoleRequest {
+export interface CompanyRoleRequest {
   proposer: string;
   account: string;
   roleTypeId: string;
@@ -184,25 +184,25 @@ export interface TrustRoleRequest {
 }
 
 /**
- * Query rolesForTrust(trustId) from the indexer.
+ * Query rolesForCompany(companyId) from the indexer.
  *
  * Returns `[]` when:
  * - The indexer is not configured.
- * - The indexer doesn't yet have the `rolesForTrust` field (graceful
+ * - The indexer doesn't yet have the `rolesForCompany` field (graceful
  *   degradation — logs a console.warn instead of throwing).
  */
-export async function fetchRolesForTrust(trustId: string): Promise<TrustRole[]> {
+export async function fetchRolesForCompany(companyId: string): Promise<CompanyRole[]> {
   if (!INDEXER_URL) return [];
   try {
-    const data = await indexerQuery<{ rolesForTrust: TrustRole[] }>(
-      `query($id: String!) { rolesForTrust(trustId: $id) { account roleTypeId slotIndex ipfsCid } }`,
-      { id: trustId },
+    const data = await indexerQuery<{ rolesForCompany: CompanyRole[] }>(
+      `query($id: String!) { rolesForCompany(companyId: $id) { account roleTypeId slotIndex ipfsCid } }`,
+      { id: companyId },
     );
-    return data?.rolesForTrust ?? [];
+    return data?.rolesForCompany ?? [];
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (/field not found|unknown field|Cannot query field/i.test(msg)) {
-      console.warn("[useOwnership] indexer rolesForTrust not yet shipped");
+      console.warn("[useOwnership] indexer rolesForCompany not yet shipped");
       return [];
     }
     throw err;
@@ -210,23 +210,25 @@ export async function fetchRolesForTrust(trustId: string): Promise<TrustRole[]> 
 }
 
 /**
- * Query roleRequestsForTrust(trustId) from the indexer — pending / accepted.
+ * Query roleRequestsForCompany(companyId) from the indexer — pending / accepted.
  *
- * Same graceful degradation as fetchRolesForTrust: returns `[]` + warns
+ * Same graceful degradation as fetchRolesForCompany: returns `[]` + warns
  * when the field is not yet present on the indexer schema.
  */
-export async function fetchRoleRequestsForTrust(trustId: string): Promise<TrustRoleRequest[]> {
+export async function fetchRoleRequestsForCompany(
+  companyId: string,
+): Promise<CompanyRoleRequest[]> {
   if (!INDEXER_URL) return [];
   try {
-    const data = await indexerQuery<{ roleRequestsForTrust: TrustRoleRequest[] }>(
-      `query($id: String!) { roleRequestsForTrust(trustId: $id) { proposer account roleTypeId ipfsCid accepted } }`,
-      { id: trustId },
+    const data = await indexerQuery<{ roleRequestsForCompany: CompanyRoleRequest[] }>(
+      `query($id: String!) { roleRequestsForCompany(companyId: $id) { proposer account roleTypeId ipfsCid accepted } }`,
+      { id: companyId },
     );
-    return data?.roleRequestsForTrust ?? [];
+    return data?.roleRequestsForCompany ?? [];
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (/field not found|unknown field|Cannot query field/i.test(msg)) {
-      console.warn("[useOwnership] indexer roleRequestsForTrust not yet shipped");
+      console.warn("[useOwnership] indexer roleRequestsForCompany not yet shipped");
       return [];
     }
     throw err;
@@ -279,7 +281,7 @@ export async function fetchVotingPower(
 //
 // Each module type has a deterministic moduleId = keccak256(slug). Apps/ui
 // uses these to filter trustModules() results by module type (e.g. find the
-// Token module's address among the modules attached to a TRUST).
+// Token module's address among the modules attached to a COMPANY).
 //
 // Pre-computed at compile time to avoid pulling in a keccak lib for the
 // 5 module IDs we care about. Verify by running `cast keccak <slug>`.
@@ -294,7 +296,7 @@ export const MODULE_ID = {
   fund: "0x0000000000000000000000000000000000000000000000000000000000000bcd",
 } as const;
 
-/** Find the module of a given type attached to a TRUST. */
+/** Find the module of a given type attached to a COMPANY. */
 export function findModuleByType(
   modules: IndexedModule[],
   type: keyof typeof MODULE_ID,

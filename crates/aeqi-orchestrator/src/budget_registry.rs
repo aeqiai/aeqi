@@ -16,12 +16,12 @@
 //! 3. [`BudgetRegistry`] — async API over the `ConnectionPool` shared
 //!    with [`AgentRegistry`] / [`RoleRegistry`] / [`EntityRegistry`].
 //!
-//! ## TRUST id mapping
+//! ## COMPANY id mapping
 //!
-//! Off-chain (this layer) uses `trust_id` everywhere a TRUST id appears
-//! in the brief. Every entity is a TRUST in the off-chain canonical
+//! Off-chain (this layer) uses `company_id` everywhere a COMPANY id appears
+//! in the brief. Every entity is a COMPANY in the off-chain canonical
 //! model; the chain port (WS-B7) replaces this column with the on-chain
-//! TRUST address.
+//! COMPANY address.
 //!
 //! ## What lands later (not in WS-B1)
 //!
@@ -50,10 +50,10 @@ pub enum BudgetError {
     ENotOwner,
     #[error("caller is not the occupant of role {role}")]
     ENotOccupant { role: String },
-    #[error("agent occupies multiple roles in this trust; pass `as_role_id`")]
+    #[error("agent occupies multiple roles in this company; pass `as_role_id`")]
     EAmbiguousCallerRole { roles: Vec<String> },
-    #[error("agent has no role in this trust")]
-    EAgentNotInTrust,
+    #[error("agent has no role in this company")]
+    EAgentNotInCompany,
     #[error("insufficient inference credits: need {need}, remaining {remaining}")]
     EInsufficientInference { need: i64, remaining: i64 },
     #[error("insufficient treasury cap: need {need}, remaining {remaining}")]
@@ -62,7 +62,7 @@ pub enum BudgetError {
     EInsufficientSuballoc { need: i64, remaining: i64 },
     #[error("hire cap exceeded: cap {cap}, used {used}")]
     EHireCapExceeded { cap: i64, used: i64 },
-    #[error("paused: treasury operations halted for this trust")]
+    #[error("paused: treasury operations halted for this company")]
     EPaused,
     #[error("vacant role cannot spend (no occupant signer)")]
     EVacantOwnerCannotSpend,
@@ -76,10 +76,10 @@ pub enum BudgetError {
     EBudgetHasDescendants { budget: String },
     #[error("budget {budget} has non-zero balance; cannot dissolve")]
     EBudgetNonZeroBalance { budget: String },
-    #[error("owner role {role} not in trust {trust}")]
-    EOwnerRoleNotInTrust { role: String, trust: String },
-    #[error("parent budget {parent} not in trust {trust}")]
-    EParentBudgetNotInTrust { parent: String, trust: String },
+    #[error("owner role {role} not in company {company}")]
+    EOwnerRoleNotInCompany { role: String, company: String },
+    #[error("parent budget {parent} not in company {company}")]
+    EParentBudgetNotInCompany { parent: String, company: String },
     #[error("budget not found: {0}")]
     ENotFound(String),
     #[error("primary budget cannot be dissolved while role exists")]
@@ -93,7 +93,7 @@ impl BudgetError {
             Self::ENotOwner => "ENotOwner",
             Self::ENotOccupant { .. } => "ENotOccupant",
             Self::EAmbiguousCallerRole { .. } => "EAmbiguousCallerRole",
-            Self::EAgentNotInTrust => "EAgentNotInTrust",
+            Self::EAgentNotInCompany => "EAgentNotInCompany",
             Self::EInsufficientInference { .. } => "EInsufficientInference",
             Self::EInsufficientTreasury { .. } => "EInsufficientTreasury",
             Self::EInsufficientSuballoc { .. } => "EInsufficientSuballoc",
@@ -105,8 +105,8 @@ impl BudgetError {
             Self::EDuplicateRequestHash { .. } => "EDuplicateRequestHash",
             Self::EBudgetHasDescendants { .. } => "EBudgetHasDescendants",
             Self::EBudgetNonZeroBalance { .. } => "EBudgetNonZeroBalance",
-            Self::EOwnerRoleNotInTrust { .. } => "EOwnerRoleNotInTrust",
-            Self::EParentBudgetNotInTrust { .. } => "EParentBudgetNotInTrust",
+            Self::EOwnerRoleNotInCompany { .. } => "EOwnerRoleNotInCompany",
+            Self::EParentBudgetNotInCompany { .. } => "EParentBudgetNotInCompany",
             Self::ENotFound(_) => "ENotFound",
             Self::EPrimaryBudgetCannotDissolve => "EPrimaryBudgetCannotDissolve",
         }
@@ -205,7 +205,7 @@ impl AllowanceBundle {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Budget {
     pub id: String,
-    pub trust_id: String,
+    pub company_id: String,
     pub parent_budget_id: Option<String>,
     pub owner_role_id: String,
     pub name: String,
@@ -283,10 +283,10 @@ pub struct TreasuryEvent {
     pub created_at: String,
 }
 
-/// Per-trust treasury config.
+/// Per-company treasury config.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TreasuryConfig {
-    pub trust_id: String,
+    pub company_id: String,
     pub inference_gateway: String,
     pub paused: bool,
     pub admin_role_id: String,
@@ -342,16 +342,16 @@ pub const EV_TREASURY_PAUSED: &str = "treasury_paused";
 /// Idempotent. Called from [`AgentRegistry::open`] right after the role
 /// tables are bootstrapped, before the connection pool is built.
 pub fn bootstrap_budget_tables(conn: &Connection) -> rusqlite::Result<()> {
-    // ae-062 phase B: rename legacy `entity_id` columns to canonical
-    // `trust_id` on live DBs. CREATE TABLE IF NOT EXISTS below uses the
+    // ae-062 phase B: rename legacy `entity_id`/`trust_id` columns to canonical
+    // `company_id` on live DBs. CREATE TABLE IF NOT EXISTS below uses the
     // new column names, so we must reconcile any pre-rename DB first.
-    rename_legacy_entity_id(conn, "budgets")?;
-    rename_legacy_entity_id(conn, "treasury_config")?;
+    rename_legacy_company_id(conn, "budgets")?;
+    rename_legacy_company_id(conn, "treasury_config")?;
 
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS budgets (
              id                 TEXT PRIMARY KEY,
-             trust_id           TEXT NOT NULL,
+             company_id           TEXT NOT NULL,
              parent_budget_id   TEXT REFERENCES budgets(id) ON DELETE RESTRICT,
              owner_role_id      TEXT NOT NULL REFERENCES roles(id) ON DELETE RESTRICT,
              name               TEXT NOT NULL,
@@ -360,7 +360,7 @@ pub fn bootstrap_budget_tables(conn: &Connection) -> rusqlite::Result<()> {
              created_by_role_id TEXT REFERENCES roles(id),
              created_at         TEXT NOT NULL
          );
-         CREATE INDEX IF NOT EXISTS idx_budgets_trust ON budgets(trust_id);
+         CREATE INDEX IF NOT EXISTS idx_budgets_company ON budgets(company_id);
          CREATE INDEX IF NOT EXISTS idx_budgets_owner ON budgets(owner_role_id);
          CREATE INDEX IF NOT EXISTS idx_budgets_parent ON budgets(parent_budget_id);
          CREATE UNIQUE INDEX IF NOT EXISTS idx_budgets_owner_primary
@@ -417,7 +417,7 @@ pub fn bootstrap_budget_tables(conn: &Connection) -> rusqlite::Result<()> {
              ON treasury_events(event_type);
 
          CREATE TABLE IF NOT EXISTS treasury_config (
-             trust_id           TEXT PRIMARY KEY,
+             company_id           TEXT PRIMARY KEY,
              inference_gateway  TEXT NOT NULL,
              paused             INTEGER NOT NULL DEFAULT 0,
              admin_role_id      TEXT NOT NULL REFERENCES roles(id),
@@ -427,11 +427,11 @@ pub fn bootstrap_budget_tables(conn: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
-/// Idempotent: if `table` exists on disk with a legacy `entity_id` column,
-/// rename it to `trust_id`. No-op if the table does not exist, or if the
-/// rename has already run. Skips if `trust_id` is already present (the table
+/// Idempotent: if `table` exists on disk with a legacy entity/company column,
+/// rename it to `company_id`. No-op if the table does not exist, or if the
+/// rename has already run. Skips if `company_id` is already present (the table
 /// was created fresh under the new column name).
-fn rename_legacy_entity_id(conn: &Connection, table: &str) -> rusqlite::Result<()> {
+fn rename_legacy_company_id(conn: &Connection, table: &str) -> rusqlite::Result<()> {
     let cols: Vec<String> = {
         let mut stmt = conn.prepare(&format!("PRAGMA table_info({table})"))?;
         stmt.query_map([], |row| row.get::<_, String>(1))?
@@ -441,11 +441,16 @@ fn rename_legacy_entity_id(conn: &Connection, table: &str) -> rusqlite::Result<(
     if cols.is_empty() {
         return Ok(());
     }
-    let has_legacy = cols.iter().any(|c| c == "entity_id");
-    let has_canonical = cols.iter().any(|c| c == "trust_id");
-    if has_legacy && !has_canonical {
+    let has_canonical = cols.iter().any(|c| c == "company_id");
+    if has_canonical {
+        return Ok(());
+    }
+    let legacy = ["entity_id", "trust_id"]
+        .into_iter()
+        .find(|name| cols.iter().any(|c| c == *name));
+    if let Some(from) = legacy {
         conn.execute(
-            &format!("ALTER TABLE {table} RENAME COLUMN entity_id TO trust_id"),
+            &format!("ALTER TABLE {table} RENAME COLUMN {from} TO company_id"),
             [],
         )?;
     }
@@ -457,7 +462,7 @@ fn rename_legacy_entity_id(conn: &Connection, table: &str) -> rusqlite::Result<(
 fn row_to_budget(row: &rusqlite::Row<'_>) -> rusqlite::Result<Budget> {
     Ok(Budget {
         id: row.get(0)?,
-        trust_id: row.get(1)?,
+        company_id: row.get(1)?,
         parent_budget_id: row.get(2)?,
         owner_role_id: row.get(3)?,
         name: row.get(4)?,
@@ -527,7 +532,7 @@ fn row_to_event(row: &rusqlite::Row<'_>) -> rusqlite::Result<TreasuryEvent> {
     })
 }
 
-const SQL_BUDGET_COLS: &str = "id, trust_id, parent_budget_id, owner_role_id, name, kind, is_primary, \
+const SQL_BUDGET_COLS: &str = "id, company_id, parent_budget_id, owner_role_id, name, kind, is_primary, \
      created_by_role_id, created_at";
 
 const SQL_ALLOWANCE_COLS: &str = "budget_id, epoch, inference_credits, treasury_cap, suballoc_cap, hire_cap, \
@@ -568,13 +573,13 @@ impl BudgetRegistry {
 
     pub async fn list_budgets(
         &self,
-        trust_id: &str,
+        company_id: &str,
         owner_role_id: Option<&str>,
         parent_budget_id: Option<&str>,
         only_primary: Option<bool>,
     ) -> Result<Vec<Budget>> {
         let db = self.db.lock().await;
-        let mut sql = format!("SELECT {SQL_BUDGET_COLS} FROM budgets WHERE trust_id = ?1");
+        let mut sql = format!("SELECT {SQL_BUDGET_COLS} FROM budgets WHERE company_id = ?1");
         if owner_role_id.is_some() {
             sql.push_str(" AND owner_role_id = ?2");
         }
@@ -593,19 +598,19 @@ impl BudgetRegistry {
             let mut stmt = db.prepare(&sql)?;
             let rows: Vec<Budget> = match (owner_role_id, parent_budget_id) {
                 (None, None) => stmt
-                    .query_map(params![trust_id, prim as i64], row_to_budget)?
+                    .query_map(params![company_id, prim as i64], row_to_budget)?
                     .filter_map(|r| r.ok())
                     .collect(),
                 (Some(o), None) => stmt
-                    .query_map(params![trust_id, o, prim as i64], row_to_budget)?
+                    .query_map(params![company_id, o, prim as i64], row_to_budget)?
                     .filter_map(|r| r.ok())
                     .collect(),
                 (None, Some(p)) => stmt
-                    .query_map(params![trust_id, p, prim as i64], row_to_budget)?
+                    .query_map(params![company_id, p, prim as i64], row_to_budget)?
                     .filter_map(|r| r.ok())
                     .collect(),
                 (Some(o), Some(p)) => stmt
-                    .query_map(params![trust_id, o, p, prim as i64], row_to_budget)?
+                    .query_map(params![company_id, o, p, prim as i64], row_to_budget)?
                     .filter_map(|r| r.ok())
                     .collect(),
             };
@@ -615,33 +620,33 @@ impl BudgetRegistry {
         let mut stmt = db.prepare(&sql)?;
         let rows: Vec<Budget> = match (owner_role_id, parent_budget_id) {
             (None, None) => stmt
-                .query_map(params![trust_id], row_to_budget)?
+                .query_map(params![company_id], row_to_budget)?
                 .filter_map(|r| r.ok())
                 .collect(),
             (Some(o), None) => stmt
-                .query_map(params![trust_id, o], row_to_budget)?
+                .query_map(params![company_id, o], row_to_budget)?
                 .filter_map(|r| r.ok())
                 .collect(),
             (None, Some(p)) => stmt
-                .query_map(params![trust_id, p], row_to_budget)?
+                .query_map(params![company_id, p], row_to_budget)?
                 .filter_map(|r| r.ok())
                 .collect(),
             (Some(o), Some(p)) => stmt
-                .query_map(params![trust_id, o, p], row_to_budget)?
+                .query_map(params![company_id, o, p], row_to_budget)?
                 .filter_map(|r| r.ok())
                 .collect(),
         };
         Ok(rows)
     }
 
-    pub async fn budget_tree(&self, trust_id: &str) -> Result<BudgetTree> {
+    pub async fn budget_tree(&self, company_id: &str) -> Result<BudgetTree> {
         let db = self.db.lock().await;
         let nodes: Vec<Budget> = {
             let mut stmt = db.prepare(&format!(
-                "SELECT {SQL_BUDGET_COLS} FROM budgets WHERE trust_id = ?1 \
+                "SELECT {SQL_BUDGET_COLS} FROM budgets WHERE company_id = ?1 \
                  ORDER BY created_at ASC"
             ))?;
-            stmt.query_map(params![trust_id], row_to_budget)?
+            stmt.query_map(params![company_id], row_to_budget)?
                 .filter_map(|r| r.ok())
                 .collect()
         };
@@ -649,9 +654,9 @@ impl BudgetRegistry {
             let mut stmt = db.prepare(
                 "SELECT b.parent_budget_id, b.id \
                  FROM budgets b \
-                 WHERE b.trust_id = ?1 AND b.parent_budget_id IS NOT NULL",
+                 WHERE b.company_id = ?1 AND b.parent_budget_id IS NOT NULL",
             )?;
-            stmt.query_map(params![trust_id], |row| {
+            stmt.query_map(params![company_id], |row| {
                 Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
             })?
             .filter_map(|r| r.ok())
@@ -763,16 +768,16 @@ impl BudgetRegistry {
         Ok(rows)
     }
 
-    pub async fn get_treasury_config(&self, trust_id: &str) -> Result<Option<TreasuryConfig>> {
+    pub async fn get_treasury_config(&self, company_id: &str) -> Result<Option<TreasuryConfig>> {
         let db = self.db.lock().await;
         Ok(db
             .query_row(
-                "SELECT trust_id, inference_gateway, paused, admin_role_id, updated_at \
-                 FROM treasury_config WHERE trust_id = ?1",
-                params![trust_id],
+                "SELECT company_id, inference_gateway, paused, admin_role_id, updated_at \
+                 FROM treasury_config WHERE company_id = ?1",
+                params![company_id],
                 |row| {
                     Ok(TreasuryConfig {
-                        trust_id: row.get(0)?,
+                        company_id: row.get(0)?,
                         inference_gateway: row.get(1)?,
                         paused: {
                             let v: i64 = row.get(2)?;
@@ -806,11 +811,11 @@ impl BudgetRegistry {
                 return Ok(b);
             }
         }
-        // Slow path — create. Resolve the role's entity (= trust_id) first.
-        let trust_id: String = {
+        // Slow path — create. Resolve the role's entity (= company_id) first.
+        let company_id: String = {
             let db = self.db.lock().await;
             db.query_row(
-                "SELECT trust_id FROM roles WHERE id = ?1",
+                "SELECT company_id FROM roles WHERE id = ?1",
                 params![role_id],
                 |row| row.get::<_, String>(0),
             )?
@@ -829,10 +834,10 @@ impl BudgetRegistry {
         {
             let db = self.db.lock().await;
             db.execute(
-                "INSERT INTO budgets (id, trust_id, parent_budget_id, owner_role_id, \
+                "INSERT INTO budgets (id, company_id, parent_budget_id, owner_role_id, \
                                       name, kind, is_primary, created_by_role_id, created_at) \
                  VALUES (?1, ?2, NULL, ?3, ?4, 'primary', 1, NULL, ?5)",
-                params![id, trust_id, role_id, name, now],
+                params![id, company_id, role_id, name, now],
             )?;
             // Default zero policy so refresh() has something to read.
             db.execute(
@@ -852,11 +857,11 @@ impl BudgetRegistry {
 
     /// Create a child budget under an optional parent. `caller_role` must
     /// occupy the parent budget's owner_role (or, when `parent_budget_id`
-    /// is `None`, must hold `roles.manage` on the trust — that gate is
-    /// enforced at the IPC layer; this method trusts the caller_role).
+    /// is `None`, must hold `roles.manage` on the company — that gate is
+    /// enforced at the IPC layer; this method companies the caller_role).
     pub async fn create_budget(
         &self,
-        trust_id: &str,
+        company_id: &str,
         parent_budget_id: Option<&str>,
         owner_role_id: &str,
         name: &str,
@@ -865,8 +870,8 @@ impl BudgetRegistry {
         caller_agent_id: Option<&str>,
         idempotency_key: Option<&str>,
     ) -> Result<String> {
-        self.assert_not_paused(trust_id).await?;
-        self.assert_owner_role_in_trust(owner_role_id, trust_id)
+        self.assert_not_paused(company_id).await?;
+        self.assert_owner_role_in_company(owner_role_id, company_id)
             .await?;
 
         // Auth: when parent provided, caller must be the parent's owner.
@@ -875,10 +880,10 @@ impl BudgetRegistry {
                 .get_budget(parent)
                 .await?
                 .ok_or_else(|| BudgetError::ENotFound(parent.to_string()))?;
-            if parent_b.trust_id != trust_id {
-                return Err(BudgetError::EParentBudgetNotInTrust {
+            if parent_b.company_id != company_id {
+                return Err(BudgetError::EParentBudgetNotInCompany {
                     parent: parent.to_string(),
-                    trust: trust_id.to_string(),
+                    company: company_id.to_string(),
                 }
                 .into());
             }
@@ -900,12 +905,12 @@ impl BudgetRegistry {
         {
             let db = self.db.lock().await;
             db.execute(
-                "INSERT INTO budgets (id, trust_id, parent_budget_id, owner_role_id, \
+                "INSERT INTO budgets (id, company_id, parent_budget_id, owner_role_id, \
                                       name, kind, is_primary, created_by_role_id, created_at) \
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7, ?8)",
                 params![
                     id,
-                    trust_id,
+                    company_id,
                     parent_budget_id,
                     owner_role_id,
                     name,
@@ -956,7 +961,7 @@ impl BudgetRegistry {
             .get_budget(budget_id)
             .await?
             .ok_or_else(|| BudgetError::ENotFound(budget_id.to_string()))?;
-        self.assert_not_paused(&budget.trust_id).await?;
+        self.assert_not_paused(&budget.company_id).await?;
         if budget.owner_role_id != caller_role {
             return Err(BudgetError::ENotOwner.into());
         }
@@ -1028,14 +1033,14 @@ impl BudgetRegistry {
             .get_budget(child_budget_id)
             .await?
             .ok_or_else(|| BudgetError::ENotFound(child_budget_id.to_string()))?;
-        self.assert_not_paused(&parent.trust_id).await?;
+        self.assert_not_paused(&parent.company_id).await?;
         if parent.owner_role_id != caller_role {
             return Err(BudgetError::ENotOwner.into());
         }
-        if parent.trust_id != child.trust_id {
-            return Err(BudgetError::EParentBudgetNotInTrust {
+        if parent.company_id != child.company_id {
+            return Err(BudgetError::EParentBudgetNotInCompany {
                 parent: parent_budget_id.to_string(),
-                trust: child.trust_id.clone(),
+                company: child.company_id.clone(),
             }
             .into());
         }
@@ -1136,7 +1141,7 @@ impl BudgetRegistry {
     }
 
     /// Debit an inference burn against a budget. The caller MUST be the
-    /// trust's `inference_gateway` agent; this is enforced by the IPC
+    /// company's `inference_gateway` agent; this is enforced by the IPC
     /// layer (CallerKind::System tools bypass agent ACL but this helper
     /// re-checks against the registered gateway agent_id for defense in
     /// depth).
@@ -1153,7 +1158,7 @@ impl BudgetRegistry {
             .await?
             .ok_or_else(|| BudgetError::ENotFound(budget_id.to_string()))?;
         let cfg = self
-            .get_treasury_config(&budget.trust_id)
+            .get_treasury_config(&budget.company_id)
             .await?
             .ok_or_else(|| BudgetError::EGatewayMismatch {
                 caller: gateway_agent_id.to_string(),
@@ -1214,7 +1219,7 @@ impl BudgetRegistry {
         Ok(())
     }
 
-    /// USDC outflow from this trust's treasury vault, debiting the budget's
+    /// USDC outflow from this company's treasury vault, debiting the budget's
     /// `treasury_cap`. Caller must occupy the budget's owner role.
     pub async fn spend_treasury(
         &self,
@@ -1230,7 +1235,7 @@ impl BudgetRegistry {
             .get_budget(budget_id)
             .await?
             .ok_or_else(|| BudgetError::ENotFound(budget_id.to_string()))?;
-        self.assert_not_paused(&budget.trust_id).await?;
+        self.assert_not_paused(&budget.company_id).await?;
         if budget.owner_role_id != caller_role {
             return Err(BudgetError::ENotOwner.into());
         }
@@ -1312,7 +1317,7 @@ impl BudgetRegistry {
             .get_budget(parent_budget_id)
             .await?
             .ok_or_else(|| BudgetError::ENotFound(parent_budget_id.to_string()))?;
-        self.assert_not_paused(&parent.trust_id).await?;
+        self.assert_not_paused(&parent.company_id).await?;
         if parent.owner_role_id != caller_role {
             return Err(BudgetError::ENotOwner.into());
         }
@@ -1366,12 +1371,12 @@ impl BudgetRegistry {
 
             // 1. Insert the new role row. Mirrors RoleRegistry::create_with_type.
             tx.execute(
-                "INSERT INTO roles (id, trust_id, title, occupant_kind, occupant_id, \
+                "INSERT INTO roles (id, company_id, title, occupant_kind, occupant_id, \
                                     role_type, founder, created_at) \
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7)",
                 params![
                     role_id,
-                    parent.trust_id,
+                    parent.company_id,
                     new_role.title,
                     occupant_kind,
                     occupant_id,
@@ -1401,12 +1406,12 @@ impl BudgetRegistry {
             // 3. Insert the primary budget for the new role.
             let name = format!("Primary — {}", new_role.title);
             tx.execute(
-                "INSERT INTO budgets (id, trust_id, parent_budget_id, owner_role_id, name, \
+                "INSERT INTO budgets (id, company_id, parent_budget_id, owner_role_id, name, \
                                       kind, is_primary, created_by_role_id, created_at) \
                  VALUES (?1, ?2, ?3, ?4, ?5, 'primary', 1, ?6, ?7)",
                 params![
                     budget_id,
-                    parent.trust_id,
+                    parent.company_id,
                     parent_budget_id,
                     role_id,
                     name,
@@ -1431,7 +1436,7 @@ impl BudgetRegistry {
                 )
                 .optional()?
                 .unwrap_or(604_800);
-            let parent_anchor = trust_anchor_unix(&tx, &parent.trust_id)?;
+            let parent_anchor = company_anchor_unix(&tx, &parent.company_id)?;
             let now_unix = Utc::now().timestamp();
             let parent_epoch = ((now_unix - parent_anchor) / parent_period.max(1)).max(0);
             let child_period = 604_800_i64;
@@ -1592,7 +1597,7 @@ impl BudgetRegistry {
         let now_unix = now.timestamp();
 
         let mut conn = self.db.lock().await;
-        let anchor = trust_anchor_unix(&conn, &budget.trust_id)?;
+        let anchor = company_anchor_unix(&conn, &budget.company_id)?;
         let period = policy.epoch_period_secs.max(1);
         let current_epoch = ((now_unix - anchor) / period).max(0);
 
@@ -1698,7 +1703,7 @@ impl BudgetRegistry {
             .get_budget(budget_id)
             .await?
             .ok_or_else(|| BudgetError::ENotFound(budget_id.to_string()))?;
-        self.assert_not_paused(&budget.trust_id).await?;
+        self.assert_not_paused(&budget.company_id).await?;
         if budget.owner_role_id != caller_role {
             // Allow parent-budget owner to dissolve descendants too.
             if let Some(parent_id) = &budget.parent_budget_id {
@@ -1801,36 +1806,36 @@ impl BudgetRegistry {
         Ok(())
     }
 
-    /// Pause / unpause every spend + allocate in this trust. Reads keep
+    /// Pause / unpause every spend + allocate in this company. Reads keep
     /// working. Caller must occupy `treasury_config.admin_role_id`.
     pub async fn set_pause(
         &self,
-        trust_id: &str,
+        company_id: &str,
         paused: bool,
         caller_role: &str,
         caller_agent_id: Option<&str>,
     ) -> Result<()> {
         let cfg = self
-            .get_treasury_config(trust_id)
+            .get_treasury_config(company_id)
             .await?
-            .ok_or_else(|| BudgetError::ENotFound(format!("treasury_config:{trust_id}")))?;
+            .ok_or_else(|| BudgetError::ENotFound(format!("treasury_config:{company_id}")))?;
         if cfg.admin_role_id != caller_role {
             return Err(BudgetError::ENotOwner.into());
         }
         let now = Utc::now().to_rfc3339();
         let db = self.db.lock().await;
         db.execute(
-            "UPDATE treasury_config SET paused = ?1, updated_at = ?2 WHERE trust_id = ?3",
-            params![paused as i64, now, trust_id],
+            "UPDATE treasury_config SET paused = ?1, updated_at = ?2 WHERE company_id = ?3",
+            params![paused as i64, now, company_id],
         )?;
         // Audit emitted against admin_role's primary budget — but we don't
         // have it handy. For now, write against the first budget in the
-        // trust as a convention; WS-B2 will surface this on the trust's
+        // company as a convention; WS-B2 will surface this on the company's
         // overview rather than a specific budget.
         let target_budget: Option<String> = db
             .query_row(
-                "SELECT id FROM budgets WHERE trust_id = ?1 ORDER BY created_at ASC LIMIT 1",
-                params![trust_id],
+                "SELECT id FROM budgets WHERE company_id = ?1 ORDER BY created_at ASC LIMIT 1",
+                params![company_id],
                 |row| row.get::<_, String>(0),
             )
             .optional()?;
@@ -1852,32 +1857,32 @@ impl BudgetRegistry {
         Ok(())
     }
 
-    /// Initialise the trust's treasury config. Idempotent (UPSERT).
+    /// Initialise the company's treasury config. Idempotent (UPSERT).
     pub async fn init_treasury_config(
         &self,
-        trust_id: &str,
+        company_id: &str,
         inference_gateway_agent_id: &str,
         admin_role_id: &str,
     ) -> Result<()> {
         let now = Utc::now().to_rfc3339();
         let db = self.db.lock().await;
         db.execute(
-            "INSERT INTO treasury_config (trust_id, inference_gateway, paused, admin_role_id, \
+            "INSERT INTO treasury_config (company_id, inference_gateway, paused, admin_role_id, \
                                           updated_at) \
              VALUES (?1, ?2, 0, ?3, ?4) \
-             ON CONFLICT(trust_id) DO UPDATE SET
+             ON CONFLICT(company_id) DO UPDATE SET
                  inference_gateway = excluded.inference_gateway,
                  admin_role_id     = excluded.admin_role_id,
                  updated_at        = excluded.updated_at",
-            params![trust_id, inference_gateway_agent_id, admin_role_id, now],
+            params![company_id, inference_gateway_agent_id, admin_role_id, now],
         )?;
         Ok(())
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    async fn assert_not_paused(&self, trust_id: &str) -> Result<()> {
-        let cfg = self.get_treasury_config(trust_id).await?;
+    async fn assert_not_paused(&self, company_id: &str) -> Result<()> {
+        let cfg = self.get_treasury_config(company_id).await?;
         if let Some(c) = cfg
             && c.paused
         {
@@ -1886,20 +1891,20 @@ impl BudgetRegistry {
         Ok(())
     }
 
-    async fn assert_owner_role_in_trust(&self, role_id: &str, trust_id: &str) -> Result<()> {
+    async fn assert_owner_role_in_company(&self, role_id: &str, company_id: &str) -> Result<()> {
         let db = self.db.lock().await;
-        let role_trust_id: Option<String> = db
+        let role_company_id: Option<String> = db
             .query_row(
-                "SELECT trust_id FROM roles WHERE id = ?1",
+                "SELECT company_id FROM roles WHERE id = ?1",
                 params![role_id],
                 |row| row.get::<_, String>(0),
             )
             .optional()?;
-        match role_trust_id {
-            Some(e) if e == trust_id => Ok(()),
-            _ => Err(BudgetError::EOwnerRoleNotInTrust {
+        match role_company_id {
+            Some(e) if e == company_id => Ok(()),
+            _ => Err(BudgetError::EOwnerRoleNotInCompany {
                 role: role_id.to_string(),
-                trust: trust_id.to_string(),
+                company: company_id.to_string(),
             }
             .into()),
         }
@@ -1956,13 +1961,13 @@ impl BudgetRegistry {
 
 // ── DB-internal helpers (sync, run inside a held lock) ─────────────────────────
 
-fn trust_anchor_unix(conn: &Connection, trust_id: &str) -> rusqlite::Result<i64> {
+fn company_anchor_unix(conn: &Connection, company_id: &str) -> rusqlite::Result<i64> {
     // Use the entity's `created_at` as the epoch anchor. Falls back to
     // the unix epoch (0) if the entity row is missing — defensive.
     let anchor: Option<String> = conn
         .query_row(
             "SELECT created_at FROM entities WHERE id = ?1",
-            params![trust_id],
+            params![company_id],
             |row| row.get::<_, String>(0),
         )
         .optional()?;
@@ -2086,14 +2091,14 @@ mod tests {
 
     async fn make_role(
         roles: &RoleRegistry,
-        trust_id: &str,
+        company_id: &str,
         title: &str,
         kind: OccupantKind,
         occupant: Option<&str>,
     ) -> String {
         roles
             .create_with_type(
-                trust_id,
+                company_id,
                 title,
                 kind,
                 occupant,
@@ -2118,7 +2123,7 @@ mod tests {
         conn.execute_batch(
             "CREATE TABLE entities (id TEXT PRIMARY KEY, slug TEXT, type TEXT, \
                                     name TEXT, created_at TEXT NOT NULL);
-             CREATE TABLE roles (id TEXT PRIMARY KEY, trust_id TEXT, title TEXT, \
+             CREATE TABLE roles (id TEXT PRIMARY KEY, company_id TEXT, title TEXT, \
                                  occupant_kind TEXT, occupant_id TEXT, \
                                  role_type TEXT, founder INTEGER, \
                                  created_at TEXT NOT NULL, updated_at TEXT);",

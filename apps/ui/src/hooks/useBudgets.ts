@@ -14,17 +14,17 @@ export interface BudgetsListState {
 }
 
 /**
- * Read every budget in the trust. Polls on `trustId` change. Use
+ * Read every budget in the company. Polls on `companyId` change. Use
  * `useBudgetTree` instead when you need the parent→child edges.
  */
-export function useBudgets(trustId: string | undefined): BudgetsListState {
+export function useBudgets(companyId: string | undefined): BudgetsListState {
   const [budgets, setBudgets] = useState<Budget[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
-    if (!trustId) {
+    if (!companyId) {
       setBudgets([]);
       setLoading(false);
       return;
@@ -33,7 +33,7 @@ export function useBudgets(trustId: string | undefined): BudgetsListState {
     setLoading(true);
     setError(null);
     api
-      .listBudgets(trustId)
+      .listBudgets(companyId)
       .then((res) => {
         if (cancelled) return;
         setBudgets(res.budgets ?? []);
@@ -49,7 +49,7 @@ export function useBudgets(trustId: string | undefined): BudgetsListState {
     return () => {
       cancelled = true;
     };
-  }, [trustId, tick]);
+  }, [companyId, tick]);
 
   return { budgets, loading, error, refresh: () => setTick((t) => t + 1) };
 }

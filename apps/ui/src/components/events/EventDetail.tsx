@@ -37,8 +37,8 @@ export default function EventDetail({
   onDelete,
 }: EventDetailProps) {
   const navigate = useNavigate();
-  const { entityPath, trustId } = useNav();
-  const resolvedBackHref = backHref ?? (trustId ? entityPath(trustId, "events") : "/");
+  const { entityPath, companyId } = useNav();
+  const resolvedBackHref = backHref ?? (companyId ? entityPath(companyId, "events") : "/");
   const isGlobal = event.agent_id == null;
   const isSystem = event.system === true;
   const readOnly = isGlobal || isSystem;
@@ -127,7 +127,7 @@ export default function EventDetail({
   return (
     <div className="events-detail">
       <div className="events-detail-context-strip">
-        <div className="session-detail-header trust-session-detail-header events-detail-context">
+        <div className="session-detail-header company-session-detail-header events-detail-context">
           <div className="session-detail-header-from">
             <span className="session-detail-header-title" title={event.name}>
               {event.name}
@@ -188,7 +188,7 @@ export default function EventDetail({
             aria-label="Event name"
           />
           {isGlobal && (
-            <span className="events-detail-title-badge" title="TRUST-wide event">
+            <span className="events-detail-title-badge" title="COMPANY-wide event">
               {SCOPE_LABEL.global}
             </span>
           )}
@@ -308,7 +308,7 @@ export default function EventDetail({
       {readOnly && (
         <div className="events-detail-notice">
           {isGlobal
-            ? "Inherited TRUST event — fires for every role at this lifecycle moment. Manage from Settings."
+            ? "Inherited COMPANY event — fires for every role at this lifecycle moment. Manage from Settings."
             : "System event — read-only."}
         </div>
       )}

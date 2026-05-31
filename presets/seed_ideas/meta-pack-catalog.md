@@ -134,7 +134,7 @@ Outstanding candidate principle imports: Zettelkasten atomic-notes rule.
   on `aeqi-orchestrator`.
 - `meta:pack:etsy` — five native seller tools across shops /
   listings / orders / draft-listing creation backed by T1.9's `oauth2`
-  lifecycle. TRUST-scoped storefront credential (`ScopeHint::Trust`);
+  lifecycle. COMPANY-scoped storefront credential (`ScopeHint::Company`);
   refresh-on-401 retry; Etsy `x-api-key` sourced from credential
   metadata; write surface is draft-only in V1 so agents can prepare
   commerce work without publishing products. Crate `aeqi-pack-etsy`,
@@ -142,7 +142,7 @@ Outstanding candidate principle imports: Zettelkasten atomic-notes rule.
 - `meta:pack:wecom` — planned WeCom / Enterprise WeChat messaging
   integration. First target is callback mode for self-built enterprise
   apps: encrypted inbound callbacks, immediate ACK, async agent session,
-  proactive `message/send`, multi-corp routing, dedupe, TRUST-scoped
+  proactive `message/send`, multi-corp routing, dedupe, COMPANY-scoped
   service-account credentials, and role/app grants. Not callable yet;
   surfaced only through the MCP Apps planned/roadmap catalog until a
   real pack and credential lifecycle ship.

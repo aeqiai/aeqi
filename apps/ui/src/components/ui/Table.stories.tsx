@@ -104,7 +104,7 @@ const sortableColumns: Array<TableColumn<DemoRow>> = [
 const wideRows: WideRow[] = [
   {
     id: "b1",
-    source: "TRUST",
+    source: "COMPANY",
     owner: "role · operations",
     status: "active",
     module: "Treasury",

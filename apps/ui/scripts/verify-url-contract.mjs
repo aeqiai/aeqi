@@ -54,7 +54,7 @@ const PLATFORM_OWNED_PREFIXES = [
   "/api/me/",
   "/api/billing/",
   "/api/admin/",
-  "/api/trusts",
+  "/api/companies",
   "/api/entities",
   "/api/companies/",
   "/api/solana/",

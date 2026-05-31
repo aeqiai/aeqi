@@ -30,7 +30,7 @@ export default function StartPage() {
           <EconomyCard />
           <BlueprintCard />
           <ReferralCard />
-          <LaunchTrustCard />
+          <LaunchCompanyCard />
         </section>
       </div>
 
@@ -83,7 +83,7 @@ function BlueprintCard() {
   );
 }
 
-function LaunchTrustCard() {
+function LaunchCompanyCard() {
   return (
     <article className="home-card home-card--launch home-card--elevated">
       <span className="home-launch-kicker">
@@ -91,7 +91,7 @@ function LaunchTrustCard() {
         Launch
       </span>
       <div className="home-launch-body">
-        <h2 className="home-launch-title">Launch a TRUST</h2>
+        <h2 className="home-launch-title">Launch a COMPANY</h2>
         <p className="home-launch-hint">
           Name the workspace and create the first operating context.
         </p>
@@ -99,7 +99,7 @@ function LaunchTrustCard() {
       <div className="home-launch-actions">
         <Link to="/launch" className="home-primary-action">
           <Plus size={16} strokeWidth={1.8} />
-          Launch TRUST
+          Launch COMPANY
         </Link>
       </div>
     </article>
@@ -139,7 +139,7 @@ function EconomyCard() {
       <div className="home-launch-body">
         <h2 className="home-launch-title">Markets</h2>
         <p className="home-launch-hint">
-          Browse public TRUSTs, open roles, and launch signals across the network.
+          Browse public Companies, open roles, and launch signals across the network.
         </p>
       </div>
       <div className="home-launch-actions">
@@ -211,7 +211,9 @@ function LearnAeqiSection() {
             Docs
           </span>
           <span className="home-learn-rail-title">Read docs</span>
-          <span className="home-learn-rail-copy">TRUSTs, agents, quests, and launch basics.</span>
+          <span className="home-learn-rail-copy">
+            Companies, agents, quests, and launch basics.
+          </span>
           <ArrowRight size={15} strokeWidth={1.8} />
         </a>
         <a

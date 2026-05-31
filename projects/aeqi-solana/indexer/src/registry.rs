@@ -30,12 +30,12 @@ pub struct EventMeta {
 
 const EVENTS: &[(&str, &str, &[&str])] = &[
     (
-        "aeqi_trust",
+        "aeqi_company",
         "CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV",
         &[
-            "TrustInitialized",
-            "TrustFinalized",
-            "TrustPauseChanged",
+            "CompanyInitialized",
+            "CompanyFinalized",
+            "CompanyPauseChanged",
             "ModuleRegistered",
             "ModuleImplementationPublished",
             "ModuleImplementationActiveChanged",
@@ -284,8 +284,8 @@ mod tests {
                 include_str!("../../../../apps/ui/src/solana/generated/idl/aeqi_treasury.json"),
             ),
             (
-                "aeqi_trust",
-                include_str!("../../../../apps/ui/src/solana/generated/idl/aeqi_trust.json"),
+                "aeqi_company",
+                include_str!("../../../../apps/ui/src/solana/generated/idl/aeqi_company.json"),
             ),
             (
                 "aeqi_unifutures",
@@ -332,13 +332,13 @@ mod tests {
     #[test]
     fn registry_program_ids_reject_manifest_drift() {
         let mut manifest = manifest_from_registry();
-        let trust =
-            manifest.programs.iter_mut().find(|program| program.name == "aeqi_trust").unwrap();
-        trust.pubkey = "11111111111111111111111111111111".to_string();
+        let company =
+            manifest.programs.iter_mut().find(|program| program.name == "aeqi_company").unwrap();
+        company.pubkey = "11111111111111111111111111111111".to_string();
 
         let err = assert_matches_manifest(&manifest).expect_err("drift should be rejected");
         let msg = format!("{err}");
-        assert!(msg.contains("aeqi_trust"), "{msg}");
+        assert!(msg.contains("aeqi_company"), "{msg}");
         assert!(msg.contains("drift detected"), "{msg}");
     }
 }

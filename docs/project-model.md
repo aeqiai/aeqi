@@ -304,7 +304,7 @@ Deployment
 ```
 
 Platform placement rows can remain as the hosted compatibility projection while
-runtime, deployment, billing, and TRUST state split into their canonical
+runtime, deployment, billing, and COMPANY state split into their canonical
 records.
 
 ## Worktree Scope
@@ -384,9 +384,9 @@ Organization
 
 User-facing meanings:
 
-- TRUST is the shared AI workspace and runtime for one mission. Organization,
+- COMPANY is the shared AI workspace and runtime for one mission. Organization,
   company, and entity language is explanatory or API-adjacent and must not
-  compete with TRUST as the user-facing root.
+  compete with COMPANY as the user-facing root.
 - Agents execute.
 - Quests are work.
 - Ideas are knowledge, specs, and durable memory.

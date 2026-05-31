@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Blocks, BriefcaseBusiness, Droplets, Search } from "lucide-react";
 import PageRail from "@/components/PageRail";
@@ -13,60 +13,42 @@ import {
   PageToolbar,
   Table,
 } from "@/components/ui";
-import { api } from "@/lib/api";
 import { entityBasePath, entityPath } from "@/lib/entityPath";
-import type { Role, RoleType } from "@/lib/types";
+import type { RoleType } from "@/lib/types";
 import { useEntitiesQuery } from "@/queries/entities";
 import { TemplateDiscoverySection } from "./EconomyPage.blueprints";
 import { CapTableSeedSection, type CapTableSeedRow } from "./EconomyPage.capTable";
+import { useEconomyEntityData } from "./EconomyPage.entityData";
 import { EconomyMetricGrid } from "./EconomyPage.metrics";
 import {
   CapitalReadinessSection,
   makePoolColumns,
   makeRoleColumns,
-  makeTrustColumns,
+  makeCompanyColumns,
   PoolKindChips,
   type PoolRow,
   RegistryCard,
   type RoleOpeningRow,
   RoleTypeChips,
-  TrustDirectory,
-  TrustVisibilityChips,
+  CompanyDirectory,
+  CompanyVisibilityChips,
 } from "./EconomyPage.parts";
 import {
   ECONOMY_TABS,
   isEconomyTab,
   isPoolKind,
   isRoleType,
-  isTrustVisibilityParam,
+  isCompanyVisibilityParam,
   matchesCapTableQuery,
   matchesPoolQuery,
   matchesRoleQuery,
-  matchesTrustQuery,
+  matchesCompanyQuery,
   type PoolKind,
   type PoolKindFilter,
   type RoleTypeFilter,
-  type TrustVisibilityFilter,
+  type CompanyVisibilityFilter,
 } from "./EconomyPage.utils";
 import styles from "./EconomyPage.module.css";
-
-type LaunchStatus = Awaited<ReturnType<typeof api.getLaunchStatus>>;
-type CapTableStatus = Awaited<ReturnType<typeof api.getCapTable>>;
-
-interface RoleLoadState {
-  roles: Role[];
-  loading: boolean;
-}
-
-interface LaunchLoadState {
-  status: LaunchStatus | null;
-  loading: boolean;
-}
-
-interface CapTableLoadState {
-  entries: CapTableStatus["entries"];
-  loading: boolean;
-}
 
 export default function EconomyPage() {
   const navigate = useNavigate();
@@ -98,13 +80,13 @@ export default function EconomyPage() {
     [searchParams, setSearchParams],
   );
 
-  const trustVisibilityFilter: TrustVisibilityFilter = isTrustVisibilityParam(
+  const trustVisibilityFilter: CompanyVisibilityFilter = isCompanyVisibilityParam(
     searchParams.get("public"),
   )
     ? "public"
     : "all";
-  const setTrustVisibilityFilter = useCallback(
-    (next: TrustVisibilityFilter) => {
+  const setCompanyVisibilityFilter = useCallback(
+    (next: CompanyVisibilityFilter) => {
       const params = new URLSearchParams(searchParams);
       if (next === "all") params.delete("public");
       else params.set("public", "1");
@@ -124,110 +106,19 @@ export default function EconomyPage() {
     },
     [searchParams, setSearchParams],
   );
-  const [roleState, setRoleState] = useState<Record<string, RoleLoadState>>({});
-  const [launchState, setLaunchState] = useState<Record<string, LaunchLoadState>>({});
-  const [capTableState, setCapTableState] = useState<Record<string, CapTableLoadState>>({});
-
-  useEffect(() => {
-    if (entities.length === 0) {
-      setRoleState({});
-      setLaunchState({});
-      setCapTableState({});
-      return;
-    }
-
-    let cancelled = false;
-    setRoleState((current) => {
-      const next = { ...current };
-      for (const entity of entities) {
-        if (!next[entity.id]) next[entity.id] = { roles: [], loading: true };
-      }
-      return next;
-    });
-    setLaunchState((current) => {
-      const next = { ...current };
-      for (const entity of entities) {
-        if (!next[entity.id]) next[entity.id] = { status: null, loading: true };
-      }
-      return next;
-    });
-    setCapTableState((current) => {
-      const next = { ...current };
-      for (const entity of entities) {
-        if (!next[entity.id]) next[entity.id] = { entries: [], loading: true };
-      }
-      return next;
-    });
-
-    entities.forEach((entity) => {
-      void api
-        .getRoles(entity.id)
-        .then((resp) => {
-          if (cancelled) return;
-          setRoleState((current) => ({
-            ...current,
-            [entity.id]: { roles: resp.roles ?? [], loading: false },
-          }));
-        })
-        .catch(() => {
-          if (cancelled) return;
-          setRoleState((current) => ({
-            ...current,
-            [entity.id]: { roles: [], loading: false },
-          }));
-        });
-
-      void api
-        .getCapTable(entity.id)
-        .then((resp) => {
-          if (cancelled) return;
-          setCapTableState((current) => ({
-            ...current,
-            [entity.id]: { entries: resp.entries ?? [], loading: false },
-          }));
-        })
-        .catch(() => {
-          if (cancelled) return;
-          setCapTableState((current) => ({
-            ...current,
-            [entity.id]: { entries: [], loading: false },
-          }));
-        });
-
-      void api
-        .getLaunchStatus(entity.id)
-        .then((status) => {
-          if (cancelled) return;
-          setLaunchState((current) => ({
-            ...current,
-            [entity.id]: { status, loading: false },
-          }));
-        })
-        .catch(() => {
-          if (cancelled) return;
-          setLaunchState((current) => ({
-            ...current,
-            [entity.id]: { status: null, loading: false },
-          }));
-        });
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [entities]);
+  const { roleState, launchState, capTableState } = useEconomyEntityData(entities);
 
   const normalizedSearch = search.trim().toLowerCase();
-  const visibleTrusts = useMemo(
-    () => entities.filter((entity) => matchesTrustQuery(entity, normalizedSearch)),
+  const visibleCompanies = useMemo(
+    () => entities.filter((entity) => matchesCompanyQuery(entity, normalizedSearch)),
     [entities, normalizedSearch],
   );
-  const visibleTrustsForTab = useMemo(
+  const visibleCompaniesForTab = useMemo(
     () =>
       trustVisibilityFilter === "public"
-        ? visibleTrusts.filter((trust) => trust.public)
-        : visibleTrusts,
-    [visibleTrusts, trustVisibilityFilter],
+        ? visibleCompanies.filter((company) => company.public)
+        : visibleCompanies,
+    [visibleCompanies, trustVisibilityFilter],
   );
 
   const allRoles = useMemo(
@@ -236,20 +127,20 @@ export default function EconomyPage() {
   );
   const roleOpenings = useMemo<RoleOpeningRow[]>(
     () =>
-      entities.flatMap((trust) =>
-        (roleState[trust.id]?.roles ?? [])
+      entities.flatMap((company) =>
+        (roleState[company.id]?.roles ?? [])
           .filter((role) => role.occupant_kind === "vacant")
-          .map((role) => ({ id: `${trust.id}:${role.id}`, trust, role })),
+          .map((role) => ({ id: `${company.id}:${role.id}`, company, role })),
       ),
     [entities, roleState],
   );
 
   const capTableRows = useMemo<CapTableSeedRow[]>(
     () =>
-      entities.flatMap((trust) =>
-        (capTableState[trust.id]?.entries ?? []).map((entry) => ({
-          id: `${trust.id}:${entry.id}`,
-          trust,
+      entities.flatMap((company) =>
+        (capTableState[company.id]?.entries ?? []).map((entry) => ({
+          id: `${company.id}:${entry.id}`,
+          company,
           entry,
         })),
       ),
@@ -263,13 +154,13 @@ export default function EconomyPage() {
 
   const poolRows = useMemo<PoolRow[]>(
     () =>
-      entities.flatMap((trust) => {
-        const unifutures = launchState[trust.id]?.status?.unifutures;
+      entities.flatMap((company) => {
+        const unifutures = launchState[company.id]?.status?.unifutures;
         if (!unifutures) return [];
         return [
           {
-            id: `${trust.id}:${unifutures.curve}`,
-            trust,
+            id: `${company.id}:${unifutures.curve}`,
+            company,
             kind: "genesis" as const,
             curve: unifutures.curve,
             assetMint: unifutures.asset_mint,
@@ -314,20 +205,20 @@ export default function EconomyPage() {
     [roleOpenings, normalizedSearch, roleTypeFilter],
   );
 
-  const publicTrusts = entities.filter((entity) => entity.public);
-  const onChainTrusts = entities.filter((entity) => entity.trust_address);
-  const visibleOnChainTrusts = visibleTrusts.filter((entity) => entity.trust_address);
+  const publicCompanies = entities.filter((entity) => entity.public);
+  const onChainCompanies = entities.filter((entity) => entity.company_address);
+  const visibleOnChainCompanies = visibleCompanies.filter((entity) => entity.company_address);
   const liquiditySeedGaps = useMemo(
     () =>
-      visibleTrusts.filter((trust) => {
-        if (!trust.trust_address) return false;
-        const launch = launchState[trust.id];
+      visibleCompanies.filter((company) => {
+        if (!company.company_address) return false;
+        const launch = launchState[company.id];
         if (launch?.loading) return false;
         return !launch?.status?.unifutures;
       }),
-    [launchState, visibleTrusts],
+    [launchState, visibleCompanies],
   );
-  const hasNonPublicTrust = entities.some((entity) => !entity.public);
+  const hasNonPublicCompany = entities.some((entity) => !entity.public);
   const hasSearch = normalizedSearch.length > 0;
   const loadingSecondaryData =
     Object.values(roleState).some((state) => state.loading) ||
@@ -335,19 +226,19 @@ export default function EconomyPage() {
     Object.values(capTableState).some((state) => state.loading);
 
   const trustColumns = useMemo(
-    () => makeTrustColumns((trust) => roleState[trust.id]?.roles.length),
+    () => makeCompanyColumns((company) => roleState[company.id]?.roles.length),
     [roleState],
   );
 
   const poolColumns = useMemo(
-    () => makePoolColumns((row) => navigate(entityPath(row.trust, "shares"))),
+    () => makePoolColumns((row) => navigate(entityPath(row.company, "shares"))),
     [navigate],
   );
 
   const roleColumns = useMemo(
     () =>
       makeRoleColumns((row) =>
-        navigate(`${entityBasePath(row.trust)}/roles/${encodeURIComponent(row.role.id)}`),
+        navigate(`${entityBasePath(row.company)}/roles/${encodeURIComponent(row.role.id)}`),
       ),
     [navigate],
   );
@@ -365,7 +256,7 @@ export default function EconomyPage() {
         <Page width="wide" padding="lg" gap="6">
           <PageHeader
             title="Markets"
-            description="Discover Templates, public TRUSTs, open roles, and live capital surfaces across the operating graph."
+            description="Discover Templates, public Companies, open roles, and live capital surfaces across the operating graph."
             actions={
               <Button
                 variant="primary"
@@ -384,8 +275,8 @@ export default function EconomyPage() {
                 <Search size={13} strokeWidth={1.6} />
               </span>
               <Input
-                aria-label="Search trusts"
-                placeholder="Search trusts, roles, pools, addresses"
+                aria-label="Search companies"
+                placeholder="Search companies, roles, pools, addresses"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 className={styles.searchInput}
@@ -398,10 +289,10 @@ export default function EconomyPage() {
                 onChange={setPoolKindFilter}
               />
             )}
-            {activeTab === "trusts" && hasNonPublicTrust && (
-              <TrustVisibilityChips
+            {activeTab === "companies" && hasNonPublicCompany && (
+              <CompanyVisibilityChips
                 value={trustVisibilityFilter}
-                onChange={setTrustVisibilityFilter}
+                onChange={setCompanyVisibilityFilter}
               />
             )}
             {activeTab === "roles" && roleTypesPresent.length > 1 && (
@@ -413,7 +304,7 @@ export default function EconomyPage() {
             )}
             {hasSearch && (
               <span className={styles.searchSummary}>
-                {visibleTrusts.length} trusts / {visiblePoolRows.length} pools /{" "}
+                {visibleCompanies.length} companies / {visiblePoolRows.length} pools /{" "}
                 {visibleCapTableRows.length} allocations / {visibleRoleOpenings.length} roles
               </span>
             )}
@@ -426,12 +317,12 @@ export default function EconomyPage() {
             entitiesLoading={entitiesLoading}
             hasSearch={hasSearch}
             liquiditySeedGapCount={liquiditySeedGaps.length}
-            onChainTrusts={onChainTrusts}
-            publicTrusts={publicTrusts}
+            onChainCompanies={onChainCompanies}
+            publicCompanies={publicCompanies}
             roleOpenings={roleOpenings}
             visibleCapTableRows={visibleCapTableRows}
             visibleRoleOpenings={visibleRoleOpenings}
-            visibleTrusts={visibleTrusts}
+            visibleCompanies={visibleCompanies}
           />
 
           <PageBody gap="6">
@@ -440,10 +331,10 @@ export default function EconomyPage() {
                 <CapitalReadinessSection
                   loading={loadingSecondaryData}
                   capTableRows={visibleCapTableRows}
-                  totalTrusts={visibleTrusts.length}
-                  onChainCount={visibleOnChainTrusts.length}
+                  totalCompanies={visibleCompanies.length}
+                  onChainCount={visibleOnChainCompanies.length}
                   poolCount={visiblePoolRows.length}
-                  riskTrusts={liquiditySeedGaps}
+                  riskCompanies={liquiditySeedGaps}
                   onOpenPools={() => navigate("/markets/pools")}
                   onOpenFunding={() => navigate("/markets/funding")}
                 />
@@ -453,11 +344,11 @@ export default function EconomyPage() {
                   rows={visibleCapTableRows}
                 />
                 <TemplateDiscoverySection onBrowse={() => navigate("/templates")} />
-                <TrustDirectory
-                  trusts={visibleTrusts.slice(0, 6)}
+                <CompanyDirectory
+                  companies={visibleCompanies.slice(0, 6)}
                   loading={entitiesLoading}
-                  onOpen={(trust) => navigate(entityBasePath(trust))}
-                  onViewAll={() => navigate("/markets/trusts")}
+                  onOpen={(company) => navigate(entityBasePath(company))}
+                  onViewAll={() => navigate("/markets/companies")}
                 />
                 <div className={styles.registryGrid}>
                   <RegistryCard
@@ -473,36 +364,38 @@ export default function EconomyPage() {
                     title="Open roles"
                     value={visibleRoleOpenings.length}
                     tone="pending"
-                    body="Vacant TRUST roles are the clearest path to join an operating company."
+                    body="Vacant COMPANY roles are the clearest path to join an operating company."
                     onOpen={() => navigate("/markets/roles")}
                   />
                 </div>
               </>
             )}
 
-            {activeTab === "trusts" && (
+            {activeTab === "companies" && (
               <PageSection
-                title="All visible trusts"
-                description="Trusts you can operate or browse from this account. Public trusts link to their published profile."
+                title="All visible companies"
+                description="Companies you can operate or browse from this account. Public companies link to their published profile."
               >
                 <Table
                   columns={trustColumns}
-                  data={visibleTrustsForTab}
-                  rowKey={(trust) => trust.id}
-                  onRowClick={(trust) => navigate(entityBasePath(trust))}
+                  data={visibleCompaniesForTab}
+                  rowKey={(company) => company.id}
+                  onRowClick={(company) => navigate(entityBasePath(company))}
                   loading={entitiesLoading}
                   skeletonRows={5}
                   scrollWidth="md"
-                  ariaLabel="Trust registry"
+                  ariaLabel="Company registry"
                   empty={
                     <EmptyState
                       title={
-                        trustVisibilityFilter === "public" ? "No public trusts" : "No trusts found"
+                        trustVisibilityFilter === "public"
+                          ? "No public companies"
+                          : "No companies found"
                       }
                       description={
                         trustVisibilityFilter === "public"
-                          ? "Publish a trust profile to surface it here."
-                          : "Create or publish a trust and it will appear here."
+                          ? "Publish a company profile to surface it here."
+                          : "Create or publish a company and it will appear here."
                       }
                     />
                   }
@@ -513,13 +406,13 @@ export default function EconomyPage() {
             {activeTab === "pools" && (
               <PageSection
                 title="Liquidity pools"
-                description="Every indexed genesis curve attached to a visible trust. No row means Markets has no real seed surface to show."
+                description="Every indexed genesis curve attached to a visible company. No row means Markets has no real seed surface to show."
               >
                 <Table
                   columns={poolColumns}
                   data={visiblePoolRows}
                   rowKey={(row) => row.id}
-                  onRowClick={(row) => navigate(entityPath(row.trust, "shares"))}
+                  onRowClick={(row) => navigate(entityPath(row.company, "shares"))}
                   loading={loadingSecondaryData && visiblePoolRows.length === 0}
                   skeletonRows={3}
                   scrollWidth="lg"
@@ -529,7 +422,7 @@ export default function EconomyPage() {
                       title={hasSearch ? "No matching pools" : "No indexed pools yet"}
                       description={
                         hasSearch
-                          ? "Try a trust name, pool address, asset mint, or quote mint."
+                          ? "Try a company name, pool address, asset mint, or quote mint."
                           : "Pools appear here only after launch status confirms a provisioned genesis curve and asset mint. Until then, do not infer live liquidity or a seeded cap table from this page."
                       }
                     />
@@ -553,7 +446,7 @@ export default function EconomyPage() {
             {activeTab === "roles" && (
               <PageSection
                 title="Open roles"
-                description="Vacant trust roles that can become the apply surface."
+                description="Vacant company roles that can become the apply surface."
               >
                 <Table
                   columns={roleColumns}
@@ -561,7 +454,7 @@ export default function EconomyPage() {
                   rowKey={(row) => row.id}
                   onRowClick={(row) =>
                     navigate(
-                      `${entityBasePath(row.trust)}/roles/${encodeURIComponent(row.role.id)}`,
+                      `${entityBasePath(row.company)}/roles/${encodeURIComponent(row.role.id)}`,
                     )
                   }
                   loading={loadingSecondaryData && visibleRoleOpenings.length === 0}
@@ -578,13 +471,13 @@ export default function EconomyPage() {
                       description={
                         hasSearch
                           ? roleTypesPresent.length > 1
-                            ? "Try a role title, role type, trust name, or trust address."
-                            : "Try a role title, trust name, or trust address."
+                            ? "Try a role title, role type, company name, or company address."
+                            : "Try a role title, company name, or company address."
                           : roleTypeFilter !== "all"
                             ? roleTypesPresent.length > 1
                               ? "Try another role type, or clear the filter to see every open role."
                               : "Clear the role-type filter to see every open role."
-                            : "Vacant roles will appear here when trusts publish roles without occupants."
+                            : "Vacant roles will appear here when companies publish roles without occupants."
                       }
                     />
                   }

@@ -173,7 +173,7 @@ the bug fix.
 
 **Why:** the diff should match the bug. Length limits and char validation
 are real concerns — file them as separate quests. Mixed-purpose diffs
-erode trust in code review.
+erode company in code review.
 
 ---
 

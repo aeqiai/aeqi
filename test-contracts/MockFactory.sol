@@ -5,71 +5,71 @@ pragma solidity ^0.8.28;
 /// Factory. Used by the indexer test loop to verify end-to-end decode +
 /// dispatch without deploying full aeqi-core.
 contract MockFactory {
-    event Factory_TRUSTCreatedEvent(
+    event Factory_COMPANYCreatedEvent(
         address indexed creatorAddress,
-        bytes32 indexed trustId,
-        address indexed trustAddress
+        bytes32 indexed companyId,
+        address indexed companyAddress
     );
-    event Factory_TRUSTRegisteredEvent(
+    event Factory_COMPANYRegisteredEvent(
         address indexed creatorAddress,
-        bytes32 indexed trustId,
+        bytes32 indexed companyId,
         bytes32 indexed templateId,
         bytes ipfsCid,
         uint256 signersCount,
         uint256 valueConfigsCount
     );
-    event Factory_TRUSTSignerAdded(
-        bytes32 indexed trustId,
+    event Factory_COMPANIESignerAdded(
+        bytes32 indexed companyId,
         bytes32 indexed addressKey,
         address indexed signerAddress,
         bool hasSigned
     );
 
-    function emitTrustCreated(
+    function emitCompanyCreated(
         address creator,
-        bytes32 trustId,
-        address trustAddress
+        bytes32 companyId,
+        address companyAddress
     ) external {
-        emit Factory_TRUSTCreatedEvent(creator, trustId, trustAddress);
+        emit Factory_COMPANYCreatedEvent(creator, companyId, companyAddress);
     }
 
-    function emitTrustRegistered(
+    function emitCompanyRegistered(
         address creator,
-        bytes32 trustId,
+        bytes32 companyId,
         bytes32 templateId,
         bytes calldata ipfsCid,
         uint256 signersCount,
         uint256 valueConfigsCount
     ) external {
-        emit Factory_TRUSTRegisteredEvent(
-            creator, trustId, templateId, ipfsCid, signersCount, valueConfigsCount
+        emit Factory_COMPANYRegisteredEvent(
+            creator, companyId, templateId, ipfsCid, signersCount, valueConfigsCount
         );
     }
 
-    function emitTrustSignerAdded(
-        bytes32 trustId,
+    function emitCompanySignerAdded(
+        bytes32 companyId,
         bytes32 addressKey,
         address signerAddress,
         bool hasSigned
     ) external {
-        emit Factory_TRUSTSignerAdded(trustId, addressKey, signerAddress, hasSigned);
+        emit Factory_COMPANIESignerAdded(companyId, addressKey, signerAddress, hasSigned);
     }
 
-    /// Realistic flow: one tx emits all three events for a single TRUST
-    /// (matches the real Factory.createAndRegisterTRUST shape).
+    /// Realistic flow: one tx emits all three events for a single COMPANY
+    /// (matches the real Factory.createAndRegisterCOMPANY shape).
     function emitFullCompanyCreation(
         address creator,
-        bytes32 trustId,
-        address trustAddress,
+        bytes32 companyId,
+        address companyAddress,
         bytes32 templateId,
         bytes calldata ipfsCid,
         bytes32 addressKey,
         address signerAddress
     ) external {
-        emit Factory_TRUSTCreatedEvent(creator, trustId, trustAddress);
-        emit Factory_TRUSTRegisteredEvent(
-            creator, trustId, templateId, ipfsCid, 1, 0
+        emit Factory_COMPANYCreatedEvent(creator, companyId, companyAddress);
+        emit Factory_COMPANYRegisteredEvent(
+            creator, companyId, templateId, ipfsCid, 1, 0
         );
-        emit Factory_TRUSTSignerAdded(trustId, addressKey, signerAddress, true);
+        emit Factory_COMPANIESignerAdded(companyId, addressKey, signerAddress, true);
     }
 }

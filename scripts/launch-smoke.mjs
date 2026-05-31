@@ -18,11 +18,11 @@ const DEFAULT_WAIT_MS = "2500";
 function usage() {
   console.log(`Usage:
   npm run launch:smoke
-  AEQI_ENTITY=<trust-or-entity-id> AEQI_TOKEN=<jwt> npm run launch:smoke
+  AEQI_ENTITY=<company-or-entity-id> AEQI_TOKEN=<jwt> npm run launch:smoke
 
 Options:
   --base <url>         Base URL. Default: ${DEFAULT_BASE_URL}
-  --trust <id>         TRUST/entity id for /trust/<id> checks. Defaults to AEQI_ENTITY.
+  --company <id>         COMPANY/entity id for /company/<id> checks. Defaults to AEQI_ENTITY.
   --out-dir <dir>      Artifact directory. Default: /tmp/aeqi-launch-smoke-<timestamp>
   --viewport <WxH>     Browser viewport. Default: ${DEFAULT_VIEWPORT}
   --wait-ms <ms>       Visual-route settle wait. Default: ${DEFAULT_WAIT_MS}
@@ -108,7 +108,7 @@ function visualRouteArgs(check, opts) {
   if (check.auth && opts.storageState)
     args.push("--storage-state", opts.storageState);
   if (check.auth && opts.authEnv) args.push("--auth-env", opts.authEnv);
-  if (opts.trustId && check.auth) args.push("--entity", opts.trustId);
+  if (opts.companyId && check.auth) args.push("--entity", opts.companyId);
   for (const text of check.expectText) args.push("--expect-text", text);
   return { args, report };
 }
@@ -158,17 +158,17 @@ function checksFor(opts) {
     },
   );
 
-  if (opts.trustId) {
+  if (opts.companyId) {
     checks.push(
       {
-        name: "trust-overview-auth",
-        url: `/trust/${opts.trustId}`,
+        name: "company-overview-auth",
+        url: `/company/${opts.companyId}`,
         auth: true,
         expectText: ["Activity"],
       },
       {
-        name: "trust-ideas-auth",
-        url: `/trust/${opts.trustId}/ideas`,
+        name: "company-ideas-auth",
+        url: `/company/${opts.companyId}/ideas`,
         auth: true,
         expectText: ["Ideas"],
       },
@@ -186,7 +186,7 @@ function main() {
 
   const opts = {
     baseUrl: args.base ?? DEFAULT_BASE_URL,
-    trustId: args.trust ?? process.env.AEQI_ENTITY ?? null,
+    companyId: args.company ?? process.env.AEQI_ENTITY ?? null,
     outDir:
       args["out-dir"] ?? path.join("/tmp", `aeqi-launch-smoke-${timestamp()}`),
     viewport: args.viewport ?? DEFAULT_VIEWPORT,
@@ -206,9 +206,9 @@ function main() {
       "Authenticated launch smoke requires AEQI_TOKEN, AEQI_EMAIL + AEQI_PASSWORD, AEQI_WEB_SECRET + AEQI_USER_ID, --storage-state, --auth-env, or the local operator MCP profile plus /etc/aeqi/secrets.env. Use --public-only for the unauthenticated check.",
     );
   }
-  if (!opts.publicOnly && !opts.trustId) {
+  if (!opts.publicOnly && !opts.companyId) {
     throw new Error(
-      "Authenticated launch smoke requires --trust or AEQI_ENTITY.",
+      "Authenticated launch smoke requires --company or AEQI_ENTITY.",
     );
   }
 
@@ -236,7 +236,7 @@ function main() {
   const summary = {
     ok: results.every((r) => r.ok),
     baseUrl: opts.baseUrl,
-    trustId: opts.trustId,
+    companyId: opts.companyId,
     outDir: opts.outDir,
     results,
   };

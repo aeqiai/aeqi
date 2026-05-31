@@ -5,7 +5,7 @@ import path from "node:path";
 import {
   checks,
   DEFAULT_ROLE_ID,
-  DEFAULT_TRUST_ID,
+  DEFAULT_COMPANY_ID,
   listChecks,
 } from "./visual-checks/routes.mjs";
 
@@ -16,7 +16,7 @@ function usage() {
 
 Options:
   --base <url>          Base URL. Default: visual-route default.
-  --trust <id>          TRUST id. Default: ${DEFAULT_TRUST_ID}
+  --company <id>          COMPANY id. Default: ${DEFAULT_COMPANY_ID}
   --role-id <id>        Role id for role-detail. Default: ${DEFAULT_ROLE_ID}
   --viewport <WxH>      Browser viewport.
   --wait-ms <ms>        Wait after load/clicks.
@@ -61,9 +61,9 @@ function parseArgs(argv) {
 }
 
 function routeArgsFor(checkName, check, args) {
-  const trust = args.trust ?? process.env.AEQI_VISUAL_TRUST ?? DEFAULT_TRUST_ID;
+  const company = args.company ?? process.env.AEQI_VISUAL_COMPANY ?? DEFAULT_COMPANY_ID;
   const roleId = args["role-id"] ?? process.env.AEQI_VISUAL_ROLE_ID ?? DEFAULT_ROLE_ID;
-  const url = check.url({ trust, roleId });
+  const url = check.url({ company, roleId });
   const outDir = args["out-dir"] ?? "/tmp/aeqi-visual-checks";
   const out = path.join(outDir, `${checkName}.png`);
   const routeArgs = ["scripts/visual-route.mjs", "--url", url, "--out", out];

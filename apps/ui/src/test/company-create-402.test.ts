@@ -4,7 +4,7 @@
  * NOT surfaces a raw error string.
  *
  * Tests the extracted handleCreate logic so we don't need to mount the full
- * TrustSetupPage with all its auth/routing deps.
+ * CompanySetupPage with all its auth/routing deps.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ApiError } from "@/lib/api";
@@ -26,7 +26,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
   };
 });
 
-// ── Extracted handleCreate logic (mirrors TrustSetupPage.handleCreate) ───
+// ── Extracted handleCreate logic (mirrors CompanySetupPage.handleCreate) ───
 //
 // Tested as a pure async function so we can assert on side-effects
 // (location redirect, error string) without mounting React.
@@ -36,7 +36,7 @@ type HandleCreateDeps = {
   displayName: string;
   mission: string;
   plan: string;
-  onSuccess: (trustId: string) => void;
+  onSuccess: (companyId: string) => void;
   onError: (msg: string) => void;
   navigateTo: (url: string) => void;
 };
@@ -58,7 +58,7 @@ async function composeHandleCreate({
       mission,
       plan,
     });
-    onSuccess((resp as { trust_id: string }).trust_id);
+    onSuccess((resp as { company_id: string }).company_id);
   } catch (e) {
     if (e instanceof ApiError && e.status === 402) {
       try {
@@ -145,7 +145,7 @@ describe("company create 402 handling", () => {
   });
 
   it("calls onSuccess on a successful launch without touching checkout", async () => {
-    startLaunch.mockResolvedValueOnce({ trust_id: "ent_abc" });
+    startLaunch.mockResolvedValueOnce({ company_id: "ent_abc" });
 
     await composeHandleCreate(deps());
 

@@ -413,12 +413,12 @@ pub async fn handle_architect_refine(
 
 // `architect.deploy` retired here; the platform now owns the deploy flow
 // (`POST /api/architect/deploy` in aeqi-platform) so it can write the
-// `runtime_placements` row, spawn the sandbox, fire on-chain TRUST
+// `runtime_placements` row, spawn the sandbox, fire on-chain COMPANY
 // provisioning, and ferry the architect's inline blueprint to the new
 // runtime via `spawn_blueprint`'s `inline_blueprint` payload. The
 // runtime-only deploy was a half-shipped seam — entity + agents + roles
 // landed in the runtime DB but no platform placement existed, so the UI
-// bounced to /me/inbox and on-chain TRUST never fired. See
+// bounced to /me/inbox and on-chain COMPANY never fired. See
 // `crates/aeqi-orchestrator/src/ipc/blueprints.rs::handle_spawn_blueprint`
 // for the inline-blueprint dispatch.
 
@@ -468,9 +468,9 @@ mod tests {
         let draft = generate(&brief).expect("generate succeeds");
         assert_eq!(draft.kind, "single");
         assert_eq!(draft.blueprint["slug"], "architect-foundation");
-        // STUB_TEMPLATE is "trust" per generator.rs — the on-chain foundation
+        // STUB_TEMPLATE is "company" per generator.rs — the on-chain foundation
         // module is not registered against the Beacon yet (97085207).
-        assert_eq!(draft.blueprint["template"], "trust");
+        assert_eq!(draft.blueprint["template"], "company");
         // Round-trip through the synthetic draft id helper.
         let id = synthetic_draft_id(&draft);
         assert!(id.starts_with("draft-architect-foundation-"));

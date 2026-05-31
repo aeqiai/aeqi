@@ -24,8 +24,8 @@ interface AddParticipantModalProps {
   open: boolean;
   sessionId: string;
   /** Override for the entity scope. When omitted, falls back to
-   *  useNav().trustId. */
-  trustId?: string;
+   *  useNav().companyId. */
+  companyId?: string;
   onClose: () => void;
   onAdded: () => void;
 }
@@ -60,12 +60,12 @@ function KindChip({ kind }: { kind: Candidate["kind"] }) {
 export default function AddParticipantModal({
   open,
   sessionId,
-  trustId: entityIdOverride,
+  companyId: entityIdOverride,
   onClose,
   onAdded,
 }: AddParticipantModalProps) {
-  const navEntityId = useNav().trustId;
-  const trustId = entityIdOverride || navEntityId;
+  const navEntityId = useNav().companyId;
+  const companyId = entityIdOverride || navEntityId;
   const agents = useDaemonStore((s) => s.agents);
 
   const [query, setQuery] = useState("");
@@ -84,10 +84,10 @@ export default function AddParticipantModal({
 
   // Load roles for the active entity once when opened
   useEffect(() => {
-    if (!open || !trustId) return;
+    if (!open || !companyId) return;
     let cancelled = false;
     api
-      .getRoles(trustId)
+      .getRoles(companyId)
       .then((res) => {
         if (cancelled) return;
         setRoles(res?.roles ?? []);
@@ -98,13 +98,13 @@ export default function AddParticipantModal({
     return () => {
       cancelled = true;
     };
-  }, [open, trustId]);
+  }, [open, companyId]);
 
   // Candidate set: agents in scope + all roles (with subtitle = occupant) +
   // unique humans mined from role.occupant_kind === "human".
   const candidates: Candidate[] = useMemo(() => {
     const out: Candidate[] = [];
-    const scopedAgents = trustId ? agents.filter((a) => a.trust_id === trustId) : agents;
+    const scopedAgents = companyId ? agents.filter((a) => a.company_id === companyId) : agents;
     for (const a of scopedAgents) {
       out.push({
         kind: "agent",
@@ -140,7 +140,7 @@ export default function AddParticipantModal({
       }
     }
     return out;
-  }, [agents, roles, trustId]);
+  }, [agents, roles, companyId]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

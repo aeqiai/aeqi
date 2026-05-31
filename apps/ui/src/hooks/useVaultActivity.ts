@@ -1,5 +1,5 @@
 /**
- * `useVaultActivity` — scan the chain for the TRUST's vault authority
+ * `useVaultActivity` — scan the chain for the COMPANY's vault authority
  * signature tail.
  *
  * `getSignaturesForAddress(vaultAuthority, { limit })` returns every
@@ -59,7 +59,7 @@ function startOfDay(ms: number): number {
 
 /**
  * Bucket signatures by day, oldest first. Mirrors the sparkline shape
- * `TrustActivityCard` consumes for the cockpit so the visual feels
+ * `CompanyActivityCard` consumes for the cockpit so the visual feels
  * consistent across surfaces.
  */
 function bucketSignatures(signatures: VaultSignature[], windowDays: number): number[] {

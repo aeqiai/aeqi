@@ -17,7 +17,7 @@
 // lints. Keep this crate's warning output focused on protocol code.
 #![allow(deprecated, unexpected_cfgs)]
 
-use aeqi_trust::state::Trust;
+use aeqi_company::state::Company;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::hash::hashv;
 use anchor_spl::token_interface::spl_token_2022::{
@@ -26,9 +26,9 @@ use anchor_spl::token_interface::spl_token_2022::{
 
 declare_id!("5WHpPFf2mPYNFjr5p3ujeRcZNPoqWMBMkYnsWb2YtyNq");
 
-/// aeqi_trust program id — used for cross-program PDA derivation so module
-/// setup paths (init, register_config) cannot accept arbitrary trust pubkeys.
-pub const AEQI_TRUST_ID: Pubkey =
+/// aeqi_company program id — used for cross-program PDA derivation so module
+/// setup paths (init, register_config) cannot accept arbitrary company pubkeys.
+pub const AEQI_COMPANY_ID: Pubkey =
     anchor_lang::pubkey!("CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV");
 
 /// Hardcoded aeqi_role program ID — used to validate the PDA derivation +
@@ -38,7 +38,7 @@ pub const AEQI_ROLE_ID: Pubkey =
     anchor_lang::pubkey!("4GSrvANBi1yrn3w4VgoxvVz7pH9BdR8MeyUpH4ZcGXpB");
 
 /// Hardcoded aeqi_token program ID — used to validate the cap-table mint
-/// passed to `cast_vote_token` is the canonical PDA `[b"mint", trust]`
+/// passed to `cast_vote_token` is the canonical PDA `[b"mint", company]`
 /// under aeqi_token, so callers can't substitute an unrelated mint.
 pub const AEQI_TOKEN_ID: Pubkey =
     anchor_lang::pubkey!("AxyYnv99gnKJ3VMYbyVjz4BxP8LA34CUnhHGVifrc3Kh");
@@ -63,7 +63,7 @@ pub struct RoleTypeConfigData {
 /// role supply for per-role governance without accepting caller input.
 #[derive(AnchorDeserialize, AnchorSerialize, Clone)]
 pub struct RoleTypeData {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub role_type_id: [u8; 32],
     pub hierarchy: u32,
     pub config: RoleTypeConfigData,
@@ -87,16 +87,16 @@ pub struct RoleVoteCheckpointData {
 pub mod aeqi_governance {
     use super::*;
 
-    /// Module init — creates GovernanceModuleState PDA bound to a trust.
-    /// Gated to the trust authority during creation mode so the
+    /// Module init — creates GovernanceModuleState PDA bound to a company.
+    /// Gated to the company authority during creation mode so the
     /// module_state PDA cannot be squatted by an attacker.
     pub fn init(ctx: Context<InitGovernance>) -> Result<()> {
-        let trust = &ctx.accounts.trust;
-        require!(trust.creation_mode, GovernanceError::TrustNotInCreationMode);
-        require_keys_eq!(ctx.accounts.payer.key(), trust.authority, GovernanceError::Unauthorized);
+        let company = &ctx.accounts.company;
+        require!(company.creation_mode, GovernanceError::CompanyNotInCreationMode);
+        require_keys_eq!(ctx.accounts.payer.key(), company.authority, GovernanceError::Unauthorized);
 
         let m = &mut ctx.accounts.module_state;
-        m.trust = ctx.accounts.trust.key();
+        m.company = ctx.accounts.company.key();
         m.proposal_count = 0;
         m.config_count = 0;
         m.bump = ctx.bumps.module_state;
@@ -107,8 +107,8 @@ pub mod aeqi_governance {
         Ok(())
     }
 
-    /// Register a governance config (one per voting mode the trust supports).
-    /// Authority gate: only the trust authority can register configs in this
+    /// Register a governance config (one per voting mode the company supports).
+    /// Authority gate: only the company authority can register configs in this
     /// iteration. Once live-mode governance lands, ratified config changes
     /// will flow through `execute_proposal`.
     pub fn register_config(
@@ -116,8 +116,8 @@ pub mod aeqi_governance {
         governance_config_id: [u8; 32],
         config: GovernanceConfigInput,
     ) -> Result<()> {
-        let trust = &ctx.accounts.trust;
-        require_keys_eq!(ctx.accounts.payer.key(), trust.authority, GovernanceError::Unauthorized);
+        let company = &ctx.accounts.company;
+        require_keys_eq!(ctx.accounts.payer.key(), company.authority, GovernanceError::Unauthorized);
 
         require!(config.quorum_bps <= 10_000, GovernanceError::InvalidBpsValue);
         require!(config.support_bps <= 10_000, GovernanceError::InvalidBpsValue);
@@ -126,7 +126,7 @@ pub mod aeqi_governance {
         require!(config.voting_period > 0, GovernanceError::ZeroVotingPeriod);
 
         let g = &mut ctx.accounts.governance_config;
-        g.trust = ctx.accounts.trust.key();
+        g.company = ctx.accounts.company.key();
         g.governance_config_id = governance_config_id;
         g.proposal_threshold = config.proposal_threshold;
         g.quorum_bps = config.quorum_bps;
@@ -140,7 +140,7 @@ pub mod aeqi_governance {
         bump_config_count(m)?;
 
         emit!(ConfigRegistered {
-            trust: g.trust,
+            company: g.company,
             governance_config_id,
             quorum_bps: g.quorum_bps,
             support_bps: g.support_bps,
@@ -170,7 +170,7 @@ pub mod aeqi_governance {
         let mut remaining_accounts = ctx.remaining_accounts.iter();
         let cfg_acct = remaining_accounts.next().ok_or(error!(GovernanceError::ConfigMismatch))?;
         let cfg =
-            load_governance_config(cfg_acct, &p.trust, &p.governance_config_id, ctx.program_id)?;
+            load_governance_config(cfg_acct, &p.company, &p.governance_config_id, ctx.program_id)?;
         let vote_supply_acct =
             remaining_accounts.next().ok_or(error!(GovernanceError::MissingVoteSupplyAccount))?;
         let total_vote_supply = load_total_vote_supply(p, vote_supply_acct)?;
@@ -212,7 +212,7 @@ pub mod aeqi_governance {
         p.executed = true;
 
         emit!(ProposalExecuted {
-            trust: p.trust,
+            company: p.company,
             proposal_id: p.proposal_id,
             for_votes: p.for_votes,
             against_votes: p.against_votes,
@@ -340,7 +340,7 @@ pub mod aeqi_governance {
         p.snapshot_total_supply = total_supply_snapshot;
 
         emit!(SnapshotRootCommitted {
-            trust: p.trust,
+            company: p.company,
             proposal_id: p.proposal_id,
             snapshot_slot: p.snapshot_slot,
             snapshot_root: root,
@@ -368,7 +368,7 @@ pub mod aeqi_governance {
             ctx.remaining_accounts.first().ok_or(error!(GovernanceError::ConfigMismatch))?;
         let cfg = load_governance_config(
             cfg_acct,
-            &ctx.accounts.trust.key(),
+            &ctx.accounts.company.key(),
             &governance_config_id,
             ctx.program_id,
         )?;
@@ -376,7 +376,7 @@ pub mod aeqi_governance {
         let clock = Clock::get()?;
         let now = clock.unix_timestamp;
         let p = &mut ctx.accounts.proposal;
-        p.trust = ctx.accounts.trust.key();
+        p.company = ctx.accounts.company.key();
         p.proposal_id = proposal_id;
         p.governance_config_id = governance_config_id;
         p.proposer = ctx.accounts.proposer.key();
@@ -405,7 +405,7 @@ pub mod aeqi_governance {
             m.proposal_count.checked_add(1).ok_or(error!(GovernanceError::MathOverflow))?;
 
         emit!(ProposalCreated {
-            trust: p.trust,
+            company: p.company,
             proposal_id,
             governance_config_id,
             proposer: p.proposer,
@@ -439,7 +439,7 @@ fn load_total_vote_supply(proposal: &Proposal, vote_supply_acct: &AccountInfo) -
 
 fn load_token_vote_supply(proposal: &Proposal, mint_acct: &AccountInfo) -> Result<u128> {
     let (expected_mint, _) =
-        Pubkey::find_program_address(&[b"mint", proposal.trust.as_ref()], &AEQI_TOKEN_ID);
+        Pubkey::find_program_address(&[b"mint", proposal.company.as_ref()], &AEQI_TOKEN_ID);
     require_keys_eq!(mint_acct.key(), expected_mint, GovernanceError::VoteSupplyAccountMismatch);
     require!(
         *mint_acct.owner == anchor_spl::token::ID || *mint_acct.owner == anchor_spl::token_2022::ID,
@@ -458,7 +458,7 @@ fn load_token_vote_supply(proposal: &Proposal, mint_acct: &AccountInfo) -> Resul
 
 fn load_role_vote_supply(proposal: &Proposal, role_type_acct: &AccountInfo) -> Result<u128> {
     let (expected_role_type, _) = Pubkey::find_program_address(
-        &[b"role_type", proposal.trust.as_ref(), proposal.governance_config_id.as_ref()],
+        &[b"role_type", proposal.company.as_ref(), proposal.governance_config_id.as_ref()],
         &AEQI_ROLE_ID,
     );
     require_keys_eq!(
@@ -478,7 +478,7 @@ fn load_role_vote_supply(proposal: &Proposal, role_type_acct: &AccountInfo) -> R
     require!(data.len() >= 8, GovernanceError::InvalidVoteSupplyAccount);
     let role_type = RoleTypeData::try_from_slice(&data[8..])
         .map_err(|_| error!(GovernanceError::InvalidVoteSupplyAccount))?;
-    require_keys_eq!(role_type.trust, proposal.trust, GovernanceError::VoteSupplyAccountMismatch);
+    require_keys_eq!(role_type.company, proposal.company, GovernanceError::VoteSupplyAccountMismatch);
     require!(
         role_type.role_type_id == proposal.governance_config_id,
         GovernanceError::VoteSupplyAccountMismatch
@@ -505,7 +505,7 @@ fn record_vote(
     weight: u128,
     bump: u8,
 ) {
-    vote.trust = proposal.trust;
+    vote.company = proposal.company;
     vote.proposal_id = proposal.proposal_id;
     vote.voter = voter;
     vote.choice = choice;
@@ -574,12 +574,12 @@ fn bump_config_count(module_state: &mut Account<GovernanceModuleState>) -> Resul
 
 fn load_governance_config(
     cfg_acct: &AccountInfo,
-    trust: &Pubkey,
+    company: &Pubkey,
     governance_config_id: &[u8; 32],
     program_id: &Pubkey,
 ) -> Result<GovernanceConfig> {
     let (expected_cfg, _) = Pubkey::find_program_address(
-        &[b"gov_config", trust.as_ref(), governance_config_id],
+        &[b"gov_config", company.as_ref(), governance_config_id],
         program_id,
     );
     require_keys_eq!(cfg_acct.key(), expected_cfg, GovernanceError::ConfigMismatch);
@@ -592,7 +592,7 @@ fn load_governance_config(
 
     let cfg = GovernanceConfig::try_from_slice(&data[discriminator.len()..])
         .map_err(|_| error!(GovernanceError::ConfigMismatch))?;
-    require_keys_eq!(cfg.trust, *trust, GovernanceError::ConfigMismatch);
+    require_keys_eq!(cfg.company, *company, GovernanceError::ConfigMismatch);
     require!(cfg.governance_config_id == *governance_config_id, GovernanceError::ConfigMismatch);
     Ok(cfg)
 }
@@ -604,7 +604,7 @@ fn load_governance_config(
 #[account]
 #[derive(InitSpace)]
 pub struct GovernanceModuleState {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub proposal_count: u64,
     pub config_count: u32,
     pub bump: u8,
@@ -614,7 +614,7 @@ pub struct GovernanceModuleState {
 #[account]
 #[derive(InitSpace)]
 pub struct GovernanceConfig {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub governance_config_id: [u8; 32],
     pub proposal_threshold: u128,
     pub quorum_bps: u16,
@@ -639,7 +639,7 @@ pub struct GovernanceConfigInput {
 #[account]
 #[derive(InitSpace)]
 pub struct VoteRecord {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub proposal_id: [u8; 32],
     pub voter: Pubkey,
     pub choice: u8, // 0 = against, 1 = for, 2 = abstain
@@ -650,7 +650,7 @@ pub struct VoteRecord {
 #[account]
 #[derive(InitSpace)]
 pub struct Proposal {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub proposal_id: [u8; 32],
     pub governance_config_id: [u8; 32],
     pub proposer: Pubkey,
@@ -690,18 +690,18 @@ pub struct Proposal {
 
 #[derive(Accounts)]
 pub struct InitGovernance<'info> {
-    /// Trust PDA — must be a real Trust account owned by aeqi_trust.
+    /// Company PDA — must be a real Company account owned by aeqi_company.
     #[account(
-        seeds = [b"trust", trust.trust_id.as_ref()],
-        bump = trust.bump,
-        seeds::program = AEQI_TRUST_ID,
+        seeds = [b"company", company.company_id.as_ref()],
+        bump = company.bump,
+        seeds::program = AEQI_COMPANY_ID,
     )]
-    pub trust: Account<'info, Trust>,
+    pub company: Account<'info, Company>,
     #[account(
         init,
         payer = payer,
         space = 8 + GovernanceModuleState::INIT_SPACE,
-        seeds = [b"gov_module", trust.key().as_ref()],
+        seeds = [b"gov_module", company.key().as_ref()],
         bump,
     )]
     pub module_state: Account<'info, GovernanceModuleState>,
@@ -712,23 +712,23 @@ pub struct InitGovernance<'info> {
 
 #[derive(Accounts)]
 pub struct FinalizeGovernance<'info> {
-    /// CHECK: trust pda
-    pub trust: UncheckedAccount<'info>,
+    /// CHECK: company pda
+    pub company: UncheckedAccount<'info>,
 }
 
 #[derive(Accounts)]
 #[instruction(governance_config_id: [u8; 32])]
 pub struct RegisterConfig<'info> {
-    /// Trust PDA — must be a real Trust account owned by aeqi_trust.
+    /// Company PDA — must be a real Company account owned by aeqi_company.
     #[account(
-        seeds = [b"trust", trust.trust_id.as_ref()],
-        bump = trust.bump,
-        seeds::program = AEQI_TRUST_ID,
+        seeds = [b"company", company.company_id.as_ref()],
+        bump = company.bump,
+        seeds::program = AEQI_COMPANY_ID,
     )]
-    pub trust: Account<'info, Trust>,
+    pub company: Account<'info, Company>,
     #[account(
         mut,
-        seeds = [b"gov_module", trust.key().as_ref()],
+        seeds = [b"gov_module", company.key().as_ref()],
         bump = module_state.bump,
     )]
     pub module_state: Account<'info, GovernanceModuleState>,
@@ -736,7 +736,7 @@ pub struct RegisterConfig<'info> {
         init,
         payer = payer,
         space = 8 + GovernanceConfig::INIT_SPACE,
-        seeds = [b"gov_config", trust.key().as_ref(), governance_config_id.as_ref()],
+        seeds = [b"gov_config", company.key().as_ref(), governance_config_id.as_ref()],
         bump,
     )]
     pub governance_config: Account<'info, GovernanceConfig>,
@@ -748,11 +748,11 @@ pub struct RegisterConfig<'info> {
 #[derive(Accounts)]
 #[instruction(proposal_id: [u8; 32], governance_config_id: [u8; 32])]
 pub struct Propose<'info> {
-    /// CHECK: trust pda
-    pub trust: UncheckedAccount<'info>,
+    /// CHECK: company pda
+    pub company: UncheckedAccount<'info>,
     #[account(
         mut,
-        seeds = [b"gov_module", trust.key().as_ref()],
+        seeds = [b"gov_module", company.key().as_ref()],
         bump = module_state.bump,
     )]
     pub module_state: Account<'info, GovernanceModuleState>,
@@ -760,7 +760,7 @@ pub struct Propose<'info> {
         init,
         payer = proposer,
         space = 8 + Proposal::INIT_SPACE,
-        seeds = [b"proposal", trust.key().as_ref(), proposal_id.as_ref()],
+        seeds = [b"proposal", company.key().as_ref(), proposal_id.as_ref()],
         bump,
     )]
     pub proposal: Account<'info, Proposal>,
@@ -773,7 +773,7 @@ pub struct Propose<'info> {
 pub struct ExecuteProposal<'info> {
     #[account(
         mut,
-        seeds = [b"proposal", proposal.trust.as_ref(), proposal.proposal_id.as_ref()],
+        seeds = [b"proposal", proposal.company.as_ref(), proposal.proposal_id.as_ref()],
         bump = proposal.bump,
     )]
     pub proposal: Account<'info, Proposal>,
@@ -784,7 +784,7 @@ pub struct ExecuteProposal<'info> {
 pub struct CastVoteRole<'info> {
     #[account(
         mut,
-        seeds = [b"proposal", proposal.trust.as_ref(), proposal.proposal_id.as_ref()],
+        seeds = [b"proposal", proposal.company.as_ref(), proposal.proposal_id.as_ref()],
         bump = proposal.bump,
     )]
     pub proposal: Account<'info, Proposal>,
@@ -792,7 +792,7 @@ pub struct CastVoteRole<'info> {
         init,
         payer = voter,
         space = 8 + VoteRecord::INIT_SPACE,
-        seeds = [b"vote", proposal.trust.as_ref(), proposal.proposal_id.as_ref(), voter.key().as_ref()],
+        seeds = [b"vote", proposal.company.as_ref(), proposal.proposal_id.as_ref(), voter.key().as_ref()],
         bump,
     )]
     pub vote: Account<'info, VoteRecord>,
@@ -802,7 +802,7 @@ pub struct CastVoteRole<'info> {
     #[account(
         seeds = [
             b"role_ckpt",
-            proposal.trust.as_ref(),
+            proposal.company.as_ref(),
             proposal.governance_config_id.as_ref(),
             voter.key().as_ref(),
         ],
@@ -819,7 +819,7 @@ pub struct CastVoteRole<'info> {
 pub struct CastVoteToken<'info> {
     #[account(
         mut,
-        seeds = [b"proposal", proposal.trust.as_ref(), proposal.proposal_id.as_ref()],
+        seeds = [b"proposal", proposal.company.as_ref(), proposal.proposal_id.as_ref()],
         bump = proposal.bump,
     )]
     pub proposal: Account<'info, Proposal>,
@@ -830,7 +830,7 @@ pub struct CastVoteToken<'info> {
         init,
         payer = voter,
         space = 8 + VoteRecord::INIT_SPACE,
-        seeds = [b"vote", proposal.trust.as_ref(), proposal.proposal_id.as_ref(), voter.key().as_ref()],
+        seeds = [b"vote", proposal.company.as_ref(), proposal.proposal_id.as_ref(), voter.key().as_ref()],
         bump,
     )]
     pub vote: Account<'info, VoteRecord>,
@@ -843,7 +843,7 @@ pub struct CastVoteToken<'info> {
 pub struct CommitSnapshotRoot<'info> {
     #[account(
         mut,
-        seeds = [b"proposal", proposal.trust.as_ref(), proposal.proposal_id.as_ref()],
+        seeds = [b"proposal", proposal.company.as_ref(), proposal.proposal_id.as_ref()],
         bump = proposal.bump,
     )]
     pub proposal: Account<'info, Proposal>,
@@ -856,7 +856,7 @@ pub struct CommitSnapshotRoot<'info> {
 pub struct CastVote<'info> {
     #[account(
         mut,
-        seeds = [b"proposal", proposal.trust.as_ref(), proposal.proposal_id.as_ref()],
+        seeds = [b"proposal", proposal.company.as_ref(), proposal.proposal_id.as_ref()],
         bump = proposal.bump,
     )]
     pub proposal: Account<'info, Proposal>,
@@ -864,7 +864,7 @@ pub struct CastVote<'info> {
         init,
         payer = voter,
         space = 8 + VoteRecord::INIT_SPACE,
-        seeds = [b"vote", proposal.trust.as_ref(), proposal.proposal_id.as_ref(), voter.key().as_ref()],
+        seeds = [b"vote", proposal.company.as_ref(), proposal.proposal_id.as_ref(), voter.key().as_ref()],
         bump,
     )]
     pub vote: Account<'info, VoteRecord>,
@@ -879,7 +879,7 @@ pub struct CastVote<'info> {
 
 #[event]
 pub struct ConfigRegistered {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub governance_config_id: [u8; 32],
     pub quorum_bps: u16,
     pub support_bps: u16,
@@ -887,7 +887,7 @@ pub struct ConfigRegistered {
 
 #[event]
 pub struct ProposalCreated {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub proposal_id: [u8; 32],
     pub governance_config_id: [u8; 32],
     pub proposer: Pubkey,
@@ -897,7 +897,7 @@ pub struct ProposalCreated {
 
 #[event]
 pub struct ProposalExecuted {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub proposal_id: [u8; 32],
     pub for_votes: u128,
     pub against_votes: u128,
@@ -907,7 +907,7 @@ pub struct ProposalExecuted {
 
 #[event]
 pub struct VoteCast {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub proposal_id: [u8; 32],
     pub voter: Pubkey,
     pub choice: u8,
@@ -916,7 +916,7 @@ pub struct VoteCast {
 
 #[event]
 pub struct SnapshotRootCommitted {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub proposal_id: [u8; 32],
     pub snapshot_slot: u64,
     pub snapshot_root: [u8; 32],
@@ -971,10 +971,10 @@ pub enum GovernanceError {
     ZeroVoteSupply,
     #[msg("math overflow")]
     MathOverflow,
-    #[msg("caller is not authorized for this trust")]
+    #[msg("caller is not authorized for this company")]
     Unauthorized,
-    #[msg("trust must be in creation mode to initialize the governance module")]
-    TrustNotInCreationMode,
+    #[msg("company must be in creation mode to initialize the governance module")]
+    CompanyNotInCreationMode,
     #[msg("snapshot_root already committed for this proposal (one-shot)")]
     CommitRootMismatch,
     #[msg("snapshot_root not yet committed — wait for the snapshotter to run")]
@@ -996,9 +996,9 @@ mod tests {
         data
     }
 
-    fn sample_config(trust: Pubkey, governance_config_id: [u8; 32]) -> GovernanceConfig {
+    fn sample_config(company: Pubkey, governance_config_id: [u8; 32]) -> GovernanceConfig {
         GovernanceConfig {
-            trust,
+            company,
             governance_config_id,
             proposal_threshold: 0,
             quorum_bps: 4000,
@@ -1138,13 +1138,13 @@ mod tests {
 
     #[test]
     fn load_governance_config_rejects_wrong_discriminator() {
-        let trust = Pubkey::new_unique();
+        let company = Pubkey::new_unique();
         let governance_config_id = [7u8; 32];
         let (cfg_key, _) = Pubkey::find_program_address(
-            &[b"gov_config", trust.as_ref(), governance_config_id.as_ref()],
+            &[b"gov_config", company.as_ref(), governance_config_id.as_ref()],
             &crate::ID,
         );
-        let cfg = sample_config(trust, governance_config_id);
+        let cfg = sample_config(company, governance_config_id);
         let mut data = governance_config_data(&cfg);
         data[0] ^= 0xff;
         let mut lamports = 1;
@@ -1162,7 +1162,7 @@ mod tests {
 
         assert_config_mismatch(load_governance_config(
             &cfg_acct,
-            &trust,
+            &company,
             &governance_config_id,
             &crate::ID,
         ));
@@ -1170,10 +1170,10 @@ mod tests {
 
     #[test]
     fn load_governance_config_rejects_truncated_body() {
-        let trust = Pubkey::new_unique();
+        let company = Pubkey::new_unique();
         let governance_config_id = [8u8; 32];
         let (cfg_key, _) = Pubkey::find_program_address(
-            &[b"gov_config", trust.as_ref(), governance_config_id.as_ref()],
+            &[b"gov_config", company.as_ref(), governance_config_id.as_ref()],
             &crate::ID,
         );
         let mut data = GovernanceConfig::DISCRIMINATOR.to_vec();
@@ -1192,18 +1192,18 @@ mod tests {
 
         assert_config_mismatch(load_governance_config(
             &cfg_acct,
-            &trust,
+            &company,
             &governance_config_id,
             &crate::ID,
         ));
     }
 
     #[test]
-    fn load_governance_config_rejects_embedded_trust_mismatch() {
-        let trust = Pubkey::new_unique();
+    fn load_governance_config_rejects_embedded_company_mismatch() {
+        let company = Pubkey::new_unique();
         let governance_config_id = [9u8; 32];
         let (cfg_key, _) = Pubkey::find_program_address(
-            &[b"gov_config", trust.as_ref(), governance_config_id.as_ref()],
+            &[b"gov_config", company.as_ref(), governance_config_id.as_ref()],
             &crate::ID,
         );
         let cfg = sample_config(Pubkey::new_unique(), governance_config_id);
@@ -1223,7 +1223,7 @@ mod tests {
 
         assert_config_mismatch(load_governance_config(
             &cfg_acct,
-            &trust,
+            &company,
             &governance_config_id,
             &crate::ID,
         ));

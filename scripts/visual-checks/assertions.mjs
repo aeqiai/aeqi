@@ -1,7 +1,7 @@
 const ASSERTIONS = {
   "primitive-shell": assertPrimitiveShell,
   "role-detail": assertRoleDetail,
-  "trust-tools": assertTrustTools,
+  "company-tools": assertCompanyTools,
 };
 
 export async function runLayoutAssertions(page, names) {
@@ -21,9 +21,9 @@ async function assertRoleDetail(page) {
   return page.evaluate(() => {
     const failures = [];
     const select = (selector) => document.querySelector(selector);
-    const documentEl = select(".trust-role-detail-document");
-    const inspectorEl = select(".trust-role-detail-inspector");
-    const roleHeaderEl = select(".trust-role-detail-surface-header");
+    const documentEl = select(".company-role-detail-document");
+    const inspectorEl = select(".company-role-detail-inspector");
+    const roleHeaderEl = select(".company-role-detail-surface-header");
     const detailsHeaderEl = select(".role-inspector-topbar");
     const countEl = select(".idea-convo-title .idea-convo-section-count");
 
@@ -80,9 +80,9 @@ async function assertRoleDetail(page) {
 async function assertPrimitiveShell(page) {
   return page.evaluate(() => {
     const failures = [];
-    const root = document.querySelector(".trust-primitive-shell");
-    const header = root?.querySelector(".trust-primitive-shell-header");
-    const surface = root?.querySelector(".trust-primitive-shell-surface");
+    const root = document.querySelector(".company-primitive-shell");
+    const header = root?.querySelector(".company-primitive-shell-header");
+    const surface = root?.querySelector(".company-primitive-shell-surface");
     const paper = root?.closest(".content-paper");
 
     if (!root) failures.push("Missing primitive shell root");
@@ -141,47 +141,47 @@ async function assertPrimitiveShell(page) {
   });
 }
 
-async function assertTrustTools(page) {
+async function assertCompanyTools(page) {
   return page.evaluate(() => {
     const failures = [];
-    const root = document.querySelector(".trust-tools-page");
-    const main = document.querySelector(".trust-tools-main");
-    const header = document.querySelector(".trust-tools-page-header");
+    const root = document.querySelector(".company-tools-page");
+    const main = document.querySelector(".company-tools-main");
+    const header = document.querySelector(".company-tools-page-header");
     const paper = main?.closest(".content-paper");
     const rows = [...document.querySelectorAll(".agent-settings-tool-row")];
     const states = [...document.querySelectorAll(".agent-settings-tool-state")];
-    const headerCount = document.querySelector(".trust-tools-header-count");
+    const headerCount = document.querySelector(".company-tools-header-count");
 
-    if (!root) failures.push("Missing trust tools page root");
-    if (!main) failures.push("Missing trust tools main surface");
-    if (!header) failures.push("Missing trust tools shell top rail");
+    if (!root) failures.push("Missing company tools page root");
+    if (!main) failures.push("Missing company tools main surface");
+    if (!header) failures.push("Missing company tools shell top rail");
     if (rows.length === 0) failures.push("No tools rows rendered");
     if (states.length === 0) failures.push("No tool state pills rendered");
     if (headerCount)
       failures.push("Tools header has duplicated enabled count action");
 
-    if (!root?.classList.contains("trust-primitive-shell")) {
+    if (!root?.classList.contains("company-primitive-shell")) {
       failures.push("Tools page is not using the canonical primitive shell");
     }
-    if (!header?.classList.contains("trust-primitive-shell-header")) {
+    if (!header?.classList.contains("company-primitive-shell-header")) {
       failures.push(
         "Tools header is not using the canonical primitive shell header",
       );
     }
-    if (!main?.classList.contains("trust-primitive-shell-surface")) {
+    if (!main?.classList.contains("company-primitive-shell-surface")) {
       failures.push(
         "Tools main is not using the canonical primitive shell surface",
       );
     }
 
-    if (root?.classList.contains("trust-overview")) {
+    if (root?.classList.contains("company-overview")) {
       failures.push(
-        "Tools page still inherits the legacy trust-overview shell",
+        "Tools page still inherits the legacy company-overview shell",
       );
     }
-    if (root?.classList.contains("trust-apps-page")) {
+    if (root?.classList.contains("company-apps-page")) {
       failures.push(
-        "Tools page still inherits the legacy trust-apps-page shell",
+        "Tools page still inherits the legacy company-apps-page shell",
       );
     }
 

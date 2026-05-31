@@ -402,7 +402,7 @@ export function HolderDrawer({
   /**
    * iter-11: shareable deep-link for the holder drawer. Builds the URL
    * off `window.location` (whatever the operator is on right now —
-   * `/trust/<addr>/equity` or the legacy `/c/<id>/equity`) and pins the
+   * `/company/<addr>/equity` or the legacy `/c/<id>/equity`) and pins the
    * holder via a `holder=<address>` query string.
    *
    * Honest stub: the route doesn't yet auto-open the drawer when it

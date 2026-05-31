@@ -9,8 +9,8 @@
  *     proposal as `?proposal=<pda>`; this surface just gives operators a
  *     one-click hand-off to reviewers / Slack threads / quest comments
  *     without forcing them to copy the address bar manually.
- *   - `TopVotersSection` — TRUST-wide voter aggregation. Walks every
- *     `VoteRecord` PDA on the TRUST (already cached by `useQuorum`),
+ *   - `TopVotersSection` — COMPANY-wide voter aggregation. Walks every
+ *     `VoteRecord` PDA on the COMPANY (already cached by `useQuorum`),
  *     groups by voter, sums per-voter participation + total weight, and
  *     ranks. Surfaces the consistent participants — the "who actually
  *     shows up across the cap table" signal that a single-proposal vote
@@ -111,7 +111,7 @@ export function ShareProposalRow({ proposal }: { proposal: ProposalAccount }) {
 }
 
 /* ────────────────────────────────────────────────────────────────── */
-/* Top voters — TRUST-wide voter aggregation                          */
+/* Top voters — COMPANY-wide voter aggregation                          */
 /* ────────────────────────────────────────────────────────────────── */
 
 interface VoterAggregate {
@@ -121,7 +121,7 @@ interface VoterAggregate {
 }
 
 /**
- * `TopVotersSection` — aggregates every `VoteRecord` on the TRUST by
+ * `TopVotersSection` — aggregates every `VoteRecord` on the COMPANY by
  * voter and ranks by participation. This is the iter-10 functional gap
  * for spotting consistent participants across the whole cap table — a
  * single-proposal vote history shows who voted on THAT proposal, while
@@ -200,12 +200,18 @@ export function TopVotersSection({
   return (
     <div>
       <Inline gap="2" align="center" justify="between" wrap>
-        <h3 className={`${styles.detailLabel} ${styles.tallyHeading}`}>Top voters · this TRUST</h3>
+        <h3 className={`${styles.detailLabel} ${styles.tallyHeading}`}>
+          Top voters · this COMPANY
+        </h3>
         <span className={styles.topVotersFootnote}>
           {totalVoters} unique voter{totalVoters === 1 ? "" : "s"} across {proposalsCount} proposals
         </span>
       </Inline>
-      <div className={styles.topVotersTable} role="table" aria-label="Top voters across this TRUST">
+      <div
+        className={styles.topVotersTable}
+        role="table"
+        aria-label="Top voters across this COMPANY"
+      >
         <div className={styles.topVotersRow} role="row" data-header="true">
           <span role="columnheader">Voter</span>
           <span role="columnheader">Participation</span>
@@ -218,7 +224,7 @@ export function TopVotersSection({
           // the most-participatory voter, so the bar reads as
           // "how-close-to-max" rather than absolute percent of the
           // proposal count (which would always be small for short-lived
-          // TRUSTs).
+          // Companies).
           const pct = maxVotes === 0 ? 0 : Math.min(100, (agg.votes / maxVotes) * 100);
           const ofTotalPct = proposalsCount === 0 ? 0 : (agg.votes / proposalsCount) * 100;
           const votedHere = currentVoters.has(agg.voter);
@@ -299,7 +305,7 @@ interface DependencyNode {
   /** Depth in the walk, 0 = direct dependency of the open proposal. */
   depth: number;
   /** Resolved proposal account when the id matches a proposal on this
-   *  TRUST; undefined when we couldn't find it (off-trust reference or
+   *  COMPANY; undefined when we couldn't find it (off-company reference or
    *  not-yet-indexed). */
   proposal?: ProposalWithPda;
 }
@@ -383,7 +389,7 @@ function normalizeProposalIdHex(raw: string): string | null {
  *     footnote on the executable surface above; the section stays empty.
  *   - Dependencies present → small card with up to MAX_DEPENDENCY_DEPTH
  *     levels of upstream proposals, each rendered as a tiny status badge
- *     + copyable id. Unresolved ids render as "off this TRUST".
+ *     + copyable id. Unresolved ids render as "off this COMPANY".
  */
 export function ProposalDependencyChain({
   proposal,
@@ -391,7 +397,7 @@ export function ProposalDependencyChain({
   nowSeconds,
 }: {
   proposal: ProposalAccount;
-  /** Every proposal on this TRUST — used to resolve `depends_on` ids
+  /** Every proposal on this COMPANY — used to resolve `depends_on` ids
    *  against in-memory accounts without firing a separate RPC. */
   proposals: ProposalWithPda[];
   nowSeconds: number;
@@ -511,7 +517,7 @@ export function ProposalDependencyChain({
                   display={`${node.id.slice(0, 8)}…${node.id.slice(-4)}`}
                 />
                 <Badge variant="warning" size="sm">
-                  Off this TRUST
+                  Off this COMPANY
                 </Badge>
               </div>
             );

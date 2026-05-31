@@ -39,14 +39,14 @@ const ASSET_SCALE = 10n ** BigInt(ASSET_DECIMALS);
 const QUOTE_SCALE = 10n ** BigInt(QUOTE_DECIMALS);
 
 export interface ActivatedRoundLedgerProps {
-  trustId: string;
+  companyId: string;
   round: FundingRequestWithPda;
 }
 
-export function ActivatedRoundLedger({ trustId, round }: ActivatedRoundLedgerProps) {
+export function ActivatedRoundLedger({ companyId, round }: ActivatedRoundLedgerProps) {
   const entities = useDaemonStore((s) => s.entities);
-  const entity = useMemo(() => entities.find((e) => e.id === trustId), [entities, trustId]);
-  const trustAddress = entity?.trust_address ?? null;
+  const entity = useMemo(() => entities.find((e) => e.id === companyId), [entities, companyId]);
+  const companyAddress = entity?.company_address ?? null;
 
   const kind = Number(round.account.kind);
   const primitiveIdHex = fullRequestId(round.account.primitiveId);
@@ -56,7 +56,7 @@ export function ActivatedRoundLedger({ trustId, round }: ActivatedRoundLedgerPro
   // shows "12 commitments · 4,200 / 10,000 USDC raised". One cheap
   // fetchNullable per activated round on cold load; RQ keeps it warm
   // for 15s afterwards.
-  const { primitive, isLoading } = useFundingPrimitive(trustAddress, kind, primitiveIdHex, true);
+  const { primitive, isLoading } = useFundingPrimitive(companyAddress, kind, primitiveIdHex, true);
 
   let headline: string;
   let detail: React.ReactNode = null;

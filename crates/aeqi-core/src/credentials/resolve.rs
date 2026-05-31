@@ -49,7 +49,7 @@ impl std::fmt::Display for CredentialResolveError {
 /// initiated the lookup.
 #[derive(Debug, Clone, Default)]
 pub struct ResolutionScope {
-    pub trust_id: Option<String>,
+    pub company_id: Option<String>,
     pub agent_id: Option<String>,
     pub user_id: Option<String>,
     pub channel_id: Option<String>,
@@ -64,9 +64,9 @@ impl ResolutionScope {
         }
     }
 
-    pub fn for_trust(trust_id: impl Into<String>) -> Self {
+    pub fn for_company(company_id: impl Into<String>) -> Self {
         Self {
-            trust_id: Some(trust_id.into()),
+            company_id: Some(company_id.into()),
             ..Default::default()
         }
     }
@@ -310,16 +310,16 @@ impl CredentialResolver {
                     .as_ref()
                     .map(|id| (ScopeKind::Agent, id.clone())),
                 scope
-                    .trust_id
+                    .company_id
                     .as_ref()
-                    .map(|id| (ScopeKind::Trust, id.clone())),
+                    .map(|id| (ScopeKind::Company, id.clone())),
                 Some((ScopeKind::Global, String::new())),
             ],
-            ScopeHint::Trust => vec![
+            ScopeHint::Company => vec![
                 scope
-                    .trust_id
+                    .company_id
                     .as_ref()
-                    .map(|id| (ScopeKind::Trust, id.clone())),
+                    .map(|id| (ScopeKind::Company, id.clone())),
                 Some((ScopeKind::Global, String::new())),
             ],
             ScopeHint::User => vec![
@@ -346,9 +346,9 @@ impl CredentialResolver {
                     .as_ref()
                     .map(|id| (ScopeKind::Agent, id.clone())),
                 scope
-                    .trust_id
+                    .company_id
                     .as_ref()
-                    .map(|id| (ScopeKind::Trust, id.clone())),
+                    .map(|id| (ScopeKind::Company, id.clone())),
             ],
         };
         for candidate in order.into_iter().flatten() {

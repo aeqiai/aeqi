@@ -6,9 +6,9 @@
 //! 1. Demo signup (`POST /api/auth/signup` with `mode: "demo"`)
 //! 2. Verify the issued JWT carries a session
 //! 3. Launch a Company from the default blueprint (`POST /api/start/launch`)
-//! 4. Poll for genesis reveal (`GET /api/start/launch/status/{trust_id}`)
-//! 5. Poll for the first quest visible on the public trust endpoint
-//! 6. Hit `GET /trust/<address>` (the SPA route) for a 200
+//! 4. Poll for genesis reveal (`GET /api/start/launch/status/{company_id}`)
+//! 5. Poll for the first quest visible on the public company endpoint
+//! 6. Hit `GET /company/<address>` (the SPA route) for a 200
 //!
 //! Each run writes a `WalkResult` row to a `walks` table on aeqi.db. The
 //! platform `/api/public/status/walks` endpoint reads from that table.
@@ -46,7 +46,7 @@ const PLATFORM_URL_ENV: &str = "AEQI_WALK_PLATFORM_URL";
 /// Env var carrying the shared secret from which the walks-launch header
 /// is derived. The orchestrator host unit already inherits this from
 /// systemd Environment=; the platform reads it from /etc/aeqi/secrets.env.
-/// See `routes::walks` in aeqi-platform for the trust-boundary argument.
+/// See `routes::walks` in aeqi-platform for the company-boundary argument.
 const WEB_SECRET_ENV: &str = "AEQI_WEB_SECRET";
 
 /// Fixed purpose string mixed into the derivation. Must match the
@@ -104,7 +104,7 @@ pub struct WalkResult {
     pub started_at: DateTime<Utc>,
     pub finished_at: DateTime<Utc>,
     pub status: WalkStatus,
-    pub trust_address: Option<String>,
+    pub company_address: Option<String>,
     pub signatures: Vec<String>,
     pub indexer_event_count: i64,
     pub duration_ms: i64,
@@ -128,7 +128,7 @@ impl WalksStore {
                     started_at TEXT NOT NULL,
                     finished_at TEXT NOT NULL,
                     status TEXT NOT NULL,
-                    trust_address TEXT,
+                    company_address TEXT,
                     signatures TEXT NOT NULL,
                     indexer_event_count INTEGER NOT NULL,
                     duration_ms INTEGER NOT NULL,
@@ -149,14 +149,14 @@ impl WalksStore {
         let conn = self.db.lock().await;
         conn.execute(
             "INSERT INTO walks (
-                started_at, finished_at, status, trust_address,
+                started_at, finished_at, status, company_address,
                 signatures, indexer_event_count, duration_ms, error
             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             rusqlite::params![
                 w.started_at.to_rfc3339(),
                 w.finished_at.to_rfc3339(),
                 w.status.as_str(),
-                w.trust_address,
+                w.company_address,
                 signatures,
                 w.indexer_event_count,
                 w.duration_ms,
@@ -171,7 +171,7 @@ impl WalksStore {
     pub async fn list_latest(&self, limit: usize) -> Result<Vec<WalkResult>> {
         let conn = self.db.lock().await;
         let mut stmt = conn.prepare(
-            "SELECT walk_number, started_at, finished_at, status, trust_address,
+            "SELECT walk_number, started_at, finished_at, status, company_address,
                     signatures, indexer_event_count, duration_ms, error
              FROM walks ORDER BY walk_number DESC LIMIT ?1",
         )?;
@@ -189,7 +189,7 @@ fn parse_walk_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<WalkResult> {
     let started_at: String = row.get(1)?;
     let finished_at: String = row.get(2)?;
     let status_str: String = row.get(3)?;
-    let trust_address: Option<String> = row.get(4)?;
+    let company_address: Option<String> = row.get(4)?;
     let signatures_json: String = row.get(5)?;
     let indexer_event_count: i64 = row.get(6)?;
     let duration_ms: i64 = row.get(7)?;
@@ -216,7 +216,7 @@ fn parse_walk_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<WalkResult> {
         started_at,
         finished_at,
         status,
-        trust_address,
+        company_address,
         signatures,
         indexer_event_count,
         duration_ms,
@@ -244,7 +244,7 @@ pub async fn run_one_walk(platform_url: &str) -> WalkResult {
             started_at,
             finished_at,
             status: WalkStatus::Pass,
-            trust_address: success.trust_address,
+            company_address: success.company_address,
             signatures: success.signatures,
             indexer_event_count: success.indexer_event_count,
             duration_ms,
@@ -255,7 +255,7 @@ pub async fn run_one_walk(platform_url: &str) -> WalkResult {
             started_at,
             finished_at,
             status: WalkStatus::Fail,
-            trust_address: None,
+            company_address: None,
             signatures: Vec::new(),
             indexer_event_count: 0,
             duration_ms,
@@ -265,7 +265,7 @@ pub async fn run_one_walk(platform_url: &str) -> WalkResult {
 }
 
 struct WalkSuccess {
-    trust_address: Option<String>,
+    company_address: Option<String>,
     signatures: Vec<String>,
     indexer_event_count: i64,
 }
@@ -355,38 +355,38 @@ async fn run_one_walk_inner(platform_url: &str, force_fail: bool) -> Result<Walk
     }
     let launch_body: serde_json::Value =
         launch.json().await.context("step 3: parse launch body")?;
-    let trust_id = launch_body
-        .get("trust_id")
+    let company_id = launch_body
+        .get("company_id")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| anyhow!("step 3 (launch) response missing trust_id"))?
+        .ok_or_else(|| anyhow!("step 3 (launch) response missing company_id"))?
         .to_string();
 
-    // Step 4: poll launch-status until genesis reveal (trust_address set).
-    let trust_address = poll_for_genesis(&client, platform_url, &token, &trust_id).await?;
+    // Step 4: poll launch-status until genesis reveal (company_address set).
+    let company_address = poll_for_genesis(&client, platform_url, &token, &company_id).await?;
 
-    // Step 5: poll the public TRUST endpoint until quest count > 0 OR
+    // Step 5: poll the public COMPANY endpoint until quest count > 0 OR
     // until the timeout — first-quest visibility is the weaker signal,
-    // so we accept zero quests if the trust resolved (templates without
+    // so we accept zero quests if the company resolved (templates without
     // initial quests are valid).
     let (signatures, indexer_event_count) =
-        poll_for_first_quest(&client, platform_url, &trust_address).await?;
+        poll_for_first_quest(&client, platform_url, &company_address).await?;
 
-    // Step 6: hit the public TRUST page route. The platform serves the
-    // SPA at `/trust/<address>` via the static-file fallback — a 200
+    // Step 6: hit the public COMPANY page route. The platform serves the
+    // SPA at `/company/<address>` via the static-file fallback — a 200
     // confirms the route resolves. We don't parse HTML; the JSON we
     // already pulled in step 5 is the real assertion.
-    let trust_page = client
-        .get(format!("{platform_url}/trust/{trust_address}"))
+    let company_page = client
+        .get(format!("{platform_url}/company/{company_address}"))
         .send()
         .await
-        .context("step 6: trust page request")?;
-    if !trust_page.status().is_success() {
-        let status = trust_page.status();
-        return Err(anyhow!("step 6 (trust page) failed: HTTP {status}"));
+        .context("step 6: company page request")?;
+    if !company_page.status().is_success() {
+        let status = company_page.status();
+        return Err(anyhow!("step 6 (company page) failed: HTTP {status}"));
     }
 
     Ok(WalkSuccess {
-        trust_address: Some(trust_address),
+        company_address: Some(company_address),
         signatures,
         indexer_event_count,
     })
@@ -396,12 +396,14 @@ async fn poll_for_genesis(
     client: &reqwest::Client,
     platform_url: &str,
     token: &str,
-    trust_id: &str,
+    company_id: &str,
 ) -> Result<String> {
     let deadline = Instant::now() + LAUNCH_POLL_MAX;
     loop {
         let resp = client
-            .get(format!("{platform_url}/api/start/launch/status/{trust_id}"))
+            .get(format!(
+                "{platform_url}/api/start/launch/status/{company_id}"
+            ))
             .bearer_auth(token)
             .send()
             .await
@@ -412,7 +414,7 @@ async fn poll_for_genesis(
                 .await
                 .context("step 4: parse launch-status body")?;
             if let Some(addr) = body
-                .get("trust_address")
+                .get("company_address")
                 .and_then(|v| v.as_str())
                 .filter(|s| !s.is_empty())
             {
@@ -431,25 +433,27 @@ async fn poll_for_genesis(
 async fn poll_for_first_quest(
     client: &reqwest::Client,
     platform_url: &str,
-    trust_address: &str,
+    company_address: &str,
 ) -> Result<(Vec<String>, i64)> {
     let deadline = Instant::now() + QUEST_POLL_MAX;
     let mut signatures: Vec<String> = Vec::new();
     let mut event_count: i64 = 0;
     loop {
         let resp = client
-            .get(format!("{platform_url}/api/public/trust/{trust_address}"))
+            .get(format!(
+                "{platform_url}/api/public/company/{company_address}"
+            ))
             .send()
             .await
-            .context("step 5: public trust request")?;
+            .context("step 5: public company request")?;
         if resp.status().is_success() {
             let body: serde_json::Value = resp
                 .json()
                 .await
-                .context("step 5: parse public trust body")?;
+                .context("step 5: parse public company body")?;
             signatures = extract_signatures(&body);
             event_count = extract_event_count(&body);
-            // Accept if any signatures exist OR the trust resolved cleanly.
+            // Accept if any signatures exist OR the company resolved cleanly.
             // Some default blueprints don't seed quests at genesis, so quest
             // count > 0 is best-effort.
             if !signatures.is_empty() {
@@ -457,7 +461,7 @@ async fn poll_for_first_quest(
             }
         }
         if Instant::now() >= deadline {
-            // Trust resolved (we got here from step 4) but no signatures
+            // Company resolved (we got here from step 4) but no signatures
             // surfaced yet. Treat as pass with empty signatures rather than
             // fail — the indexer can lag behind the genesis tx.
             return Ok((signatures, event_count));
@@ -555,7 +559,7 @@ pub fn read_latest_walks_readonly(db_path: &Path, limit: usize) -> Result<Vec<Wa
     let conn = Connection::open_with_flags(db_path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
         .with_context(|| format!("open walks DB at {}", db_path.display()))?;
     let mut stmt = conn.prepare(
-        "SELECT walk_number, started_at, finished_at, status, trust_address,
+        "SELECT walk_number, started_at, finished_at, status, company_address,
                 signatures, indexer_event_count, duration_ms, error
          FROM walks ORDER BY walk_number DESC LIMIT ?1",
     )?;
@@ -638,7 +642,7 @@ mod tests {
             started_at: now,
             finished_at: now,
             status: WalkStatus::Pass,
-            trust_address: Some("aBc123".into()),
+            company_address: Some("aBc123".into()),
             signatures: vec!["sig1".into(), "sig2".into()],
             indexer_event_count: 7,
             duration_ms: 1234,
@@ -659,7 +663,7 @@ mod tests {
         assert_eq!(list[0].error.as_deref(), Some("boom"));
         assert_eq!(list[1].status, WalkStatus::Pass);
         assert_eq!(list[1].signatures, vec!["sig1", "sig2"]);
-        assert_eq!(list[1].trust_address.as_deref(), Some("aBc123"));
+        assert_eq!(list[1].company_address.as_deref(), Some("aBc123"));
     }
 
     #[test]

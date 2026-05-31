@@ -23,10 +23,12 @@ import { SCOPE_LABEL } from "../ideas/types";
 // ── Markdown wrapper ─────────────────────────────────────────────────────
 
 export function SessionMarkdown({ body }: { body: string }) {
-  const { trustId } = useNav();
-  const { data: ideas } = useAgentIdeas(trustId, true, trustId);
+  const { companyId } = useNav();
+  const { data: ideas } = useAgentIdeas(companyId, true, companyId);
   const ideasByName = useMemo(() => buildIdeasByName(ideas), [ideas]);
-  return <RichMarkdown body={body} variant="session" ideasByName={ideasByName} agentId={trustId} />;
+  return (
+    <RichMarkdown body={body} variant="session" ideasByName={ideasByName} agentId={companyId} />
+  );
 }
 
 // ── Inline group: text + entity_ref runs ────────────────────────────────
@@ -228,7 +230,7 @@ function ToolSummarizedChip({ event }: { event: ToolSummarizedEvent }) {
 // ── Event-fire item — exported for direct use by event_fire role messages ──
 
 export function EventFireItem({ msg }: { msg: Message }) {
-  const { goEntity, trustId } = useNav();
+  const { goEntity, companyId } = useNav();
   const fire = msg.eventFire;
   if (!fire) return null;
 
@@ -237,7 +239,7 @@ export function EventFireItem({ msg }: { msg: Message }) {
       <button
         type="button"
         className="asv-event-fire-name"
-        onClick={() => trustId && goEntity(trustId, "events", fire.eventId)}
+        onClick={() => companyId && goEntity(companyId, "events", fire.eventId)}
         title={fire.pattern}
       >
         {fire.eventName || fire.pattern || "event"}

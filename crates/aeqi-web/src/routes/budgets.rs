@@ -5,8 +5,8 @@
 //! model lives in the IPC handler; this file is a thin shim.
 //!
 //! Reads (`GET`):
-//! - `GET    /budgets?trust_id=…&owner_role_id=…&parent_budget_id=…&is_primary=…`
-//! - `GET    /budgets/tree?trust_id=…`
+//! - `GET    /budgets?company_id=…&owner_role_id=…&parent_budget_id=…&is_primary=…`
+//! - `GET    /budgets/tree?company_id=…`
 //! - `GET    /budgets/{id}`
 //! - `GET    /budgets/{id}/allowance`
 //! - `GET    /budgets/{id}/history?event_type=…&since=…&limit=…`
@@ -19,8 +19,8 @@
 //! - `POST   /budgets/{id}/hire` — atomic role + budget + allocation
 //! - `POST   /budgets/{id}/refresh` — permissionless epoch tick
 //! - `POST   /budgets/{id}/dissolve`
-//! - `POST   /trusts/{trust_id}/treasury/pause`
-//! - `POST   /trusts/{trust_id}/treasury/config` — bootstrap gateway + admin role
+//! - `POST   /companies/{company_id}/treasury/pause`
+//! - `POST   /companies/{company_id}/treasury/config` — bootstrap gateway + admin role
 
 use axum::{
     Json, Router,
@@ -48,16 +48,19 @@ pub fn routes() -> Router<AppState> {
         .route("/budgets/{id}/hire", post(hire_role))
         .route("/budgets/{id}/refresh", post(refresh_allowance))
         .route("/budgets/{id}/dissolve", post(dissolve_budget))
-        .route("/trusts/{trust_id}/treasury/pause", post(pause_treasury))
         .route(
-            "/trusts/{trust_id}/treasury/config",
+            "/companies/{company_id}/treasury/pause",
+            post(pause_treasury),
+        )
+        .route(
+            "/companies/{company_id}/treasury/config",
             post(init_treasury_config),
         )
 }
 
 #[derive(serde::Deserialize)]
 struct ListQuery {
-    trust_id: Option<String>,
+    company_id: Option<String>,
     owner_role_id: Option<String>,
     parent_budget_id: Option<String>,
     is_primary: Option<bool>,
@@ -68,8 +71,8 @@ async fn list_budgets(
     scope: Scope,
     Query(q): Query<ListQuery>,
 ) -> Response {
-    let trust_id = q.trust_id.unwrap_or_default();
-    let mut body = serde_json::json!({"trust_id": trust_id});
+    let company_id = q.company_id.unwrap_or_default();
+    let mut body = serde_json::json!({"company_id": company_id});
     if let Some(o) = q.owner_role_id {
         body["owner_role_id"] = serde_json::Value::String(o);
     }
@@ -84,7 +87,7 @@ async fn list_budgets(
 
 #[derive(serde::Deserialize)]
 struct TreeQuery {
-    trust_id: Option<String>,
+    company_id: Option<String>,
 }
 
 async fn budget_tree(
@@ -92,12 +95,12 @@ async fn budget_tree(
     scope: Scope,
     Query(q): Query<TreeQuery>,
 ) -> Response {
-    let trust_id = q.trust_id.unwrap_or_default();
+    let company_id = q.company_id.unwrap_or_default();
     ipc_proxy(
         state,
         scope.as_ref(),
         "budget_tree",
-        serde_json::json!({"trust_id": trust_id}),
+        serde_json::json!({"company_id": company_id}),
     )
     .await
 }
@@ -231,19 +234,19 @@ async fn dissolve_budget(
 async fn pause_treasury(
     State(state): State<AppState>,
     scope: Scope,
-    Path(trust_id): Path<String>,
+    Path(company_id): Path<String>,
     Json(mut body): Json<serde_json::Value>,
 ) -> Response {
-    body["trust_id"] = serde_json::Value::String(trust_id);
+    body["company_id"] = serde_json::Value::String(company_id);
     ipc_proxy(state, scope.as_ref(), "pause_treasury", body).await
 }
 
 async fn init_treasury_config(
     State(state): State<AppState>,
     scope: Scope,
-    Path(trust_id): Path<String>,
+    Path(company_id): Path<String>,
     Json(mut body): Json<serde_json::Value>,
 ) -> Response {
-    body["trust_id"] = serde_json::Value::String(trust_id);
+    body["company_id"] = serde_json::Value::String(company_id);
     ipc_proxy(state, scope.as_ref(), "init_treasury_config", body).await
 }

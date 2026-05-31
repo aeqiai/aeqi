@@ -21,7 +21,7 @@ const meta: Meta<typeof InspectorPanel> = {
 export default meta;
 type Story = StoryObj<typeof InspectorPanel>;
 
-export const TrustRoleSelection: Story = {
+export const CompanyRoleSelection: Story = {
   render: () => (
     <div style={{ width: 328, height: 620 }}>
       <InspectorPanel ariaLabel="Selected role">
@@ -61,7 +61,7 @@ export const TrustRoleSelection: Story = {
         />
         <InspectorSection title="Identity">
           <InspectorField label="Holder">53455</InspectorField>
-          <InspectorField label="Trust">aeqi</InspectorField>
+          <InspectorField label="Company">aeqi</InspectorField>
           <InspectorField label="Connection">Direct</InspectorField>
         </InspectorSection>
         <InspectorSection title="Detail rows" collapsible>

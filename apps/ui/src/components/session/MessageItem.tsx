@@ -159,15 +159,21 @@ function QuestEventIcon({ tone }: { tone: ReturnType<typeof questEventTone> }) {
   return <CircleDot size={16} strokeWidth={1.7} />;
 }
 
-function QuestEventBubble({ msg, trustId: contextTrustId }: { msg: Message; trustId?: string }) {
-  const { trustId: routeTrustId, entityPath } = useNav();
-  const trustId = contextTrustId ?? routeTrustId;
+function QuestEventBubble({
+  msg,
+  companyId: contextCompanyId,
+}: {
+  msg: Message;
+  companyId?: string;
+}) {
+  const { companyId: routeCompanyId, entityPath } = useNav();
+  const companyId = contextCompanyId ?? routeCompanyId;
   const tone = questEventTone(msg.eventType);
   const title = msg.quest?.subject || msg.content || "Quest updated";
   const status = msg.quest?.status ? msg.quest.status.replace(/_/g, " ") : null;
   const summary = msg.quest?.outcomeSummary || (msg.quest?.subject ? msg.content : "");
   const questId = msg.quest?.id || msg.taskId;
-  const href = questId && trustId ? entityPath(trustId, "quests", questId) : null;
+  const href = questId && companyId ? entityPath(companyId, "quests", questId) : null;
   const className = `asv-quest-event asv-quest-event--${tone}${href ? " is-linked" : ""}`;
   const ariaLabel = `Quest ${status ? `${status}: ` : ""}${title}`;
   const body = (
@@ -223,7 +229,7 @@ interface AvatarResolution {
 function resolveAvatar(
   author: ResolvedAuthor,
   ctx: {
-    trustId: string | undefined;
+    companyId: string | undefined;
     entitiesList: ReturnType<typeof useDaemonStore.getState>["entities"];
     currentUserId: string;
     currentUserName: string;
@@ -231,13 +237,19 @@ function resolveAvatar(
     userEmail: string;
   },
 ): AvatarResolution | null {
-  const { trustId, entitiesList, currentUserId, currentUserName, currentUserAvatarUrl, userEmail } =
-    ctx;
+  const {
+    companyId,
+    entitiesList,
+    currentUserId,
+    currentUserName,
+    currentUserAvatarUrl,
+    userEmail,
+  } = ctx;
   if (author.kind === "system") return null;
 
   if (author.kind === "agent") {
-    const href = trustId
-      ? entityPathFromId(entitiesList, trustId, "agents", encodeURIComponent(author.id))
+    const href = companyId
+      ? entityPathFromId(entitiesList, companyId, "agents", encodeURIComponent(author.id))
       : undefined;
     return {
       href,
@@ -248,8 +260,8 @@ function resolveAvatar(
     };
   }
   if (author.kind === "position") {
-    const href = trustId
-      ? entityPathFromId(entitiesList, trustId, "roles", encodeURIComponent(author.id))
+    const href = companyId
+      ? entityPathFromId(entitiesList, companyId, "roles", encodeURIComponent(author.id))
       : undefined;
     return {
       href,
@@ -426,7 +438,7 @@ const MessageItem = memo(function MessageItem({
   onEdit,
   onResend,
   sessionAgentId,
-  sessionTrustId,
+  sessionCompanyId,
 }: {
   msg: Message;
   onFork?: (messageId: number) => void;
@@ -434,11 +446,11 @@ const MessageItem = memo(function MessageItem({
   onResend?: (text: string) => void;
   /** The agent ID for this session — used by resolveAuthor for legacy fallback. */
   sessionAgentId?: string;
-  /** Entity scope for top-level inbox routes that are not under /trust/:id. */
-  sessionTrustId?: string;
+  /** Entity scope for top-level inbox routes that are not under /company/:id. */
+  sessionCompanyId?: string;
 }) {
-  const { trustId: routeTrustId } = useNav();
-  const trustId = sessionTrustId ?? routeTrustId;
+  const { companyId: routeCompanyId } = useNav();
+  const companyId = sessionCompanyId ?? routeCompanyId;
   const agents = useDaemonStore((s) => s.agents);
   const entitiesList = useDaemonStore((s) => s.entities);
   const userEmail = useAuthStore((s) => s.user?.email ?? "");
@@ -452,14 +464,14 @@ const MessageItem = memo(function MessageItem({
     return m;
   }, [agents]);
 
-  const resolvedAgentId = sessionAgentId ?? trustId ?? "";
+  const resolvedAgentId = sessionAgentId ?? companyId ?? "";
   const authorCtx = useMemo(
     () => ({ sessionAgentId: resolvedAgentId, agentNames, userName: userEmail }),
     [resolvedAgentId, agentNames, userEmail],
   );
 
   if (msg.role === "event_fire") return <EventFireItem msg={msg} />;
-  if (msg.role === "quest_event") return <QuestEventBubble msg={msg} trustId={trustId} />;
+  if (msg.role === "quest_event") return <QuestEventBubble msg={msg} companyId={companyId} />;
   if (msg.role === "error") return <ErrorBubble msg={msg} />;
 
   const author = resolveAuthor(msg, authorCtx);
@@ -502,7 +514,7 @@ const MessageItem = memo(function MessageItem({
   const isAsk = msg.source === "question.ask";
 
   const avatar = resolveAvatar(author, {
-    trustId,
+    companyId,
     entitiesList,
     currentUserId,
     currentUserName,
@@ -572,7 +584,7 @@ const MessageItem = memo(function MessageItem({
           <SegmentRenderer segments={msg.segments} />
         ) : (
           <div className="asv-msg-content">
-            <MentionText body={msg.content} trustId={trustId ?? ""} />
+            <MentionText body={msg.content} companyId={companyId ?? ""} />
           </div>
         )}
         {showChrome && (

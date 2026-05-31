@@ -6,14 +6,14 @@ export function TemplateDiscoverySection({ onBrowse }: { onBrowse: () => void })
   return (
     <PageSection
       title="Start from a Template"
-      description="Templates supply the TRUST shell, seeded roles, agents, quests, ideas, and operating memory."
+      description="Templates supply the COMPANY shell, seeded roles, agents, quests, ideas, and operating memory."
     >
       <div className={styles.blueprintLane}>
         <div className={styles.blueprintLaneMain}>
           <span className={styles.blueprintLaneTitle}>Launch supply</span>
           <span className={styles.blueprintLaneCopy}>
-            Choose a Template before launching a new TRUST, or inspect existing TRUSTs below for
-            operating references.
+            Choose a Template before launching a new COMPANY, or inspect existing Companies below
+            for operating references.
           </span>
         </div>
         <Button

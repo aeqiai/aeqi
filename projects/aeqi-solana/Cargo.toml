@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
-    "programs/aeqi-trust",
+    "programs/aeqi-company",
     "programs/aeqi-factory",
     "programs/aeqi-role",
     "programs/aeqi-governance",

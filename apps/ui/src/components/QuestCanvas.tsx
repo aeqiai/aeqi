@@ -60,7 +60,7 @@ export default function QuestCanvas(props: QuestCanvasMode) {
 //  Compose mode
 // ─────────────────────────────────────────────────────────────────────
 function ComposeCanvas({ agentId, resolvedAgentId }: { agentId: string; resolvedAgentId: string }) {
-  const { goEntity, trustId } = useNav();
+  const { goEntity, companyId } = useNav();
   const [searchParams] = useSearchParams();
   const track = useTrack();
   const fromIdeaId = searchParams.get("fromIdea") ?? null;
@@ -68,7 +68,7 @@ function ComposeCanvas({ agentId, resolvedAgentId }: { agentId: string; resolved
   const presetStatus = parseQuestStatus(searchParams.get("status"));
   const parentQuestId = searchParams.get("parent") ?? null;
 
-  const { data: ideas = [] } = useAgentIdeas(resolvedAgentId, true, trustId);
+  const { data: ideas = [] } = useAgentIdeas(resolvedAgentId, true, companyId);
   const allQuests = useDaemonStore((s) => s.quests) as unknown as Quest[];
   const fetchQuests = useDaemonStore((s) => s.fetchQuests);
   const agents = useDaemonStore((s) => s.agents);
@@ -110,8 +110,8 @@ function ComposeCanvas({ agentId, resolvedAgentId }: { agentId: string; resolved
   }, [fromIdeaId, ideas]);
 
   const cancel = useCallback(() => {
-    goEntity(trustId, "quests", undefined, { replace: true });
-  }, [trustId, goEntity]);
+    goEntity(companyId, "quests", undefined, { replace: true });
+  }, [companyId, goEntity]);
 
   const submit = useCallback(async () => {
     if (busy) return;
@@ -151,12 +151,12 @@ function ComposeCanvas({ agentId, resolvedAgentId }: { agentId: string; resolved
       }
       await fetchQuests();
       if (parentQuestId) {
-        goEntity(trustId, "quests", undefined, {
+        goEntity(companyId, "quests", undefined, {
           replace: true,
           search: { scope: parentQuestId },
         });
       } else {
-        goEntity(trustId, "quests", newId ?? undefined, { replace: true });
+        goEntity(companyId, "quests", newId ?? undefined, { replace: true });
       }
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Failed to create quest");
@@ -173,7 +173,7 @@ function ComposeCanvas({ agentId, resolvedAgentId }: { agentId: string; resolved
     resolvedAgentId,
     fetchQuests,
     goEntity,
-    trustId,
+    companyId,
     track,
   ]);
 
@@ -264,12 +264,12 @@ function ViewCanvas({
   resolvedAgentId: string;
   quest: Quest;
 }) {
-  const { goEntity, trustId } = useNav();
+  const { goEntity, companyId } = useNav();
   const fetchQuests = useDaemonStore((s) => s.fetchQuests);
   const agents = useDaemonStore((s) => s.agents);
   const allQuests = useDaemonStore((s) => s.quests) as unknown as Quest[];
   const currentUser = useAuthStore((s) => s.user);
-  const { data: ideas = [] } = useAgentIdeas(quest.agent_id ?? resolvedAgentId, true, trustId);
+  const { data: ideas = [] } = useAgentIdeas(quest.agent_id ?? resolvedAgentId, true, companyId);
   const assigneeUsers = useMemo<Pick<User, "id" | "name" | "email" | "avatar_url">[]>(
     () =>
       currentUser
@@ -427,14 +427,14 @@ function ViewCanvas({
       const previous = ideaTags;
       setIdeaTags(nextTags);
       try {
-        await ideasApi.updateIdea(quest.idea.id, { tags: nextTags }, trustId);
+        await ideasApi.updateIdea(quest.idea.id, { tags: nextTags }, companyId);
         await fetchQuests();
         setActivityRefreshSeq((n) => n + 1);
       } catch {
         setIdeaTags(previous);
       }
     },
-    [fetchQuests, ideaTags, quest.idea, trustId],
+    [fetchQuests, ideaTags, quest.idea, companyId],
   );
 
   const handleTagAdd = useCallback(
@@ -513,9 +513,9 @@ function ViewCanvas({
     );
   }
 
-  const backToQuests = () => goEntity(trustId, "quests", undefined, { replace: true });
-  const newQuest = () => goEntity(trustId, "quests", "new", { replace: false });
-  const openQuest = (id: string) => goEntity(trustId, "quests", id, { replace: false });
+  const backToQuests = () => goEntity(companyId, "quests", undefined, { replace: true });
+  const newQuest = () => goEntity(companyId, "quests", "new", { replace: false });
+  const openQuest = (id: string) => goEntity(companyId, "quests", id, { replace: false });
   const tagSuggestions = Array.from(
     new Set(ideas.flatMap((idea) => idea.tags ?? []).filter(Boolean)),
   ).sort((a, b) => a.localeCompare(b));

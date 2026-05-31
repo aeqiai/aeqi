@@ -1,6 +1,6 @@
-import type { CapTableEntry, Role, RoleType, Trust } from "@/lib/types";
+import type { CapTableEntry, Role, RoleType, Company } from "@/lib/types";
 
-export type EconomyTab = "overview" | "trusts" | "pools" | "funding" | "roles";
+export type EconomyTab = "overview" | "companies" | "pools" | "funding" | "roles";
 
 export type PoolKind = "genesis" | "amm";
 
@@ -18,12 +18,12 @@ export const POOL_KIND_CHIP_LABEL: Record<PoolKind, string> = {
 
 export type PoolKindFilter = "all" | PoolKind;
 
-/** Trusts-tab scoped visibility filter. `?public=1` scopes the trust table
+/** Companies-tab scoped visibility filter. `?public=1` scopes the company table
  * to published profiles only — the same axis the Public column exposes
  * (c4 TableStatus). Missing/invalid param = "all". */
-export type TrustVisibilityFilter = "all" | "public";
+export type CompanyVisibilityFilter = "all" | "public";
 
-export function isTrustVisibilityParam(value: string | null | undefined): value is "public" {
+export function isCompanyVisibilityParam(value: string | null | undefined): value is "public" {
   return value === "1" || value === "public";
 }
 
@@ -51,7 +51,7 @@ export const ROLE_TYPE_CHIP_LABEL: Record<RoleType, string> = {
 };
 
 export interface EconomyPoolSearchRow {
-  trust: Trust;
+  company: Company;
   curve: string;
   assetMint: string;
   quoteMint: string;
@@ -60,12 +60,12 @@ export interface EconomyPoolSearchRow {
 }
 
 export interface EconomyRoleSearchRow {
-  trust: Trust;
+  company: Company;
   role: Pick<Role, "id" | "title" | "role_type">;
 }
 
 export interface EconomyCapTableSearchRow {
-  trust: Trust;
+  company: Company;
   entry: Pick<
     CapTableEntry,
     | "allocation_key"
@@ -80,7 +80,7 @@ export interface EconomyCapTableSearchRow {
 
 export const ECONOMY_TABS: Array<{ id: EconomyTab; label: string }> = [
   { id: "overview", label: "Overview" },
-  { id: "trusts", label: "Trusts" },
+  { id: "companies", label: "Companies" },
   { id: "pools", label: "Liquidity Pools" },
   { id: "funding", label: "Funding Rounds" },
   { id: "roles", label: "Roles" },
@@ -111,15 +111,15 @@ function includesQuery(values: Array<string | number | null | undefined>, query:
     .includes(query);
 }
 
-export function matchesTrustQuery(entity: Trust, query: string): boolean {
+export function matchesCompanyQuery(entity: Company, query: string): boolean {
   if (!query) return true;
   return includesQuery(
     [
       entity.name,
       entity.tagline,
       entity.id,
-      entity.trust_id,
-      entity.trust_address,
+      entity.company_id,
+      entity.company_address,
       entity.creator_address,
       entity.plan,
       entity.placement_status,
@@ -132,11 +132,11 @@ export function matchesPoolQuery(row: EconomyPoolSearchRow, query: string): bool
   if (!query) return true;
   return includesQuery(
     [
-      row.trust.name,
-      row.trust.tagline,
-      row.trust.id,
-      row.trust.trust_id,
-      row.trust.trust_address,
+      row.company.name,
+      row.company.tagline,
+      row.company.id,
+      row.company.company_id,
+      row.company.company_address,
       row.curve,
       row.assetMint,
       row.quoteMint,
@@ -151,11 +151,11 @@ export function matchesCapTableQuery(row: EconomyCapTableSearchRow, query: strin
   if (!query) return true;
   return includesQuery(
     [
-      row.trust.name,
-      row.trust.tagline,
-      row.trust.id,
-      row.trust.trust_id,
-      row.trust.trust_address,
+      row.company.name,
+      row.company.tagline,
+      row.company.id,
+      row.company.company_id,
+      row.company.company_address,
       row.entry.allocation_key,
       row.entry.holder_kind,
       row.entry.holder_id,
@@ -175,11 +175,11 @@ export function matchesRoleQuery(row: EconomyRoleSearchRow, query: string): bool
       row.role.title,
       row.role.role_type,
       row.role.id,
-      row.trust.name,
-      row.trust.tagline,
-      row.trust.id,
-      row.trust.trust_id,
-      row.trust.trust_address,
+      row.company.name,
+      row.company.tagline,
+      row.company.id,
+      row.company.company_id,
+      row.company.company_address,
     ],
     query,
   );

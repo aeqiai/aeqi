@@ -1,5 +1,5 @@
 /*
- * /trust/<addr>/health — operator-facing day-30 substrate health.
+ * /company/<addr>/health — operator-facing day-30 substrate health.
  *
  * Layout is "metric grid above, sparkline grid below": two parallel
  * 4-column grids so a metric and its sparkline live in the same

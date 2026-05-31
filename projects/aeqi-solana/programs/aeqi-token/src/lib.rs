@@ -1,9 +1,9 @@
 //! aeqi_token — cap-table token, SPL Token-2022 mint authority.
 //!
-//! Each TRUST gets one Token-2022 mint whose authority is a PDA of this
-//! program seeded `[b"token_authority", trust]`. Module finalize decodes
-//! `(name, symbol, decimals, max_supply, allocations[])` from the trust's
-//! `BytesConfig` slot `TOKEN_TRUST_CONFIG_KEY` and creates the mint +
+//! Each COMPANY gets one Token-2022 mint whose authority is a PDA of this
+//! program seeded `[b"token_authority", company]`. Module finalize decodes
+//! `(name, symbol, decimals, max_supply, allocations[])` from the company's
+//! `BytesConfig` slot `TOKEN_COMPANY_CONFIG_KEY` and creates the mint +
 //! initial allocation accounts.
 //!
 //! This iteration: `init` stores the TokenModuleState PDA. Mint creation via
@@ -13,7 +13,7 @@
 // lints. Keep this crate's warning output focused on protocol code.
 #![allow(deprecated, unexpected_cfgs)]
 
-use aeqi_trust::state::Trust;
+use aeqi_company::state::Company;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::invoke_signed;
 use anchor_lang::solana_program::program_pack::Pack;
@@ -25,13 +25,13 @@ use solana_system_interface::instruction as system_instruction;
 
 declare_id!("AxyYnv99gnKJ3VMYbyVjz4BxP8LA34CUnhHGVifrc3Kh");
 
-/// aeqi_trust program id — used for cross-program account read of the
+/// aeqi_company program id — used for cross-program account read of the
 /// BytesConfig PDA written by the factory before finalize.
-pub const AEQI_TRUST_ID: Pubkey =
+pub const AEQI_COMPANY_ID: Pubkey =
     anchor_lang::pubkey!("CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV");
 
 /// Stable PDA-key suffix the factory writes the token's borsh-encoded
-/// `TokenInitConfig` blob under, in the trust's BytesConfig slot. Each
+/// `TokenInitConfig` blob under, in the company's BytesConfig slot. Each
 /// module owns a distinct prefix byte so config-bytes PDAs never collide.
 pub const TOKEN_CONFIG_KEY: [u8; 32] = {
     let mut k = [0u8; 32];
@@ -39,19 +39,19 @@ pub const TOKEN_CONFIG_KEY: [u8; 32] = {
     k
 };
 
-/// Mirror of `aeqi_trust::BytesConfig` field layout. Borsh-deserialized from
+/// Mirror of `aeqi_company::BytesConfig` field layout. Borsh-deserialized from
 /// the raw account bytes after skipping the 8-byte Anchor discriminator;
 /// matches the cross-program account-read pattern used in
 /// `aeqi_governance::cast_vote_role`.
 #[derive(AnchorDeserialize, AnchorSerialize)]
 pub struct BytesConfigData {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub key: [u8; 32],
     pub value: Vec<u8>,
     pub bump: u8,
 }
 
-/// Borsh-serialized config the factory writes to the trust BytesConfig slot
+/// Borsh-serialized config the factory writes to the company BytesConfig slot
 /// at `TOKEN_CONFIG_KEY` before invoking `aeqi_token::finalize`.
 #[derive(AnchorDeserialize, AnchorSerialize)]
 pub struct TokenInitConfig {
@@ -65,30 +65,30 @@ pub mod aeqi_token {
 
     /// Module init — called by the factory (or directly by the user during
     /// company spawn). Creates the TokenModuleState PDA that anchors all
-    /// subsequent token operations to this trust.
-    /// Gated to the trust authority during creation mode so the
+    /// subsequent token operations to this company.
+    /// Gated to the company authority during creation mode so the
     /// module_state PDA cannot be squatted by an attacker.
     pub fn init(ctx: Context<InitToken>) -> Result<()> {
-        let trust = &ctx.accounts.trust;
-        require!(trust.creation_mode, TokenError::TrustNotInCreationMode);
-        require_keys_eq!(ctx.accounts.payer.key(), trust.authority, TokenError::Unauthorized);
+        let company = &ctx.accounts.company;
+        require!(company.creation_mode, TokenError::CompanyNotInCreationMode);
+        require_keys_eq!(ctx.accounts.payer.key(), company.authority, TokenError::Unauthorized);
 
         let module = &mut ctx.accounts.module_state;
-        module.trust = ctx.accounts.trust.key();
+        module.company = ctx.accounts.company.key();
         module.mint = Pubkey::default(); // set by create_mint
         module.initialized = ModuleInitState::Initialized as u8;
         module.bump = ctx.bumps.module_state;
         emit!(TokenModuleInitialized {
-            trust: module.trust,
+            company: module.company,
             module_state: ctx.accounts.module_state.key(),
         });
         Ok(())
     }
 
     /// Module finalize — decodes the config bytes the factory wrote into the
-    /// trust's BytesConfig slot under `TOKEN_CONFIG_KEY`. Cross-program
+    /// company's BytesConfig slot under `TOKEN_CONFIG_KEY`. Cross-program
     /// account read — the BytesConfig PDA's owner is validated against
-    /// AEQI_TRUST_ID, then the 8-byte discriminator is skipped and the bytes
+    /// AEQI_COMPANY_ID, then the 8-byte discriminator is skipped and the bytes
     /// are borsh-deserialized into the mirror struct.
     pub fn finalize(ctx: Context<FinalizeToken>) -> Result<()> {
         let module = &mut ctx.accounts.module_state;
@@ -98,11 +98,11 @@ pub mod aeqi_token {
         );
 
         let cfg_acct = &ctx.accounts.bytes_config;
-        require_keys_eq!(*cfg_acct.owner, AEQI_TRUST_ID, TokenError::InvalidConfig);
+        require_keys_eq!(*cfg_acct.owner, AEQI_COMPANY_ID, TokenError::InvalidConfig);
 
         let data = cfg_acct.try_borrow_data()?;
         let cfg = decode_bytes_config_account(&data)?;
-        require_keys_eq!(cfg.trust, ctx.accounts.trust.key(), TokenError::InvalidConfig);
+        require_keys_eq!(cfg.company, ctx.accounts.company.key(), TokenError::InvalidConfig);
         require!(cfg.key == TOKEN_CONFIG_KEY, TokenError::InvalidConfig);
 
         let init_cfg = TokenInitConfig::try_from_slice(&cfg.value)
@@ -124,7 +124,7 @@ pub mod aeqi_token {
         let module = &ctx.accounts.module_state;
         require!(module.initialized == ModuleInitState::Finalized as u8, TokenError::NotFinalized);
         require!(module.mint == ctx.accounts.mint.key(), TokenError::MintMismatch);
-        require_keys_eq!(module.trust, ctx.accounts.trust.key(), TokenError::TrustMismatch);
+        require_keys_eq!(module.company, ctx.accounts.company.key(), TokenError::CompanyMismatch);
 
         let cpi_accounts = Burn {
             mint: ctx.accounts.mint.to_account_info(),
@@ -135,7 +135,7 @@ pub mod aeqi_token {
         burn(cpi_ctx, amount)?;
 
         emit!(TokensBurned {
-            trust: module.trust,
+            company: module.company,
             mint: module.mint,
             owner_ta: ctx.accounts.owner_ta.key(),
             amount,
@@ -156,11 +156,11 @@ pub mod aeqi_token {
         let module = &ctx.accounts.module_state;
         require!(module.initialized == ModuleInitState::Finalized as u8, TokenError::NotFinalized);
         require!(module.mint == ctx.accounts.mint.key(), TokenError::MintMismatch);
-        require_keys_eq!(module.trust, ctx.accounts.trust.key(), TokenError::TrustMismatch);
+        require_keys_eq!(module.company, ctx.accounts.company.key(), TokenError::CompanyMismatch);
         require!(ctx.accounts.mint.decimals == module.decimals, TokenError::DecimalsMismatch);
         require_keys_eq!(
             ctx.accounts.authority.key(),
-            ctx.accounts.trust.authority,
+            ctx.accounts.company.authority,
             TokenError::UnauthorizedMintAuthority
         );
 
@@ -171,9 +171,9 @@ pub mod aeqi_token {
             require!(new_supply <= module.max_supply_cap, TokenError::SupplyCapExceeded);
         }
 
-        let trust_key = ctx.accounts.trust.key();
+        let company_key = ctx.accounts.company.key();
         let bump = ctx.bumps.mint_authority;
-        let seeds: &[&[&[u8]]] = &[&[b"token_authority", trust_key.as_ref(), &[bump]]];
+        let seeds: &[&[&[u8]]] = &[&[b"token_authority", company_key.as_ref(), &[bump]]];
 
         let cpi_accounts = MintTo {
             mint: ctx.accounts.mint.to_account_info(),
@@ -188,7 +188,7 @@ pub mod aeqi_token {
         mint_to(cpi_ctx, amount)?;
 
         emit!(TokensMinted {
-            trust: module.trust,
+            company: module.company,
             mint: module.mint,
             recipient_ta: ctx.accounts.recipient_ta.key(),
             amount,
@@ -196,25 +196,25 @@ pub mod aeqi_token {
         Ok(())
     }
 
-    /// Create the SPL Token-2022 mint for this TRUST. Mint address is a PDA
-    /// seeded `[b"mint", trust]` so callers can derive it deterministically.
+    /// Create the SPL Token-2022 mint for this COMPANY. Mint address is a PDA
+    /// seeded `[b"mint", company]` so callers can derive it deterministically.
     /// Authority for the mint is another PDA seeded
-    /// `[b"token_authority", trust]`, owned by this program — only this
+    /// `[b"token_authority", company]`, owned by this program — only this
     /// program can mint or freeze.
     pub fn create_mint(ctx: Context<CreateMint>, decimals: u8) -> Result<()> {
         require_token_2022(ctx.accounts.token_program.key())?;
         let module = &mut ctx.accounts.module_state;
         require!(module.initialized == ModuleInitState::Finalized as u8, TokenError::NotFinalized);
-        require_keys_eq!(module.trust, ctx.accounts.trust.key(), TokenError::TrustMismatch);
+        require_keys_eq!(module.company, ctx.accounts.company.key(), TokenError::CompanyMismatch);
         require!(decimals == module.decimals, TokenError::DecimalsMismatch);
         require!(module.mint == Pubkey::default(), TokenError::MintAlreadyCreated);
 
         let mint_key = ctx.accounts.mint.key();
         let mint_bump = ctx.bumps.mint;
-        let trust_key = ctx.accounts.trust.key();
+        let company_key = ctx.accounts.company.key();
         let mint_len = anchor_spl::token_interface::spl_token_2022::state::Mint::LEN;
         let lamports = Rent::get()?.minimum_balance(mint_len);
-        let signer_seeds: &[&[&[u8]]] = &[&[b"mint", trust_key.as_ref(), &[mint_bump]]];
+        let signer_seeds: &[&[&[u8]]] = &[&[b"mint", company_key.as_ref(), &[mint_bump]]];
 
         let create_ix = system_instruction::create_account(
             &ctx.accounts.payer.key(),
@@ -243,7 +243,7 @@ pub mod aeqi_token {
         )?;
 
         module.mint = mint_key;
-        emit!(MintCreated { trust: module.trust, mint: module.mint, decimals });
+        emit!(MintCreated { company: module.company, mint: module.mint, decimals });
         Ok(())
     }
 }
@@ -261,9 +261,9 @@ fn decode_bytes_config_account(data: &[u8]) -> Result<BytesConfigData> {
     const FIXED_PREFIX: usize = DISCRIMINATOR_LEN + PUBKEY_LEN + KEY_LEN + VEC_LEN_PREFIX;
 
     require!(data.len() > FIXED_PREFIX, TokenError::InvalidConfig);
-    let mut trust_bytes = [0u8; PUBKEY_LEN];
-    trust_bytes.copy_from_slice(&data[DISCRIMINATOR_LEN..DISCRIMINATOR_LEN + PUBKEY_LEN]);
-    let trust = Pubkey::new_from_array(trust_bytes);
+    let mut company_bytes = [0u8; PUBKEY_LEN];
+    company_bytes.copy_from_slice(&data[DISCRIMINATOR_LEN..DISCRIMINATOR_LEN + PUBKEY_LEN]);
+    let company = Pubkey::new_from_array(company_bytes);
 
     let key_start = DISCRIMINATOR_LEN + PUBKEY_LEN;
     let mut key = [0u8; KEY_LEN];
@@ -280,7 +280,7 @@ fn decode_bytes_config_account(data: &[u8]) -> Result<BytesConfigData> {
     require!(value_end < data.len(), TokenError::InvalidConfig);
 
     Ok(BytesConfigData {
-        trust,
+        company,
         key,
         value: data[value_start..value_end].to_vec(),
         bump: data[value_end],
@@ -290,7 +290,7 @@ fn decode_bytes_config_account(data: &[u8]) -> Result<BytesConfigData> {
 #[account]
 #[derive(InitSpace)]
 pub struct TokenModuleState {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub mint: Pubkey,
     pub initialized: u8,
     /// Mint decimals — populated by `finalize` from the BytesConfig blob.
@@ -310,18 +310,18 @@ pub enum ModuleInitState {
 
 #[derive(Accounts)]
 pub struct InitToken<'info> {
-    /// Trust PDA — must be a real Trust account owned by aeqi_trust.
+    /// Company PDA — must be a real Company account owned by aeqi_company.
     #[account(
-        seeds = [b"trust", trust.trust_id.as_ref()],
-        bump = trust.bump,
-        seeds::program = AEQI_TRUST_ID,
+        seeds = [b"company", company.company_id.as_ref()],
+        bump = company.bump,
+        seeds::program = AEQI_COMPANY_ID,
     )]
-    pub trust: Account<'info, Trust>,
+    pub company: Account<'info, Company>,
     #[account(
         init,
         payer = payer,
         space = 8 + TokenModuleState::INIT_SPACE,
-        seeds = [b"token_module", trust.key().as_ref()],
+        seeds = [b"token_module", company.key().as_ref()],
         bump,
     )]
     pub module_state: Account<'info, TokenModuleState>,
@@ -332,21 +332,21 @@ pub struct InitToken<'info> {
 
 #[derive(Accounts)]
 pub struct FinalizeToken<'info> {
-    /// CHECK: trust pda
-    pub trust: UncheckedAccount<'info>,
+    /// CHECK: company pda
+    pub company: UncheckedAccount<'info>,
     #[account(
         mut,
-        seeds = [b"token_module", trust.key().as_ref()],
+        seeds = [b"token_module", company.key().as_ref()],
         bump = module_state.bump,
     )]
     pub module_state: Account<'info, TokenModuleState>,
-    /// CHECK: cross-program BytesConfig PDA owned by aeqi_trust. Anchor
+    /// CHECK: cross-program BytesConfig PDA owned by aeqi_company. Anchor
     /// enforces the seed derivation under the foreign program id; finalize's
     /// body validates the account's data layout + owner.
     #[account(
-        seeds = [b"cfg_bytes", trust.key().as_ref(), TOKEN_CONFIG_KEY.as_ref()],
+        seeds = [b"cfg_bytes", company.key().as_ref(), TOKEN_CONFIG_KEY.as_ref()],
         bump,
-        seeds::program = AEQI_TRUST_ID,
+        seeds::program = AEQI_COMPANY_ID,
     )]
     pub bytes_config: UncheckedAccount<'info>,
 }
@@ -354,22 +354,22 @@ pub struct FinalizeToken<'info> {
 #[derive(Accounts)]
 #[instruction(decimals: u8)]
 pub struct CreateMint<'info> {
-    /// CHECK: trust pda — used as the seed namespace.
-    pub trust: UncheckedAccount<'info>,
+    /// CHECK: company pda — used as the seed namespace.
+    pub company: UncheckedAccount<'info>,
     #[account(
         mut,
-        seeds = [b"token_module", trust.key().as_ref()],
+        seeds = [b"token_module", company.key().as_ref()],
         bump = module_state.bump,
     )]
     pub module_state: Account<'info, TokenModuleState>,
     /// CHECK: program-controlled PDA mint authority. Only this program (via
     /// signer seeds) can mint or freeze the cap-table token.
-    #[account(seeds = [b"token_authority", trust.key().as_ref()], bump)]
+    #[account(seeds = [b"token_authority", company.key().as_ref()], bump)]
     pub mint_authority: UncheckedAccount<'info>,
     /// CHECK: mint PDA is created and initialized manually in `create_mint`.
     #[account(
         mut,
-        seeds = [b"mint", trust.key().as_ref()],
+        seeds = [b"mint", company.key().as_ref()],
         bump,
     )]
     pub mint: UncheckedAccount<'info>,
@@ -381,14 +381,14 @@ pub struct CreateMint<'info> {
 
 #[derive(Accounts)]
 pub struct BurnTokens<'info> {
-    /// CHECK: trust pda — used as the seed namespace.
-    pub trust: UncheckedAccount<'info>,
+    /// CHECK: company pda — used as the seed namespace.
+    pub company: UncheckedAccount<'info>,
     #[account(
-        seeds = [b"token_module", trust.key().as_ref()],
+        seeds = [b"token_module", company.key().as_ref()],
         bump = module_state.bump,
     )]
     pub module_state: Account<'info, TokenModuleState>,
-    #[account(mut, seeds = [b"mint", trust.key().as_ref()], bump)]
+    #[account(mut, seeds = [b"mint", company.key().as_ref()], bump)]
     pub mint: InterfaceAccount<'info, Mint>,
     #[account(mut)]
     pub owner_ta: InterfaceAccount<'info, TokenAccount>,
@@ -399,20 +399,20 @@ pub struct BurnTokens<'info> {
 #[derive(Accounts)]
 pub struct MintTokens<'info> {
     #[account(
-        seeds = [b"trust", trust.trust_id.as_ref()],
-        bump = trust.bump,
-        seeds::program = AEQI_TRUST_ID,
+        seeds = [b"company", company.company_id.as_ref()],
+        bump = company.bump,
+        seeds::program = AEQI_COMPANY_ID,
     )]
-    pub trust: Account<'info, Trust>,
+    pub company: Account<'info, Company>,
     #[account(
-        seeds = [b"token_module", trust.key().as_ref()],
+        seeds = [b"token_module", company.key().as_ref()],
         bump = module_state.bump,
     )]
     pub module_state: Account<'info, TokenModuleState>,
     /// CHECK: program-controlled PDA mint authority. Signed via signer seeds.
-    #[account(seeds = [b"token_authority", trust.key().as_ref()], bump)]
+    #[account(seeds = [b"token_authority", company.key().as_ref()], bump)]
     pub mint_authority: UncheckedAccount<'info>,
-    #[account(mut, seeds = [b"mint", trust.key().as_ref()], bump)]
+    #[account(mut, seeds = [b"mint", company.key().as_ref()], bump)]
     pub mint: InterfaceAccount<'info, Mint>,
     #[account(mut)]
     pub recipient_ta: InterfaceAccount<'info, TokenAccount>,
@@ -422,20 +422,20 @@ pub struct MintTokens<'info> {
 
 #[event]
 pub struct TokenModuleInitialized {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub module_state: Pubkey,
 }
 
 #[event]
 pub struct MintCreated {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub mint: Pubkey,
     pub decimals: u8,
 }
 
 #[event]
 pub struct TokensMinted {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub mint: Pubkey,
     pub recipient_ta: Pubkey,
     pub amount: u64,
@@ -443,7 +443,7 @@ pub struct TokensMinted {
 
 #[event]
 pub struct TokensBurned {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub mint: Pubkey,
     pub owner_ta: Pubkey,
     pub amount: u64,
@@ -455,7 +455,7 @@ pub enum TokenError {
     NotInitialized,
     #[msg("token module must be finalized before mint operations")]
     NotFinalized,
-    #[msg("mint already created for this trust")]
+    #[msg("mint already created for this company")]
     MintAlreadyCreated,
     #[msg("mint account does not match the module's recorded mint")]
     MintMismatch,
@@ -465,16 +465,16 @@ pub enum TokenError {
     SupplyCapExceeded,
     #[msg("token program must be Token-2022")]
     InvalidTokenProgram,
-    #[msg("token module is not bound to the supplied trust")]
-    TrustMismatch,
-    #[msg("caller is not the trust authority for minting")]
+    #[msg("token module is not bound to the supplied company")]
+    CompanyMismatch,
+    #[msg("caller is not the company authority for minting")]
     UnauthorizedMintAuthority,
     #[msg("amount must be > 0")]
     ZeroAmount,
     #[msg("mint decimals must match finalized token config")]
     DecimalsMismatch,
-    #[msg("caller is not authorized for this trust")]
+    #[msg("caller is not authorized for this company")]
     Unauthorized,
-    #[msg("trust must be in creation mode to initialize the token module")]
-    TrustNotInCreationMode,
+    #[msg("company must be in creation mode to initialize the token module")]
+    CompanyNotInCreationMode,
 }

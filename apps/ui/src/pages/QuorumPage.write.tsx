@@ -10,7 +10,7 @@
  *     history hook can share a file with the new-proposal modal and
  *     inline vote actions.
  *   - `VoteHistorySection` — fetches `VoteRecord` PDAs scoped to
- *     (trust, proposalId) and renders the audit trail. This is the
+ *     (company, proposalId) and renders the audit trail. This is the
  *     real iter-2 functional gap closed.
  *   - `NewProposalModal` — write modal for `api.proposalCreate` (the
  *     honest stub).
@@ -89,8 +89,8 @@ export function ProposalDetailModal({
   roles,
   proposals,
   voteRecords,
-  trustId,
-  trustAddress,
+  companyId,
+  companyAddress,
   nowSeconds,
   viewerCreatorAddress,
   onClose,
@@ -99,13 +99,13 @@ export function ProposalDetailModal({
   configs: GovernanceConfigWithPda[];
   roleTypes: RoleTypeWithPda[];
   /**
-   * Occupied role accounts on this TRUST. Forwarded to the proposal
+   * Occupied role accounts on this COMPANY. Forwarded to the proposal
    * action bar so its cancel-eligibility check can extend beyond the
    * proposer to anyone holding a role.
    */
   roles?: RoleAccountWithPda[];
   /**
-   * All proposals on this TRUST — forwarded so the iter-6 proposer
+   * All proposals on this COMPANY — forwarded so the iter-6 proposer
    * reputation glyph can count how many proposals this proposer has
    * opened and their success rate. Cheap local aggregation, no extra
    * RPC call. When omitted, the glyph degrades to a 1/1 view of the
@@ -113,20 +113,20 @@ export function ProposalDetailModal({
    */
   proposals?: ProposalWithPda[];
   /**
-   * Every VoteRecord PDA on this TRUST (already cached by `useQuorum`).
+   * Every VoteRecord PDA on this COMPANY (already cached by `useQuorum`).
    * iter-10 uses it to aggregate per-voter participation across the
-   * whole TRUST so the modal can surface a "Top voters" subsection
+   * whole COMPANY so the modal can surface a "Top voters" subsection
    * inside the detail view — operators reviewing one proposal can spot
    * the signers who consistently show up across the cap table.
    */
   voteRecords?: VoteRecordWithPda[];
-  trustId: string;
-  trustAddress: string;
+  companyId: string;
+  companyAddress: string;
   nowSeconds: number;
   /**
-   * EOA that owns this TRUST (from `entity.creator_address`). The
+   * EOA that owns this COMPANY (from `entity.creator_address`). The
    * action bar uses it to gate the Cancel CTA to the proposer or a
-   * role-holder on the TRUST — random viewers see a read-only detail
+   * role-holder on the COMPANY — random viewers see a read-only detail
    * surface.
    */
   viewerCreatorAddress: string | null;
@@ -150,19 +150,19 @@ export function ProposalDetailModal({
 
   // iter-8: share the vote-record query between the momentum sparkline
   // and the existing VoteHistorySection. Both consume the same query
-  // key so the RPC round-trip happens once per (trust, proposal).
+  // key so the RPC round-trip happens once per (company, proposal).
   // `useProposalVoteRecords` is a no-op until we have a proposalId, so
   // we pass an empty array sentinel when the modal is closed.
   const proposalIdForRecords: Uint8Array | number[] = entry
     ? entry.proposal.account.proposalId
     : new Uint8Array(32);
   const { data: voteRecordsForMomentum } = useProposalVoteRecords(
-    trustAddress,
+    companyAddress,
     proposalIdForRecords,
   );
 
   // iter-9: reuse the same `useProposalMomentum` query (cached by
-  // (trust, pdaKey, voteStart, voteEnd)) that the sparkline mounts. The
+  // (company, pdaKey, voteStart, voteEnd)) that the sparkline mounts. The
   // hook resolves a `getSignaturesForAddress(votePda, { limit: 1 })`
   // per PDA — the resulting `blockTimes` + `signatures` maps thread
   // straight into `VoteHistorySection` to render the "When" column and
@@ -174,7 +174,7 @@ export function ProposalDetailModal({
     voteRecords: voteRecordsForMomentum,
     voteStart,
     voteEnd: voteStart + voteDuration,
-    trustAddress,
+    companyAddress,
   });
 
   return (
@@ -190,8 +190,8 @@ export function ProposalDetailModal({
               proposals={proposals}
             />
             <ProposalActionBar
-              trustId={trustId}
-              trustAddress={trustAddress}
+              companyId={companyId}
+              companyAddress={companyAddress}
               proposal={entry.proposal.account}
               status={entry.status}
               viewerCreatorAddress={viewerCreatorAddress}
@@ -203,7 +203,7 @@ export function ProposalDetailModal({
               <TallyMomentumStrip
                 proposal={entry.proposal.account}
                 config={matchedConfig}
-                trustAddress={trustAddress}
+                companyAddress={companyAddress}
                 voteRecords={voteRecordsForMomentum}
                 nowSeconds={nowSeconds}
               />
@@ -215,7 +215,7 @@ export function ProposalDetailModal({
               nowSeconds={nowSeconds}
             />
             <VoteHistorySection
-              trustAddress={trustAddress}
+              companyAddress={companyAddress}
               proposalId={entry.proposal.account.proposalId}
               blockTimes={momentumForAudit?.blockTimes}
               signatures={momentumForAudit?.signatures}
@@ -243,7 +243,7 @@ function ProposalSummary({
   entry: { proposal: ProposalWithPda; status: ProposalStatus };
   roleTypes: RoleTypeWithPda[];
   nowSeconds: number;
-  /** All proposals on this TRUST — feeds the proposer reputation glyph. */
+  /** All proposals on this COMPANY — feeds the proposer reputation glyph. */
   proposals?: ProposalWithPda[];
 }) {
   const { start, end } = voteWindowSeconds(entry.proposal.account);
@@ -338,11 +338,11 @@ function ProposalSummary({
 function ProposalMeta({ proposal }: { proposal: ProposalAccount }) {
   return (
     <div className={styles.detailGrid}>
-      <span className={styles.detailLabel}>TRUST</span>
+      <span className={styles.detailLabel}>COMPANY</span>
       <span className={styles.detailValue}>
         <CopyableMono
-          full={proposal.trust.toBase58()}
-          display={shortAddress(proposal.trust.toBase58())}
+          full={proposal.company.toBase58()}
+          display={shortAddress(proposal.company.toBase58())}
         />
       </span>
     </div>
@@ -369,7 +369,7 @@ function ProposalMeta({ proposal }: { proposal: ProposalAccount }) {
  * exists yet.
  *
  * iter-7: clickable — opens a popover listing the proposer's last 5
- * proposals on this TRUST with outcome glyphs, so an operator reviewing
+ * proposals on this COMPANY with outcome glyphs, so an operator reviewing
  * a fresh proposal can audit who's behind it without leaving the page.
  */
 function ProposerReputationGlyph({
@@ -421,7 +421,7 @@ function ProposerReputationGlyph({
         <span className={styles.reputationPanelHeading}>Recent proposals</span>
         {recentProposals.length === 0 ? (
           <span className={styles.reputationPanelFootnote}>
-            No earlier proposals from this proposer on this TRUST.
+            No earlier proposals from this proposer on this COMPANY.
           </span>
         ) : (
           <div className={styles.reputationPanelList} role="list">
@@ -481,22 +481,22 @@ export { NewProposalModal } from "./QuorumPage.new-proposal";
  * with a small inline status — the parent doesn't navigate away.
  *
  * iter-6: a successful cast now exposes a "View receipt" button that
- * opens a print-ready modal carrying the TRUST + proposal id + vote +
+ * opens a print-ready modal carrying the COMPANY + proposal id + vote +
  * weight + signature + timestamp + verifier hint. This is the audit
  * artifact a board member or accountant would file when reconciling.
  */
 export function InlineVoteActions({
-  trustId,
-  trustAddress,
+  companyId,
+  companyAddress,
   proposalIdHex,
   proposalIdBytes,
 }: {
-  trustId: string;
-  trustAddress: string;
+  companyId: string;
+  companyAddress: string;
   proposalIdHex: string;
   proposalIdBytes: Uint8Array | number[];
 }) {
-  const invalidate = useQuorumInvalidator(trustAddress);
+  const invalidate = useQuorumInvalidator(companyAddress);
   const [pending, setPending] = useState<null | "for" | "against" | "abstain">(null);
   const [done, setDone] = useState<
     | null
@@ -514,7 +514,7 @@ export function InlineVoteActions({
     setDone(null);
     try {
       const result = await api.castVote({
-        entity_id: trustId,
+        entity_id: companyId,
         proposal_id_hex: proposalIdHex,
         choice,
       });
@@ -525,7 +525,7 @@ export function InlineVoteActions({
           tone: "ok",
           msg: "Voted",
           receipt: {
-            trustAddress,
+            companyAddress,
             proposalIdHex,
             choice,
             weight: result.weight,
@@ -674,7 +674,7 @@ export function ProposalsEmptyState({ filter }: { filter: FilterKey }) {
 
 const EMPTY_STATE_BY_FILTER: Record<FilterKey, { title: string; description: string }> = {
   all: {
-    title: "No proposals opened against this TRUST",
+    title: "No proposals opened against this COMPANY",
     description:
       "When a proposer opens a proposal — by quest decision, role-mode multisig, or token-mode vote — the full audit trail lands here.",
   },
@@ -696,7 +696,7 @@ const EMPTY_STATE_BY_FILTER: Record<FilterKey, { title: string; description: str
   defeated: {
     title: "No proposals have been defeated",
     description:
-      "Defeated = vote window closed with for-votes ≤ against-votes. None on the books, which is a healthy signal for new TRUSTs.",
+      "Defeated = vote window closed with for-votes ≤ against-votes. None on the books, which is a healthy signal for new Companies.",
   },
   executed: {
     title: "Nothing has been executed yet",

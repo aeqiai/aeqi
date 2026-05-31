@@ -35,17 +35,17 @@ describe("StartPage MVP surface", () => {
     cleanup();
   });
 
-  it("renders Home as a global product surface instead of a trust dashboard", () => {
+  it("renders Home as a global product surface instead of a company dashboard", () => {
     renderStartPage();
 
     expect(screen.getByRole("heading", { level: 1, name: "Welcome" })).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: /launch trust/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: /launch company/i }).length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: /view template/i })).toBeInTheDocument();
 
     expect(screen.queryByRole("region", { name: "Operating context" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Your TRUSTs" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Your Companies" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "My sessions" })).not.toBeInTheDocument();
-    expect(screen.queryByText("Active TRUST")).not.toBeInTheDocument();
+    expect(screen.queryByText("Active COMPANY")).not.toBeInTheDocument();
   });
 
   it("keeps the global rows focused on launch, markets, referrals, and learning", () => {
@@ -53,7 +53,7 @@ describe("StartPage MVP surface", () => {
 
     const startRow = screen.getByRole("region", { name: "Start with aeqi" });
     expect(within(startRow).getByRole("heading", { name: "First Company" })).toBeInTheDocument();
-    expect(within(startRow).getByRole("heading", { name: "Launch a TRUST" })).toBeInTheDocument();
+    expect(within(startRow).getByRole("heading", { name: "Launch a COMPANY" })).toBeInTheDocument();
     expect(within(startRow).getByRole("link", { name: /view template/i })).toHaveAttribute(
       "href",
       "/templates",
@@ -73,7 +73,7 @@ describe("StartPage MVP surface", () => {
   it("routes the primary launch action to launch", () => {
     renderStartPage();
 
-    fireEvent.click(screen.getAllByRole("link", { name: /launch trust/i })[0]);
+    fireEvent.click(screen.getAllByRole("link", { name: /launch company/i })[0]);
 
     expect(screen.getByTestId("location")).toHaveTextContent("/launch");
   });

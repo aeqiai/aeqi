@@ -58,7 +58,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "pool.trust",
+                "path": "pool.company",
                 "account": "liquidityPool"
               },
               {
@@ -104,7 +104,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "pool.trust",
+                "path": "pool.company",
                 "account": "liquidityPool"
               },
               {
@@ -140,7 +140,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "pool.trust",
+                "path": "pool.company",
                 "account": "liquidityPool"
               },
               {
@@ -230,7 +230,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "curve.trust",
+                "path": "curve.company",
                 "account": "bondingCurve"
               },
               {
@@ -267,7 +267,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "curve.trust",
+                "path": "curve.company",
                 "account": "bondingCurve"
               },
               {
@@ -352,7 +352,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "sale.trust",
+                "path": "sale.company",
                 "account": "commitmentSale"
               },
               {
@@ -388,7 +388,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "sale.trust",
+                "path": "sale.company",
                 "account": "commitmentSale"
               },
               {
@@ -433,7 +433,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "sale.trust",
+                "path": "sale.company",
                 "account": "commitmentSale"
               },
               {
@@ -496,7 +496,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "exit.trust",
+                "path": "exit.company",
                 "account": "exit"
               },
               {
@@ -532,7 +532,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "exit.trust",
+                "path": "exit.company",
                 "account": "exit"
               },
               {
@@ -615,7 +615,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "sale.trust",
+                "path": "sale.company",
                 "account": "commitmentSale"
               },
               {
@@ -651,7 +651,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "sale.trust",
+                "path": "sale.company",
                 "account": "commitmentSale"
               },
               {
@@ -700,7 +700,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "sale.trust",
+                "path": "sale.company",
                 "account": "commitmentSale"
               },
               {
@@ -754,7 +754,7 @@ export type AeqiUnifutures = {
       ],
       "accounts": [
         {
-          "name": "trust"
+          "name": "company"
         },
         {
           "name": "moduleState",
@@ -785,7 +785,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -806,7 +806,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               },
               {
                 "kind": "arg",
@@ -872,7 +872,7 @@ export type AeqiUnifutures = {
       ],
       "accounts": [
         {
-          "name": "trust"
+          "name": "company"
         },
         {
           "name": "moduleState",
@@ -903,7 +903,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -925,7 +925,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               },
               {
                 "kind": "arg",
@@ -1007,7 +1007,7 @@ export type AeqiUnifutures = {
       ],
       "accounts": [
         {
-          "name": "trust"
+          "name": "company"
         },
         {
           "name": "moduleState",
@@ -1038,7 +1038,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -1059,7 +1059,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               },
               {
                 "kind": "arg",
@@ -1128,7 +1128,7 @@ export type AeqiUnifutures = {
       ],
       "accounts": [
         {
-          "name": "trust"
+          "name": "company"
         },
         {
           "name": "moduleState",
@@ -1159,7 +1159,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -1190,7 +1190,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               },
               {
                 "kind": "arg",
@@ -1234,7 +1234,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               },
               {
                 "kind": "arg",
@@ -1268,7 +1268,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               },
               {
                 "kind": "arg",
@@ -1458,7 +1458,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "sale.trust",
+                "path": "sale.company",
                 "account": "commitmentSale"
               },
               {
@@ -1479,8 +1479,8 @@ export type AeqiUnifutures = {
     {
       "name": "init",
       "docs": [
-        "Module init — creates UnifuturesModuleState PDA bound to a trust.",
-        "Gated to the trust authority during creation mode so the",
+        "Module init — creates UnifuturesModuleState PDA bound to a company.",
+        "Gated to the company authority during creation mode so the",
         "module_state PDA cannot be squatted by an attacker."
       ],
       "discriminator": [
@@ -1495,9 +1495,9 @@ export type AeqiUnifutures = {
       ],
       "accounts": [
         {
-          "name": "trust",
+          "name": "company",
           "docs": [
-            "Trust PDA — must be a real Trust account owned by aeqi_trust."
+            "Company PDA — must be a real Company account owned by aeqi_company."
           ],
           "pda": {
             "seeds": [
@@ -1513,8 +1513,8 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "trust.trust_id",
-                "account": "trust"
+                "path": "company.company_id",
+                "account": "company"
               }
             ],
             "program": {
@@ -1585,7 +1585,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -1675,7 +1675,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "pool.trust",
+                "path": "pool.company",
                 "account": "liquidityPool"
               },
               {
@@ -1721,7 +1721,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "pool.trust",
+                "path": "pool.company",
                 "account": "liquidityPool"
               },
               {
@@ -1757,7 +1757,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "pool.trust",
+                "path": "pool.company",
                 "account": "liquidityPool"
               },
               {
@@ -1847,7 +1847,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "curve.trust",
+                "path": "curve.company",
                 "account": "bondingCurve"
               },
               {
@@ -1884,7 +1884,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "curve.trust",
+                "path": "curve.company",
                 "account": "bondingCurve"
               },
               {
@@ -1970,7 +1970,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "exit.trust",
+                "path": "exit.company",
                 "account": "exit"
               },
               {
@@ -2006,7 +2006,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "exit.trust",
+                "path": "exit.company",
                 "account": "exit"
               },
               {
@@ -2081,7 +2081,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "pool.trust",
+                "path": "pool.company",
                 "account": "liquidityPool"
               },
               {
@@ -2127,7 +2127,7 @@ export type AeqiUnifutures = {
               },
               {
                 "kind": "account",
-                "path": "pool.trust",
+                "path": "pool.company",
                 "account": "liquidityPool"
               },
               {
@@ -2251,7 +2251,7 @@ export type AeqiUnifutures = {
       ]
     },
     {
-      "name": "trust",
+      "name": "company",
       "discriminator": [
         71,
         85,
@@ -2600,7 +2600,7 @@ export type AeqiUnifutures = {
     {
       "code": 6027,
       "name": "trustNotInCreationMode",
-      "msg": "trust must be in creation mode to initialize the unifutures module"
+      "msg": "company must be in creation mode to initialize the unifutures module"
     },
     {
       "code": 6028,
@@ -2625,7 +2625,7 @@ export type AeqiUnifutures = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -2654,7 +2654,7 @@ export type AeqiUnifutures = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -2674,7 +2674,7 @@ export type AeqiUnifutures = {
             "name": "assetMint",
             "docs": [
               "Canonical asset mint sold by this curve. Buy/sell reject any other",
-              "asset mint so callers cannot route a TRUST curve through a worthless",
+              "asset mint so callers cannot route a COMPANY curve through a worthless",
               "substitute token."
             ],
             "type": "pubkey"
@@ -2731,7 +2731,7 @@ export type AeqiUnifutures = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -2792,7 +2792,7 @@ export type AeqiUnifutures = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -2825,7 +2825,7 @@ export type AeqiUnifutures = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -2874,7 +2874,7 @@ export type AeqiUnifutures = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -2907,7 +2907,7 @@ export type AeqiUnifutures = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -2980,7 +2980,7 @@ export type AeqiUnifutures = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -3021,7 +3021,7 @@ export type AeqiUnifutures = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -3050,7 +3050,7 @@ export type AeqiUnifutures = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -3087,7 +3087,7 @@ export type AeqiUnifutures = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -3148,7 +3148,7 @@ export type AeqiUnifutures = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -3185,7 +3185,7 @@ export type AeqiUnifutures = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -3222,7 +3222,7 @@ export type AeqiUnifutures = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -3255,7 +3255,7 @@ export type AeqiUnifutures = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -3288,7 +3288,7 @@ export type AeqiUnifutures = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -3321,7 +3321,7 @@ export type AeqiUnifutures = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -3362,7 +3362,7 @@ export type AeqiUnifutures = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -3395,7 +3395,7 @@ export type AeqiUnifutures = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -3431,15 +3431,15 @@ export type AeqiUnifutures = {
       }
     },
     {
-      "name": "trust",
+      "name": "company",
       "docs": [
-        "Core TRUST account — one per AEQI company. PDA seeded `[b\"trust\", trust_id]`."
+        "Core COMPANY account — one per AEQI company. PDA seeded `[b\"company\", company_id]`."
       ],
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "trustId",
+            "name": "companyId",
             "type": {
               "array": [
                 "u8",
@@ -3476,7 +3476,7 @@ export type AeqiUnifutures = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {

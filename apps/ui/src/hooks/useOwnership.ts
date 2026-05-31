@@ -1,39 +1,39 @@
 import { useEffect, useState } from "react";
 
 import {
-  fetchRolesForTrust,
-  fetchRoleRequestsForTrust,
+  fetchRolesForCompany,
+  fetchRoleRequestsForCompany,
   indexerEnabled,
-  type TrustRole,
-  type TrustRoleRequest,
+  type CompanyRole,
+  type CompanyRoleRequest,
 } from "@/lib/indexer";
 
 export interface OwnershipState {
-  roles: TrustRole[];
-  pending: TrustRoleRequest[];
+  roles: CompanyRole[];
+  pending: CompanyRoleRequest[];
   loading: boolean;
   error: string | null;
 }
 
 /**
- * Fetches on-chain role assignments for a TRUST from the indexer.
+ * Fetches on-chain role assignments for a COMPANY from the indexer.
  *
- * Queries `rolesForTrust(trustId)` and `roleRequestsForTrust(trustId)`.
+ * Queries `rolesForCompany(companyId)` and `roleRequestsForCompany(companyId)`.
  * Both queries degrade gracefully to `[]` when the indexer field is not yet
  * shipped — the hook never throws on missing schema fields.
  *
  * Returns empty state when:
- * - `trustId` is falsy (entity has no on-chain TRUST yet).
+ * - `companyId` is falsy (entity has no on-chain COMPANY yet).
  * - The indexer is not configured (`VITE_INDEXER_URL` unset / empty).
  */
-export function useOwnership(trustId: string | undefined | null): OwnershipState {
-  const [roles, setRoles] = useState<TrustRole[]>([]);
-  const [pending, setPending] = useState<TrustRoleRequest[]>([]);
+export function useOwnership(companyId: string | undefined | null): OwnershipState {
+  const [roles, setRoles] = useState<CompanyRole[]>([]);
+  const [pending, setPending] = useState<CompanyRoleRequest[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!trustId || !indexerEnabled()) return;
+    if (!companyId || !indexerEnabled()) return;
 
     let cancelled = false;
     setLoading(true);
@@ -42,8 +42,8 @@ export function useOwnership(trustId: string | undefined | null): OwnershipState
     (async () => {
       try {
         const [r, req] = await Promise.all([
-          fetchRolesForTrust(trustId),
-          fetchRoleRequestsForTrust(trustId),
+          fetchRolesForCompany(companyId),
+          fetchRoleRequestsForCompany(companyId),
         ]);
         if (!cancelled) {
           setRoles(r);
@@ -61,7 +61,7 @@ export function useOwnership(trustId: string | undefined | null): OwnershipState
     return () => {
       cancelled = true;
     };
-  }, [trustId]);
+  }, [companyId]);
 
   return { roles, pending, loading, error };
 }

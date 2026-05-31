@@ -52,7 +52,7 @@ function withQueryClient(ui: React.ReactElement) {
   return <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>;
 }
 
-describe("LeftSidebar trust navigation", () => {
+describe("LeftSidebar company navigation", () => {
   beforeEach(() => {
     window.localStorage.removeItem("aeqi_sidebar_pinned_my_sessions");
     window.localStorage.removeItem(PINNED_VIEWS_STORAGE_KEY);
@@ -65,12 +65,12 @@ describe("LeftSidebar trust navigation", () => {
         {
           id: "root-1",
           name: "Root",
-          type: "trust",
+          type: "company",
           status: "active",
           created_at: "2026-04-28T00:00:00Z",
         },
       ],
-      agents: [{ id: "root-1", name: "Root", status: "active", trust_id: "root-1" }] as never,
+      agents: [{ id: "root-1", name: "Root", status: "active", company_id: "root-1" }] as never,
       quests: [],
       events: [],
       workerEvents: [],
@@ -80,7 +80,7 @@ describe("LeftSidebar trust navigation", () => {
     });
   });
 
-  it("shows My sessions as a pinned row and allows multiple trust groups open", async () => {
+  it("shows My sessions as a pinned row and allows multiple company groups open", async () => {
     useUIStore.setState({
       pinnedViews: [
         {
@@ -93,10 +93,10 @@ describe("LeftSidebar trust navigation", () => {
         {
           id: "view-open-quests",
           label: "Open quests",
-          path: "/trust/root-1/quests",
+          path: "/company/root-1/quests",
           search: "?status=open",
           createdAt: "2026-05-30T00:00:00Z",
-          trustId: "root-1",
+          companyId: "root-1",
         },
       ],
     });
@@ -104,11 +104,11 @@ describe("LeftSidebar trust navigation", () => {
     const { container, findByRole, getByRole, getByText, queryByRole, queryByText } = render(
       withQueryClient(
         <StrictMode>
-          <MemoryRouter initialEntries={["/trust/root-1"]}>
+          <MemoryRouter initialEntries={["/company/root-1"]}>
             <Routes>
               <Route
-                path="/trust/:trustId/*"
-                element={<LeftSidebar trustId="root-1" path="/trust/root-1" />}
+                path="/company/:companyId/*"
+                element={<LeftSidebar companyId="root-1" path="/company/root-1" />}
               />
             </Routes>
           </MemoryRouter>
@@ -118,7 +118,7 @@ describe("LeftSidebar trust navigation", () => {
 
     const pinnedView = await findByRole("link", { name: "My sessions" });
     expect(pinnedView).toBeInTheDocument();
-    expect(pinnedView).toHaveAttribute("href", "/trust/root-1/sessions?view=mine");
+    expect(pinnedView).toHaveAttribute("href", "/company/root-1/sessions?view=mine");
     await waitFor(() => {
       expect(
         useUIStore
@@ -126,25 +126,25 @@ describe("LeftSidebar trust navigation", () => {
           .pinnedViews.some(
             (view) =>
               view.label === "My sessions" &&
-              view.path === "/trust/root-1/sessions" &&
+              view.path === "/company/root-1/sessions" &&
               view.search === "?view=mine" &&
-              view.trustId === "root-1",
+              view.companyId === "root-1",
           ),
       ).toBe(true);
     });
     expect(getByRole("button", { name: "Unpin My sessions" })).toBeInTheDocument();
     expect(getByRole("link", { name: "Open quests" })).toHaveAttribute(
       "href",
-      "/trust/root-1/quests?status=open",
+      "/company/root-1/quests?status=open",
     );
     expect(getByRole("link", { name: "Markets board" })).toHaveAttribute("href", "/markets");
     expect(getByRole("button", { name: "Unpin Open quests" })).toBeInTheDocument();
     expect(queryByText("Pinned Views")).not.toBeInTheDocument();
-    expect(getByText("Trust")).toHaveClass("active");
+    expect(getByText("Company")).toHaveClass("active");
     expect(queryByRole("link", { name: "Inbox" })).not.toBeInTheDocument();
     expect(queryByRole("link", { name: "Your Inbox" })).not.toBeInTheDocument();
     expect(getByRole("button", { name: "Operations" })).toHaveAttribute("aria-expanded", "true");
-    expect(getByRole("link", { name: "Apps" })).toHaveAttribute("href", "/trust/root-1/apps");
+    expect(getByRole("link", { name: "Apps" })).toHaveAttribute("href", "/company/root-1/apps");
     const operations = getByRole("region", { name: "Operations" });
     expect(within(operations).getByRole("link", { name: "Projects" })).toBeInTheDocument();
     expect(within(operations).getByRole("link", { name: "Goals" })).toBeInTheDocument();
@@ -165,27 +165,27 @@ describe("LeftSidebar trust navigation", () => {
     const ownership = getByRole("region", { name: "Ownership" });
     expect(within(ownership).getByRole("link", { name: "Controls" })).toHaveAttribute(
       "href",
-      "/trust/root-1/controls",
+      "/company/root-1/controls",
     );
     expect(within(ownership).getByRole("link", { name: "Filings" })).toHaveAttribute(
       "href",
-      "/trust/root-1/filings",
+      "/company/root-1/filings",
     );
     const infrastructure = getByRole("region", { name: "Infrastructure" });
     expect(within(infrastructure).getByRole("link", { name: "Runtime" })).toHaveAttribute(
       "href",
-      "/trust/root-1/runtime",
+      "/company/root-1/runtime",
     );
     expect(within(infrastructure).getByRole("link", { name: "Usage" })).toHaveAttribute(
       "href",
-      "/trust/root-1/usage",
+      "/company/root-1/usage",
     );
     expect(within(infrastructure).getByRole("link", { name: "Billing" })).toHaveAttribute(
       "href",
-      "/trust/root-1/billing",
+      "/company/root-1/billing",
     );
     expect(getByRole("link", { name: "Shares" })).toBeInTheDocument();
-    expect(getByRole("link", { name: "Logs" })).toHaveAttribute("href", "/trust/root-1/logs");
+    expect(getByRole("link", { name: "Logs" })).toHaveAttribute("href", "/company/root-1/logs");
     expect(queryByRole("link", { name: "Settings" })).not.toBeInTheDocument();
     expect(getByRole("link", { name: "My sessions" })).toBeInTheDocument();
     expect(queryByRole("link", { name: "Inbox" })).not.toBeInTheDocument();

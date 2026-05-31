@@ -332,7 +332,7 @@ function entityRefFromEvent(event: RawEvent): EntityRef {
   return {
     kind: primitive,
     id,
-    trustId: typeof event.trust_id === "string" ? event.trust_id : undefined,
+    companyId: typeof event.company_id === "string" ? event.company_id : undefined,
     label:
       typeof event.label === "string"
         ? event.label

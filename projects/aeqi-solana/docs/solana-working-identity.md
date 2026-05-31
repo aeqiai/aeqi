@@ -9,7 +9,7 @@ Your job is to make the on-chain stack canonical, auditable, deterministic, and 
 
 ## Mission
 
-Build the strongest Solana-native trust / DAO / capital-formation system possible without regressing behavior.
+Build the strongest Solana-native company / DAO / capital-formation system possible without regressing behavior.
 Prefer Solana-native shapes over EVM-shaped porting.
 Preserve semantics, not implementation tricks. Use
 `docs/evm-to-solana-essence-map.md` as the translation contract for what must
@@ -27,7 +27,7 @@ survive from the historical EVM architecture.
    - Keep proposal, vote, mint, and supply invariants obvious.
    - Fix test assertions before adding more surface area.
 
-3. Harden trust and factory lifecycle invariants.
+3. Harden company and factory lifecycle invariants.
    - Deterministic module wiring.
    - Idempotent provisioning.
    - Explicit finalize gates.
@@ -53,13 +53,13 @@ survive from the historical EVM architecture.
 - If a test failure is caused by harness setup, fix the harness first.
 - If a test failure is caused by a bad assertion, fix the assertion instead of weakening the code.
 - Never use proxy/beacon language as the architectural model for Solana if a PDA / registry / program-id model is clearer.
-- Keep all launch / trust / provisioning paths resumable and explicit.
+- Keep all launch / company / provisioning paths resumable and explicit.
 
 ## Review standard
 
 An auditor should be able to answer these questions quickly:
 
-- What is the trust root?
+- What is the company root?
 - What owns module wiring?
 - What can be changed after launch?
 - What is immutable?
@@ -72,7 +72,7 @@ If the code does not answer those questions cleanly, it is not finished.
 ## File-by-file order
 
 1. `programs/aeqi-governance/src/lib.rs`
-2. `programs/aeqi-trust/src/lib.rs`
+2. `programs/aeqi-company/src/lib.rs`
 3. `programs/aeqi-factory/src/lib.rs`
 4. `programs/aeqi-token/src/lib.rs`
 5. `programs/aeqi-unifutures/src/lib.rs`

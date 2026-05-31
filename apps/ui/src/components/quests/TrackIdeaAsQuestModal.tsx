@@ -35,7 +35,7 @@ export interface TrackIdeaAsQuestModalProps {
   idea?: Idea | null;
   ideaId?: string | null;
   agentId: string;
-  trustId: string;
+  companyId: string;
   initialStatus?: QuestStatus;
   parentQuestId?: string | null;
   onClose: () => void;
@@ -47,14 +47,14 @@ export default function TrackIdeaAsQuestModal({
   idea,
   ideaId,
   agentId,
-  trustId,
+  companyId,
   initialStatus = "todo",
   parentQuestId,
   onClose,
   onCreated,
 }: TrackIdeaAsQuestModalProps) {
   const track = useTrack();
-  const { data: visibleIdeas = [], isLoading } = useVisibleIdeas(open && !idea, trustId);
+  const { data: visibleIdeas = [], isLoading } = useVisibleIdeas(open && !idea, companyId);
   const linkedIdea = useMemo(
     () => idea ?? visibleIdeas.find((candidate) => candidate.id === ideaId) ?? null,
     [idea, ideaId, visibleIdeas],

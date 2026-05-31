@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { useCurrentTrust } from "@/hooks/useCurrentTrust";
+import { useCurrentCompany } from "@/hooks/useCurrentCompany";
 import { api } from "@/lib/api";
 import { Button, Input, Textarea } from "@/components/ui";
 import { useDaemonStore } from "@/store/daemon";
@@ -15,7 +15,7 @@ const TARGET_OPTIONS: { value: TargetKind; label: string }[] = [
 
 export default function RoleInvitePage() {
   const { roleId = "" } = useParams<{ roleId: string }>();
-  const { trustId } = useCurrentTrust();
+  const { companyId } = useCurrentCompany();
   const navigate = useNavigate();
   const entitiesList = useDaemonStore((s) => s.entities);
 
@@ -33,7 +33,7 @@ export default function RoleInvitePage() {
     document.title = "aeqi";
   }, []);
 
-  const detailHref = entityPathFromId(entitiesList, trustId, "roles", encodeURIComponent(roleId));
+  const detailHref = entityPathFromId(entitiesList, companyId, "roles", encodeURIComponent(roleId));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,7 +53,7 @@ export default function RoleInvitePage() {
 
     setSubmitting(true);
     try {
-      const resp = await api.createRoleInvitation(trustId, roleId, {
+      const resp = await api.createRoleInvitation(companyId, roleId, {
         target_kind: targetKind,
         ...(targetKind === "email" ? { target_email: targetEmail.trim() } : {}),
         ...(welcomeNote.trim() ? { welcome_note: welcomeNote.trim() } : {}),
@@ -86,7 +86,7 @@ export default function RoleInvitePage() {
       <div className="asv-main" style={{ padding: "var(--space-6) var(--space-8)", maxWidth: 560 }}>
         <div className="page-header">
           <div className="page-header-breadcrumbs">
-            <Link to={entityPathFromId(entitiesList, trustId, "roles")}>Roles</Link>
+            <Link to={entityPathFromId(entitiesList, companyId, "roles")}>Roles</Link>
             <span>/</span>
             <Link to={detailHref}>Role</Link>
             <span>/</span>
@@ -153,7 +153,7 @@ export default function RoleInvitePage() {
     <div className="asv-main" style={{ padding: "var(--space-6) var(--space-8)", maxWidth: 560 }}>
       <div className="page-header">
         <div className="page-header-breadcrumbs">
-          <Link to={entityPathFromId(entitiesList, trustId, "roles")}>Roles</Link>
+          <Link to={entityPathFromId(entitiesList, companyId, "roles")}>Roles</Link>
           <span>/</span>
           <Link to={detailHref}>Role</Link>
           <span>/</span>

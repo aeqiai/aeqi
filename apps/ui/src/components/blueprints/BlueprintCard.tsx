@@ -12,7 +12,7 @@ interface BlueprintCardProps {
   shippedLimit?: number;
 }
 
-/** On-chain TRUST modules included by template type. */
+/** On-chain COMPANY modules included by template type. */
 const ONCHAIN_MODULES: Record<BlueprintTemplate, string> = {
   entity: "Role · Budget · Token · Vesting · Funding",
   venture: "Role · Budget · Token · Vesting · Funding · Uniswap · UniFutures",
@@ -42,7 +42,7 @@ function formatRuntimeLine(t: SingleBlueprint): string {
 /**
  * Catalog card on `/templates`. Shows:
  * - Name + tagline (unchanged)
- * - TRUST shell inclusion list derived from `template`
+ * - COMPANY shell inclusion list derived from `template`
  * - Operating seed counts (agents · events · ideas · quests)
  *
  * No bespoke colors. No accents. Pure typography hierarchy via design-
@@ -79,7 +79,7 @@ function BlueprintCardImpl({
         <div className="bp-card-inclusions">
           {onchainModules && (
             <div className="bp-card-inclusion-row">
-              <span className="bp-card-inclusion-label">TRUST shell</span>
+              <span className="bp-card-inclusion-label">COMPANY shell</span>
               <span className="bp-card-inclusion-value">{onchainModules}</span>
             </div>
           )}

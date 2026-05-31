@@ -31,7 +31,7 @@ contract once the evidence and authorization path is stable.
    continuity.
 3. `cloakbrowser` is an optional backend for blocked workflows only. It must not
    become the global default because patched browser binaries expand the
-   maintenance, trust, and policy surface.
+   maintenance, company, and policy surface.
 
 ## Required Controls
 

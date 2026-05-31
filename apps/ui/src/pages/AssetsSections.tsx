@@ -58,7 +58,7 @@ export { BudgetsSection } from "./AssetsBudgets";
 
 /**
  * Vesting positions table — replaces the count-only tile. Renders every
- * outstanding grant on this TRUST with recipient, claimed-vs-total
+ * outstanding grant on this COMPANY with recipient, claimed-vs-total
  * progress, and lifecycle status. Status is derived from on-chain
  * timestamps: not-started → pending (in_review semantics), within
  * window → vesting (in_progress semantics), past end → fully vested

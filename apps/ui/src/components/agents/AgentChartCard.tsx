@@ -4,7 +4,7 @@ import AgentAvatar from "../AgentAvatar";
 
 /**
  * Card cell rendered inside the agents org-chart layout. Renamed from the
- * inline `AgentCard` it replaces inside TrustAgentsTab to avoid collision
+ * inline `AgentCard` it replaces inside CompanyAgentsTab to avoid collision
  * with `components/AgentCard.tsx` (a different top-level surface).
  */
 export default function AgentChartCard({

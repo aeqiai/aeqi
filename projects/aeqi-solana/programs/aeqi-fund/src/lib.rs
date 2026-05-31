@@ -22,7 +22,7 @@
 // lints. Keep this crate's warning output focused on protocol code.
 #![allow(deprecated, unexpected_cfgs)]
 
-use aeqi_trust::state::Trust;
+use aeqi_company::state::Company;
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{
     transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked,
@@ -30,24 +30,24 @@ use anchor_spl::token_interface::{
 
 declare_id!("DaFpZcqMaL4rmAemJ2WBeUth42PMmHxNg9t6j9h9p7YP");
 
-/// aeqi_trust program id — used for cross-program PDA derivation so module
-/// setup paths cannot accept arbitrary trust pubkeys.
-pub const AEQI_TRUST_ID: Pubkey =
+/// aeqi_company program id — used for cross-program PDA derivation so module
+/// setup paths cannot accept arbitrary company pubkeys.
+pub const AEQI_COMPANY_ID: Pubkey =
     anchor_lang::pubkey!("CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV");
 
 #[program]
 pub mod aeqi_fund {
     use super::*;
 
-    /// Module init — gated to the trust authority during creation mode so
+    /// Module init — gated to the company authority during creation mode so
     /// the module_state PDA cannot be squatted by an attacker.
     pub fn init(ctx: Context<InitFund>) -> Result<()> {
-        let trust = &ctx.accounts.trust;
-        require!(trust.creation_mode, FundError::TrustNotInCreationMode);
-        require_keys_eq!(ctx.accounts.payer.key(), trust.authority, FundError::Unauthorized);
+        let company = &ctx.accounts.company;
+        require!(company.creation_mode, FundError::CompanyNotInCreationMode);
+        require_keys_eq!(ctx.accounts.payer.key(), company.authority, FundError::Unauthorized);
 
         let m = &mut ctx.accounts.module_state;
-        m.trust = ctx.accounts.trust.key();
+        m.company = ctx.accounts.company.key();
         m.fund_count = 0;
         m.bump = ctx.bumps.module_state;
         Ok(())
@@ -59,7 +59,7 @@ pub mod aeqi_fund {
     pub fn create_fund(ctx: Context<CreateFund>, fund_id: [u8; 32], carry_bps: u16) -> Result<()> {
         require!(carry_bps <= 10_000, FundError::InvalidBps);
         let f = &mut ctx.accounts.fund;
-        f.trust = ctx.accounts.trust.key();
+        f.company = ctx.accounts.company.key();
         f.fund_id = fund_id;
         f.manager = ctx.accounts.manager.key();
         f.quote_mint = ctx.accounts.quote_mint.key();
@@ -74,7 +74,7 @@ pub mod aeqi_fund {
         m.fund_count = m.fund_count.checked_add(1).ok_or(error!(FundError::MathOverflow))?;
 
         emit!(FundCreated {
-            trust: f.trust,
+            company: f.company,
             fund_id,
             manager: f.manager,
             quote_mint: f.quote_mint,
@@ -123,14 +123,14 @@ pub mod aeqi_fund {
             f.total_shares.checked_add(shares_u64).ok_or(error!(FundError::MathOverflow))?;
 
         let s = &mut ctx.accounts.lp_share;
-        s.trust = f.trust;
+        s.company = f.company;
         s.fund_id = f.fund_id;
         s.lp = ctx.accounts.lp.key();
         s.shares = s.shares.checked_add(shares_u64).ok_or(error!(FundError::MathOverflow))?;
         s.bump = ctx.bumps.lp_share;
 
         emit!(FundDeposited {
-            trust: f.trust,
+            company: f.company,
             fund_id: f.fund_id,
             lp: s.lp,
             quote_in: amount,
@@ -172,7 +172,7 @@ pub mod aeqi_fund {
         }
 
         emit!(NavUpdated {
-            trust: f.trust,
+            company: f.company,
             fund_id: f.fund_id,
             gross_nav: f.gross_nav,
             high_water_mark: f.high_water_mark,
@@ -190,11 +190,11 @@ pub mod aeqi_fund {
         let carry = f.accrued_carry;
         require!(carry > 0, FundError::NoCarry);
 
-        let trust_key = f.trust;
+        let company_key = f.company;
         let fund_id_bytes = f.fund_id;
         let bump = ctx.bumps.fund_authority;
         let seeds: &[&[&[u8]]] =
-            &[&[b"fund_authority", trust_key.as_ref(), fund_id_bytes.as_ref(), &[bump]]];
+            &[&[b"fund_authority", company_key.as_ref(), fund_id_bytes.as_ref(), &[bump]]];
         let cpi = TransferChecked {
             from: ctx.accounts.fund_quote_vault.to_account_info(),
             mint: ctx.accounts.quote_mint.to_account_info(),
@@ -210,7 +210,7 @@ pub mod aeqi_fund {
         f.accrued_carry = 0;
 
         emit!(CarryClaimed {
-            trust: f.trust,
+            company: f.company,
             fund_id: f.fund_id,
             manager: f.manager,
             amount: carry,
@@ -240,11 +240,11 @@ pub mod aeqi_fund {
         require!(quote_out > 0, FundError::ShareTooSmall);
 
         // PDA-signed transfer fund_quote_vault → lp_quote_ta
-        let trust_key = f.trust;
+        let company_key = f.company;
         let fund_id_bytes = f.fund_id;
         let bump = ctx.bumps.fund_authority;
         let seeds: &[&[&[u8]]] =
-            &[&[b"fund_authority", trust_key.as_ref(), fund_id_bytes.as_ref(), &[bump]]];
+            &[&[b"fund_authority", company_key.as_ref(), fund_id_bytes.as_ref(), &[bump]]];
         let cpi = TransferChecked {
             from: ctx.accounts.fund_quote_vault.to_account_info(),
             mint: ctx.accounts.quote_mint.to_account_info(),
@@ -263,7 +263,7 @@ pub mod aeqi_fund {
         f.gross_nav = f.gross_nav.checked_sub(quote_out).ok_or(error!(FundError::MathOverflow))?;
 
         emit!(FundRedeemed {
-            trust: f.trust,
+            company: f.company,
             fund_id: f.fund_id,
             lp: s.lp,
             shares_burned: shares,
@@ -280,7 +280,7 @@ pub mod aeqi_fund {
 #[account]
 #[derive(InitSpace)]
 pub struct FundModuleState {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub fund_count: u64,
     pub bump: u8,
 }
@@ -288,7 +288,7 @@ pub struct FundModuleState {
 #[account]
 #[derive(InitSpace)]
 pub struct Fund {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub fund_id: [u8; 32],
     pub manager: Pubkey,
     pub quote_mint: Pubkey,
@@ -309,7 +309,7 @@ pub struct Fund {
 #[account]
 #[derive(InitSpace)]
 pub struct LpShare {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub fund_id: [u8; 32],
     pub lp: Pubkey,
     pub shares: u64,
@@ -322,18 +322,18 @@ pub struct LpShare {
 
 #[derive(Accounts)]
 pub struct InitFund<'info> {
-    /// Trust PDA — must be a real Trust account owned by aeqi_trust.
+    /// Company PDA — must be a real Company account owned by aeqi_company.
     #[account(
-        seeds = [b"trust", trust.trust_id.as_ref()],
-        bump = trust.bump,
-        seeds::program = AEQI_TRUST_ID,
+        seeds = [b"company", company.company_id.as_ref()],
+        bump = company.bump,
+        seeds::program = AEQI_COMPANY_ID,
     )]
-    pub trust: Account<'info, Trust>,
+    pub company: Account<'info, Company>,
     #[account(
         init,
         payer = payer,
         space = 8 + FundModuleState::INIT_SPACE,
-        seeds = [b"fund_module", trust.key().as_ref()],
+        seeds = [b"fund_module", company.key().as_ref()],
         bump,
     )]
     pub module_state: Account<'info, FundModuleState>,
@@ -345,11 +345,11 @@ pub struct InitFund<'info> {
 #[derive(Accounts)]
 #[instruction(fund_id: [u8; 32])]
 pub struct CreateFund<'info> {
-    /// CHECK: trust pda
-    pub trust: UncheckedAccount<'info>,
+    /// CHECK: company pda
+    pub company: UncheckedAccount<'info>,
     #[account(
         mut,
-        seeds = [b"fund_module", trust.key().as_ref()],
+        seeds = [b"fund_module", company.key().as_ref()],
         bump = module_state.bump,
     )]
     pub module_state: Account<'info, FundModuleState>,
@@ -357,7 +357,7 @@ pub struct CreateFund<'info> {
         init,
         payer = manager,
         space = 8 + Fund::INIT_SPACE,
-        seeds = [b"fund", trust.key().as_ref(), fund_id.as_ref()],
+        seeds = [b"fund", company.key().as_ref(), fund_id.as_ref()],
         bump,
     )]
     pub fund: Account<'info, Fund>,
@@ -371,12 +371,12 @@ pub struct CreateFund<'info> {
 pub struct FundDeposit<'info> {
     #[account(
         mut,
-        seeds = [b"fund", fund.trust.as_ref(), fund.fund_id.as_ref()],
+        seeds = [b"fund", fund.company.as_ref(), fund.fund_id.as_ref()],
         bump = fund.bump,
     )]
     pub fund: Box<Account<'info, Fund>>,
     /// CHECK: PDA — owns the quote vault
-    #[account(seeds = [b"fund_authority", fund.trust.as_ref(), fund.fund_id.as_ref()], bump)]
+    #[account(seeds = [b"fund_authority", fund.company.as_ref(), fund.fund_id.as_ref()], bump)]
     pub fund_authority: UncheckedAccount<'info>,
     pub quote_mint: Box<InterfaceAccount<'info, Mint>>,
     #[account(mut, token::mint = quote_mint, token::authority = fund_authority)]
@@ -387,7 +387,7 @@ pub struct FundDeposit<'info> {
         init_if_needed,
         payer = lp,
         space = 8 + LpShare::INIT_SPACE,
-        seeds = [b"lp_share", fund.trust.as_ref(), fund.fund_id.as_ref(), lp.key().as_ref()],
+        seeds = [b"lp_share", fund.company.as_ref(), fund.fund_id.as_ref(), lp.key().as_ref()],
         bump,
     )]
     pub lp_share: Box<Account<'info, LpShare>>,
@@ -401,12 +401,12 @@ pub struct FundDeposit<'info> {
 pub struct FundRedeem<'info> {
     #[account(
         mut,
-        seeds = [b"fund", fund.trust.as_ref(), fund.fund_id.as_ref()],
+        seeds = [b"fund", fund.company.as_ref(), fund.fund_id.as_ref()],
         bump = fund.bump,
     )]
     pub fund: Box<Account<'info, Fund>>,
     /// CHECK: PDA — signs the quote out-transfer
-    #[account(seeds = [b"fund_authority", fund.trust.as_ref(), fund.fund_id.as_ref()], bump)]
+    #[account(seeds = [b"fund_authority", fund.company.as_ref(), fund.fund_id.as_ref()], bump)]
     pub fund_authority: UncheckedAccount<'info>,
     pub quote_mint: Box<InterfaceAccount<'info, Mint>>,
     #[account(mut, token::mint = quote_mint, token::authority = fund_authority)]
@@ -415,7 +415,7 @@ pub struct FundRedeem<'info> {
     pub lp_quote_ta: Box<InterfaceAccount<'info, TokenAccount>>,
     #[account(
         mut,
-        seeds = [b"lp_share", fund.trust.as_ref(), fund.fund_id.as_ref(), lp.key().as_ref()],
+        seeds = [b"lp_share", fund.company.as_ref(), fund.fund_id.as_ref(), lp.key().as_ref()],
         bump = lp_share.bump,
     )]
     pub lp_share: Box<Account<'info, LpShare>>,
@@ -427,7 +427,7 @@ pub struct FundRedeem<'info> {
 pub struct UpdateNav<'info> {
     #[account(
         mut,
-        seeds = [b"fund", fund.trust.as_ref(), fund.fund_id.as_ref()],
+        seeds = [b"fund", fund.company.as_ref(), fund.fund_id.as_ref()],
         bump = fund.bump,
     )]
     pub fund: Box<Account<'info, Fund>>,
@@ -438,12 +438,12 @@ pub struct UpdateNav<'info> {
 pub struct ClaimCarry<'info> {
     #[account(
         mut,
-        seeds = [b"fund", fund.trust.as_ref(), fund.fund_id.as_ref()],
+        seeds = [b"fund", fund.company.as_ref(), fund.fund_id.as_ref()],
         bump = fund.bump,
     )]
     pub fund: Box<Account<'info, Fund>>,
     /// CHECK: PDA — signs the carry out-transfer
-    #[account(seeds = [b"fund_authority", fund.trust.as_ref(), fund.fund_id.as_ref()], bump)]
+    #[account(seeds = [b"fund_authority", fund.company.as_ref(), fund.fund_id.as_ref()], bump)]
     pub fund_authority: UncheckedAccount<'info>,
     pub quote_mint: Box<InterfaceAccount<'info, Mint>>,
     #[account(mut, token::mint = quote_mint, token::authority = fund_authority)]
@@ -460,7 +460,7 @@ pub struct ClaimCarry<'info> {
 
 #[event]
 pub struct FundCreated {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub fund_id: [u8; 32],
     pub manager: Pubkey,
     pub quote_mint: Pubkey,
@@ -469,7 +469,7 @@ pub struct FundCreated {
 
 #[event]
 pub struct FundDeposited {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub fund_id: [u8; 32],
     pub lp: Pubkey,
     pub quote_in: u64,
@@ -478,7 +478,7 @@ pub struct FundDeposited {
 
 #[event]
 pub struct FundRedeemed {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub fund_id: [u8; 32],
     pub lp: Pubkey,
     pub shares_burned: u64,
@@ -487,7 +487,7 @@ pub struct FundRedeemed {
 
 #[event]
 pub struct NavUpdated {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub fund_id: [u8; 32],
     pub gross_nav: u64,
     pub high_water_mark: u64,
@@ -496,7 +496,7 @@ pub struct NavUpdated {
 
 #[event]
 pub struct CarryClaimed {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub fund_id: [u8; 32],
     pub manager: Pubkey,
     pub amount: u64,
@@ -524,6 +524,6 @@ pub enum FundError {
     NoCarry,
     #[msg("quote mint does not match the fund's configured quote mint")]
     QuoteMintMismatch,
-    #[msg("trust must be in creation mode to initialize the fund module")]
-    TrustNotInCreationMode,
+    #[msg("company must be in creation mode to initialize the fund module")]
+    CompanyNotInCreationMode,
 }

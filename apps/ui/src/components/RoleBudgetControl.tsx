@@ -4,8 +4,8 @@ import { api } from "@/lib/api";
 import "./RoleBudgetControl.css";
 
 interface RoleBudgetControlProps {
-  /** Trust id (entity id) — passed through to the platform route. */
-  trustId: string;
+  /** Company id (entity id) — passed through to the platform route. */
+  companyId: string;
   /** Off-chain role id (UUID). The platform keccak256-hashes this into the
    *  32-byte on-chain role identifier. */
   roleId: string;
@@ -17,13 +17,17 @@ const QUOTE_DECIMALS = 6;
 /**
  * Grant a spending budget against this role. The on-chain `aeqi-budget`
  * program caps role spend at the granted `amount` (denominated in the
- * trust's quote token, 6 decimals); `expiry = 0` means no expiry.
+ * company's quote token, 6 decimals); `expiry = 0` means no expiry.
  *
  * The on-chain BudgetModuleState must exist before create_budget can
  * write. We lazily init the module on first failure rather than asking
  * the operator to think about it — single-button UX.
  */
-export default function RoleBudgetControl({ trustId, roleId, roleTitle }: RoleBudgetControlProps) {
+export default function RoleBudgetControl({
+  companyId,
+  roleId,
+  roleTitle,
+}: RoleBudgetControlProps) {
   const [amountStr, setAmountStr] = useState("");
   const [expiry, setExpiry] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -49,7 +53,7 @@ export default function RoleBudgetControl({ trustId, roleId, roleTitle }: RoleBu
     try {
       const callCreate = () =>
         api.budgetCreate({
-          entity_id: trustId,
+          entity_id: companyId,
           target_role_id: roleId,
           amount: baseAmount,
           expiry: expirySecs,
@@ -66,7 +70,7 @@ export default function RoleBudgetControl({ trustId, roleId, roleTitle }: RoleBu
         if (
           /budget_module|module_state|account.*not.*found|0x..bc4|AccountNotInitialized/i.test(msg)
         ) {
-          await api.budgetModuleInit({ entity_id: trustId });
+          await api.budgetModuleInit({ entity_id: companyId });
           const res = await callCreate();
           setResult({
             ok: true,

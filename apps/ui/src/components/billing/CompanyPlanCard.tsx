@@ -27,7 +27,7 @@ interface CompanyPlanCardProps {
    *  lives inside that Company's surface (e.g. agent plan tab). */
   hideOpenLink?: boolean;
   /** Human-readable company name to display instead of company.name.
-   *  The billing API returns trust_id as company.name — callers that
+   *  The billing API returns company_id as company.name — callers that
    *  have resolved the display name should pass it here. */
   displayName?: string;
 }

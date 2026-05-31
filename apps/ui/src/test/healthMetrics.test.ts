@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeHealthMetrics } from "@/hooks/useTrustHealthMetrics";
+import { computeHealthMetrics } from "@/hooks/useCompanyHealthMetrics";
 import type { ActivityEntry, Idea, Quest } from "@/lib/types";
 
 const NOW = Date.parse("2026-05-17T12:00:00Z");

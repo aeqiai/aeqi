@@ -16,7 +16,7 @@
  * Programs (11 total — must match projects/aeqi-solana/Anchor.toml
  * [programs.localnet]):
  *   aeqi_budget · aeqi_factory · aeqi_fund · aeqi_funding · aeqi_governance
- *   aeqi_role · aeqi_token · aeqi_treasury · aeqi_trust · aeqi_unifutures
+ *   aeqi_role · aeqi_token · aeqi_treasury · aeqi_company · aeqi_unifutures
  *   aeqi_vesting
  */
 import { copyFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
@@ -65,7 +65,7 @@ const PROGRAMS = [
   "aeqi_role",
   "aeqi_token",
   "aeqi_treasury",
-  "aeqi_trust",
+  "aeqi_company",
   "aeqi_unifutures",
   "aeqi_vesting",
 ];

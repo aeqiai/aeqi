@@ -1,7 +1,7 @@
 /**
  * Pure formatters for the day-30 health dashboard interpretation copy.
  *
- * Every metric on `/trust/<addr>/health` renders a single sentence that
+ * Every metric on `/company/<addr>/health` renders a single sentence that
  * tells the operator whether the substrate is compounding. These functions
  * take the trailing-7d count + the previous-7d count and return that
  * sentence — pure inputs → pure string output so the hook layer never

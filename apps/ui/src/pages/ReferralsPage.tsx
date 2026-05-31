@@ -15,7 +15,7 @@ const PLAYBOOK = [
   },
   {
     title: "Help them launch",
-    copy: "The loop compounds when invited users create a TRUST, seed agents, and bring their own collaborators onto the platform.",
+    copy: "The loop compounds when invited users create a COMPANY, seed agents, and bring their own collaborators onto the platform.",
   },
 ];
 
@@ -32,8 +32,8 @@ export default function ReferralsPage() {
           </span>
           <h1 id="referrals-title">Bring the right operators into aeqi.</h1>
           <p>
-            Referrals are the growth loop for the company OS: invite people who can launch a TRUST,
-            work with agents, and bring the next serious operator with them.
+            Referrals are the growth loop for the company OS: invite people who can launch a
+            COMPANY, work with agents, and bring the next serious operator with them.
           </p>
         </div>
         <div className="referrals-actions" aria-label="Referral actions">

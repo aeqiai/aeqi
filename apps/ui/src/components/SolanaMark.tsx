@@ -3,7 +3,7 @@
  * doesn't ship a Solana glyph; embedding the path lets us tint via
  * `currentColor` and size via the `size` prop the same way every other
  * icon on the surface does. Use it whenever we want to signal "this
- * lives on Solana" — currently the trust hero's on-chain address chip.
+ * lives on Solana" — currently the company hero's on-chain address chip.
  *
  * Path is the canonical Solana wordmark mark (3 angled bars), simplified
  * to a single color so the warm-palette ink doesn't fight the brand

@@ -37,7 +37,7 @@ export default function QuestBoardToolbar({
   onFilterChange: (next: QuestFilter) => void;
 }) {
   return (
-    <div className="ideas-toolbar trust-quests-toolbar">
+    <div className="ideas-toolbar company-quests-toolbar">
       <PrimitiveSearchField
         inputRef={searchInputRef}
         placeholder="Search quests"

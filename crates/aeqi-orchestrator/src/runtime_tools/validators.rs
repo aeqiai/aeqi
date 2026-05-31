@@ -37,7 +37,7 @@ use async_trait::async_trait;
 /// One item being validated. The dispatcher hands the validator references
 /// only — validators NEVER mutate the item. If a validator could rewrite
 /// the item we'd be in auto-fix territory, which is a different feature
-/// (and a different trust boundary).
+/// (and a different company boundary).
 #[derive(Debug)]
 pub struct ValidatorItem<'a> {
     pub name: &'a str,

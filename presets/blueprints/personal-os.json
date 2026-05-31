@@ -108,7 +108,7 @@
     {
       "owner": "root",
       "name": "How to capture a decision",
-      "content": "When the operator decides something — a stance, a preference, a person to trust, a vendor to cut — write it as an idea. Name it like a future search query. Tag it `preferences` if it's about taste, `rules` if it's a standing constraint, `identity` if it's about who they are. Mark old ideas as superseded; never silently overwrite history.",
+      "content": "When the operator decides something — a stance, a preference, a person to company, a vendor to cut — write it as an idea. Name it like a future search query. Tag it `preferences` if it's about taste, `rules` if it's a standing constraint, `identity` if it's about who they are. Mark old ideas as superseded; never silently overwrite history.",
       "tags": [
         "skill",
         "system",

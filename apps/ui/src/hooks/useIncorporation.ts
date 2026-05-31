@@ -1,10 +1,10 @@
 /**
  * `useIncorporation` — React Query wrapper around the server-side
  * Incorporation snapshot the surface (and the Overview cockpit rollup)
- * need: the Trust account, the list of Module accounts hanging off it,
+ * need: the Company account, the list of Module accounts hanging off it,
  * and the list of Role accounts on `aeqi_role`.
  *
- * The TRUST PDA address (`trust_address`) is the cache key for all three
+ * The COMPANY PDA address (`company_address`) is the cache key for all three
  * query. A 30s staleTime matches the cadence at which these accounts
  * actually change (manual operator actions through aeqi-platform —
  * pause/unpause, adopt new module implementation, ACL edits, role
@@ -14,12 +14,12 @@ import { useQuery } from "@tanstack/react-query";
 import { PublicKey } from "@solana/web3.js";
 
 import { api } from "@/lib/api";
-import type { ModuleAccountWithPda, RoleAccountWithPda, TrustAccount } from "@/solana";
+import type { ModuleAccountWithPda, RoleAccountWithPda, CompanyAccount } from "@/solana";
 
 const STALE_TIME_MS = 30_000;
 
 export interface UseIncorporationResult {
-  trust: TrustAccount | null | undefined;
+  company: CompanyAccount | null | undefined;
   modules: ModuleAccountWithPda[] | undefined;
   roles: RoleAccountWithPda[] | undefined;
   isLoading: boolean;
@@ -27,26 +27,30 @@ export interface UseIncorporationResult {
 }
 
 /**
- * Resolve a TRUST's on-chain Incorporation state.
+ * Resolve a COMPANY's on-chain Incorporation state.
  *
- * Pass the base58-encoded Trust PDA (matches `entity.trust_address` on
- * the platform-side Trust record). When `trustAddress` is null/empty
+ * Pass the base58-encoded Company PDA (matches `entity.company_address` on
+ * the platform-side Company record). When `companyAddress` is null/empty
  * the queries stay disabled — useful for the pre-bridge state where
  * the entity has no on-chain mirror yet.
  */
-export function useIncorporation(trustAddress: string | null | undefined): UseIncorporationResult {
-  const enabled = !!trustAddress;
+export function useIncorporation(
+  companyAddress: string | null | undefined,
+): UseIncorporationResult {
+  const enabled = !!companyAddress;
 
   const snapshotQuery = useQuery({
-    queryKey: ["incorporation", "snapshot", trustAddress ?? null],
+    queryKey: ["incorporation", "snapshot", companyAddress ?? null],
     queryFn: async () =>
-      decodeIncorporationSnapshot(await api.getTrustIncorporationByAddress(trustAddress as string)),
+      decodeIncorporationSnapshot(
+        await api.getCompanyIncorporationByAddress(companyAddress as string),
+      ),
     enabled,
     staleTime: STALE_TIME_MS,
   });
 
   return {
-    trust: snapshotQuery.data?.trust,
+    company: snapshotQuery.data?.company,
     modules: snapshotQuery.data?.modules,
     roles: snapshotQuery.data?.roles,
     isLoading: enabled && snapshotQuery.isLoading,
@@ -54,34 +58,34 @@ export function useIncorporation(trustAddress: string | null | undefined): UseIn
   };
 }
 
-type RawIncorporationSnapshot = Awaited<ReturnType<typeof api.getTrustIncorporationByAddress>>;
+type RawIncorporationSnapshot = Awaited<ReturnType<typeof api.getCompanyIncorporationByAddress>>;
 
 function decodeIncorporationSnapshot(raw: RawIncorporationSnapshot): {
-  trust: TrustAccount | null;
+  company: CompanyAccount | null;
   modules: ModuleAccountWithPda[];
   roles: RoleAccountWithPda[];
 } {
   return {
-    trust: raw.trust
+    company: raw.company
       ? ({
-          trustId: raw.trust.trust_id,
-          authority: new PublicKey(raw.trust.authority),
-          creationMode: raw.trust.creation_mode,
-          paused: raw.trust.paused,
-          moduleCount: raw.trust.module_count,
-          bump: raw.trust.bump,
-        } as TrustAccount)
+          companyId: raw.company.company_id,
+          authority: new PublicKey(raw.company.authority),
+          creationMode: raw.company.creation_mode,
+          paused: raw.company.paused,
+          moduleCount: raw.company.module_count,
+          bump: raw.company.bump,
+        } as CompanyAccount)
       : null,
     modules: raw.modules.map((m) => ({
       publicKey: new PublicKey(m.public_key),
       account: {
-        trust: new PublicKey(m.account.trust),
+        company: new PublicKey(m.account.company),
         moduleId: m.account.module_id,
         programId: new PublicKey(m.account.program_id),
         provider: new PublicKey(m.account.provider),
         implementationVersion: BigInt(m.account.implementation_version),
         implementationMetadataHash: m.account.implementation_metadata_hash,
-        trustAcl: BigInt(m.account.trust_acl),
+        trustAcl: BigInt(m.account.company_acl),
         initialized: m.account.initialized,
         bump: m.account.bump,
       },
@@ -89,7 +93,7 @@ function decodeIncorporationSnapshot(raw: RawIncorporationSnapshot): {
     roles: raw.roles.map((r) => ({
       publicKey: new PublicKey(r.public_key),
       account: {
-        trust: new PublicKey(r.account.trust),
+        company: new PublicKey(r.account.company),
         roleId: r.account.role_id,
         roleTypeId: r.account.role_type_id,
         account: new PublicKey(r.account.account),

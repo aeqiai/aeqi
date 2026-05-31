@@ -83,7 +83,7 @@ export function VaultActivitySection({
   isLoading: boolean;
   metas: Record<string, ResolvedTokenMeta>;
   /** Iter-10: counterparty enrichment sources. Each counterparty pubkey
-   *  is matched against the TRUST's role occupants, vesting recipients,
+   *  is matched against the COMPANY's role occupants, vesting recipients,
    *  and budget grantees so the expanded panel can tag known actors
    *  rather than render a bare base58 string. */
   roles?: RoleAccountWithPda[];
@@ -444,7 +444,7 @@ function ActivityDetailPanel({
    *  the counterparty is a known role occupant / vesting recipient /
    *  budget grantee, we tag the field with a typed Badge cluster so
    *  the auditor doesn't have to copy the pubkey out and re-scan the
-   *  TRUST surfaces by hand. */
+   *  COMPANY surfaces by hand. */
   counterpartyMatches: CounterpartyMatch[];
   onClose: () => void;
 }) {
@@ -516,7 +516,7 @@ function ActivityDetailPanel({
               )}
               {counterpartyMatches.length === 0 && (
                 <span className={styles.counterpartyUnknownNote}>
-                  Not a known role occupant, vesting recipient, or budget grantee on this TRUST.
+                  Not a known role occupant, vesting recipient, or budget grantee on this COMPANY.
                 </span>
               )}
             </Stack>

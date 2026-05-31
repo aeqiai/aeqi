@@ -29,7 +29,7 @@ export function useDaemonSocket() {
       if (closed) return;
       const entity = getScopedEntity();
       // No active entity = no scope to subscribe to. The backend
-      // proxy requires `trust_id` to route to a runtime; opening
+      // proxy requires `company_id` to route to a runtime; opening
       // without it just produces a wss handshake error and a
       // reconnect loop. User-scope routes (`/`, `/me`) skip the WS
       // until a workspace is active.
@@ -38,11 +38,11 @@ export function useDaemonSocket() {
         return;
       }
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      // The proxy's `extract_trust_id` reads `trust_id` from the
+      // The proxy's `extract_company_id` reads `company_id` from the
       // query string. The legacy `root` name is from the slug-era
       // and silently 400s now.
       const ws = new WebSocket(
-        `${protocol}//${window.location.host}/api/ws?token=${token}&trust_id=${encodeURIComponent(entity)}`,
+        `${protocol}//${window.location.host}/api/ws?token=${token}&company_id=${encodeURIComponent(entity)}`,
       );
       wsRef.current = ws;
 

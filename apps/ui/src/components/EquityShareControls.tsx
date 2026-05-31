@@ -11,7 +11,7 @@ import "./EquityShareControls.css";
  * `/token-burn`, `/token-transfer`).
  *
  * Mint is authority-gated: the on-chain `aeqi_token::mint_tokens` ix
- * enforces `signer == trust.authority`, so the form only renders when
+ * enforces `signer == company.authority`, so the form only renders when
  * the current viewer is the placement creator. Transfer + Burn are
  * user-self actions and always render — they operate on the caller's
  * own ATA.
@@ -23,12 +23,12 @@ import "./EquityShareControls.css";
 const TOKEN_DECIMALS = 6;
 
 interface EquityShareControlsProps {
-  trustId: string;
+  companyId: string;
 }
 
-export function EquityShareControls({ trustId }: EquityShareControlsProps) {
+export function EquityShareControls({ companyId }: EquityShareControlsProps) {
   // Note: the Mint form renders unconditionally. The on-chain
-  // `aeqi_token::mint_tokens` instruction gates by signer == trust.authority,
+  // `aeqi_token::mint_tokens` instruction gates by signer == company.authority,
   // and the platform endpoint additionally gates to the placement owner.
   // Non-owners hitting Mint get a 403; the error surfaces in the status
   // line below the button. v2 can hide the form when the daemon-store
@@ -118,7 +118,7 @@ export function EquityShareControls({ trustId }: EquityShareControlsProps) {
     setMintSignature(null);
     try {
       const result = await api.tokenMint({
-        entity_id: trustId,
+        entity_id: companyId,
         recipient_pubkey: mintRecipient.trim(),
         amount: Number(mintBaseUnits),
       });
@@ -139,7 +139,7 @@ export function EquityShareControls({ trustId }: EquityShareControlsProps) {
     setTransferSignature(null);
     try {
       const result = await api.tokenTransfer({
-        entity_id: trustId,
+        entity_id: companyId,
         recipient_pubkey: transferRecipient.trim(),
         amount: Number(transferBaseUnits),
       });
@@ -160,7 +160,7 @@ export function EquityShareControls({ trustId }: EquityShareControlsProps) {
     setBurnSignature(null);
     try {
       const result = await api.tokenBurn({
-        entity_id: trustId,
+        entity_id: companyId,
         amount: Number(burnBaseUnits),
       });
       setBurnSignature(result.signature_b58);
@@ -318,7 +318,7 @@ export function EquityShareControls({ trustId }: EquityShareControlsProps) {
  *
  * Honest scope: no client-side balance check (the cap-table fetch is
  * decoupled from this section), and no on-chain fee estimate (the
- * platform endpoint pays the network fee from the trust authority's
+ * platform endpoint pays the network fee from the company authority's
  * fee-payer key — operators don't sign with their own SOL). The preview
  * is "what's about to happen", not "what will it cost".
  */
@@ -340,7 +340,7 @@ function PreviewBody({
           <span className="share-control-preview__mono">{formatPubkey(preview.recipient)}</span>.
         </p>
         <p className="share-control-preview__hint">
-          Expands the cap-table supply by this amount. Owner-only · the trust authority pays the
+          Expands the cap-table supply by this amount. Owner-only · the company authority pays the
           network fee.
         </p>
       </div>

@@ -19,30 +19,30 @@ import { entityPathFromId } from "@/lib/entityPath";
 interface MentionTextProps {
   body: string;
   /** The entity scope — used to build canonical agent paths. */
-  trustId?: string;
+  companyId?: string;
   className?: string;
 }
 
-export default function MentionText({ body, trustId, className }: MentionTextProps) {
+export default function MentionText({ body, companyId, className }: MentionTextProps) {
   const navigate = useNavigate();
   const agents = useDaemonStore((s) => s.agents);
   const entities = useDaemonStore((s) => s.entities);
 
   const handleClick = useCallback(
     (token: MentionToken) => {
-      if (!trustId) return;
+      if (!companyId) return;
       if (token.kind === "agent") {
-        navigate(entityPathFromId(entities, trustId, "agents", encodeURIComponent(token.id)));
+        navigate(entityPathFromId(entities, companyId, "agents", encodeURIComponent(token.id)));
       } else if (token.kind === "fuzzy") {
         // Try to resolve by name.
         const match = agents.find((a) => a.name?.toLowerCase() === token.id.toLowerCase());
         if (match) {
-          navigate(entityPathFromId(entities, trustId, "agents", encodeURIComponent(match.id)));
+          navigate(entityPathFromId(entities, companyId, "agents", encodeURIComponent(match.id)));
         }
       }
       // user / position navigation not yet wired — no-op for now.
     },
-    [navigate, trustId, entities, agents],
+    [navigate, companyId, entities, agents],
   );
 
   const segments = splitBodyIntoSegments(body);

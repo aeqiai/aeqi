@@ -18,7 +18,7 @@ const PROGRAM_SO_NAMES = {
   aeqi_role: "aeqi_role.so",
   aeqi_token: "aeqi_token.so",
   aeqi_treasury: "aeqi_treasury.so",
-  aeqi_trust: "aeqi_trust.so",
+  aeqi_company: "aeqi_company.so",
   aeqi_unifutures: "aeqi_unifutures.so",
   aeqi_vesting: "aeqi_vesting.so",
 };

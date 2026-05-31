@@ -69,7 +69,7 @@ interface AgentSessionProps {
  * Agent session surface — drilled into one agent's chat view.
  *
  * Renders `<SessionDetail hideComposer={true} />` so the visual chrome
- * (ParticipantStrip + Header + Transcript) matches the trust Sessions view.
+ * (ParticipantStrip + Header + Transcript) matches the company Sessions view.
  * The composer for this surface lives in `AppLayout`'s `<ComposerRow>`
  * chrome and communicates via window events (`aeqi:send-message`,
  * `aeqi:stop-streaming`, `aeqi:streaming-state`).
@@ -83,12 +83,12 @@ interface AgentSessionProps {
 export default function AgentSessionView({ agentId, sessionId: urlSessionId }: AgentSessionProps) {
   const token = useAuthStore((s) => s.token);
   const agents = useDaemonStore((s) => s.agents);
-  const { trustId: routeTrustId } = useNav();
+  const { companyId: routeCompanyId } = useNav();
 
   const agentInfo = agents.find((a) => a.id === agentId);
   const agentName = agentInfo?.name || agentId;
   const displayName = agentName;
-  const trustId = routeTrustId || agentInfo?.trust_id || null;
+  const companyId = routeCompanyId || agentInfo?.company_id || null;
 
   const [sessionIdeas, setSessionIdeas] = useState<string[]>([]);
   const [sessionTask, setSessionTask] = useState<{ id: string; name: string } | null>(null);
@@ -120,7 +120,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
     token,
     agentId,
     agentName,
-    trustId,
+    companyId,
     activeSessionId: sessionManager.activeSessionId,
     sessionIdRef: sessionManager.sessionIdRef,
     prevSessionRef: sessionManager.prevSessionRef,
@@ -443,7 +443,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
     >
       <SessionDetail
         sessionId={activeSessionId}
-        trustId={trustId || undefined}
+        companyId={companyId || undefined}
         agentId={agentId}
         title={title}
         subtitle={subtitle}

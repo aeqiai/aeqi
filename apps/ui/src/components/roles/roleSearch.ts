@@ -35,7 +35,7 @@ function occupantSearchLabel(
   trustNames: Map<string, string>,
 ): string {
   if (role.occupant_kind === "agent") return agentNames.get(role.occupant_id ?? "") ?? "";
-  if (role.occupant_kind === "trust") return trustNames.get(role.occupant_id ?? "") ?? "";
+  if (role.occupant_kind === "company") return trustNames.get(role.occupant_id ?? "") ?? "";
   if (role.occupant_kind === "human") return role.occupant_name ?? "";
   return "vacant";
 }

@@ -33,7 +33,7 @@ export type AeqiTreasury = {
       ],
       "accounts": [
         {
-          "name": "trust"
+          "name": "company"
         },
         {
           "name": "moduleState",
@@ -61,7 +61,7 @@ export type AeqiTreasury = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -104,7 +104,7 @@ export type AeqiTreasury = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -138,13 +138,13 @@ export type AeqiTreasury = {
     {
       "name": "init",
       "docs": [
-        "Module init — called by the trust authority during the trust's",
+        "Module init — called by the company authority during the company's",
         "creation mode. Gating:",
-        "- `trust` PDA must be derived under aeqi_trust and decoded (no fake",
+        "- `company` PDA must be derived under aeqi_company and decoded (no fake",
         "pubkeys / no PDA squatting on attacker-owned accounts).",
-        "- signer (`payer`) must equal `trust.authority`.",
-        "- trust must still be in creation mode — module slots are not",
-        "reconfigurable once the trust goes live in this iteration."
+        "- signer (`payer`) must equal `company.authority`.",
+        "- company must still be in creation mode — module slots are not",
+        "reconfigurable once the company goes live in this iteration."
       ],
       "discriminator": [
         220,
@@ -158,11 +158,11 @@ export type AeqiTreasury = {
       ],
       "accounts": [
         {
-          "name": "trust",
+          "name": "company",
           "docs": [
-            "Trust PDA — must be a real Trust account owned by aeqi_trust.",
-            "`seeds::program` binds derivation to the aeqi_trust program ID; the",
-            "`Account<Trust>` typing forces deserialization, so attackers can't",
+            "Company PDA — must be a real Company account owned by aeqi_company.",
+            "`seeds::program` binds derivation to the aeqi_company program ID; the",
+            "`Account<Company>` typing forces deserialization, so attackers can't",
             "substitute an arbitrary keypair to PDA-squat the module_state slot."
           ],
           "pda": {
@@ -179,8 +179,8 @@ export type AeqiTreasury = {
               },
               {
                 "kind": "account",
-                "path": "trust.trust_id",
-                "account": "trust"
+                "path": "company.company_id",
+                "account": "company"
               }
             ],
             "program": {
@@ -249,7 +249,7 @@ export type AeqiTreasury = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -276,7 +276,7 @@ export type AeqiTreasury = {
       "docs": [
         "Withdraw `amount` from the treasury vault to `recipient_ta`. The",
         "vault is owned by the program-controlled PDA",
-        "`[b\"treasury_vault_authority\", trust]`; we sign via PDA seeds.",
+        "`[b\"treasury_vault_authority\", company]`; we sign via PDA seeds.",
         "Authority gate: caller must equal `module_state.treasury_authority`."
       ],
       "discriminator": [
@@ -291,7 +291,7 @@ export type AeqiTreasury = {
       ],
       "accounts": [
         {
-          "name": "trust"
+          "name": "company"
         },
         {
           "name": "moduleState",
@@ -319,7 +319,7 @@ export type AeqiTreasury = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -359,7 +359,7 @@ export type AeqiTreasury = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -406,7 +406,7 @@ export type AeqiTreasury = {
       ]
     },
     {
-      "name": "trust",
+      "name": "company",
       "discriminator": [
         71,
         85,
@@ -456,7 +456,7 @@ export type AeqiTreasury = {
     {
       "code": 6001,
       "name": "trustNotInCreationMode",
-      "msg": "trust must be in creation mode to initialize the treasury module"
+      "msg": "company must be in creation mode to initialize the treasury module"
     }
   ],
   "types": [
@@ -466,7 +466,7 @@ export type AeqiTreasury = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -486,14 +486,14 @@ export type AeqiTreasury = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
             "name": "treasuryAuthority",
             "docs": [
               "The single account allowed to authorize withdrawals. In creation mode",
-              "the factory sets this to the trust authority; in live mode it gets",
+              "the factory sets this to the company authority; in live mode it gets",
               "rewritten to a governance-signer PDA so withdrawals require an executed",
               "proposal."
             ],
@@ -512,7 +512,7 @@ export type AeqiTreasury = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -527,15 +527,15 @@ export type AeqiTreasury = {
       }
     },
     {
-      "name": "trust",
+      "name": "company",
       "docs": [
-        "Core TRUST account — one per AEQI company. PDA seeded `[b\"trust\", trust_id]`."
+        "Core COMPANY account — one per AEQI company. PDA seeded `[b\"company\", company_id]`."
       ],
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "trustId",
+            "name": "companyId",
             "type": {
               "array": [
                 "u8",

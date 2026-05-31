@@ -8,7 +8,7 @@
  *   4. Vesting positions via `aeqi_vesting.account.vestingPosition.all`.
  *
  * Reads (2)-(4) gate on (1): if `TokenModuleState` is null (Foundation
- * TRUSTs, or pre-bridge TRUSTs) the heavy reads stay disabled — no
+ * Companies, or pre-bridge Companies) the heavy reads stay disabled — no
  * point hitting the network for accounts we know don't exist.
  *
  * 30s `staleTime` matches Incorporation. Cap tables and vesting
@@ -35,7 +35,7 @@ import type { Mint } from "@/solana/splToken";
 const STALE_TIME_MS = 30_000;
 
 export interface UseEquityResult {
-  /** `TokenModuleState` PDA, or null when the TRUST is Foundation-shape. */
+  /** `TokenModuleState` PDA, or null when the COMPANY is Foundation-shape. */
   tokenModuleState: TokenModuleStateAccount | null | undefined;
   /** Token-2022 mint (supply / decimals / authorities), null if absent. */
   mint: Mint | null | undefined;
@@ -46,7 +46,7 @@ export interface UseEquityResult {
   /** Vesting positions tied to the cap-table mint. Empty when none. */
   vesting: VestingPositionWithPda[] | undefined;
   /**
-   * Funding requests declared against this TRUST. Empty when none are
+   * Funding requests declared against this COMPANY. Empty when none are
    * declared or the funding module isn't deployed. Soft-fails: errors
    * collapse to `[]` so the page keeps working without the live list.
    */
@@ -56,7 +56,7 @@ export interface UseEquityResult {
   /** First non-null error from any query, or null. */
   error: Error | null;
   /**
-   * True when the TRUST has no `TokenModuleState` (Foundation-shape).
+   * True when the COMPANY has no `TokenModuleState` (Foundation-shape).
    * The page uses this to render the "no equity module" empty state
    * without falling through to the cap-table sections.
    */
@@ -64,20 +64,20 @@ export interface UseEquityResult {
 }
 
 /**
- * Resolve a TRUST's on-chain Equity state.
+ * Resolve a COMPANY's on-chain Equity state.
  *
- * Pass the base58-encoded Trust PDA (matches `entity.trust_address`).
- * When `trustAddress` is null/empty all queries stay disabled — useful
+ * Pass the base58-encoded Company PDA (matches `entity.company_address`).
+ * When `companyAddress` is null/empty all queries stay disabled — useful
  * for the pre-bridge state.
  */
-export function useEquity(trustAddress: string | null | undefined): UseEquityResult {
-  const enabled = !!trustAddress && isDirectSolanaRpcEnabled();
-  const mintAddress = enabled ? deriveCapTableMintPda(trustAddress as string).toBase58() : null;
+export function useEquity(companyAddress: string | null | undefined): UseEquityResult {
+  const enabled = !!companyAddress && isDirectSolanaRpcEnabled();
+  const mintAddress = enabled ? deriveCapTableMintPda(companyAddress as string).toBase58() : null;
 
   // (1) TokenModuleState — Foundation discriminator. Drives subsequent queries.
   const moduleStateQuery = useQuery({
-    queryKey: ["equity", "tokenModuleState", trustAddress ?? null],
-    queryFn: () => readTokenModuleState(trustAddress as string),
+    queryKey: ["equity", "tokenModuleState", companyAddress ?? null],
+    queryFn: () => readTokenModuleState(companyAddress as string),
     enabled,
     staleTime: STALE_TIME_MS,
   });
@@ -115,20 +115,20 @@ export function useEquity(trustAddress: string | null | undefined): UseEquityRes
   // but the page treats `vesting = []` and `vesting = undefined-with-error`
   // the same way.
   const vestingQuery = useQuery({
-    queryKey: ["equity", "vesting", trustAddress ?? null, mintAddress],
-    queryFn: () => readVestingPositions(trustAddress as string, mintAddress as string),
+    queryKey: ["equity", "vesting", companyAddress ?? null, mintAddress],
+    queryFn: () => readVestingPositions(companyAddress as string, mintAddress as string),
     enabled: heavyEnabled,
     staleTime: STALE_TIME_MS,
   });
 
   // (5) Funding requests — soft-fail to `[]` when the funding module
-  // isn't deployed (early TRUSTs, ledger-reset stranded placements) so
+  // isn't deployed (early Companies, ledger-reset stranded placements) so
   // the form section keeps working without the live list.
   const fundingQuery = useQuery({
-    queryKey: ["equity", "funding", trustAddress ?? null],
+    queryKey: ["equity", "funding", companyAddress ?? null],
     queryFn: async () => {
       try {
-        return await readFundingRequests(trustAddress as string);
+        return await readFundingRequests(companyAddress as string);
       } catch {
         return [] as FundingRequestWithPda[];
       }

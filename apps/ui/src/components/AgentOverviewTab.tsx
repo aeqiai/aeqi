@@ -9,8 +9,8 @@ import { entityPathFromId } from "@/lib/entityPath";
 import { withUserSessionsView } from "@/lib/sessionViews";
 
 /**
- * `/trust/<addr>/agents/<agent>/overview` — the agent cockpit. Mirrors
- * the company cockpit at `/trust/<addr>/overview`, scoped to a single
+ * `/company/<addr>/agents/<agent>/overview` — the agent cockpit. Mirrors
+ * the company cockpit at `/company/<addr>/overview`, scoped to a single
  * agent.
  *
  * Modules:
@@ -26,10 +26,10 @@ import { withUserSessionsView } from "@/lib/sessionViews";
  */
 export default function AgentOverviewTab({
   agentId,
-  trustId,
+  companyId,
 }: {
   agentId: string;
-  trustId: string;
+  companyId: string;
 }) {
   const navigate = useNavigate();
   const agents = useDaemonStore((s) => s.agents);
@@ -81,12 +81,12 @@ export default function AgentOverviewTab({
   // Roles this agent occupies inside the active entity. Slice of the
   // entity's full org chart — same data the entity Roles tab renders.
   // Cross-entity roles aren't surfaced here yet; the API is
-  // entity-scoped (`getRoles(trustId)`).
+  // entity-scoped (`getRoles(companyId)`).
   const [roles, setRoles] = useState<Role[]>([]);
   useEffect(() => {
     let cancelled = false;
     api
-      .getRoles(trustId)
+      .getRoles(companyId)
       .then((resp) => {
         if (cancelled) return;
         const held = (resp.roles ?? []).filter(
@@ -101,7 +101,7 @@ export default function AgentOverviewTab({
     return () => {
       cancelled = true;
     };
-  }, [agentId, trustId]);
+  }, [agentId, companyId]);
 
   // Mission: fetch this agent's identity idea (the "Persona" seed
   // every blueprint creates) and take its first paragraph. If the
@@ -137,8 +137,8 @@ export default function AgentOverviewTab({
     return parts.join(" · ");
   }, [openQuestCount, agentInbox.length]);
 
-  const basePath = entityPathFromId(entities, trustId, "agents", encodeURIComponent(agentId));
-  const entityBase = entityPathFromId(entities, trustId);
+  const basePath = entityPathFromId(entities, companyId, "agents", encodeURIComponent(agentId));
+  const entityBase = entityPathFromId(entities, companyId);
 
   return (
     <div className="dashboard">
@@ -227,7 +227,7 @@ export default function AgentOverviewTab({
             </h2>
             {agentInbox.length > 0 && (
               <Link
-                to={withUserSessionsView(entityPathFromId(entities, trustId, "sessions"))}
+                to={withUserSessionsView(entityPathFromId(entities, companyId, "sessions"))}
                 className="dashboard-card-link"
               >
                 Open my sessions →
@@ -247,7 +247,7 @@ export default function AgentOverviewTab({
                       navigate(
                         sessionDeepUrlFromId(
                           entities,
-                          item.trust_id,
+                          item.company_id,
                           item.agent_id,
                           item.session_id,
                         ),

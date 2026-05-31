@@ -38,7 +38,7 @@ interface UserRow {
 }
 
 interface PlacementRow {
-  trust_id: string;
+  company_id: string;
   display_name: string;
   user_id: string;
   user_email?: string | null;
@@ -47,8 +47,8 @@ interface PlacementRow {
   status?: string | null;
   placement_status?: string | null;
   org_lifecycle?: string | null;
-  trust_status?: string | null;
-  trust_address?: string | null;
+  company_status?: string | null;
+  company_address?: string | null;
   creator_address?: string | null;
   target_host?: string | null;
   target_port: number | null;
@@ -65,7 +65,7 @@ interface PlacementRow {
   plan: string;
   service_name: string | null;
   stripe_subscription_id: string | null;
-  trust_error?: string | null;
+  company_error?: string | null;
   runtime_error?: string | null;
   metadata?: Record<string, unknown> | null;
   created_at: string;
@@ -112,12 +112,12 @@ interface LlmProviderOption {
 
 interface AdminHealth {
   overall?: string;
-  trust?: {
+  company?: {
     active?: number;
     provisioning?: number;
     failed?: number;
-    missing_trust_address?: number;
-    active_without_trust?: string[];
+    missing_company_address?: number;
+    active_without_company?: string[];
   };
   runtime?: {
     placements_total?: number;
@@ -313,7 +313,7 @@ export default function AdminPage() {
       placements: data.placements.filter((p) =>
         matchesQuery(
           [
-            p.trust_id,
+            p.company_id,
             p.display_name,
             p.user_id,
             p.user_email,
@@ -324,8 +324,8 @@ export default function AdminPage() {
             p.runtime_control,
             p.runtime_action_required,
             p.org_lifecycle,
-            p.trust_status,
-            p.trust_address,
+            p.company_status,
+            p.company_address,
             p.target_host,
             p.target_port,
             p.runtime_endpoint,
@@ -372,8 +372,8 @@ export default function AdminPage() {
       data.health?.runtime?.by_operational_status?.healthy ??
       data.placements.filter((p) => runtimeStatus(p) === "healthy").length;
     const trustActive =
-      data.health?.trust?.active ??
-      data.placements.filter((p) => p.trust_status === "active").length;
+      data.health?.company?.active ??
+      data.placements.filter((p) => p.company_status === "active").length;
     const openInvites = data.invite_codes.filter((c) => !c.used_at && !c.used_by_email).length;
     const pendingWaitlist = data.waitlist.filter((w) => !w.confirmed_at && w.pending_token).length;
     return [
@@ -389,9 +389,9 @@ export default function AdminPage() {
         detail: `${data.health?.runtime?.live_attention?.length ?? 0} need attention`,
       },
       {
-        label: "Trust",
+        label: "Company",
         value: String(trustActive),
-        detail: `${data.health?.trust?.provisioning ?? 0} provisioning`,
+        detail: `${data.health?.company?.provisioning ?? 0} provisioning`,
       },
       { label: "Invites", value: String(data.invite_codes.length), detail: `${openInvites} open` },
       {
@@ -479,15 +479,15 @@ export default function AdminPage() {
                 <Server size={14} aria-hidden="true" />
                 {labelize(p.placement_type)}
               </span>
-              <span className="admin-mono-cell" title={p.trust_id}>
-                {shortId(p.trust_id)}
+              <span className="admin-mono-cell" title={p.company_id}>
+                {shortId(p.company_id)}
               </span>
             </span>
           </div>
         ),
         width: "240px",
         sortable: true,
-        sortAccessor: (p) => p.display_name || p.trust_id,
+        sortAccessor: (p) => p.display_name || p.company_id,
       },
       {
         key: "lifecycle",
@@ -498,19 +498,19 @@ export default function AdminPage() {
         sortAccessor: (p) => p.org_lifecycle ?? placementStatus(p),
       },
       {
-        key: "trust",
-        header: "Trust",
+        key: "company",
+        header: "Company",
         cell: (p) => (
-          <div className="admin-trust-cell">
-            <StatusPill value={p.trust_status ?? (p.trust_address ? "active" : "pending")} />
-            <span className="admin-mono-cell" title={p.trust_address ?? undefined}>
-              {compactAddress(p.trust_address)}
+          <div className="admin-company-cell">
+            <StatusPill value={p.company_status ?? (p.company_address ? "active" : "pending")} />
+            <span className="admin-mono-cell" title={p.company_address ?? undefined}>
+              {compactAddress(p.company_address)}
             </span>
           </div>
         ),
         width: "180px",
         sortable: true,
-        sortAccessor: (p) => p.trust_status ?? p.trust_address,
+        sortAccessor: (p) => p.company_status ?? p.company_address,
       },
       {
         key: "runtime",
@@ -697,7 +697,7 @@ export default function AdminPage() {
               <Table
                 columns={placementColumns}
                 data={filtered.placements}
-                rowKey={(p) => p.trust_id}
+                rowKey={(p) => p.company_id}
                 density="compact"
                 ariaLabel="Admin runtime placements"
                 empty={normalizedQuery ? emptyForQuery : emptyDataset("No runtime placements")}
@@ -937,8 +937,8 @@ function ProtocolHealth({
     health?.runtime?.by_status ??
     countBy(placements, runtimeStatus);
   const warnings = [
-    ...(health?.trust?.active_without_trust ?? []).map((id) => ({
-      code: "active_without_trust",
+    ...(health?.company?.active_without_company ?? []).map((id) => ({
+      code: "active_without_company",
       entity: id,
       severity: "critical" as const,
     })),
@@ -965,7 +965,7 @@ function ProtocolHealth({
         <div>
           <h2 className="admin-health-title">Protocol health</h2>
           <p className="admin-health-subtitle">
-            Organization readiness is Trust plus runtime. Transitional rows stay visible here.
+            Organization readiness is Company plus runtime. Transitional rows stay visible here.
           </p>
         </div>
         <Badge variant={overallVariant(overall)} size="sm" dot>
@@ -976,10 +976,10 @@ function ProtocolHealth({
       <div className="admin-health-grid">
         <HealthTile
           icon={<ShieldCheck size={18} aria-hidden="true" />}
-          label="Trust"
-          value={health?.trust?.active ?? 0}
-          detail={`${health?.trust?.provisioning ?? 0} provisioning · ${
-            health?.trust?.failed ?? 0
+          label="Company"
+          value={health?.company?.active ?? 0}
+          detail={`${health?.company?.provisioning ?? 0} provisioning · ${
+            health?.company?.failed ?? 0
           } failed`}
         />
         <HealthTile
@@ -1010,8 +1010,8 @@ function ProtocolHealth({
           <span>{formatMap(runtimeStatuses)}</span>
         </div>
         <div className="admin-health-status-row">
-          <span>Missing Trust addresses</span>
-          <span>{health?.trust?.missing_trust_address ?? 0}</span>
+          <span>Missing Company addresses</span>
+          <span>{health?.company?.missing_company_address ?? 0}</span>
         </div>
       </div>
 

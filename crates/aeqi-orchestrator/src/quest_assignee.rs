@@ -85,7 +85,7 @@ pub fn auto_assignee_for_status(
 /// [`RoleRegistry`]), while `quests` lives in `sessions.db`. SQLite cannot
 /// enforce a foreign key across databases, so the check is application-level.
 ///
-/// `caller_entity_id` is the trust_id of the entity the caller is acting as.
+/// `caller_entity_id` is the company_id of the entity the caller is acting as.
 /// It is required for `role:<id>` validation so a quest filed under entity E
 /// cannot be bound to a role inside entity E' — the cross-entity guard. When
 /// `None`, role-typed assignees are rejected with a clear error.
@@ -147,8 +147,8 @@ async fn validate_assignee(
                 .ok_or_else(|| format!("Unknown assignee role: {id}"))?;
             // Cross-entity guard: a quest filed under entity E can only
             // bind to a role inside entity E. Prevents `role:<id>` leaks
-            // across TRUSTs (see idea f1b46048).
-            if role.trust_id != entity {
+            // across Companies (see idea f1b46048).
+            if role.company_id != entity {
                 return Err("Role does not belong to this entity".to_string());
             }
         }

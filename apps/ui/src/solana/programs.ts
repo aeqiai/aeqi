@@ -6,10 +6,10 @@
  *
  * Usage from a per-surface read module:
  *
- *   import { getTrustProgram } from "@/solana";
+ *   import { getCompanyProgram } from "@/solana";
  *
- *   const program = getTrustProgram();
- *   const trustAccount = await program.account.trust.fetch(trustPda);
+ *   const program = getCompanyProgram();
+ *   const trustAccount = await program.account.company.fetch(trustPda);
  *
  * All programs are read-only from the browser — see `client.ts` for the
  * read-only-by-construction rationale.
@@ -26,7 +26,7 @@ import aeqiGovernanceIdl from "./generated/idl/aeqi_governance.json";
 import aeqiRoleIdl from "./generated/idl/aeqi_role.json";
 import aeqiTokenIdl from "./generated/idl/aeqi_token.json";
 import aeqiTreasuryIdl from "./generated/idl/aeqi_treasury.json";
-import aeqiTrustIdl from "./generated/idl/aeqi_trust.json";
+import aeqiCompanyIdl from "./generated/idl/aeqi_company.json";
 import aeqiUnifuturesIdl from "./generated/idl/aeqi_unifutures.json";
 import aeqiVestingIdl from "./generated/idl/aeqi_vesting.json";
 
@@ -38,7 +38,7 @@ import type { AeqiGovernance } from "./generated/types/aeqi_governance";
 import type { AeqiRole } from "./generated/types/aeqi_role";
 import type { AeqiToken } from "./generated/types/aeqi_token";
 import type { AeqiTreasury } from "./generated/types/aeqi_treasury";
-import type { AeqiTrust } from "./generated/types/aeqi_trust";
+import type { AeqiCompany } from "./generated/types/aeqi_company";
 import type { AeqiUnifutures } from "./generated/types/aeqi_unifutures";
 import type { AeqiVesting } from "./generated/types/aeqi_vesting";
 
@@ -79,8 +79,8 @@ export const getTokenProgram = (): Program<AeqiToken> =>
 export const getTreasuryProgram = (): Program<AeqiTreasury> =>
   getProgram(aeqiTreasuryIdl as unknown as AeqiTreasury);
 
-export const getTrustProgram = (): Program<AeqiTrust> =>
-  getProgram(aeqiTrustIdl as unknown as AeqiTrust);
+export const getCompanyProgram = (): Program<AeqiCompany> =>
+  getProgram(aeqiCompanyIdl as unknown as AeqiCompany);
 
 export const getUnifuturesProgram = (): Program<AeqiUnifutures> =>
   getProgram(aeqiUnifuturesIdl as unknown as AeqiUnifutures);

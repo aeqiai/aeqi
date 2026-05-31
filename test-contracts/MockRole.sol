@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 /// Mock Role module emitting the same event signatures as the real
 /// aeqi-core Role.module.
 /// Used to verify the indexer's per-module dispatch — Role events come
-/// from the module address, which is auto-watched after TRUST_ModuleAdded.
+/// from the module address, which is auto-watched after COMPANY_ModuleAdded.
 contract MockRole {
     event Role_RoleCreated(bytes32 indexed roleId, address indexed creator);
     event Role_RoleAssigned(bytes32 indexed roleId, address indexed occupant);

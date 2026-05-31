@@ -84,7 +84,7 @@ function CommentAvatar({ row }: { row: CommentRow }) {
   return <UserAvatar name={row.author} size={24} src={row.avatar_url} />;
 }
 
-function CommentBubble({ row, trustId }: { row: CommentRow; trustId?: string }) {
+function CommentBubble({ row, companyId }: { row: CommentRow; companyId?: string }) {
   return (
     <div className={`idea-convo-comment${row.pending ? " idea-convo-comment--pending" : ""}`}>
       <CommentAvatar row={row} />
@@ -94,7 +94,7 @@ function CommentBubble({ row, trustId }: { row: CommentRow; trustId?: string }) 
           <RelativeTime iso={row.timestamp} />
         </div>
         <p className="idea-convo-comment-body">
-          <MentionText body={row.body} trustId={trustId} />
+          <MentionText body={row.body} companyId={companyId} />
         </p>
       </div>
     </div>
@@ -105,10 +105,10 @@ function CommentBubble({ row, trustId }: { row: CommentRow; trustId?: string }) 
 
 interface IdeaCommentsListProps {
   rows: CommentRow[];
-  trustId?: string;
+  companyId?: string;
 }
 
-export default function IdeaCommentsList({ rows, trustId }: IdeaCommentsListProps) {
+export default function IdeaCommentsList({ rows, companyId }: IdeaCommentsListProps) {
   // Empty state intentionally renders nothing — the composer below this
   // list IS the invitation. Generic "No comments yet, be the first" copy
   // was retired 2026-05-17.
@@ -127,7 +127,7 @@ export default function IdeaCommentsList({ rows, trustId }: IdeaCommentsListProp
           <div className="idea-convo-group-label">{bucket}</div>
           <div className="idea-convo-group-rows">
             {grouped.get(bucket)!.map((row) => (
-              <CommentBubble key={String(row.id)} row={row} trustId={trustId} />
+              <CommentBubble key={String(row.id)} row={row} companyId={companyId} />
             ))}
           </div>
         </div>

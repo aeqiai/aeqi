@@ -26,14 +26,14 @@ type Overview = {
 };
 
 /** Resolve the entity-owning root agent for a given agent id. Agents are
- * entity-owned; the root placeholder shares `trust_id` and is inserted
- * first in the daemon store, so a `find` by trust_id returns it. */
+ * entity-owned; the root placeholder shares `company_id` and is inserted
+ * first in the daemon store, so a `find` by company_id returns it. */
 function findRoot(agents: Agent[], id: string): Agent | null {
   const start = agents.find((a) => a.id === id);
   if (!start) return null;
-  const eid = start.trust_id;
+  const eid = start.company_id;
   if (!eid) return start;
-  return agents.find((a) => a.trust_id === eid) || start;
+  return agents.find((a) => a.company_id === eid) || start;
 }
 
 /**
@@ -53,8 +53,8 @@ export default function PlanTab({ agentId }: PlanTabProps) {
   const root = useMemo(() => findRoot(agents, agentId), [agents, agentId]);
 
   const entityName = useMemo(() => {
-    if (!root?.trust_id) return null;
-    return entities.find((e) => e.id === root.trust_id)?.name || root.name;
+    if (!root?.company_id) return null;
+    return entities.find((e) => e.id === root.company_id)?.name || root.name;
   }, [root, entities]);
 
   const [overview, setOverview] = useState<Overview | null>(null);

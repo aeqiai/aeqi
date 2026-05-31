@@ -3,7 +3,7 @@ import { Program } from "@coral-xyz/anchor";
 import { expect } from "chai";
 import { createHash, randomBytes } from "crypto";
 import { Keypair, PublicKey } from "@solana/web3.js";
-import { AeqiTrust } from "../target/types/aeqi_trust";
+import { AeqiCompany } from "../target/types/aeqi_company";
 
 /**
  * Per-invocation random tail used to rotate PDA seeds across mocha runs
@@ -51,38 +51,38 @@ export async function expectTxFail(
   throw new Error(`expected transaction failure matching ${pattern}`);
 }
 
-export function trustIdFromLabel(label: string) {
+export function companyIdFromLabel(label: string) {
   // Mix the per-invocation suite tail into the hash so the resulting
-  // trust id (and therefore the PDA) rotates across runs while staying
+  // company id (and therefore the PDA) rotates across runs while staying
   // stable within a single mocha invocation.
   return new Uint8Array(
     createHash("sha256").update(label).update(SUITE_SEED_TAIL).digest(),
   );
 }
 
-export function findTrustPda(
-  trustProgram: Program<AeqiTrust>,
-  trustId: Uint8Array,
+export function findCompanyPda(
+  trustProgram: Program<AeqiCompany>,
+  companyId: Uint8Array,
 ) {
   const [trustPda] = PublicKey.findProgramAddressSync(
-    [Buffer.from("trust"), Buffer.from(trustId)],
+    [Buffer.from("company"), Buffer.from(companyId)],
     trustProgram.programId,
   );
   return trustPda;
 }
 
-export async function createTrust(
+export async function createCompany(
   provider: anchor.AnchorProvider,
-  trustProgram: Program<AeqiTrust>,
+  trustProgram: Program<AeqiCompany>,
   label: string,
 ) {
-  const trustId = trustIdFromLabel(label);
-  const trustPda = findTrustPda(trustProgram, trustId);
+  const companyId = companyIdFromLabel(label);
+  const trustPda = findCompanyPda(trustProgram, companyId);
 
   await trustProgram.methods
-    .initialize(Array.from(trustId))
+    .initialize(Array.from(companyId))
     .accountsPartial({
-      trust: trustPda,
+      company: trustPda,
       authority: provider.wallet.publicKey,
       systemProgram: anchor.web3.SystemProgram.programId,
     })

@@ -82,12 +82,12 @@ Three calibration principles governed the choice:
 
 ## How dao_provisioner uses this
 
-In aeqi-platform/src/dao_provisioner.rs, when provisioning a new TRUST for a blueprint:
+In aeqi-platform/src/dao_provisioner.rs, when provisioning a new COMPANY for a blueprint:
 
 1. Read `blueprint.templateSlug` → one of `"foundation"`, `"entity"`, `"venture"`, `"fund"`
 2. Compute `template_id_hex = keccak256(templateSlug)` — the on-chain templateId
-3. Pass that templateId in the `registerTRUST` tx
-4. Factory looks up the registered template by templateId, instantiates the module set on a new TRUST proxy
+3. Pass that templateId in the `registerCOMPANY` tx
+4. Factory looks up the registered template by templateId, instantiates the module set on a new COMPANY proxy
 
 Importantly: the template_id_hex is computed from `templateSlug` (the canonical name), NOT from the blueprint's own slug. A blueprint named "studio" with `templateSlug="entity"` maps to the Entity template, not a fictitious "studio" template. This separation is the entire point — the on-chain world never knows or cares about blueprint naming.
 
@@ -121,4 +121,4 @@ Importantly: the template_id_hex is computed from `templateSlug` (the canonical 
 
 **Blueprints can be added freely.** Any `templateSlug` pointing at an existing (Foundation/Entity/Venture/Fund) template can ship as a JSON PR without contract review.
 
-**Modifying an existing template's module set is a contract breaking change.** Don't. If Module Y needs a config change, bump its version on-chain and redeploy; don't edit a shipped template. Old TRUSTs instantiated against the old template; new TRUSTs can opt into the new one via a new templateSlug if the change is significant enough.
+**Modifying an existing template's module set is a contract breaking change.** Don't. If Module Y needs a config change, bump its version on-chain and redeploy; don't edit a shipped template. Old Companies instantiated against the old template; new Companies can opt into the new one via a new templateSlug if the change is significant enough.

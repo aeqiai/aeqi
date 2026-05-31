@@ -5,7 +5,7 @@
  * lint cap.
  *
  * Renders nothing extra when the proposer has only one proposal on
- * this TRUST (the cell stays a plain CopyableMono): the popover would
+ * this COMPANY (the cell stays a plain CopyableMono): the popover would
  * just say "1 proposal · pending" which doesn't earn its weight. The
  * tone glyph + popover mirror the detail-modal reputation glyph so
  * an operator sees a consistent reputation story between table and

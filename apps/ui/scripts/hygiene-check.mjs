@@ -26,7 +26,7 @@
  *   5. Hand-crafted `/c/<id>` URL literals are forbidden outside the
  *      canonical helpers (lib/entityPath.ts, lib/sessionUrl.ts,
  *      hooks/useNav.ts, components/AppLayout.tsx). Use entityPath() /
- *      entityPathFromId() so on-chain entities resolve to /trust/<addr>.
+ *      entityPathFromId() so on-chain entities resolve to /company/<addr>.
  *      Sweep landed 2026-05-07 (44 literals across 28 files).
  *
  * Exceptions:
@@ -76,7 +76,7 @@ const FORBIDDEN_PATTERNS = [
   },
   {
     // Hand-crafted /c/<id> URL literals bypass the canonical entityPath()
-    // resolver, which routes on-chain entities to /trust/<addr> and
+    // resolver, which routes on-chain entities to /company/<addr> and
     // pending ones to /c/<id>. Drift sweep 2026-05-07 found 44 such
     // literals across 28 files. Catch new ones at the source.
     // Allowed: lib/entityPath.ts (the helper itself), lib/sessionUrl.ts,
@@ -86,7 +86,7 @@ const FORBIDDEN_PATTERNS = [
     // under src/test/ still match — the FILE_ALLOWLIST below skips them).
     pattern: /[`'"]\/c\/(?:\$\{|" ?\+|' ?\+)/g,
     message:
-      "Hand-crafted /c/<id> URL literal — use entityPath(entity, ...) or entityPathFromId(entities, id, ...) from @/lib/entityPath so on-chain entities resolve to /trust/<addr>",
+      "Hand-crafted /c/<id> URL literal — use entityPath(entity, ...) or entityPathFromId(entities, id, ...) from @/lib/entityPath so on-chain entities resolve to /company/<addr>",
     allowFiles: new Set([
       "apps/ui/src/lib/entityPath.ts",
       "apps/ui/src/lib/sessionUrl.ts",
@@ -99,9 +99,9 @@ const FORBIDDEN_PATTERNS = [
 
 const GLOBAL_FORBIDDEN_PATTERNS = [
   {
-    pattern: /(?=.*\b(?:trust_address|trustAddress|trustId)\b)(?=.*\.toLowerCase\()/,
+    pattern: /(?=.*\b(?:company_address|companyAddress|companyId)\b)(?=.*\.toLowerCase\()/,
     message:
-      "Do not case-fold trust addresses or trust ids. Solana base58 identifiers are case-sensitive; preserve the exact string.",
+      "Do not case-fold company addresses or company ids. Solana base58 identifiers are case-sensitive; preserve the exact string.",
   },
 ];
 
@@ -140,7 +140,7 @@ function fullTreeViolations() {
             file,
             line: line.trim(),
             lineNumber: idx + 1,
-            match: "case-folded trust identifier",
+            match: "case-folded company identifier",
             message,
           });
         }

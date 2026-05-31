@@ -54,7 +54,7 @@ export default function IdeasListView({
   childCounts = new Map(),
   onFolderChange,
 }: IdeasListViewProps) {
-  const { goEntity, entityPath, trustId } = useNav();
+  const { goEntity, entityPath, companyId } = useNav();
   const searchRef = useRef<HTMLInputElement>(null);
   const rowRefs = useRef<(HTMLAnchorElement | null)[]>([]);
   const searchActive = filter.search.trim() !== "";
@@ -115,7 +115,7 @@ export default function IdeasListView({
   );
   const clearAll = () => onFilter({ search: "", scope: "all", tags: [], needsReview: false });
 
-  const { invalidateIdeas } = useAgentIdeasCache(agentId, trustId);
+  const { invalidateIdeas } = useAgentIdeasCache(agentId, companyId);
   const [importError, setImportError] = useState<string | null>(null);
 
   const handleFileImport = async (files: FileList | File[], parentIdeaId?: string | null) => {
@@ -149,7 +149,7 @@ export default function IdeasListView({
               parent_idea_id: parentIdeaId ?? undefined,
               properties: importIdeaProperties(data, file.name),
             },
-            trustId,
+            companyId,
           );
         } else {
           const upload = await uploadFileToIdea(
@@ -158,7 +158,7 @@ export default function IdeasListView({
               file,
               parentIdeaId,
             },
-            trustId,
+            companyId,
           );
           if (!upload.ok) throw new Error(upload.error || "upload failed");
         }
@@ -272,7 +272,7 @@ export default function IdeasListView({
   const filteredCount = filtered.length;
   const folderSearch = folderId ? { folder: folderId } : undefined;
   const folderHref = (ideaId: string) => {
-    const path = entityPath(trustId, "ideas", ideaId);
+    const path = entityPath(companyId, "ideas", ideaId);
     if (!folderId) return path;
     const params = new URLSearchParams({ folder: folderId });
     return `${path}?${params.toString()}`;
@@ -297,7 +297,7 @@ export default function IdeasListView({
               if (e.key === "Enter") {
                 e.preventDefault();
                 if (filteredCount > 0 && rankedFirstId) {
-                  goEntity(trustId, "ideas", rankedFirstId, { search: folderSearch });
+                  goEntity(companyId, "ideas", rankedFirstId, { search: folderSearch });
                 } else if (noMatchTrimmed) {
                   fireNew(noMatchTrimmed);
                 }
@@ -312,7 +312,7 @@ export default function IdeasListView({
           <>
             <ImportMenu
               size="md"
-              trustId={trustId}
+              companyId={companyId}
               parts={["ideas"]}
               blueprintTitle="Import ideas from a template"
               accept="*/*"

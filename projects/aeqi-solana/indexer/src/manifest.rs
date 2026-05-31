@@ -12,7 +12,7 @@
 //! {
 //!   "cluster": "localnet",
 //!   "programs": [
-//!     { "name": "aeqi_trust", "pubkey": "Ccbs...JbXV", "idl_hash": null, "release": null }
+//!     { "name": "aeqi_company", "pubkey": "Ccbs...JbXV", "idl_hash": null, "release": null }
 //!   ]
 //! }
 //! ```
@@ -38,7 +38,7 @@ pub const DEFAULT_CLUSTER: &str = "localnet";
 /// One program declared in the cluster manifest.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ProgramEntry {
-    /// Crate name (`aeqi_trust`, `aeqi_factory`, ...).
+    /// Crate name (`aeqi_company`, `aeqi_factory`, ...).
     pub name: String,
     /// Base58-encoded program ID, exactly as it appears in `Anchor.toml`.
     pub pubkey: String,
@@ -239,7 +239,7 @@ mod tests {
         r#"{
   "cluster": "localnet",
   "programs": [
-    { "name": "aeqi_trust",      "pubkey": "CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV" },
+    { "name": "aeqi_company",      "pubkey": "CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV" },
     { "name": "aeqi_factory",    "pubkey": "3qRT5qTuv4wkqbLfZQUVcf94QRyG3JdCAbFZsiBNpgEv" },
     { "name": "aeqi_role",       "pubkey": "4GSrvANBi1yrn3w4VgoxvVz7pH9BdR8MeyUpH4ZcGXpB" },
     { "name": "aeqi_governance", "pubkey": "5WHpPFf2mPYNFjr5p3ujeRcZNPoqWMBMkYnsWb2YtyNq" },
@@ -265,7 +265,7 @@ aeqi_governance = "5WHpPFf2mPYNFjr5p3ujeRcZNPoqWMBMkYnsWb2YtyNq"
 aeqi_role       = "4GSrvANBi1yrn3w4VgoxvVz7pH9BdR8MeyUpH4ZcGXpB"
 aeqi_token      = "AxyYnv99gnKJ3VMYbyVjz4BxP8LA34CUnhHGVifrc3Kh"
 aeqi_treasury   = "2KBH4dhAM8fvix5sB44f55Hy6mE4HgeMMbm3htZTJNm7"
-aeqi_trust      = "CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV"
+aeqi_company      = "CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV"
 aeqi_unifutures = "CAz7bt2gLYTe3VUZ4xEyF8AA8syth4NkUKb5c1NRq8JF"
 aeqi_vesting    = "DCZKRmxjUyAZ3nptbkCBnAGqTe4E7xTvXfLbnf95uj7y"
 "#
@@ -281,7 +281,7 @@ aeqi_vesting    = "DCZKRmxjUyAZ3nptbkCBnAGqTe4E7xTvXfLbnf95uj7y"
         assert_eq!(manifest.programs.len(), 11);
         let names: Vec<_> = manifest.programs.iter().map(|p| p.name.as_str()).collect();
         for expected in [
-            "aeqi_trust",
+            "aeqi_company",
             "aeqi_factory",
             "aeqi_role",
             "aeqi_governance",
@@ -319,7 +319,7 @@ aeqi_vesting    = "DCZKRmxjUyAZ3nptbkCBnAGqTe4E7xTvXfLbnf95uj7y"
         let manifest_path = tmp.path().join("deployments").join("localnet.json");
         let anchor_path = tmp.path().join("Anchor.toml");
         write(&manifest_path, fixture_manifest());
-        // Swap aeqi_trust's pubkey to a different (still-valid) base58.
+        // Swap aeqi_company's pubkey to a different (still-valid) base58.
         let drifted = fixture_anchor_toml().replace(
             "CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV",
             "11111111111111111111111111111111",
@@ -330,7 +330,7 @@ aeqi_vesting    = "DCZKRmxjUyAZ3nptbkCBnAGqTe4E7xTvXfLbnf95uj7y"
             .assert_matches_anchor_toml(&manifest_path, Some(&anchor_path))
             .expect_err("drift should be rejected");
         let msg = format!("{err}");
-        assert!(msg.contains("aeqi_trust"), "{}", msg);
+        assert!(msg.contains("aeqi_company"), "{}", msg);
         assert!(msg.contains("drift detected"), "{}", msg);
     }
 
@@ -361,8 +361,8 @@ aeqi_vesting    = "DCZKRmxjUyAZ3nptbkCBnAGqTe4E7xTvXfLbnf95uj7y"
         write(
             &path,
             r#"{ "cluster": "localnet", "programs": [
-              { "name": "aeqi_trust", "pubkey": "CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV" },
-              { "name": "aeqi_trust", "pubkey": "3qRT5qTuv4wkqbLfZQUVcf94QRyG3JdCAbFZsiBNpgEv" }
+              { "name": "aeqi_company", "pubkey": "CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV" },
+              { "name": "aeqi_company", "pubkey": "3qRT5qTuv4wkqbLfZQUVcf94QRyG3JdCAbFZsiBNpgEv" }
             ] }"#,
         );
         let err = Manifest::load(&path).expect_err("duplicate names should fail");

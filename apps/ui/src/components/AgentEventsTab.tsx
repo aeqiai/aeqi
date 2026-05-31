@@ -116,7 +116,7 @@ export default function AgentEventsTab({
   agentId: string;
   agentRail?: boolean;
 }) {
-  const { goEntity, trustId, entityPath } = useNav();
+  const { goEntity, companyId, entityPath } = useNav();
   const { itemId } = useParams<{ itemId?: string }>();
   const selectedId = itemId || null;
   const [searchParams, setSearchParams] = useSearchParams();
@@ -124,8 +124,8 @@ export default function AgentEventsTab({
   const composing = searchParams.get("compose") === "1";
   const allAgents = useDaemonStore((s) => s.agents);
   const entityAgents = useMemo(
-    () => (agentRail && trustId ? allAgents.filter((a) => a.trust_id === trustId) : []),
-    [agentRail, allAgents, trustId],
+    () => (agentRail && companyId ? allAgents.filter((a) => a.company_id === companyId) : []),
+    [agentRail, allAgents, companyId],
   );
   const selectedAgentParam = searchParams.get("agent");
   const activeAgentId = useMemo(() => {
@@ -235,19 +235,19 @@ export default function AgentEventsTab({
   const closeCompose = useCallback(() => patchParams((p) => p.delete("compose")), [patchParams]);
   const switchAgent = useCallback(
     (nextAgentId: string) => {
-      if (!agentRail || !trustId) return;
+      if (!agentRail || !companyId) return;
       const params = new URLSearchParams(searchParams);
       params.set("agent", nextAgentId);
       params.delete("compose");
       if (selectedId) {
-        goEntity(trustId, "events", undefined, {
+        goEntity(companyId, "events", undefined, {
           search: paramsRecord(params),
         });
       } else {
         setSearchParams(params, { replace: true });
       }
     },
-    [agentRail, goEntity, searchParams, selectedId, setSearchParams, trustId],
+    [agentRail, goEntity, searchParams, selectedId, setSearchParams, companyId],
   );
 
   /* ── Add form state (full-bleed overlay) ─────────────────────── */
@@ -304,13 +304,13 @@ export default function AgentEventsTab({
   };
 
   const listHref = useMemo(() => {
-    if (!agentRail || !trustId) return undefined;
+    if (!agentRail || !companyId) return undefined;
     const params = new URLSearchParams(searchParams);
     params.set("agent", activeAgentId);
     params.delete("compose");
     const qs = params.toString();
-    return `${entityPath(trustId, "events")}${qs ? `?${qs}` : ""}`;
-  }, [activeAgentId, agentRail, entityPath, searchParams, trustId]);
+    return `${entityPath(companyId, "events")}${qs ? `?${qs}` : ""}`;
+  }, [activeAgentId, agentRail, entityPath, searchParams, companyId]);
 
   /* ── Render branches ─────────────────────────────────────────── */
 
@@ -468,12 +468,12 @@ export default function AgentEventsTab({
             await eventsApi.deleteEvent(selected.id);
             removeEvent(selected.id);
             if (agentRail) {
-              goEntity(trustId, "events", undefined, {
+              goEntity(companyId, "events", undefined, {
                 replace: true,
                 search: { agent: activeAgentId },
               });
             } else {
-              goEntity(trustId, "events", undefined, { replace: true });
+              goEntity(companyId, "events", undefined, { replace: true });
             }
           }}
         />
@@ -548,9 +548,9 @@ export default function AgentEventsTab({
           events={filteredEvents}
           onSelect={(id) => {
             if (agentRail) {
-              goEntity(trustId, "events", id, { search: { agent: activeAgentId } });
+              goEntity(companyId, "events", id, { search: { agent: activeAgentId } });
             } else {
-              goEntity(trustId, "events", id);
+              goEntity(companyId, "events", id);
             }
           }}
           onNew={openCompose}

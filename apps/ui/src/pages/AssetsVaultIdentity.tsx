@@ -103,7 +103,7 @@ export function VaultIdentitySection({
           <span className={styles.mutedDash}>—</span>
         )}
       </DetailField>
-      <DetailField label="TRUST authority">
+      <DetailField label="COMPANY authority">
         {trustAuthority ? (
           <CopyableMono full={trustAuthority} display={shortAddress(trustAuthority)} withExplorer />
         ) : (

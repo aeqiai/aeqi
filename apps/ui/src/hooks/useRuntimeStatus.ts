@@ -1,12 +1,12 @@
 /**
- * `useRuntimeStatus` — read the platform's view of a TRUST's runtime
+ * `useRuntimeStatus` — read the platform's view of a COMPANY's runtime
  * attachment. Powers the runtime-gated tabs (Agents / Quests / Ideas /
  * Events / Sessions) and the Overview "Add runtime" affordance.
  *
- * Backed by `GET /api/runtime/status?trust_id=<id>` in
- * `aeqi-platform/src/routes/runtime.rs`. `trust_id` is the platform-side
- * entity uuid (`Trust.id` on the frontend), NOT the on-chain
- * `trust_address` — the platform DB indexes placements by entity id.
+ * Backed by `GET /api/runtime/status?company_id=<id>` in
+ * `aeqi-platform/src/routes/runtime.rs`. `company_id` is the platform-side
+ * entity uuid (`Company.id` on the frontend), NOT the on-chain
+ * `company_address` — the platform DB indexes placements by entity id.
  *
  * The 30s staleTime matches the cadence at which a placement changes
  * (manual operator action: provision, upgrade, suspend). React Query
@@ -44,18 +44,18 @@ export interface UseRuntimeStatusResult {
 }
 
 /**
- * Resolve a TRUST's runtime attachment.
+ * Resolve a COMPANY's runtime attachment.
  *
- * Pass the platform-side entity uuid (`Trust.id`). When `trustId` is
+ * Pass the platform-side entity uuid (`Company.id`). When `companyId` is
  * null/empty the query stays disabled — used by callsites that mount
- * before an entity is selected (LeftSidebar with no `trustId`).
+ * before an entity is selected (LeftSidebar with no `companyId`).
  */
-export function useRuntimeStatus(trustId: string | null | undefined): UseRuntimeStatusResult {
-  const enabled = !!trustId;
+export function useRuntimeStatus(companyId: string | null | undefined): UseRuntimeStatusResult {
+  const enabled = !!companyId;
 
   const query = useQuery({
-    queryKey: ["runtime", "status", trustId ?? null],
-    queryFn: () => api.getRuntimeStatus(trustId as string),
+    queryKey: ["runtime", "status", companyId ?? null],
+    queryFn: () => api.getRuntimeStatus(companyId as string),
     enabled,
     staleTime: STALE_TIME_MS,
   });

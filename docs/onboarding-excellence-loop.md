@@ -10,7 +10,7 @@ Use this prompt for operator or contributor review runs:
 
 ```text
 Run the AEQI onboarding loop for this environment. Identify the path I am on
-(hosted TRUST, local demo, self-hosted runtime, or source contributor), verify
+(hosted COMPANY, local demo, self-hosted runtime, or source contributor), verify
 the runtime home and source checkout are not confused, complete the smallest
 useful success path, and leave one concise improvement with evidence.
 
@@ -30,7 +30,7 @@ Report:
 | Operator | Can I run or connect to a runtime? | `doctor --strict` passes, dashboard or hosted session opens, first quest persists | dashboard URL, runtime home, config path, quest id/result |
 | Contributor | Can I build and change AEQI safely? | source checkout builds or the targeted check passes without contaminating runtime state | checkout path, command output, changed files |
 | Runtime | Is the daemon healthy after setup? | daemon, web bind, provider, SQLite state, and secrets path are all where expected | `aeqi start` readiness plus DB/config paths |
-| MCP | Can an external client use AEQI as system of record? | MCP tools can read agents, ideas, quests, and events from the intended TRUST/runtime | client config, runtime URL, successful tool call |
+| MCP | Can an external client use AEQI as system of record? | MCP tools can read agents, ideas, quests, and events from the intended COMPANY/runtime | client config, runtime URL, successful tool call |
 | Docs | Can the next person avoid this confusion? | the shortest accurate doc path now names the state, command, and verification | doc diff and link target |
 
 Each onboarding issue belongs to one lane first. If it spans lanes, file or
@@ -40,7 +40,7 @@ link follow-up work instead of blending responsibilities in one doc or PR.
 
 An onboarding pass is complete when a new operator or contributor can answer:
 
-- Which mode am I using: hosted TRUST, local demo, self-hosted runtime, or
+- Which mode am I using: hosted COMPANY, local demo, self-hosted runtime, or
   source checkout?
 - Where is runtime home: usually `~/.aeqi`, unless `--workspace` was chosen?
 - Where is source: the git checkout that can be rebuilt or edited?
@@ -66,7 +66,7 @@ Run the loop as a scheduled operator habit:
 0 11 1 * * aeqi assign "Review completed onboarding-loop findings. Promote durable lessons into docs, close obsolete setup advice, and leave rollback notes for any changed operator path." --root assistant
 ```
 
-For hosted TRUSTs, schedule the same prompts through the managed runtime's
+For hosted Companies, schedule the same prompts through the managed runtime's
 events. For self-hosted runtimes, use `events install-defaults`, systemd timers,
 or another supervisor that keeps `aeqi start` available.
 

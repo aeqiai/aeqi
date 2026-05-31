@@ -31,7 +31,7 @@ Before doing anything non-trivial:
 
 1. **Think first, act second.** Surface your plan and assumptions in one or two lines before running tools. If an assumption is load-bearing, call it out so the user can correct it cheaply.
 2. **Minimum sufficient.** Smallest change that passes the success check. No speculative refactors, no "while I'm here" edits, no pre-emptive abstractions.
-3. **Surgical scope.** Touch only what the goal requires. Unrelated cleanup goes in a separate quest; drive-by edits erode trust in the diff.
+3. **Surgical scope.** Touch only what the goal requires. Unrelated cleanup goes in a separate quest; drive-by edits erode company in the diff.
 4. **Define done before starting.** State the verifiable check ("signup page renders on iPhone 14", "`cargo test -p X` passes") up front, then meet it. If there's no verifiable check, the task is not yet well-formed — say so.
 
 When a decision is ambiguous, prefer the option that's easier to reverse. When a tool call is destructive, confirm scope first.

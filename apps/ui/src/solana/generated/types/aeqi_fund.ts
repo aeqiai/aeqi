@@ -46,7 +46,7 @@ export type AeqiFund = {
               },
               {
                 "kind": "account",
-                "path": "fund.trust",
+                "path": "fund.company",
                 "account": "fund"
               },
               {
@@ -82,7 +82,7 @@ export type AeqiFund = {
               },
               {
                 "kind": "account",
-                "path": "fund.trust",
+                "path": "fund.company",
                 "account": "fund"
               },
               {
@@ -133,7 +133,7 @@ export type AeqiFund = {
       ],
       "accounts": [
         {
-          "name": "trust"
+          "name": "company"
         },
         {
           "name": "moduleState",
@@ -158,7 +158,7 @@ export type AeqiFund = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -179,7 +179,7 @@ export type AeqiFund = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               },
               {
                 "kind": "arg",
@@ -252,7 +252,7 @@ export type AeqiFund = {
               },
               {
                 "kind": "account",
-                "path": "fund.trust",
+                "path": "fund.company",
                 "account": "fund"
               },
               {
@@ -288,7 +288,7 @@ export type AeqiFund = {
               },
               {
                 "kind": "account",
-                "path": "fund.trust",
+                "path": "fund.company",
                 "account": "fund"
               },
               {
@@ -330,7 +330,7 @@ export type AeqiFund = {
               },
               {
                 "kind": "account",
-                "path": "fund.trust",
+                "path": "fund.company",
                 "account": "fund"
               },
               {
@@ -368,7 +368,7 @@ export type AeqiFund = {
     {
       "name": "init",
       "docs": [
-        "Module init — gated to the trust authority during creation mode so",
+        "Module init — gated to the company authority during creation mode so",
         "the module_state PDA cannot be squatted by an attacker."
       ],
       "discriminator": [
@@ -383,9 +383,9 @@ export type AeqiFund = {
       ],
       "accounts": [
         {
-          "name": "trust",
+          "name": "company",
           "docs": [
-            "Trust PDA — must be a real Trust account owned by aeqi_trust."
+            "Company PDA — must be a real Company account owned by aeqi_company."
           ],
           "pda": {
             "seeds": [
@@ -401,8 +401,8 @@ export type AeqiFund = {
               },
               {
                 "kind": "account",
-                "path": "trust.trust_id",
-                "account": "trust"
+                "path": "company.company_id",
+                "account": "company"
               }
             ],
             "program": {
@@ -467,7 +467,7 @@ export type AeqiFund = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -517,7 +517,7 @@ export type AeqiFund = {
               },
               {
                 "kind": "account",
-                "path": "fund.trust",
+                "path": "fund.company",
                 "account": "fund"
               },
               {
@@ -553,7 +553,7 @@ export type AeqiFund = {
               },
               {
                 "kind": "account",
-                "path": "fund.trust",
+                "path": "fund.company",
                 "account": "fund"
               },
               {
@@ -595,7 +595,7 @@ export type AeqiFund = {
               },
               {
                 "kind": "account",
-                "path": "fund.trust",
+                "path": "fund.company",
                 "account": "fund"
               },
               {
@@ -664,7 +664,7 @@ export type AeqiFund = {
               },
               {
                 "kind": "account",
-                "path": "fund.trust",
+                "path": "fund.company",
                 "account": "fund"
               },
               {
@@ -729,7 +729,7 @@ export type AeqiFund = {
       ]
     },
     {
-      "name": "trust",
+      "name": "company",
       "discriminator": [
         71,
         85,
@@ -863,7 +863,7 @@ export type AeqiFund = {
     {
       "code": 6010,
       "name": "trustNotInCreationMode",
-      "msg": "trust must be in creation mode to initialize the fund module"
+      "msg": "company must be in creation mode to initialize the fund module"
     }
   ],
   "types": [
@@ -873,7 +873,7 @@ export type AeqiFund = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -902,7 +902,7 @@ export type AeqiFund = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -965,7 +965,7 @@ export type AeqiFund = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -998,7 +998,7 @@ export type AeqiFund = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -1031,7 +1031,7 @@ export type AeqiFund = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -1051,7 +1051,7 @@ export type AeqiFund = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -1084,7 +1084,7 @@ export type AeqiFund = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -1117,7 +1117,7 @@ export type AeqiFund = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -1145,15 +1145,15 @@ export type AeqiFund = {
       }
     },
     {
-      "name": "trust",
+      "name": "company",
       "docs": [
-        "Core TRUST account — one per AEQI company. PDA seeded `[b\"trust\", trust_id]`."
+        "Core COMPANY account — one per AEQI company. PDA seeded `[b\"company\", company_id]`."
       ],
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "trustId",
+            "name": "companyId",
             "type": {
               "array": [
                 "u8",

@@ -2,7 +2,7 @@
  * Quorum surface — recent-activity ticker.
  *
  * Iter-6 affordance: a single-line "what just happened" row that sits
- * directly under the KPI strip on a TRUST that already has activity. It
+ * directly under the KPI strip on a COMPANY that already has activity. It
  * surfaces the last N proposal lifecycle events (proposed / succeeded /
  * executed / canceled) with relative timestamps, so an operator dropping
  * onto the page mid-day immediately sees whether anything moved since
@@ -105,7 +105,7 @@ function buildEntries(proposals: ProposalWithPda[]): TickerEntry[] {
  * Recent-activity ticker — renders the top {@link MAX_ENTRIES} most-
  * recent lifecycle events. Sorts by timestamp DESC; timeless entries
  * (canceled) drop to the tail. Returns `null` (collapses gracefully)
- * when nothing has happened on this TRUST yet — the caller chooses
+ * when nothing has happened on this COMPANY yet — the caller chooses
  * whether to render a wrapper or omit the strip entirely.
  */
 export function ActivityTicker({

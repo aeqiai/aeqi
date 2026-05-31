@@ -135,11 +135,11 @@ fn build_credential_resolver(store: CredentialStore) -> CredentialResolver {
 
 fn session_credential_scope(
     agent_id: Option<String>,
-    trust_id: Option<String>,
+    company_id: Option<String>,
     opts: &SpawnOptions,
 ) -> ResolutionScope {
     ResolutionScope {
-        trust_id,
+        company_id,
         agent_id,
         user_id: opts.from_id.clone().or_else(|| opts.sender_id.clone()),
         ..Default::default()
@@ -645,9 +645,9 @@ impl SessionManager {
             .session_id
             .clone()
             .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-        let agent_trust_id = agent_opt.as_ref().and_then(|a| a.trust_id.clone());
+        let agent_company_id = agent_opt.as_ref().and_then(|a| a.company_id.clone());
         let credential_scope =
-            session_credential_scope(agent_uuid.clone(), agent_trust_id.clone(), &opts);
+            session_credential_scope(agent_uuid.clone(), agent_company_id.clone(), &opts);
         let agent_tool_deny = agent_opt
             .as_ref()
             .map(|a| a.tool_deny.clone())
@@ -1183,9 +1183,9 @@ impl SessionManager {
             let dispatcher_for_ask = pattern_dispatcher.clone();
             let agent_id_for_ask = agent_id.clone();
             let agent_name_for_ask = agent_name.clone();
-            // Capture trust_id + agent_registry so the closure can resolve
+            // Capture company_id + agent_registry so the closure can resolve
             // the owning user at execution time.
-            let entity_id_for_ask = agent_opt.as_ref().and_then(|a| a.trust_id.clone());
+            let entity_id_for_ask = agent_opt.as_ref().and_then(|a| a.company_id.clone());
             let agent_registry_for_ask = agent_registry.clone();
             let credential_resolver_for_ask = self.credential_resolver.clone();
             let credential_scope_for_ask = credential_scope.clone();
@@ -1197,7 +1197,7 @@ impl SessionManager {
                     let session_id = session_id_for_ask.clone();
                     let agent_id = agent_id_for_ask.clone();
                     let agent_name = agent_name_for_ask.clone();
-                    let trust_id = entity_id_for_ask.clone();
+                    let company_id = entity_id_for_ask.clone();
                     let agent_registry = agent_registry_for_ask.clone();
                     let credential_resolver = credential_resolver_for_ask.clone();
                     let credential_scope = credential_scope_for_ask.clone();
@@ -1206,7 +1206,7 @@ impl SessionManager {
                         //    Fall back to a plain transcript record on the current
                         //    session when the entity or owner is not set (bare-CLI,
                         //    test, legacy runs).
-                        let owner_user_id: Option<String> = if let Some(ref eid) = trust_id {
+                        let owner_user_id: Option<String> = if let Some(ref eid) = company_id {
                             let db = agent_registry.db();
                             let conn = db.lock().await;
                             let eid_clone = eid.clone();

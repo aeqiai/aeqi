@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { getIdeaGraph, storeIdea } from "@/api/ideas";
-import { useCurrentTrust } from "@/hooks/useCurrentTrust";
+import { useCurrentCompany } from "@/hooks/useCurrentCompany";
 import { useNav } from "@/hooks/useNav";
 import { useAgentIdeas, useAgentIdeasCache, useVisibleIdeas } from "@/queries/ideas";
 import type { Idea } from "@/lib/types";
@@ -11,7 +11,7 @@ import IdeasWorkspaceView from "./ideas/IdeasWorkspaceView";
 import type { IdeasView } from "./ideas/IdeasViewPopover";
 import { blockTreeToPlainText } from "./editor/blockEditorContent";
 import { Loading } from "./ui";
-import { findTrustRootIdea, trustRootProperties } from "./ideas/ideaTree";
+import { findCompanyRootIdea, trustRootProperties } from "./ideas/ideaTree";
 import {
   type FilterState,
   type IdeasFilter,
@@ -61,12 +61,12 @@ export default function AgentIdeasTab({
   kind?: "goal";
   tags?: string[];
 }) {
-  const { goEntity, trustId } = useNav();
-  const { entity } = useCurrentTrust();
+  const { goEntity, companyId } = useNav();
+  const { entity } = useCurrentCompany();
   const { itemId } = useParams<{ itemId?: string }>();
   const selectedId = itemId || null;
   const [searchParams, setSearchParams] = useSearchParams();
-  const { addIdea } = useAgentIdeasCache(agentId, trustId);
+  const { addIdea } = useAgentIdeasCache(agentId, companyId);
   const rootCreateRef = useRef(false);
   const [rootCreateError, setRootCreateError] = useState<string | null>(null);
   const view: IdeasView = ((): IdeasView => {
@@ -138,49 +138,57 @@ export default function AgentIdeasTab({
     [patchParams],
   );
 
-  const agentIdeas = useAgentIdeas(agentId, scope === "agent", trustId);
-  const visibleIdeas = useVisibleIdeas(scope === "entity", trustId);
+  const agentIdeas = useAgentIdeas(agentId, scope === "agent", companyId);
+  const visibleIdeas = useVisibleIdeas(scope === "entity", companyId);
   const ideasQuery = scope === "entity" ? visibleIdeas : agentIdeas;
   const { data: ideas = NO_IDEAS, isLoading: ideasLoading } = ideasQuery;
-  const trustName = (scope === "entity" ? entity?.name : null) || "TRUST";
+  const trustName = (scope === "entity" ? entity?.name : null) || "COMPANY";
   const trustRootIdea = useMemo(
-    () => (scope === "entity" ? findTrustRootIdea(ideas, trustId) : null),
-    [ideas, scope, trustId],
+    () => (scope === "entity" ? findCompanyRootIdea(ideas, companyId) : null),
+    [ideas, scope, companyId],
   );
 
   useEffect(() => {
-    if (scope !== "entity" || ideasLoading || trustRootIdea || rootCreateRef.current || !trustId) {
+    if (
+      scope !== "entity" ||
+      ideasLoading ||
+      trustRootIdea ||
+      rootCreateRef.current ||
+      !companyId
+    ) {
       return;
     }
     rootCreateRef.current = true;
     setRootCreateError(null);
-    const name = trustName.trim() || "TRUST";
+    const name = trustName.trim() || "COMPANY";
     storeIdea(
       {
         name,
         content: "",
-        tags: ["trust"],
+        tags: ["company"],
         scope: "global",
-        properties: trustRootProperties(trustId),
+        properties: trustRootProperties(companyId),
       },
-      trustId,
+      companyId,
     )
       .then((res) => {
         addIdea({
           id: res.id,
           name,
           content: "",
-          tags: ["trust"],
+          tags: ["company"],
           scope: "global",
           parent_idea_id: null,
-          properties: trustRootProperties(trustId),
+          properties: trustRootProperties(companyId),
         });
       })
       .catch((error) => {
         rootCreateRef.current = false;
-        setRootCreateError(error instanceof Error ? error.message : "Could not create TRUST root");
+        setRootCreateError(
+          error instanceof Error ? error.message : "Could not create COMPANY root",
+        );
       });
-  }, [scope, ideasLoading, trustRootIdea, trustId, trustName, addIdea]);
+  }, [scope, ideasLoading, trustRootIdea, companyId, trustName, addIdea]);
 
   // Apply scope + search + tag to the agent's ideas. The graph view
   // filters its own nodes against this same universe so the two views
@@ -318,7 +326,7 @@ export default function AgentIdeasTab({
   useEffect(() => {
     if (view !== "graph") return;
     setGraphLoading(true);
-    getIdeaGraph({ agent_id: scope === "entity" ? undefined : agentId, limit: 200 }, trustId)
+    getIdeaGraph({ agent_id: scope === "entity" ? undefined : agentId, limit: 200 }, companyId)
       .then((d) => {
         setGraphData({
           nodes: ((d.nodes || []) as GraphNode[]).map((n) => ({
@@ -330,7 +338,7 @@ export default function AgentIdeasTab({
       })
       .catch(() => setGraphData({ nodes: [], edges: [] }))
       .finally(() => setGraphLoading(false));
-  }, [view, agentId, scope, trustId]);
+  }, [view, agentId, scope, companyId]);
 
   // Cross-view filter projection — the list already honors scope + tag +
   // search against the full `ideas` store; the graph view receives the
@@ -368,7 +376,7 @@ export default function AgentIdeasTab({
   // mode entirely.
   const handleGraphSelect = (node: GraphNode | null) => {
     if (!node) return;
-    goEntity(trustId, "ideas", node.id, {
+    goEntity(companyId, "ideas", node.id, {
       search: activeFolderId ? { folder: activeFolderId } : undefined,
     });
   };
@@ -389,9 +397,9 @@ export default function AgentIdeasTab({
 
   const openIdea = useCallback(
     (ideaId: string) => {
-      goEntity(trustId, "ideas", ideaId, { search: currentListSearch() });
+      goEntity(companyId, "ideas", ideaId, { search: currentListSearch() });
     },
-    [goEntity, trustId, currentListSearch],
+    [goEntity, companyId, currentListSearch],
   );
 
   // "+ New idea" — compose mode is an explicit search param so the default
@@ -412,11 +420,11 @@ export default function AgentIdeasTab({
         search.parent = parentIdeaId;
         if (scope !== "entity") search.folder = parentIdeaId;
       }
-      goEntity(trustId, "ideas", undefined, { replace: true, search });
+      goEntity(companyId, "ideas", undefined, { replace: true, search });
     };
     window.addEventListener("aeqi:new-idea", handler);
     return () => window.removeEventListener("aeqi:new-idea", handler);
-  }, [trustId, goEntity, activeFolderId, scope, selectedId, trustRootIdea?.id]);
+  }, [companyId, goEntity, activeFolderId, scope, selectedId, trustRootIdea?.id]);
 
   const fireNewIdea = useCallback(
     (
@@ -493,7 +501,7 @@ export default function AgentIdeasTab({
           onViewChange={setView}
           onNew={() => fireNewIdea()}
           onOpen={(id) =>
-            goEntity(trustId, "ideas", id, {
+            goEntity(companyId, "ideas", id, {
               search: activeFolderId ? { folder: activeFolderId } : undefined,
             })
           }
@@ -545,7 +553,7 @@ export default function AgentIdeasTab({
           idea={selected}
           presetName={presetName}
           parentIdeaId={composeParentId}
-          onBack={() => goEntity(trustId, "ideas", undefined, { search: backSearch })}
+          onBack={() => goEntity(companyId, "ideas", undefined, { search: backSearch })}
           onNew={() => fireNewIdea()}
         />
       </Suspense>

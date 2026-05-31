@@ -3,8 +3,8 @@ import type { Idea } from "@/lib/types";
 import {
   buildIdeaWikiStructure,
   buildWorkspaceTree,
-  findTrustRootIdea,
-  isTrustRootIdea,
+  findCompanyRootIdea,
+  isCompanyRootIdea,
   trustRootProperties,
 } from "@/components/ideas/ideaTree";
 import {
@@ -63,41 +63,41 @@ describe("idea hierarchy helpers", () => {
     expect(ideaAncestors("onboarding", ideas).map((i) => i.id)).toEqual(["root", "docs"]);
   });
 
-  it("finds the canonical TRUST root by properties", () => {
+  it("finds the canonical COMPANY root by properties", () => {
     const root = {
-      ...idea("trust-root", "Acme"),
-      properties: trustRootProperties("trust-1"),
+      ...idea("company-root", "Acme"),
+      properties: trustRootProperties("company-1"),
     };
     const otherRoot = {
       ...idea("other-root", "Other"),
-      properties: trustRootProperties("trust-2"),
+      properties: trustRootProperties("company-2"),
     };
 
-    expect(isTrustRootIdea(root)).toBe(true);
-    expect(findTrustRootIdea([otherRoot, root], "trust-1")?.id).toBe("trust-root");
+    expect(isCompanyRootIdea(root)).toBe(true);
+    expect(findCompanyRootIdea([otherRoot, root], "company-1")?.id).toBe("company-root");
   });
 
-  it("renders orphan visible ideas under the TRUST root without mutating the input", () => {
+  it("renders orphan visible ideas under the COMPANY root without mutating the input", () => {
     const root = {
-      ...idea("trust-root", "Acme"),
-      properties: trustRootProperties("trust-1"),
+      ...idea("company-root", "Acme"),
+      properties: trustRootProperties("company-1"),
     };
-    const docs = idea("docs", "Docs", "trust-root");
+    const docs = idea("docs", "Docs", "company-root");
     const orphan = idea("orphan", "Filtered match", "missing-parent");
 
     const tree = buildWorkspaceTree(root, [root, docs, orphan]);
 
-    expect(tree.idea.id).toBe("trust-root");
+    expect(tree.idea.id).toBe("company-root");
     expect(tree.children.map((child) => child.idea.id)).toEqual(["docs", "orphan"]);
     expect(orphan.parent_idea_id).toBe("missing-parent");
   });
 
   it("summarizes wiki structure depth, indexes, and flat root rows", () => {
     const root = {
-      ...idea("trust-root", "Acme"),
-      properties: trustRootProperties("trust-1"),
+      ...idea("company-root", "Acme"),
+      properties: trustRootProperties("company-1"),
     };
-    const docs = idea("docs", "Docs", "trust-root");
+    const docs = idea("docs", "Docs", "company-root");
     const onboarding = idea("onboarding", "Onboarding", "docs");
     const faq = idea("faq", "FAQ", "docs");
     const quests = { ...idea("quests", "Quest notes"), tags: ["quests"] };
@@ -117,14 +117,14 @@ describe("idea hierarchy helpers", () => {
 
   it("calls out a one-level idea pile as a flat wiki", () => {
     const root = {
-      ...idea("trust-root", "Acme"),
-      properties: trustRootProperties("trust-1"),
+      ...idea("company-root", "Acme"),
+      properties: trustRootProperties("company-1"),
     };
 
     const structure = buildIdeaWikiStructure(root, [
       root,
-      idea("one", "One", "trust-root"),
-      idea("two", "Two", "trust-root"),
+      idea("one", "One", "company-root"),
+      idea("two", "Two", "company-root"),
     ]);
 
     expect(structure.maxDepth).toBe(1);

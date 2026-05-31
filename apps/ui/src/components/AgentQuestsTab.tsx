@@ -43,7 +43,7 @@ export default function AgentQuestsTab({
   scope?: "agent" | "entity";
   kind?: "project";
 }) {
-  const { goEntity, trustId } = useNav();
+  const { goEntity, companyId } = useNav();
   const { itemId } = useParams<{ itemId?: string }>();
   // `/<agentId>/quests/new` is the dedicated compose surface; any other
   // `:itemId` is a quest id to look up. The literal `"new"` slug is
@@ -71,12 +71,12 @@ export default function AgentQuestsTab({
       if (opts?.fromIdea) search.fromIdea = opts.fromIdea;
       if (opts?.status) search.status = opts.status;
       if (opts?.parent) search.parent = opts.parent;
-      goEntity(trustId, "quests", "new", {
+      goEntity(companyId, "quests", "new", {
         replace: false,
         search: Object.keys(search).length > 0 ? search : undefined,
       });
     },
-    [trustId, goEntity],
+    [companyId, goEntity],
   );
 
   const setView = useCallback(
@@ -197,18 +197,18 @@ export default function AgentQuestsTab({
       const value = searchParams.get(key);
       if (value) preserved[key] = value;
     }
-    goEntity(trustId, "quests", undefined, {
+    goEntity(companyId, "quests", undefined, {
       replace: true,
       search: Object.keys(preserved).length > 0 ? preserved : undefined,
     });
-  }, [goEntity, searchParams, trustId]);
+  }, [goEntity, searchParams, companyId]);
 
   const handleTrackedQuestCreated = useCallback(
     async (created: Quest) => {
       await fetchQuests();
-      goEntity(trustId, "quests", created.id, { replace: true });
+      goEntity(companyId, "quests", created.id, { replace: true });
     },
-    [fetchQuests, goEntity, trustId],
+    [fetchQuests, goEntity, companyId],
   );
 
   // Rail's create button → navigate to the dedicated compose page.
@@ -233,9 +233,9 @@ export default function AgentQuestsTab({
         </div>
       );
     }
-    // Trust tabs are already scoped by the X-Trust header. Do not
+    // Company tabs are already scoped by the X-Company header. Do not
     // re-narrow them to the default agent, or quests owned by sibling
-    // agents disappear from /trust/<addr>/quests.
+    // agents disappear from /company/<addr>/quests.
     const visibleQuests =
       scope === "entity"
         ? quests
@@ -276,7 +276,7 @@ export default function AgentQuestsTab({
       <QuestBoard
         agentId={agentId}
         resolvedAgentId={agent?.id || agentId}
-        trustId={trustId}
+        companyId={companyId}
         quests={scopedQuests}
         allQuests={visibleQuests}
         scopeFilter={questFilter}
@@ -284,7 +284,7 @@ export default function AgentQuestsTab({
         onCreated={fetchQuests}
         onPick={(id) => {
           if ((childCounts.get(id) ?? 0) > 0) setBoardScope(id);
-          else goEntity(trustId, "quests", id);
+          else goEntity(companyId, "quests", id);
         }}
         onCompose={(status) =>
           openCompose({
@@ -297,7 +297,7 @@ export default function AgentQuestsTab({
         boardScopeAncestors={scopeAncestors}
         childCounts={childCounts}
         onBoardScopeChange={setBoardScope}
-        onOpenQuest={(id) => goEntity(trustId, "quests", id)}
+        onOpenQuest={(id) => goEntity(companyId, "quests", id)}
         onOpenParent={(id) => setBoardScope(questParentId(id))}
         search={query}
         onSearchChange={setQuery}
@@ -310,7 +310,7 @@ export default function AgentQuestsTab({
         splitLayout={scope === "entity"}
       />
     );
-    const content = scope === "entity" ? <div className="trust-quests">{board}</div> : board;
+    const content = scope === "entity" ? <div className="company-quests">{board}</div> : board;
     if (!composingFromIdea) return content;
     return (
       <>
@@ -319,7 +319,7 @@ export default function AgentQuestsTab({
           open
           ideaId={fromIdeaId}
           agentId={agent?.id || agentId}
-          trustId={trustId}
+          companyId={companyId}
           initialStatus={presetStatus ?? "todo"}
           parentQuestId={parentQuestId}
           onClose={closeTrackModal}

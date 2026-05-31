@@ -2,8 +2,8 @@
 //!
 //! A treasury holds USDC (or other SPL tokens) in a program-controlled vault
 //! ATA. Deposits are permissionless. Withdrawals are gated by either the
-//! TRUST authority (creation mode) or a successful governance proposal CPI
-//! (live mode) — for now this skeleton accepts the trust authority signing
+//! COMPANY authority (creation mode) or a successful governance proposal CPI
+//! (live mode) — for now this skeleton accepts the company authority signing
 //! directly; full governance gating lands once `aeqi_governance.execute_proposal`
 //! grows ix dispatch.
 
@@ -11,7 +11,7 @@
 // lints. Keep this crate's warning output focused on protocol code.
 #![allow(deprecated, unexpected_cfgs)]
 
-use aeqi_trust::state::Trust;
+use aeqi_company::state::Company;
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{
     transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked,
@@ -19,29 +19,29 @@ use anchor_spl::token_interface::{
 
 declare_id!("2KBH4dhAM8fvix5sB44f55Hy6mE4HgeMMbm3htZTJNm7");
 
-/// aeqi_trust program id — used for cross-program PDA derivation of the
-/// trust account so module setup paths cannot accept arbitrary trust pubkeys.
-pub const AEQI_TRUST_ID: Pubkey =
+/// aeqi_company program id — used for cross-program PDA derivation of the
+/// company account so module setup paths cannot accept arbitrary company pubkeys.
+pub const AEQI_COMPANY_ID: Pubkey =
     anchor_lang::pubkey!("CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV");
 
 #[program]
 pub mod aeqi_treasury {
     use super::*;
 
-    /// Module init — called by the trust authority during the trust's
+    /// Module init — called by the company authority during the company's
     /// creation mode. Gating:
-    ///   - `trust` PDA must be derived under aeqi_trust and decoded (no fake
+    ///   - `company` PDA must be derived under aeqi_company and decoded (no fake
     ///     pubkeys / no PDA squatting on attacker-owned accounts).
-    ///   - signer (`payer`) must equal `trust.authority`.
-    ///   - trust must still be in creation mode — module slots are not
-    ///     reconfigurable once the trust goes live in this iteration.
+    ///   - signer (`payer`) must equal `company.authority`.
+    ///   - company must still be in creation mode — module slots are not
+    ///     reconfigurable once the company goes live in this iteration.
     pub fn init(ctx: Context<InitTreasury>, treasury_authority: Pubkey) -> Result<()> {
-        let trust = &ctx.accounts.trust;
-        require!(trust.creation_mode, TreasuryError::TrustNotInCreationMode);
-        require_keys_eq!(ctx.accounts.payer.key(), trust.authority, TreasuryError::Unauthorized);
+        let company = &ctx.accounts.company;
+        require!(company.creation_mode, TreasuryError::CompanyNotInCreationMode);
+        require_keys_eq!(ctx.accounts.payer.key(), company.authority, TreasuryError::Unauthorized);
 
         let m = &mut ctx.accounts.module_state;
-        m.trust = ctx.accounts.trust.key();
+        m.company = ctx.accounts.company.key();
         m.treasury_authority = treasury_authority;
         m.bump = ctx.bumps.module_state;
         Ok(())
@@ -62,7 +62,7 @@ pub mod aeqi_treasury {
         transfer_checked(cpi_ctx, amount, ctx.accounts.mint.decimals)?;
 
         emit!(TreasuryDeposited {
-            trust: ctx.accounts.module_state.trust,
+            company: ctx.accounts.module_state.company,
             depositor_ta: ctx.accounts.depositor_ta.key(),
             amount,
         });
@@ -71,7 +71,7 @@ pub mod aeqi_treasury {
 
     /// Withdraw `amount` from the treasury vault to `recipient_ta`. The
     /// vault is owned by the program-controlled PDA
-    /// `[b"treasury_vault_authority", trust]`; we sign via PDA seeds.
+    /// `[b"treasury_vault_authority", company]`; we sign via PDA seeds.
     /// Authority gate: caller must equal `module_state.treasury_authority`.
     pub fn withdraw(ctx: Context<TreasuryWithdraw>, amount: u64) -> Result<()> {
         let m = &ctx.accounts.module_state;
@@ -81,9 +81,9 @@ pub mod aeqi_treasury {
             TreasuryError::Unauthorized
         );
 
-        let trust_key = ctx.accounts.trust.key();
+        let company_key = ctx.accounts.company.key();
         let bump = ctx.bumps.vault_authority;
-        let seeds: &[&[&[u8]]] = &[&[b"treasury_vault_authority", trust_key.as_ref(), &[bump]]];
+        let seeds: &[&[&[u8]]] = &[&[b"treasury_vault_authority", company_key.as_ref(), &[bump]]];
 
         let cpi = TransferChecked {
             from: ctx.accounts.vault.to_account_info(),
@@ -96,7 +96,7 @@ pub mod aeqi_treasury {
         transfer_checked(cpi_ctx, amount, ctx.accounts.mint.decimals)?;
 
         emit!(TreasuryWithdrew {
-            trust: m.trust,
+            company: m.company,
             recipient_ta: ctx.accounts.recipient_ta.key(),
             amount,
         });
@@ -107,9 +107,9 @@ pub mod aeqi_treasury {
 #[account]
 #[derive(InitSpace)]
 pub struct TreasuryModuleState {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     /// The single account allowed to authorize withdrawals. In creation mode
-    /// the factory sets this to the trust authority; in live mode it gets
+    /// the factory sets this to the company authority; in live mode it gets
     /// rewritten to a governance-signer PDA so withdrawals require an executed
     /// proposal.
     pub treasury_authority: Pubkey,
@@ -118,21 +118,21 @@ pub struct TreasuryModuleState {
 
 #[derive(Accounts)]
 pub struct InitTreasury<'info> {
-    /// Trust PDA — must be a real Trust account owned by aeqi_trust.
-    /// `seeds::program` binds derivation to the aeqi_trust program ID; the
-    /// `Account<Trust>` typing forces deserialization, so attackers can't
+    /// Company PDA — must be a real Company account owned by aeqi_company.
+    /// `seeds::program` binds derivation to the aeqi_company program ID; the
+    /// `Account<Company>` typing forces deserialization, so attackers can't
     /// substitute an arbitrary keypair to PDA-squat the module_state slot.
     #[account(
-        seeds = [b"trust", trust.trust_id.as_ref()],
-        bump = trust.bump,
-        seeds::program = AEQI_TRUST_ID,
+        seeds = [b"company", company.company_id.as_ref()],
+        bump = company.bump,
+        seeds::program = AEQI_COMPANY_ID,
     )]
-    pub trust: Account<'info, Trust>,
+    pub company: Account<'info, Company>,
     #[account(
         init,
         payer = payer,
         space = 8 + TreasuryModuleState::INIT_SPACE,
-        seeds = [b"treasury_module", trust.key().as_ref()],
+        seeds = [b"treasury_module", company.key().as_ref()],
         bump,
     )]
     pub module_state: Account<'info, TreasuryModuleState>,
@@ -143,16 +143,16 @@ pub struct InitTreasury<'info> {
 
 #[derive(Accounts)]
 pub struct TreasuryDeposit<'info> {
-    /// CHECK: trust pda
-    pub trust: UncheckedAccount<'info>,
+    /// CHECK: company pda
+    pub company: UncheckedAccount<'info>,
     #[account(
-        seeds = [b"treasury_module", trust.key().as_ref()],
+        seeds = [b"treasury_module", company.key().as_ref()],
         bump = module_state.bump,
     )]
     pub module_state: Account<'info, TreasuryModuleState>,
     /// CHECK: vault authority PDA — used as the seed namespace for the vault.
     /// Doesn't sign the deposit (depositor signs).
-    #[account(seeds = [b"treasury_vault_authority", trust.key().as_ref()], bump)]
+    #[account(seeds = [b"treasury_vault_authority", company.key().as_ref()], bump)]
     pub vault_authority: UncheckedAccount<'info>,
     pub mint: InterfaceAccount<'info, Mint>,
     #[account(mut, token::mint = mint, token::authority = vault_authority)]
@@ -165,15 +165,15 @@ pub struct TreasuryDeposit<'info> {
 
 #[derive(Accounts)]
 pub struct TreasuryWithdraw<'info> {
-    /// CHECK: trust pda
-    pub trust: UncheckedAccount<'info>,
+    /// CHECK: company pda
+    pub company: UncheckedAccount<'info>,
     #[account(
-        seeds = [b"treasury_module", trust.key().as_ref()],
+        seeds = [b"treasury_module", company.key().as_ref()],
         bump = module_state.bump,
     )]
     pub module_state: Account<'info, TreasuryModuleState>,
     /// CHECK: program-controlled vault authority PDA. Signed via signer seeds.
-    #[account(seeds = [b"treasury_vault_authority", trust.key().as_ref()], bump)]
+    #[account(seeds = [b"treasury_vault_authority", company.key().as_ref()], bump)]
     pub vault_authority: UncheckedAccount<'info>,
     pub mint: InterfaceAccount<'info, Mint>,
     #[account(mut, token::mint = mint, token::authority = vault_authority)]
@@ -186,14 +186,14 @@ pub struct TreasuryWithdraw<'info> {
 
 #[event]
 pub struct TreasuryWithdrew {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub recipient_ta: Pubkey,
     pub amount: u64,
 }
 
 #[event]
 pub struct TreasuryDeposited {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub depositor_ta: Pubkey,
     pub amount: u64,
 }
@@ -202,6 +202,6 @@ pub struct TreasuryDeposited {
 pub enum TreasuryError {
     #[msg("caller is not the configured treasury authority")]
     Unauthorized,
-    #[msg("trust must be in creation mode to initialize the treasury module")]
-    TrustNotInCreationMode,
+    #[msg("company must be in creation mode to initialize the treasury module")]
+    CompanyNotInCreationMode,
 }

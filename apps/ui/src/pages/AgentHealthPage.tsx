@@ -10,12 +10,12 @@ import {
   PageSection,
   Loading,
 } from "@/components/ui";
-import { useCurrentTrust } from "@/hooks/useCurrentTrust";
+import { useCurrentCompany } from "@/hooks/useCurrentCompany";
 import {
   DEFAULT_HEALTH_WINDOW_DAYS,
-  useTrustHealthMetrics,
+  useCompanyHealthMetrics,
   type HealthMetrics,
-} from "@/hooks/useTrustHealthMetrics";
+} from "@/hooks/useCompanyHealthMetrics";
 import {
   interpretAgentActions,
   interpretDecisionLog,
@@ -30,11 +30,11 @@ import { InterpretationLine, SparklineGrid, TrendBadge } from "./HealthPage";
 import styles from "./HealthPage.module.css";
 
 export default function AgentHealthPage({ agentId }: { agentId: string }) {
-  const { entity } = useCurrentTrust();
-  const addr = entity?.trust_address ?? entity?.id ?? null;
+  const { entity } = useCurrentCompany();
+  const addr = entity?.company_address ?? entity?.id ?? null;
   const agents = useDaemonStore((s) => s.agents);
   const agent = agents.find((a) => a.id === agentId);
-  const { metrics, isLoading, error } = useTrustHealthMetrics(addr, DEFAULT_HEALTH_WINDOW_DAYS, {
+  const { metrics, isLoading, error } = useCompanyHealthMetrics(addr, DEFAULT_HEALTH_WINDOW_DAYS, {
     agentId,
   });
   const goalsQuery = useVisibleIdeas(true, entity?.id ?? null);

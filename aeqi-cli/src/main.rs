@@ -58,10 +58,10 @@ async fn main() -> Result<()> {
             )
             .await
         }
-        Some(Commands::Start { bind, trust_id }) => {
-            if let Some(eid) = trust_id.as_ref() {
+        Some(Commands::Start { bind, company_id }) => {
+            if let Some(eid) = company_id.as_ref() {
                 // Surface to the daemon process so its agent_registry can
-                // honor the platform-supplied trust_id when minting the
+                // honor the platform-supplied company_id when minting the
                 // entity row on first boot.
                 // SAFETY: set_var is single-threaded (we're pre-tokio-spawn).
                 unsafe {
@@ -137,7 +137,7 @@ async fn main() -> Result<()> {
         Some(Commands::Team { root }) => cmd::team::cmd_team(&cli.config, root.as_deref()).await,
         Some(Commands::Config { action }) => cmd::config::cmd_config(&cli.config, action).await,
         Some(Commands::Agent { action }) => cmd::agent::cmd_agent(&cli.config, action).await,
-        Some(Commands::Trust { action }) => cmd::trust::cmd_trust(&cli.config, action).await,
+        Some(Commands::Company { action }) => cmd::company::cmd_company(&cli.config, action).await,
         Some(Commands::Audit { root, quest, last }) => {
             cmd::audit::cmd_audit(&cli.config, root.as_deref(), quest.as_deref(), last).await
         }

@@ -30,7 +30,7 @@ const QUOTE_DECIMALS = 6;
 interface NewBudgetModalProps {
   open: boolean;
   onClose: () => void;
-  trustId: string;
+  companyId: string;
   /** Called after a successful create — host re-fetches the budgets list. */
   onCreated: () => void;
 }
@@ -41,7 +41,7 @@ interface SubmitResult {
   budgetIdHex?: string;
 }
 
-export function NewBudgetModal({ open, onClose, trustId, onCreated }: NewBudgetModalProps) {
+export function NewBudgetModal({ open, onClose, companyId, onCreated }: NewBudgetModalProps) {
   const [roleLabel, setRoleLabel] = useState("");
   const [budgetLabel, setBudgetLabel] = useState("");
   const [amountStr, setAmountStr] = useState("");
@@ -89,7 +89,7 @@ export function NewBudgetModal({ open, onClose, trustId, onCreated }: NewBudgetM
       const trimmedBudgetLabel = budgetLabel.trim();
       const callCreate = () =>
         api.budgetCreate({
-          entity_id: trustId,
+          entity_id: companyId,
           target_role_id: roleLabel.trim(),
           amount: baseAmount,
           expiry: expirySecs,
@@ -109,7 +109,7 @@ export function NewBudgetModal({ open, onClose, trustId, onCreated }: NewBudgetM
         if (
           /budget_module|module_state|account.*not.*found|0x..bc4|AccountNotInitialized/i.test(msg)
         ) {
-          await api.budgetModuleInit({ entity_id: trustId });
+          await api.budgetModuleInit({ entity_id: companyId });
           const res = await callCreate();
           setResult({
             ok: true,

@@ -1,0 +1,489 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { api, ApiError } from "@/lib/api";
+import { blueprintId } from "@/lib/blueprintId";
+import { DEFAULT_BLUEPRINT_SLUG } from "@/lib/blueprintDefaults";
+import { entityBasePath } from "@/lib/entityPath";
+import { goExternal } from "@/lib/navigation";
+import { DEFAULT_LAUNCH_PLAN, LAUNCH_PLANS, type LaunchPlanId } from "@/lib/pricing";
+import { RECOMMENDED_BLUEPRINTS } from "@/lib/recommendedBlueprints";
+import type { SingleBlueprint as Blueprint } from "@/lib/types";
+import { isSingleBlueprint } from "@/lib/types";
+import { useAuthStore } from "@/store/auth";
+import { useDaemonStore } from "@/store/daemon";
+import { useUIStore } from "@/store/ui";
+import { LaunchingReveal } from "@/components/LaunchingReveal";
+import {
+  LaunchShellError,
+  LaunchShellLoading,
+  CompanySetupFlow,
+} from "@/pages/companySetup/CompanySetupFlow";
+import "@/styles/blueprint-launch-picker.css";
+
+const FIRST_RUN_BLUEPRINT_SLUG = DEFAULT_BLUEPRINT_SLUG;
+
+type LaunchEntry = "standard" | "personal";
+type OperationsChoice = "free" | "paid" | "sandbox";
+
+type NameCheckState =
+  | { status: "idle" }
+  | { status: "checking" }
+  | { status: "available"; message: string }
+  | { status: "taken"; message: string }
+  | { status: "error"; message: string };
+
+function pickInitialBlueprintId(
+  blueprints: Blueprint[],
+  byBlueprintId: Map<string, Blueprint>,
+): string | null {
+  for (const id of RECOMMENDED_BLUEPRINTS) {
+    if (byBlueprintId.has(id)) return id;
+  }
+  if (byBlueprintId.has(DEFAULT_BLUEPRINT_SLUG)) return DEFAULT_BLUEPRINT_SLUG;
+  return blueprints[0] ? blueprintId(blueprints[0]) : null;
+}
+
+function pickFirstRunBlueprintId(byBlueprintId: Map<string, Blueprint>): string | null {
+  if (byBlueprintId.has(FIRST_RUN_BLUEPRINT_SLUG)) return FIRST_RUN_BLUEPRINT_SLUG;
+  if (byBlueprintId.has(DEFAULT_BLUEPRINT_SLUG)) return DEFAULT_BLUEPRINT_SLUG;
+  return byBlueprintId.keys().next().value ?? null;
+}
+
+function userFallbackName(user: { name?: string | null; email?: string | null } | null): string {
+  return user?.name?.trim() || user?.email?.split("@")[0] || "You";
+}
+
+export function defaultCompanyName(
+  user: { name?: string | null; email?: string | null } | null,
+  blueprint: Blueprint | null,
+): string {
+  const base = userFallbackName(user);
+  if (blueprint && blueprintId(blueprint) !== FIRST_RUN_BLUEPRINT_SLUG) {
+    return `${base} COMPANY`;
+  }
+  return `${base}'s COMPANY`;
+}
+
+export function launchNameCandidates(
+  user: { name?: string | null; email?: string | null } | null,
+  blueprint: Blueprint | null,
+): string[] {
+  const base = defaultCompanyName(user, blueprint);
+  const root = base.replace(/\s+COMPANY$/i, "").trim() || base.trim() || "Your COMPANY";
+  const candidates = [
+    base,
+    `${root} COMPANY Labs`,
+    `${root} COMPANY Studio`,
+    `${root} COMPANY One`,
+    `${root} COMPANY Works`,
+    `${root} COMPANY Build`,
+    `${root} COMPANY HQ`,
+  ];
+
+  return [...new Set(candidates.map((candidate) => candidate.trim()).filter(Boolean))];
+}
+
+function unavailableNameHint(name: string): string {
+  const base = name.trim() || "Your COMPANY";
+  return `Already taken. Try ${base} Labs, ${base} One, or ${base} COMPANY.`;
+}
+
+export default function CompanySetupPage({ entry = "standard" }: { entry?: LaunchEntry } = {}) {
+  const navigate = useNavigate();
+  const { blueprintId: blueprintIdParam = "" } = useParams<{ blueprintId: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const launchId = searchParams.get("launch");
+  const invitationToken = searchParams.get("invitation") ?? searchParams.get("invitation_token");
+  const requestedBlueprint = searchParams.get("blueprint") || blueprintIdParam;
+  const isFirstRun = entry === "personal" || requestedBlueprint === FIRST_RUN_BLUEPRINT_SLUG;
+
+  const fetchEntities = useDaemonStore((s) => s.fetchEntities);
+  const entities = useDaemonStore((s) => s.entities);
+  const activeEntityId = useUIStore((s) => s.activeEntity);
+  const setActiveEntity = useUIStore((s) => s.setActiveEntity);
+  const user = useAuthStore((s) => s.user);
+  const isAdmin = useAuthStore((s) => s.user?.is_admin === true);
+  const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [provisioning, setProvisioning] = useState(false);
+  const [launchWebsiteUrl, setLaunchWebsiteUrl] = useState<string | null>(null);
+  const [launchWebsiteDomain, setLaunchWebsiteDomain] = useState<string | null>(null);
+  const [launchEmailAddress, setLaunchEmailAddress] = useState<string | null>(null);
+  const [trustName, setCompanyName] = useState("");
+  const [trustNameTouched, setCompanyNameTouched] = useState(false);
+  const [operations, setOperations] = useState<OperationsChoice>("paid");
+  const [, setOperationsTouched] = useState(false);
+  const [plan, setPlan] = useState<LaunchPlanId>(DEFAULT_LAUNCH_PLAN);
+  const [nameCheck, setNameCheck] = useState<NameCheckState>({ status: "idle" });
+
+  const nameCheckSeq = useRef(0);
+  const launchNameSeedRef = useRef<string | null>(null);
+  const trustNameTouchedRef = useRef(false);
+  const activeLaunchEntity = useMemo(
+    () => (launchId ? (entities.find((entity) => entity.id === launchId) ?? null) : null),
+    [entities, launchId],
+  );
+
+  useEffect(() => {
+    document.title = "aeqi";
+  }, []);
+
+  useEffect(() => {
+    void fetchEntities();
+  }, [fetchEntities]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(null);
+
+    const loadBlueprints = async () => {
+      try {
+        const resp = await api.getBlueprints();
+        if (cancelled) return;
+        const available = (resp.blueprints ?? []).filter(isSingleBlueprint);
+        const byId = new Map<string, Blueprint>();
+        for (const tpl of available) byId.set(blueprintId(tpl), tpl);
+
+        let selectedId = requestedBlueprint || "";
+        if (isFirstRun) selectedId = pickFirstRunBlueprintId(byId) ?? selectedId;
+        if (!selectedId) selectedId = pickInitialBlueprintId(available, byId) ?? "";
+
+        let selected = selectedId ? (byId.get(selectedId) ?? null) : null;
+        if (!selected && selectedId) {
+          const detail = await api.getBlueprint(selectedId);
+          if (cancelled) return;
+          if (detail.blueprint && isSingleBlueprint(detail.blueprint)) {
+            selected = detail.blueprint;
+            available.push(detail.blueprint);
+          }
+        }
+
+        if (!selected) {
+          setLoadError("No templates are available yet.");
+          return;
+        }
+
+        setBlueprint(selected);
+        setPlan(DEFAULT_LAUNCH_PLAN);
+      } catch (e) {
+        if (cancelled) return;
+        const msg = e instanceof Error ? e.message : "Could not reach the template store.";
+        setLoadError(msg);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    void loadBlueprints();
+    return () => {
+      cancelled = true;
+    };
+  }, [isFirstRun, requestedBlueprint]);
+
+  useEffect(() => {
+    if (trustNameTouched || !blueprint) return;
+    setCompanyName(defaultCompanyName(user, blueprint));
+  }, [blueprint, trustNameTouched, user]);
+
+  useEffect(() => {
+    trustNameTouchedRef.current = trustNameTouched;
+  }, [trustNameTouched]);
+
+  useEffect(() => {
+    if (trustNameTouched || !blueprint) {
+      launchNameSeedRef.current = null;
+      return;
+    }
+
+    const seed = defaultCompanyName(user, blueprint);
+    if (launchNameSeedRef.current === seed) return;
+    launchNameSeedRef.current = seed;
+
+    let cancelled = false;
+    const pickAvailableLaunchName = async () => {
+      for (const candidate of launchNameCandidates(user, blueprint)) {
+        try {
+          const resp = await api.checkLaunchName(candidate);
+          if (cancelled) return;
+          if (resp.available) {
+            setCompanyName((current) => {
+              if (trustNameTouchedRef.current) return current;
+              return current.trim() === candidate.trim() ? current : candidate;
+            });
+            return;
+          }
+        } catch {
+          return;
+        }
+      }
+    };
+
+    void pickAvailableLaunchName();
+    return () => {
+      cancelled = true;
+    };
+  }, [blueprint, trustNameTouched, user]);
+
+  useEffect(() => {
+    if (!isAdmin && operations === "sandbox") {
+      setOperations("paid");
+    }
+  }, [isAdmin, operations]);
+
+  const selectedLaunchPlan = useMemo(
+    () => LAUNCH_PLANS.find((p) => p.id === plan) ?? LAUNCH_PLANS[0],
+    [plan],
+  );
+
+  const selectedBlueprintId = blueprint ? blueprintId(blueprint) : "";
+  const blueprintPath = blueprint
+    ? `/templates/${encodeURIComponent(selectedBlueprintId)}`
+    : "/templates";
+  const exitEntity = useMemo(() => {
+    if (isFirstRun) return null;
+    return (
+      (activeEntityId ? entities.find((entity) => entity.id === activeEntityId) : null) ??
+      entities[0] ??
+      null
+    );
+  }, [activeEntityId, entities, isFirstRun]);
+  const exitHref = exitEntity ? entityBasePath(exitEntity) : null;
+
+  const nameHint = useMemo(() => {
+    switch (nameCheck.status) {
+      case "checking":
+        return "Checking availability...";
+      case "available":
+        return "Name is available.";
+      case "error":
+        return "We'll verify this while launching.";
+      case "taken":
+        return unavailableNameHint(trustName);
+      case "idle":
+      default:
+        return "This becomes the COMPANY name, public site name, and operating surface.";
+    }
+  }, [nameCheck, trustName]);
+
+  const nameError = useMemo(() => {
+    if (nameCheck.status === "taken") {
+      return nameCheck.message;
+    }
+    return undefined;
+  }, [nameCheck]);
+
+  useEffect(() => {
+    const name = trustName.trim();
+    if (!name) {
+      setNameCheck({ status: "idle" });
+      return;
+    }
+
+    setNameCheck({ status: "checking" });
+    const seq = ++nameCheckSeq.current;
+    const timer = window.setTimeout(async () => {
+      try {
+        const resp = await api.checkLaunchName(name);
+        if (seq !== nameCheckSeq.current) return;
+        setNameCheck(
+          resp.available
+            ? { status: "available", message: "Available." }
+            : { status: "taken", message: "Already taken." },
+        );
+      } catch {
+        if (seq !== nameCheckSeq.current) return;
+        setNameCheck({
+          status: "error",
+          message: "Could not check availability right now.",
+        });
+      }
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [trustName]);
+
+  useEffect(() => {
+    setProvisioning(Boolean(launchId));
+    if (launchId) {
+      setSubmitError(null);
+    } else {
+      setLaunchWebsiteUrl(null);
+      setLaunchWebsiteDomain(null);
+    }
+  }, [launchId]);
+
+  const handleFreeCompany = useCallback(async () => {
+    if (!blueprint) return;
+    const displayName = trustName.trim();
+    if (!displayName || nameCheck.status === "taken") return;
+
+    setSubmitError(null);
+    setSubmitting(true);
+    try {
+      const created = await api.createPersonalCompany({
+        name: displayName,
+        owner_name: userFallbackName(user),
+        goal: "launch",
+        tagline: `${blueprint.name} blueprint - operations off`,
+      });
+      const companyId = created.company?.id || created.id;
+      if (!companyId) throw new Error("The COMPANY was created without an id.");
+
+      try {
+        await api.updateEntity(companyId, { public: true });
+        await fetchEntities();
+      } catch (publishError) {
+        console.error("failed to publish website after company creation", publishError);
+      }
+      setActiveEntity(companyId);
+      if (invitationToken) {
+        navigate(`/invitations/${encodeURIComponent(invitationToken)}`, { replace: true });
+        return;
+      }
+      const refreshed = useDaemonStore
+        .getState()
+        .entities.find((entity) => entity.id === companyId);
+      if (refreshed?.company_address) {
+        navigate(`/company/${encodeURIComponent(refreshed.company_address)}`, { replace: true });
+      } else {
+        navigate("/company", { replace: true });
+      }
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : "Could not create this COMPANY.");
+      setSubmitting(false);
+    }
+  }, [
+    blueprint,
+    fetchEntities,
+    invitationToken,
+    nameCheck.status,
+    navigate,
+    setActiveEntity,
+    trustName,
+    user,
+  ]);
+
+  const handlePaidLaunch = useCallback(async () => {
+    if (!blueprint) return;
+    const displayName = trustName.trim();
+    if (!displayName || nameCheck.status === "taken") return;
+
+    setSubmitError(null);
+    setSubmitting(true);
+
+    try {
+      if (operations === "sandbox" && isAdmin) {
+        const resp = await api.startLaunch({
+          template: blueprintId(blueprint),
+          display_name: displayName,
+          mission: "",
+          plan: "sandbox",
+        });
+        setLaunchWebsiteUrl(resp.website_url ?? null);
+        setLaunchWebsiteDomain(resp.website_domain ?? null);
+        setLaunchEmailAddress(resp.email_address ?? null);
+
+        setSearchParams(
+          new URLSearchParams({
+            launch: resp.company_id,
+          }),
+          { replace: true },
+        );
+        return;
+      }
+
+      const { url } = await api.createCheckoutSession({
+        blueprint: blueprintId(blueprint),
+        display_name: displayName,
+        mission: "",
+        plan,
+        launch: true,
+      });
+      goExternal(url);
+    } catch (e) {
+      if (operations !== "sandbox" && e instanceof ApiError && e.status === 402) {
+        try {
+          const { url } = await api.createCheckoutSession({
+            blueprint: blueprintId(blueprint),
+            display_name: displayName,
+            mission: "",
+            plan,
+            launch: true,
+          });
+          goExternal(url);
+          return;
+        } catch {
+          setSubmitError("Payment is required to activate operations for this COMPANY.");
+        }
+      } else {
+        setSubmitError(e instanceof Error ? e.message : "Launch failed. Try again.");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }, [blueprint, isAdmin, nameCheck.status, operations, plan, setSearchParams, trustName]);
+
+  const handleLaunch = () => {
+    if (operations === "free") {
+      void handleFreeCompany();
+      return;
+    }
+    void handlePaidLaunch();
+  };
+
+  if (loading && !blueprint) {
+    return <LaunchShellLoading />;
+  }
+
+  if (!blueprint) {
+    return <LaunchShellError error={loadError} onBack={() => navigate("/templates")} />;
+  }
+
+  if (provisioning && launchId) {
+    return (
+      <LaunchingReveal
+        companyId={launchId}
+        fallbackDisplayName={activeLaunchEntity?.name || trustName.trim() || undefined}
+        websiteUrl={launchWebsiteUrl}
+        websiteDomain={launchWebsiteDomain}
+        emailAddress={launchEmailAddress}
+      />
+    );
+  }
+
+  const canSubmit =
+    trustName.trim().length > 1 && nameCheck.status !== "checking" && nameCheck.status !== "taken";
+
+  return (
+    <CompanySetupFlow
+      blueprint={blueprint}
+      blueprintPath={blueprintPath}
+      submitError={submitError}
+      loadError={loadError}
+      trustName={trustName}
+      nameHint={nameHint}
+      nameError={nameError}
+      operations={operations}
+      plan={plan}
+      selectedLaunchPlan={selectedLaunchPlan}
+      adminSandboxAvailable={isAdmin}
+      exitHref={exitHref}
+      canSubmit={canSubmit}
+      submitting={submitting}
+      onCompanyNameChange={(value) => {
+        setCompanyNameTouched(true);
+        setCompanyName(value);
+      }}
+      onOperationsChange={(value) => {
+        setOperationsTouched(true);
+        setOperations(value);
+      }}
+      onPlanChange={setPlan}
+      onLaunch={handleLaunch}
+    />
+  );
+}

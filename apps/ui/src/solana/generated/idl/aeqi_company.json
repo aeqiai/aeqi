@@ -1,0 +1,1855 @@
+{
+  "address": "CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV",
+  "metadata": {
+    "name": "aeqi_company",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "AEQI core protocol — COMPANY registry, ACL flags, config store, execute gateway"
+  },
+  "instructions": [
+    {
+      "name": "adopt_module_implementation",
+      "docs": [
+        "Pull a provider-published implementation into one module slot for one",
+        "COMPANY. This is the Solana-native replacement for global beacon upgrades:",
+        "providers publish, but the COMPANY authority chooses when to adopt."
+      ],
+      "discriminator": [
+        52,
+        6,
+        24,
+        70,
+        40,
+        104,
+        14,
+        221
+      ],
+      "accounts": [
+        {
+          "name": "company",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  117,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "company.company_id",
+                "account": "Company"
+              }
+            ]
+          }
+        },
+        {
+          "name": "module",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  111,
+                  100,
+                  117,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "company"
+              },
+              {
+                "kind": "account",
+                "path": "module.module_id",
+                "account": "Module"
+              }
+            ]
+          }
+        },
+        {
+          "name": "implementation",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  111,
+                  100,
+                  117,
+                  108,
+                  101,
+                  95,
+                  105,
+                  109,
+                  112,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "implementation.provider",
+                "account": "ModuleImplementation"
+              },
+              {
+                "kind": "account",
+                "path": "implementation.module_id",
+                "account": "ModuleImplementation"
+              },
+              {
+                "kind": "account",
+                "path": "implementation.version",
+                "account": "ModuleImplementation"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "company_acl",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "finalize",
+      "docs": [
+        "Exit creation mode — ACL checks become live."
+      ],
+      "discriminator": [
+        171,
+        61,
+        218,
+        56,
+        127,
+        115,
+        12,
+        217
+      ],
+      "accounts": [
+        {
+          "name": "company",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  117,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "company.company_id",
+                "account": "Company"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initialize",
+      "docs": [
+        "Create a fresh COMPANY PDA. Enters creation mode — ACL checks are skipped",
+        "until `finalize` is called. Only the `authority` (factory or owning",
+        "account) may register modules and set configs while in creation mode."
+      ],
+      "discriminator": [
+        175,
+        175,
+        109,
+        31,
+        13,
+        152,
+        155,
+        237
+      ],
+      "accounts": [
+        {
+          "name": "company",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  117,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "company_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "company_id",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "publish_module_implementation",
+      "docs": [
+        "Publish a provider-owned implementation candidate. This does not mutate",
+        "any COMPANY. Each COMPANY pulls an implementation into a module slot through",
+        "`adopt_module_implementation`."
+      ],
+      "discriminator": [
+        169,
+        29,
+        237,
+        175,
+        9,
+        244,
+        168,
+        215
+      ],
+      "accounts": [
+        {
+          "name": "implementation",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  111,
+                  100,
+                  117,
+                  108,
+                  101,
+                  95,
+                  105,
+                  109,
+                  112,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "provider"
+              },
+              {
+                "kind": "arg",
+                "path": "module_id"
+              },
+              {
+                "kind": "arg",
+                "path": "version"
+              }
+            ]
+          }
+        },
+        {
+          "name": "implementation_program",
+          "docs": [
+            "constrained to executable so the catalog cannot point at arbitrary data."
+          ]
+        },
+        {
+          "name": "provider",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "module_id",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "version",
+          "type": "u64"
+        },
+        {
+          "name": "metadata_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "register_module",
+      "docs": [
+        "Register a module program against this COMPANY during creation. Stores the",
+        "selected provider implementation metadata plus initial ACL bit-flags.",
+        "After finalization, module implementation changes happen through",
+        "`adopt_module_implementation`."
+      ],
+      "discriminator": [
+        102,
+        197,
+        187,
+        68,
+        50,
+        57,
+        8,
+        172
+      ],
+      "accounts": [
+        {
+          "name": "company",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  117,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "company.company_id",
+                "account": "Company"
+              }
+            ]
+          }
+        },
+        {
+          "name": "module",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  111,
+                  100,
+                  117,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "company"
+              },
+              {
+                "kind": "arg",
+                "path": "module_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "module_id",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "program_id",
+          "type": "pubkey"
+        },
+        {
+          "name": "provider",
+          "type": "pubkey"
+        },
+        {
+          "name": "implementation_version",
+          "type": "u64"
+        },
+        {
+          "name": "implementation_metadata_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "company_acl",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "set_address_config",
+      "docs": [
+        "Set an address config slot (Pubkey). Authority-only in this iteration."
+      ],
+      "discriminator": [
+        102,
+        16,
+        161,
+        188,
+        69,
+        203,
+        226,
+        101
+      ],
+      "accounts": [
+        {
+          "name": "company",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  117,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "company.company_id",
+                "account": "Company"
+              }
+            ]
+          }
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  102,
+                  103,
+                  95,
+                  97,
+                  100,
+                  100,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "company"
+              },
+              {
+                "kind": "arg",
+                "path": "key"
+              }
+            ]
+          }
+        },
+        {
+          "name": "source_module",
+          "docs": [
+            "Reserved for future live-mode module-auth wiring."
+          ],
+          "optional": true
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "key",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "value",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "set_bytes_config",
+      "docs": [
+        "Set a bytes config slot (Vec<u8>). Authority-only in this iteration."
+      ],
+      "discriminator": [
+        35,
+        47,
+        206,
+        133,
+        144,
+        125,
+        179,
+        110
+      ],
+      "accounts": [
+        {
+          "name": "company",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  117,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "company.company_id",
+                "account": "Company"
+              }
+            ]
+          }
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  102,
+                  103,
+                  95,
+                  98,
+                  121,
+                  116,
+                  101,
+                  115
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "company"
+              },
+              {
+                "kind": "arg",
+                "path": "key"
+              }
+            ]
+          }
+        },
+        {
+          "name": "source_module",
+          "docs": [
+            "Reserved for future live-mode module-auth wiring."
+          ],
+          "optional": true
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "key",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "value",
+          "type": "bytes"
+        }
+      ]
+    },
+    {
+      "name": "set_module_acl",
+      "docs": [
+        "Set the ACL bitmask between two modules. Authority-only in this",
+        "iteration; live module-signed ACL mutation is not enabled yet."
+      ],
+      "discriminator": [
+        189,
+        37,
+        112,
+        38,
+        65,
+        137,
+        204,
+        116
+      ],
+      "accounts": [
+        {
+          "name": "company",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  117,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "company.company_id",
+                "account": "Company"
+              }
+            ]
+          }
+        },
+        {
+          "name": "source_module",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  111,
+                  100,
+                  117,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "company"
+              },
+              {
+                "kind": "account",
+                "path": "source_module.module_id",
+                "account": "Module"
+              }
+            ]
+          }
+        },
+        {
+          "name": "target_module",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  111,
+                  100,
+                  117,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "company"
+              },
+              {
+                "kind": "arg",
+                "path": "target_module_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "acl_edge",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  99,
+                  108,
+                  95,
+                  101,
+                  100,
+                  103,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "company"
+              },
+              {
+                "kind": "account",
+                "path": "source_module.module_id",
+                "account": "Module"
+              },
+              {
+                "kind": "arg",
+                "path": "target_module_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "target_module_id",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "flags",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "set_module_implementation_active",
+      "docs": [
+        "Provider kill-switch for a published implementation. Existing Companies do",
+        "not move automatically; this only prevents future adoption through this",
+        "catalog entry."
+      ],
+      "discriminator": [
+        52,
+        9,
+        109,
+        183,
+        21,
+        228,
+        117,
+        72
+      ],
+      "accounts": [
+        {
+          "name": "implementation",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  111,
+                  100,
+                  117,
+                  108,
+                  101,
+                  95,
+                  105,
+                  109,
+                  112,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "implementation.provider",
+                "account": "ModuleImplementation"
+              },
+              {
+                "kind": "account",
+                "path": "implementation.module_id",
+                "account": "ModuleImplementation"
+              },
+              {
+                "kind": "account",
+                "path": "implementation.version",
+                "account": "ModuleImplementation"
+              }
+            ]
+          }
+        },
+        {
+          "name": "provider",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "active",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "set_numeric_config",
+      "docs": [
+        "Set a numeric config slot (u128). Authority-only in this iteration."
+      ],
+      "discriminator": [
+        110,
+        171,
+        203,
+        138,
+        87,
+        89,
+        161,
+        102
+      ],
+      "accounts": [
+        {
+          "name": "company",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  117,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "company.company_id",
+                "account": "Company"
+              }
+            ]
+          }
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  102,
+                  103,
+                  95,
+                  110,
+                  117,
+                  109
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "company"
+              },
+              {
+                "kind": "arg",
+                "path": "key"
+              }
+            ]
+          }
+        },
+        {
+          "name": "source_module",
+          "docs": [
+            "Reserved for future live-mode module-auth wiring."
+          ],
+          "optional": true
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "key",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "value",
+          "type": "u128"
+        }
+      ]
+    },
+    {
+      "name": "set_paused",
+      "docs": [
+        "Pause / unpause the COMPANY. Pause blocks all mutating ops."
+      ],
+      "discriminator": [
+        91,
+        60,
+        125,
+        192,
+        176,
+        225,
+        166,
+        218
+      ],
+      "accounts": [
+        {
+          "name": "company",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  117,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "company.company_id",
+                "account": "Company"
+              }
+            ]
+          }
+        },
+        {
+          "name": "source_module",
+          "docs": [
+            "Reserved for future live-mode module-auth wiring."
+          ],
+          "optional": true
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "paused",
+          "type": "bool"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "AddressConfig",
+      "discriminator": [
+        199,
+        248,
+        232,
+        151,
+        19,
+        17,
+        254,
+        48
+      ]
+    },
+    {
+      "name": "BytesConfig",
+      "discriminator": [
+        207,
+        187,
+        174,
+        44,
+        102,
+        116,
+        168,
+        10
+      ]
+    },
+    {
+      "name": "Module",
+      "discriminator": [
+        234,
+        149,
+        112,
+        29,
+        65,
+        203,
+        69,
+        160
+      ]
+    },
+    {
+      "name": "ModuleAclEdge",
+      "discriminator": [
+        211,
+        101,
+        119,
+        110,
+        91,
+        224,
+        45,
+        44
+      ]
+    },
+    {
+      "name": "ModuleImplementation",
+      "discriminator": [
+        62,
+        17,
+        83,
+        229,
+        18,
+        123,
+        89,
+        78
+      ]
+    },
+    {
+      "name": "NumericConfig",
+      "discriminator": [
+        146,
+        205,
+        41,
+        147,
+        55,
+        107,
+        116,
+        68
+      ]
+    },
+    {
+      "name": "Company",
+      "discriminator": [
+        71,
+        85,
+        171,
+        132,
+        199,
+        242,
+        21,
+        62
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "ModuleAclSet",
+      "discriminator": [
+        224,
+        44,
+        139,
+        93,
+        26,
+        57,
+        117,
+        242
+      ]
+    },
+    {
+      "name": "ModuleImplementationActiveChanged",
+      "discriminator": [
+        230,
+        108,
+        8,
+        245,
+        185,
+        117,
+        188,
+        253
+      ]
+    },
+    {
+      "name": "ModuleImplementationAdopted",
+      "discriminator": [
+        196,
+        180,
+        187,
+        89,
+        65,
+        48,
+        209,
+        229
+      ]
+    },
+    {
+      "name": "ModuleImplementationPublished",
+      "discriminator": [
+        103,
+        250,
+        67,
+        140,
+        74,
+        235,
+        239,
+        2
+      ]
+    },
+    {
+      "name": "ModuleRegistered",
+      "discriminator": [
+        238,
+        195,
+        44,
+        30,
+        233,
+        254,
+        17,
+        20
+      ]
+    },
+    {
+      "name": "CompanyFinalized",
+      "discriminator": [
+        56,
+        235,
+        56,
+        51,
+        160,
+        180,
+        93,
+        49
+      ]
+    },
+    {
+      "name": "CompanyInitialized",
+      "discriminator": [
+        252,
+        22,
+        85,
+        7,
+        201,
+        182,
+        144,
+        153
+      ]
+    },
+    {
+      "name": "CompanyPauseChanged",
+      "discriminator": [
+        171,
+        233,
+        121,
+        26,
+        77,
+        241,
+        5,
+        98
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "Unauthorized",
+      "msg": "caller is not authorized for this company"
+    },
+    {
+      "code": 6001,
+      "name": "DeniedAccess",
+      "msg": "denied — caller does not hold the required ACL flag"
+    },
+    {
+      "code": 6002,
+      "name": "CompanyPaused",
+      "msg": "company is paused"
+    },
+    {
+      "code": 6003,
+      "name": "NotInCreationMode",
+      "msg": "operation is only permitted in creation mode"
+    },
+    {
+      "code": 6004,
+      "name": "AlreadyFinalized",
+      "msg": "company has already been finalized"
+    },
+    {
+      "code": 6005,
+      "name": "CompanyNotFinalized",
+      "msg": "company must be finalized before adopting module implementations"
+    },
+    {
+      "code": 6006,
+      "name": "NoModulesRegistered",
+      "msg": "company must register at least one module before finalization"
+    },
+    {
+      "code": 6007,
+      "name": "InvalidImplementationVersion",
+      "msg": "module implementation version must be greater than zero"
+    },
+    {
+      "code": 6008,
+      "name": "ImplementationProgramNotExecutable",
+      "msg": "module implementation program account must be executable"
+    },
+    {
+      "code": 6009,
+      "name": "InactiveImplementation",
+      "msg": "module implementation is inactive"
+    },
+    {
+      "code": 6010,
+      "name": "ImplementationModuleMismatch",
+      "msg": "module implementation does not match the module slot"
+    },
+    {
+      "code": 6011,
+      "name": "AclSourceModuleMismatch",
+      "msg": "ACL source module does not belong to this company"
+    },
+    {
+      "code": 6012,
+      "name": "AclTargetModuleMismatch",
+      "msg": "ACL target module does not belong to this company"
+    },
+    {
+      "code": 6013,
+      "name": "ModuleAlreadyInitialized",
+      "msg": "module has already been initialized"
+    },
+    {
+      "code": 6014,
+      "name": "ModuleNotInitialized",
+      "msg": "module has not yet been initialized"
+    },
+    {
+      "code": 6015,
+      "name": "ConfigTooLarge",
+      "msg": "config payload exceeds maximum size"
+    },
+    {
+      "code": 6016,
+      "name": "MathOverflow",
+      "msg": "math overflow"
+    }
+  ],
+  "types": [
+    {
+      "name": "AddressConfig",
+      "docs": [
+        "Address config slot. PDA seeded `[b\"cfg_addr\", company, key]`."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "company",
+            "type": "pubkey"
+          },
+          {
+            "name": "key",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "value",
+            "type": "pubkey"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BytesConfig",
+      "docs": [
+        "Bytes config slot — used to carry borsh-serialized module config to",
+        "`finalize`. PDA seeded `[b\"cfg_bytes\", company, key]`."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "company",
+            "type": "pubkey"
+          },
+          {
+            "name": "key",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "value",
+            "type": "bytes"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Module",
+      "docs": [
+        "Per-module record under a COMPANY. PDA seeded",
+        "`[b\"module\", company, module_id]`. Holds the program ID that currently",
+        "implements this module slot and the bit-flag ACL for module → COMPANY",
+        "permissions."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "company",
+            "type": "pubkey"
+          },
+          {
+            "name": "module_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "program_id",
+            "type": "pubkey"
+          },
+          {
+            "name": "provider",
+            "type": "pubkey"
+          },
+          {
+            "name": "implementation_version",
+            "type": "u64"
+          },
+          {
+            "name": "implementation_metadata_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "company_acl",
+            "type": "u64"
+          },
+          {
+            "name": "initialized",
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ModuleAclEdge",
+      "docs": [
+        "Edge in the inter-module ACL graph. PDA seeded",
+        "`[b\"acl_edge\", company, source_module_id, target_module_id]`."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "company",
+            "type": "pubkey"
+          },
+          {
+            "name": "source_module_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "target_module_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "flags",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ModuleAclSet",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "company",
+            "type": "pubkey"
+          },
+          {
+            "name": "source_module_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "target_module_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "flags",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ModuleImplementation",
+      "docs": [
+        "Provider-published implementation candidate. This is the Solana-native",
+        "equivalent of the EVM beacon source catalog: providers can publish new",
+        "module implementations, but each COMPANY must explicitly adopt one."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "provider",
+            "type": "pubkey"
+          },
+          {
+            "name": "module_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "implementation_program_id",
+            "type": "pubkey"
+          },
+          {
+            "name": "version",
+            "type": "u64"
+          },
+          {
+            "name": "metadata_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "active",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ModuleImplementationActiveChanged",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "provider",
+            "type": "pubkey"
+          },
+          {
+            "name": "module_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "version",
+            "type": "u64"
+          },
+          {
+            "name": "active",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ModuleImplementationAdopted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "company",
+            "type": "pubkey"
+          },
+          {
+            "name": "module_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "provider",
+            "type": "pubkey"
+          },
+          {
+            "name": "version",
+            "type": "u64"
+          },
+          {
+            "name": "implementation_program_id",
+            "type": "pubkey"
+          },
+          {
+            "name": "metadata_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "company_acl",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ModuleImplementationPublished",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "provider",
+            "type": "pubkey"
+          },
+          {
+            "name": "module_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "version",
+            "type": "u64"
+          },
+          {
+            "name": "implementation_program_id",
+            "type": "pubkey"
+          },
+          {
+            "name": "metadata_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ModuleRegistered",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "company",
+            "type": "pubkey"
+          },
+          {
+            "name": "module_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "program_id",
+            "type": "pubkey"
+          },
+          {
+            "name": "provider",
+            "type": "pubkey"
+          },
+          {
+            "name": "implementation_version",
+            "type": "u64"
+          },
+          {
+            "name": "implementation_metadata_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "company_acl",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "NumericConfig",
+      "docs": [
+        "Numeric config slot. PDA seeded `[b\"cfg_num\", company, key]`."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "company",
+            "type": "pubkey"
+          },
+          {
+            "name": "key",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "value",
+            "type": "u128"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Company",
+      "docs": [
+        "Core COMPANY account — one per AEQI company. PDA seeded `[b\"company\", company_id]`."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "company_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "creation_mode",
+            "type": "bool"
+          },
+          {
+            "name": "paused",
+            "type": "bool"
+          },
+          {
+            "name": "module_count",
+            "type": "u32"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "CompanyFinalized",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "company",
+            "type": "pubkey"
+          },
+          {
+            "name": "module_count",
+            "type": "u32"
+          }
+        ]
+      }
+    },
+    {
+      "name": "CompanyInitialized",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "company",
+            "type": "pubkey"
+          },
+          {
+            "name": "company_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "authority",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "CompanyPauseChanged",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "company",
+            "type": "pubkey"
+          },
+          {
+            "name": "paused",
+            "type": "bool"
+          }
+        ]
+      }
+    }
+  ]
+}

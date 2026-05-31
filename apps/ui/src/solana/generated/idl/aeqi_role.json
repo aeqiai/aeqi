@@ -32,7 +32,7 @@
           "name": "role_type"
         },
         {
-          "name": "trust",
+          "name": "company",
           "relations": [
             "role"
           ]
@@ -73,7 +73,7 @@
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               },
               {
                 "kind": "account",
@@ -108,7 +108,7 @@
       "name": "create_role",
       "docs": [
         "Create a new role under a parent role. Authority: caller must hold a",
-        "role that is an ancestor of `parent_role_id` (or be the TRUST authority",
+        "role that is an ancestor of `parent_role_id` (or be the COMPANY authority",
         "during creation mode). The off-chain client supplies the ancestor walk",
         "in `remaining_accounts`."
       ],
@@ -124,7 +124,7 @@
       ],
       "accounts": [
         {
-          "name": "trust",
+          "name": "company",
           "docs": [
             "role_type PDAs. Authority gating is handled via the caller_role walk."
           ]
@@ -150,7 +150,7 @@
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               },
               {
                 "kind": "arg",
@@ -175,7 +175,7 @@
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               },
               {
                 "kind": "arg",
@@ -260,7 +260,7 @@
       ],
       "accounts": [
         {
-          "name": "trust"
+          "name": "company"
         },
         {
           "name": "role_type",
@@ -283,7 +283,7 @@
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               },
               {
                 "kind": "arg",
@@ -371,7 +371,7 @@
               },
               {
                 "kind": "account",
-                "path": "role.trust",
+                "path": "role.company",
                 "account": "Role"
               },
               {
@@ -412,7 +412,7 @@
               },
               {
                 "kind": "account",
-                "path": "role.trust",
+                "path": "role.company",
                 "account": "Role"
               },
               {
@@ -454,7 +454,7 @@
       "name": "finalize",
       "docs": [
         "Module finalize — borsh-deserializes the role-module config from the",
-        "TRUST `BytesConfig` slot under `ROLE_CONFIG_KEY` and pre-creates any",
+        "COMPANY `BytesConfig` slot under `ROLE_CONFIG_KEY` and pre-creates any",
         "role types declared at template time."
       ],
       "discriminator": [
@@ -469,7 +469,7 @@
       ],
       "accounts": [
         {
-          "name": "trust"
+          "name": "company"
         },
         {
           "name": "module_state",
@@ -493,7 +493,7 @@
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -536,8 +536,8 @@
       "name": "init",
       "docs": [
         "Module init — called by `aeqi_factory` during template instantiation.",
-        "Stores the parent TRUST and initializes the module state PDA.",
-        "Gated to the trust authority during creation mode so the",
+        "Stores the parent COMPANY and initializes the module state PDA.",
+        "Gated to the company authority during creation mode so the",
         "module_state PDA cannot be squatted by an attacker."
       ],
       "discriminator": [
@@ -552,12 +552,12 @@
       ],
       "accounts": [
         {
-          "name": "trust",
+          "name": "company",
           "docs": [
-            "Trust PDA — must be a real Trust account owned by aeqi_trust.",
-            "`seeds::program` binds derivation to the aeqi_trust program ID and",
-            "the `Account<Trust>` typing forces deserialization, preventing PDA",
-            "squatting / fake-trust attacks on the module_state slot."
+            "Company PDA — must be a real Company account owned by aeqi_company.",
+            "`seeds::program` binds derivation to the aeqi_company program ID and",
+            "the `Account<Company>` typing forces deserialization, preventing PDA",
+            "squatting / fake-company attacks on the module_state slot."
           ],
           "pda": {
             "seeds": [
@@ -573,8 +573,8 @@
               },
               {
                 "kind": "account",
-                "path": "trust.trust_id",
-                "account": "Trust"
+                "path": "company.company_id",
+                "account": "Company"
               }
             ],
             "program": {
@@ -639,7 +639,7 @@
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -682,7 +682,7 @@
           "name": "role_type"
         },
         {
-          "name": "trust",
+          "name": "company",
           "relations": [
             "role"
           ]
@@ -708,7 +708,7 @@
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               },
               {
                 "kind": "account",
@@ -757,7 +757,7 @@
           "name": "role_type"
         },
         {
-          "name": "trust",
+          "name": "company",
           "relations": [
             "role"
           ]
@@ -783,7 +783,7 @@
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               },
               {
                 "kind": "account",
@@ -819,7 +819,7 @@
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               },
               {
                 "kind": "account",
@@ -921,7 +921,7 @@
       ]
     },
     {
-      "name": "Trust",
+      "name": "Company",
       "discriminator": [
         71,
         85,
@@ -1072,8 +1072,8 @@
     },
     {
       "code": 6011,
-      "name": "TrustNotInCreationMode",
-      "msg": "trust must be in creation mode to initialize the role module"
+      "name": "CompanyNotInCreationMode",
+      "msg": "company must be in creation mode to initialize the role module"
     }
   ],
   "types": [
@@ -1083,7 +1083,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -1147,7 +1147,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -1172,7 +1172,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -1211,7 +1211,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -1240,7 +1240,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -1269,7 +1269,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -1289,7 +1289,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -1314,7 +1314,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -1343,7 +1343,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -1428,7 +1428,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -1486,15 +1486,15 @@
       }
     },
     {
-      "name": "Trust",
+      "name": "Company",
       "docs": [
-        "Core TRUST account — one per AEQI company. PDA seeded `[b\"trust\", trust_id]`."
+        "Core COMPANY account — one per AEQI company. PDA seeded `[b\"company\", company_id]`."
       ],
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust_id",
+            "name": "company_id",
             "type": {
               "array": [
                 "u8",

@@ -21,7 +21,7 @@ interface RoleInspectorProps {
   role: Role;
   edges: ReadonlyArray<RoleEdge>;
   rolesById: ReadonlyMap<string, Role>;
-  trustId: string;
+  companyId: string;
   basePath: string;
   idea?: Idea | null;
   ideaTagSuggestions?: string[];
@@ -38,7 +38,7 @@ export default function RoleInspector({
   role,
   edges,
   rolesById,
-  trustId,
+  companyId,
   basePath,
   idea,
   ideaTagSuggestions = [],
@@ -99,7 +99,7 @@ export default function RoleInspector({
     if (role.occupant_kind === "agent" && role.occupant_id) {
       return agentNamesById.get(role.occupant_id) || null;
     }
-    if (role.occupant_kind === "trust" && role.occupant_id) {
+    if (role.occupant_kind === "company" && role.occupant_id) {
       return entityNameById.get(role.occupant_id) || null;
     }
     return null;
@@ -112,8 +112,8 @@ export default function RoleInspector({
       : occupantDisplayName ||
         (role.occupant_kind === "human"
           ? "Human"
-          : role.occupant_kind === "trust"
-            ? "TRUST"
+          : role.occupant_kind === "company"
+            ? "COMPANY"
             : "Agent");
 
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -250,7 +250,7 @@ export default function RoleInspector({
     setIdeaTagError(null);
     onIdeaUpdated?.({ ...idea, tags: nextTags });
     try {
-      await ideasApi.updateIdea(idea.id, { tags: nextTags }, trustId);
+      await ideasApi.updateIdea(idea.id, { tags: nextTags }, companyId);
     } catch (err) {
       onIdeaUpdated?.({ ...idea, tags: previous });
       setIdeaTagError(err instanceof Error ? err.message : "Could not update tags.");
@@ -266,7 +266,7 @@ export default function RoleInspector({
       <div className="role-inspector-body">
         <IdeaInspectorGroup
           idea={idea}
-          agentId={trustId}
+          agentId={companyId}
           scope={idea?.scope ?? (idea?.agent_id == null ? "global" : "self")}
           typeLabel="Role idea"
           tagSuggestions={ideaTagSuggestions}
@@ -302,7 +302,7 @@ export default function RoleInspector({
               copied={copiedField === "holder"}
               onCopy={() => copy(role.occupant_id!, "holder")}
             >
-              {role.occupant_kind === "trust" && occupantDisplayName ? (
+              {role.occupant_kind === "company" && occupantDisplayName ? (
                 <>
                   <Landmark size={13} strokeWidth={1.6} aria-hidden />
                   {occupantDisplayName}
@@ -369,7 +369,7 @@ export default function RoleInspector({
         open={editor === "assignment"}
         agents={agents}
         entities={entities}
-        trustId={trustId}
+        companyId={companyId}
         assignmentDraft={assignmentDraft}
         setAssignmentDraft={setAssignmentDraft}
         onSubmit={saveAssignment}

@@ -5,7 +5,7 @@ import { Button, Input, Modal, Textarea } from "@/components/ui";
 
 interface NewAgentModalProps {
   open: boolean;
-  trustId: string;
+  companyId: string;
   agents: Agent[];
   onClose: () => void;
   onCreated: (agentId: string) => Promise<void>;
@@ -13,13 +13,13 @@ interface NewAgentModalProps {
 
 interface SpawnAgentPayload {
   name: string;
-  trust_id: string;
+  company_id: string;
   system_prompt?: string;
 }
 
 export default function NewAgentModal({
   open,
-  trustId,
+  companyId,
   agents,
   onClose,
   onCreated,
@@ -56,14 +56,14 @@ export default function NewAgentModal({
       return;
     }
     if (agents.some((agent) => normalizeAgentName(agent.name) === agentName)) {
-      setError(`An agent named ${agentName} already exists in this TRUST.`);
+      setError(`An agent named ${agentName} already exists in this COMPANY.`);
       return;
     }
 
     const trimmedBrief = brief.trim();
     const payload: SpawnAgentPayload = {
       name: agentName,
-      trust_id: trustId,
+      company_id: companyId,
       ...(trimmedBrief ? { system_prompt: `You are ${agentName}. ${trimmedBrief}` } : {}),
     };
 
@@ -83,7 +83,7 @@ export default function NewAgentModal({
     <Modal open={open} onClose={handleClose} title="New agent" className="aeqi-form-modal">
       <form className="aeqi-form-modal__form" onSubmit={handleSubmit}>
         <p className="aeqi-form-modal__copy">
-          Create a blank agent in this TRUST. Agent templates stay available below the register.
+          Create a blank agent in this COMPANY. Agent templates stay available below the register.
         </p>
 
         <Input

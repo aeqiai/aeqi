@@ -45,10 +45,10 @@ import styles from "./AssetsPage.module.css";
  *
  * Iter-10 — Approval chain walk-up.
  * When a budget has a non-zero `parent_budget_id`, the host now passes
- * down the full budget list + the TRUST authority pubkey so we can
+ * down the full budget list + the COMPANY authority pubkey so we can
  * resolve the parent chain ("who can ultimately reclaim this
  * allocation?"). The chain renders as a calm vertical stack inside
- * the modal — top of chain = TRUST authority, then each parent down
+ * the modal — top of chain = COMPANY authority, then each parent down
  * to this budget. Honors the "no hairlines" rule via tinted indent
  * rather than border-left stripes.
  */
@@ -63,8 +63,8 @@ export function BudgetDetailModal({
   /** Full budget list — used to walk the `parent_budget_id` chain so
    *  we can render a top-down "who controls this" hierarchy. */
   budgets?: BudgetAccountWithPda[];
-  /** Trust authority pubkey (base58) — the terminal node of the
-   *  approval chain. Surfaced as "TRUST authority" at the top of the
+  /** Company authority pubkey (base58) — the terminal node of the
+   *  approval chain. Surfaced as "COMPANY authority" at the top of the
    *  chain so an auditor sees the chain bottoms out at the on-chain
    *  governance root, not in mid-air. */
   trustAuthority?: string | null;
@@ -99,7 +99,7 @@ export function BudgetDetailModal({
   // Iter-10: walk the parent chain top-down. The chain starts at the
   // current budget and follows each `parent_budget_id` lookup until we
   // hit a budget with no parent (or an orphan). The terminal node is
-  // the TRUST authority — every chain bottoms out there.
+  // the COMPANY authority — every chain bottoms out there.
   const chain = walkApprovalChain(budget, budgets ?? []);
   const orphan = hasParent && chain.length < 2;
 
@@ -211,7 +211,7 @@ function walkApprovalChain(
     if (!parent) break; // chain orphaned — terminate
     current = parent;
   }
-  // Reverse for top-down rendering: TRUST authority at the top, this
+  // Reverse for top-down rendering: COMPANY authority at the top, this
   // budget at the bottom.
   return nodes.reverse();
 }
@@ -219,15 +219,15 @@ function walkApprovalChain(
 /**
  * Iter-10 — vertical approval-chain renderer.
  *
- * Renders the chain top-down: TRUST authority (terminal), then each
+ * Renders the chain top-down: COMPANY authority (terminal), then each
  * parent budget, ending in the current budget. Each row is a compact
- * (label · ID · utilization) strip. The terminal "TRUST authority"
+ * (label · ID · utilization) strip. The terminal "COMPANY authority"
  * row is rendered with an accent Badge so the reader sees the chain
  * bottoms out at the on-chain governance root.
  *
  * When the chain is orphaned (a parent_budget_id pointed at a budget
  * we couldn't find in the visible list — e.g. the parent was created
- * on a different TRUST, or the list was filtered) we surface a quiet
+ * on a different COMPANY, or the list was filtered) we surface a quiet
  * banner so an auditor knows the chain is incomplete.
  */
 function ApprovalChain({
@@ -246,7 +246,7 @@ function ApprovalChain({
         <div className={styles.approvalChainNode}>
           <div className={styles.approvalChainNodeHead}>
             <Badge variant="accent" size="sm" dot>
-              TRUST authority
+              COMPANY authority
             </Badge>
             <CopyableMono
               full={trustAuthority}
@@ -294,8 +294,8 @@ function ApprovalChain({
       })}
       {orphan && (
         <p className={styles.approvalChainOrphanNote}>
-          Parent budget not in this TRUST&apos;s visible list — the chain is incomplete. Reclaim
-          authority resolves at the TRUST root above.
+          Parent budget not in this COMPANY&apos;s visible list — the chain is incomplete. Reclaim
+          authority resolves at the COMPANY root above.
         </p>
       )}
     </Stack>

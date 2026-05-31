@@ -21,7 +21,7 @@
 //! in [`Family`].
 //!
 //! Scope (first cut, per quest 67-162.7): one representative event per family
-//! (TRUST / module / ACL / governance / capital / feed). Unknown
+//! (COMPANY / module / ACL / governance / capital / feed). Unknown
 //! discriminators fall through unchanged — the raw `events` table still gets
 //! them, and `lookup` in `registry.rs` still surfaces the typed name.
 
@@ -29,7 +29,7 @@ use anyhow::Result;
 use borsh::{BorshDeserialize, BorshSerialize};
 
 /// Family bucket each typed event lands in — drives sink table routing and
-/// the Graph-era projection model from the brief (TRUST / module / ACL /
+/// the Graph-era projection model from the brief (COMPANY / module / ACL /
 /// governance / capital / feed). Field names are intentionally generic
 /// because multiple programs contribute to the same family table:
 /// `capital_events`, for example, captures both treasury withdraws and fund
@@ -44,7 +44,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 ///      same table.
 #[derive(Debug, Clone)]
 pub enum TypedEvent {
-    Trust(TrustEvent),
+    Company(CompanyEvent),
     Module(ModuleEvent),
     Acl(AclEvent),
     Governance(GovernanceEvent),
@@ -54,19 +54,19 @@ pub enum TypedEvent {
 }
 
 // ---------------------------------------------------------------------------
-// TRUST family — TRUST lifecycle (creation, finalize, pause)
+// COMPANY family — COMPANY lifecycle (creation, finalize, pause)
 // ---------------------------------------------------------------------------
 
 #[derive(BorshDeserialize, BorshSerialize, Debug, Clone)]
-pub struct TrustInitialized {
-    pub trust: [u8; 32],
-    pub trust_id: [u8; 32],
+pub struct CompanyInitialized {
+    pub company: [u8; 32],
+    pub company_id: [u8; 32],
     pub authority: [u8; 32],
 }
 
 #[derive(Debug, Clone)]
-pub enum TrustEvent {
-    Initialized(TrustInitialized),
+pub enum CompanyEvent {
+    Initialized(CompanyInitialized),
 }
 
 // ---------------------------------------------------------------------------
@@ -75,13 +75,13 @@ pub enum TrustEvent {
 
 #[derive(BorshDeserialize, BorshSerialize, Debug, Clone)]
 pub struct ModuleRegistered {
-    pub trust: [u8; 32],
+    pub company: [u8; 32],
     pub module_id: [u8; 32],
     pub program_id: [u8; 32],
     pub provider: [u8; 32],
     pub implementation_version: u64,
     pub implementation_metadata_hash: [u8; 32],
-    pub trust_acl: u64,
+    pub company_acl: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -95,7 +95,7 @@ pub enum ModuleEvent {
 
 #[derive(BorshDeserialize, BorshSerialize, Debug, Clone)]
 pub struct ModuleAclSet {
-    pub trust: [u8; 32],
+    pub company: [u8; 32],
     pub source_module_id: [u8; 32],
     pub target_module_id: [u8; 32],
     pub flags: u64,
@@ -112,7 +112,7 @@ pub enum AclEvent {
 
 #[derive(BorshDeserialize, BorshSerialize, Debug, Clone)]
 pub struct ProposalCreated {
-    pub trust: [u8; 32],
+    pub company: [u8; 32],
     pub proposal_id: [u8; 32],
     pub governance_config_id: [u8; 32],
     pub proposer: [u8; 32],
@@ -131,7 +131,7 @@ pub enum GovernanceEvent {
 
 #[derive(BorshDeserialize, BorshSerialize, Debug, Clone)]
 pub struct TreasuryDeposited {
-    pub trust: [u8; 32],
+    pub company: [u8; 32],
     pub depositor_ta: [u8; 32],
     pub amount: u64,
 }
@@ -154,7 +154,7 @@ pub enum CapitalEvent {
 
 #[derive(BorshDeserialize, BorshSerialize, Debug, Clone)]
 pub struct NavUpdated {
-    pub trust: [u8; 32],
+    pub company: [u8; 32],
     pub fund_id: [u8; 32],
     pub gross_nav: u64,
     pub high_water_mark: u64,
@@ -173,14 +173,14 @@ pub enum FeedEvent {
 // Genesis bonding curves are aeqi_unifutures's primary primitive. CurveCreated
 // is the one-shot lifecycle event; CurveBuy / CurveSell are the trade stream.
 // We split the family into TWO sink tables: `curves` (one row per
-// (trust, curve_id), natural-keyed) and `curve_trades` (one row per trade,
+// (company, curve_id), natural-keyed) and `curve_trades` (one row per trade,
 // uniqued on (signature, log_index)). The single TypedEvent::Curve variant
 // carries either shape; sink.rs::record_typed routes by the inner enum
 // discriminant.
 
 #[derive(BorshDeserialize, BorshSerialize, Debug, Clone)]
 pub struct CurveCreated {
-    pub trust: [u8; 32],
+    pub company: [u8; 32],
     pub curve_id: [u8; 32],
     pub creator: [u8; 32],
     pub asset_mint: [u8; 32],
@@ -193,7 +193,7 @@ pub struct CurveCreated {
 
 #[derive(BorshDeserialize, BorshSerialize, Debug, Clone)]
 pub struct CurveBuy {
-    pub trust: [u8; 32],
+    pub company: [u8; 32],
     pub curve_id: [u8; 32],
     pub buyer: [u8; 32],
     pub token_amount: u64,
@@ -202,7 +202,7 @@ pub struct CurveBuy {
 
 #[derive(BorshDeserialize, BorshSerialize, Debug, Clone)]
 pub struct CurveSell {
-    pub trust: [u8; 32],
+    pub company: [u8; 32],
     pub curve_id: [u8; 32],
     pub seller: [u8; 32],
     pub token_amount: u64,
@@ -230,13 +230,13 @@ pub enum CurveEvent {
 /// failure), which IS a real problem worth surfacing.
 pub fn decode(program: &str, event: &str, payload: &[u8]) -> Result<Option<TypedEvent>> {
     let typed = match (program, event) {
-        ("aeqi_trust", "TrustInitialized") => Some(TypedEvent::Trust(TrustEvent::Initialized(
-            TrustInitialized::try_from_slice(payload)?,
+        ("aeqi_company", "CompanyInitialized") => Some(TypedEvent::Company(CompanyEvent::Initialized(
+            CompanyInitialized::try_from_slice(payload)?,
         ))),
-        ("aeqi_trust", "ModuleRegistered") => Some(TypedEvent::Module(ModuleEvent::Registered(
+        ("aeqi_company", "ModuleRegistered") => Some(TypedEvent::Module(ModuleEvent::Registered(
             ModuleRegistered::try_from_slice(payload)?,
         ))),
-        ("aeqi_trust", "ModuleAclSet") => {
+        ("aeqi_company", "ModuleAclSet") => {
             Some(TypedEvent::Acl(AclEvent::Set(ModuleAclSet::try_from_slice(payload)?)))
         }
         ("aeqi_governance", "ProposalCreated") => Some(TypedEvent::Governance(
@@ -266,7 +266,7 @@ pub fn decode(program: &str, event: &str, payload: &[u8]) -> Result<Option<Typed
 /// (e.g. `capital_events.kind = "deposit"`).
 pub fn family_kind(event: &TypedEvent) -> &'static str {
     match event {
-        TypedEvent::Trust(TrustEvent::Initialized(_)) => "initialized",
+        TypedEvent::Company(CompanyEvent::Initialized(_)) => "initialized",
         TypedEvent::Module(ModuleEvent::Registered(_)) => "registered",
         TypedEvent::Acl(AclEvent::Set(_)) => "set",
         TypedEvent::Governance(GovernanceEvent::ProposalCreated(_)) => "created",
@@ -305,38 +305,38 @@ mod tests {
     }
 
     #[test]
-    fn decode_trust_initialized_round_trip() {
+    fn decode_company_initialized_round_trip() {
         let original =
-            TrustInitialized { trust: [1u8; 32], trust_id: [2u8; 32], authority: [3u8; 32] };
-        let bytes = wire_payload("TrustInitialized", &original);
-        let typed = decode("aeqi_trust", "TrustInitialized", &bytes[8..]).unwrap().unwrap();
+            CompanyInitialized { company: [1u8; 32], company_id: [2u8; 32], authority: [3u8; 32] };
+        let bytes = wire_payload("CompanyInitialized", &original);
+        let typed = decode("aeqi_company", "CompanyInitialized", &bytes[8..]).unwrap().unwrap();
         match typed {
-            TypedEvent::Trust(TrustEvent::Initialized(decoded)) => {
-                assert_eq!(decoded.trust, original.trust);
-                assert_eq!(decoded.trust_id, original.trust_id);
+            TypedEvent::Company(CompanyEvent::Initialized(decoded)) => {
+                assert_eq!(decoded.company, original.company);
+                assert_eq!(decoded.company_id, original.company_id);
                 assert_eq!(decoded.authority, original.authority);
             }
-            other => panic!("expected TrustInitialized, got {other:?}"),
+            other => panic!("expected CompanyInitialized, got {other:?}"),
         }
     }
 
     #[test]
     fn decode_module_registered_round_trip() {
         let original = ModuleRegistered {
-            trust: [10u8; 32],
+            company: [10u8; 32],
             module_id: [11u8; 32],
             program_id: [12u8; 32],
             provider: [13u8; 32],
             implementation_version: 7,
             implementation_metadata_hash: [14u8; 32],
-            trust_acl: 0xdead_beef_cafe_babe,
+            company_acl: 0xdead_beef_cafe_babe,
         };
         let bytes = wire_payload("ModuleRegistered", &original);
-        let typed = decode("aeqi_trust", "ModuleRegistered", &bytes[8..]).unwrap().unwrap();
+        let typed = decode("aeqi_company", "ModuleRegistered", &bytes[8..]).unwrap().unwrap();
         match typed {
             TypedEvent::Module(ModuleEvent::Registered(decoded)) => {
                 assert_eq!(decoded.implementation_version, 7);
-                assert_eq!(decoded.trust_acl, 0xdead_beef_cafe_babe);
+                assert_eq!(decoded.company_acl, 0xdead_beef_cafe_babe);
                 assert_eq!(decoded.module_id, original.module_id);
             }
             other => panic!("expected ModuleRegistered, got {other:?}"),
@@ -346,13 +346,13 @@ mod tests {
     #[test]
     fn decode_module_acl_set_round_trip() {
         let original = ModuleAclSet {
-            trust: [20u8; 32],
+            company: [20u8; 32],
             source_module_id: [21u8; 32],
             target_module_id: [22u8; 32],
             flags: 0b1011,
         };
         let bytes = wire_payload("ModuleAclSet", &original);
-        let typed = decode("aeqi_trust", "ModuleAclSet", &bytes[8..]).unwrap().unwrap();
+        let typed = decode("aeqi_company", "ModuleAclSet", &bytes[8..]).unwrap().unwrap();
         match typed {
             TypedEvent::Acl(AclEvent::Set(decoded)) => {
                 assert_eq!(decoded.flags, 0b1011);
@@ -365,7 +365,7 @@ mod tests {
     #[test]
     fn decode_proposal_created_round_trip() {
         let original = ProposalCreated {
-            trust: [30u8; 32],
+            company: [30u8; 32],
             proposal_id: [31u8; 32],
             governance_config_id: [32u8; 32],
             proposer: [33u8; 32],
@@ -386,7 +386,7 @@ mod tests {
     #[test]
     fn decode_treasury_deposited_round_trip() {
         let original =
-            TreasuryDeposited { trust: [40u8; 32], depositor_ta: [41u8; 32], amount: 1_000_000 };
+            TreasuryDeposited { company: [40u8; 32], depositor_ta: [41u8; 32], amount: 1_000_000 };
         let bytes = wire_payload("TreasuryDeposited", &original);
         let typed = decode("aeqi_treasury", "TreasuryDeposited", &bytes[8..]).unwrap().unwrap();
         match typed {
@@ -400,7 +400,7 @@ mod tests {
     #[test]
     fn decode_nav_updated_round_trip() {
         let original = NavUpdated {
-            trust: [50u8; 32],
+            company: [50u8; 32],
             fund_id: [51u8; 32],
             gross_nav: 9_999,
             high_water_mark: 10_500,
@@ -421,7 +421,7 @@ mod tests {
     #[test]
     fn decode_curve_created_round_trip() {
         let original = CurveCreated {
-            trust: [60u8; 32],
+            company: [60u8; 32],
             curve_id: [61u8; 32],
             creator: [62u8; 32],
             asset_mint: [63u8; 32],
@@ -449,7 +449,7 @@ mod tests {
     #[test]
     fn decode_curve_buy_round_trip() {
         let original = CurveBuy {
-            trust: [70u8; 32],
+            company: [70u8; 32],
             curve_id: [71u8; 32],
             buyer: [72u8; 32],
             token_amount: 1_000_000,
@@ -470,7 +470,7 @@ mod tests {
     #[test]
     fn decode_curve_sell_round_trip() {
         let original = CurveSell {
-            trust: [80u8; 32],
+            company: [80u8; 32],
             curve_id: [81u8; 32],
             seller: [82u8; 32],
             token_amount: 500_000,
@@ -498,8 +498,8 @@ mod tests {
 
     #[test]
     fn schema_mismatch_returns_err() {
-        // Short payload that cannot satisfy TrustInitialized (3×32 bytes).
-        let err = decode("aeqi_trust", "TrustInitialized", &[0u8; 4]).unwrap_err();
+        // Short payload that cannot satisfy CompanyInitialized (3×32 bytes).
+        let err = decode("aeqi_company", "CompanyInitialized", &[0u8; 4]).unwrap_err();
         assert!(format!("{err}").to_lowercase().contains("unexpected"));
     }
 
@@ -509,29 +509,29 @@ mod tests {
         // family_kind arm, this won't catch it (the match in family_kind
         // will), but it ensures each kind label is non-empty and stable.
         for kind in [
-            family_kind(&TypedEvent::Trust(TrustEvent::Initialized(TrustInitialized {
-                trust: [0; 32],
-                trust_id: [0; 32],
+            family_kind(&TypedEvent::Company(CompanyEvent::Initialized(CompanyInitialized {
+                company: [0; 32],
+                company_id: [0; 32],
                 authority: [0; 32],
             }))),
             family_kind(&TypedEvent::Module(ModuleEvent::Registered(ModuleRegistered {
-                trust: [0; 32],
+                company: [0; 32],
                 module_id: [0; 32],
                 program_id: [0; 32],
                 provider: [0; 32],
                 implementation_version: 0,
                 implementation_metadata_hash: [0; 32],
-                trust_acl: 0,
+                company_acl: 0,
             }))),
             family_kind(&TypedEvent::Acl(AclEvent::Set(ModuleAclSet {
-                trust: [0; 32],
+                company: [0; 32],
                 source_module_id: [0; 32],
                 target_module_id: [0; 32],
                 flags: 0,
             }))),
             family_kind(&TypedEvent::Governance(GovernanceEvent::ProposalCreated(
                 ProposalCreated {
-                    trust: [0; 32],
+                    company: [0; 32],
                     proposal_id: [0; 32],
                     governance_config_id: [0; 32],
                     proposer: [0; 32],
@@ -540,19 +540,19 @@ mod tests {
                 },
             ))),
             family_kind(&TypedEvent::Capital(CapitalEvent::Deposit(TreasuryDeposited {
-                trust: [0; 32],
+                company: [0; 32],
                 depositor_ta: [0; 32],
                 amount: 0,
             }))),
             family_kind(&TypedEvent::Feed(FeedEvent::NavUpdated(NavUpdated {
-                trust: [0; 32],
+                company: [0; 32],
                 fund_id: [0; 32],
                 gross_nav: 0,
                 high_water_mark: 0,
                 accrued_carry: 0,
             }))),
             family_kind(&TypedEvent::Curve(CurveEvent::Created(CurveCreated {
-                trust: [0; 32],
+                company: [0; 32],
                 curve_id: [0; 32],
                 creator: [0; 32],
                 asset_mint: [0; 32],
@@ -563,14 +563,14 @@ mod tests {
                 max_supply: 0,
             }))),
             family_kind(&TypedEvent::Curve(CurveEvent::Buy(CurveBuy {
-                trust: [0; 32],
+                company: [0; 32],
                 curve_id: [0; 32],
                 buyer: [0; 32],
                 token_amount: 0,
                 cost: 0,
             }))),
             family_kind(&TypedEvent::Curve(CurveEvent::Sell(CurveSell {
-                trust: [0; 32],
+                company: [0; 32],
                 curve_id: [0; 32],
                 seller: [0; 32],
                 token_amount: 0,

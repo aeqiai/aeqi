@@ -31,21 +31,21 @@ export function templatePda(
 
 export function trustPda(
   trustProgramId: PublicKey,
-  trustId: Uint8Array,
+  companyId: Uint8Array,
 ): PublicKey {
   return PublicKey.findProgramAddressSync(
-    [Buffer.from("trust"), Buffer.from(trustId)],
+    [Buffer.from("company"), Buffer.from(companyId)],
     trustProgramId,
   )[0];
 }
 
 export function modulePda(
   trustProgramId: PublicKey,
-  trust: PublicKey,
+  company: PublicKey,
   moduleId: Uint8Array,
 ): PublicKey {
   return PublicKey.findProgramAddressSync(
-    [Buffer.from("module"), trust.toBuffer(), Buffer.from(moduleId)],
+    [Buffer.from("module"), company.toBuffer(), Buffer.from(moduleId)],
     trustProgramId,
   )[0];
 }
@@ -69,14 +69,14 @@ export function moduleImplementationPda(
 
 export function moduleAclEdgePda(
   trustProgramId: PublicKey,
-  trust: PublicKey,
+  company: PublicKey,
   sourceModuleId: Uint8Array,
   targetModuleId: Uint8Array,
 ): PublicKey {
   return PublicKey.findProgramAddressSync(
     [
       Buffer.from("acl_edge"),
-      trust.toBuffer(),
+      company.toBuffer(),
       Buffer.from(sourceModuleId),
       Buffer.from(targetModuleId),
     ],
@@ -88,32 +88,32 @@ export function buildInstantiateTemplateAccounts({
   factoryProgramId,
   trustProgramId,
   templateId,
-  trustId,
+  companyId,
   authority,
 }: {
   factoryProgramId: PublicKey;
   trustProgramId: PublicKey;
   templateId: Uint8Array;
-  trustId: Uint8Array;
+  companyId: Uint8Array;
   authority: PublicKey;
 }) {
   return {
     template: templatePda(factoryProgramId, templateId),
-    trust: trustPda(trustProgramId, trustId),
+    company: trustPda(trustProgramId, companyId),
     authority,
-    aeqiTrustProgram: trustProgramId,
+    aeqiCompanyProgram: trustProgramId,
     systemProgram: anchor.web3.SystemProgram.programId,
   };
 }
 
 export function buildInstantiateTemplateRemainingAccounts({
   trustProgramId,
-  trust,
+  company,
   modules,
   aclEdges = [],
 }: {
   trustProgramId: PublicKey;
-  trust: PublicKey;
+  company: PublicKey;
   modules: ModuleSelection[];
   aclEdges?: AclEdgeSelection[];
 }): {
@@ -123,7 +123,7 @@ export function buildInstantiateTemplateRemainingAccounts({
   remainingAccounts: AccountMeta[];
 } {
   const modulePdas = modules.map((module) =>
-    modulePda(trustProgramId, trust, module.moduleId),
+    modulePda(trustProgramId, company, module.moduleId),
   );
   const implementationPdas = modules.map((module) =>
     moduleImplementationPda(
@@ -136,7 +136,7 @@ export function buildInstantiateTemplateRemainingAccounts({
   const aclEdgePdas = aclEdges.map((edge) =>
     moduleAclEdgePda(
       trustProgramId,
-      trust,
+      company,
       edge.sourceModuleId,
       edge.targetModuleId,
     ),

@@ -689,7 +689,7 @@ mod tests {
         }
 
         // Calling Tool::execute (the cap lives in the args parsing path,
-        // not in run_search which trusts its callers).
+        // not in run_search which companies its callers).
         let res = tool
             .execute(serde_json::json!({
                 "query": "widget",

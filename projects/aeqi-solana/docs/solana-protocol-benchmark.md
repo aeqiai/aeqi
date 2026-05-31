@@ -31,7 +31,7 @@ design into the Solana implementation.
 AEQI should feel closer to Squads and SPL Governance than to a pile of module
 handlers. Every critical workflow needs an explicit state machine:
 
-- company/TRUST lifecycle: `Creating -> Finalized -> Paused -> Retired`
+- company/COMPANY lifecycle: `Creating -> Finalized -> Paused -> Retired`
 - proposal lifecycle: `Draft -> Active -> Succeeded -> Queued -> Executed`
 - module lifecycle: `Registered -> Initialized -> Finalized -> Upgraded`
 - funding lifecycle: `Pending -> Activated -> Settled -> Finalized`
@@ -133,12 +133,12 @@ point is that raw Anchor tests and direct PDA derivation are still the primary
 client surface. Keep the module system, but force every module through the same
 SDK conventions.
 
-### Make TRUST The Policy Root
+### Make COMPANY The Policy Root
 
 Every module mutator should either:
 
-- prove it is safe without TRUST state, or
-- load the canonical TRUST account and enforce finalized/paused/authority state.
+- prove it is safe without COMPANY state, or
+- load the canonical COMPANY account and enforce finalized/paused/authority state.
 
 If a global pause exists but high-risk module instructions do not read it, the
 pause is aspirational. A DAO framework needs emergency controls that actually
@@ -175,7 +175,7 @@ Each example should be executable in localnet and backed by the SDK.
    and transaction builders for the core company/proposal/vote/execute flow.
 2. Freeze governance settlement semantics: proposal status enum, stored
    snapshots, action digest, queued execution, and stale-config invalidation.
-3. Enforce TRUST paused/finalized state in high-risk module mutators.
+3. Enforce COMPANY paused/finalized state in high-risk module mutators.
 4. Add `security_txt` metadata to every shipped program.
 5. Add SDK-backed integration tests and stop repeating PDA derivations in test
    files.

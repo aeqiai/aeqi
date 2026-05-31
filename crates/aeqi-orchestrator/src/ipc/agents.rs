@@ -8,8 +8,8 @@ pub async fn handle_agents_registry(
     request: &serde_json::Value,
     allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let trust_id = request
-        .get("trust_id")
+    let company_id = request
+        .get("company_id")
         .and_then(|v| v.as_str())
         .filter(|s| !s.is_empty());
     let status_filter = request.get("status").and_then(|v| v.as_str());
@@ -19,7 +19,7 @@ pub async fn handle_agents_registry(
         "retired" => Some(crate::agent_registry::AgentStatus::Retired),
         _ => None,
     });
-    match ctx.agent_registry.list(trust_id, status).await {
+    match ctx.agent_registry.list(company_id, status).await {
         Ok(agents) => {
             let filtered_agents = if let Some(list) = allowed.as_ref() {
                 // Tenancy resolves through the entity, not the agent's name.
@@ -30,7 +30,7 @@ pub async fn handle_agents_registry(
                 agents
                     .into_iter()
                     .filter(|a| {
-                        a.trust_id
+                        a.company_id
                             .as_deref()
                             .map(|eid| list.iter().any(|c| c == eid))
                             .unwrap_or(false)
@@ -45,7 +45,7 @@ pub async fn handle_agents_registry(
                 items.push(serde_json::json!({
                     "id": a.id,
                     "name": a.name,
-                    "trust_id": a.trust_id,
+                    "company_id": a.company_id,
                     "model": a.model,
                     "status": a.status,
                     "created_at": a.created_at.to_rfc3339(),
@@ -84,7 +84,7 @@ pub async fn handle_agent_children(
                 items.push(serde_json::json!({
                     "id": a.id,
                     "name": a.name,
-                    "trust_id": a.trust_id,
+                    "company_id": a.company_id,
                     "model": a.model,
                     "status": a.status,
                     "created_at": a.created_at.to_rfc3339(),
@@ -134,18 +134,18 @@ pub async fn handle_agent_spawn(
         .filter(|s| !s.is_empty());
     let can_self_delegate = request.get("can_self_delegate").and_then(|v| v.as_bool());
     let can_ask_director = request.get("can_ask_director").and_then(|v| v.as_bool());
-    // Optional trust_id override: attach the new agent to an existing Company
+    // Optional company_id override: attach the new agent to an existing Company
     // instead of minting a fresh one.  Ignored when parent_agent_id is set
     // (child spawns always inherit the parent's entity).
-    let trust_id = request
-        .get("trust_id")
+    let company_id = request
+        .get("company_id")
         .and_then(|v| v.as_str())
         .map(str::trim)
         .filter(|s| !s.is_empty());
 
     let agent = match ctx
         .agent_registry
-        .spawn_with_entity_id(name, parent_agent_id, model, trust_id, None)
+        .spawn_with_entity_id(name, parent_agent_id, model, company_id, None)
         .await
     {
         Ok(a) => a,
@@ -214,7 +214,7 @@ pub async fn handle_agent_spawn(
         "agent": {
             "id": agent.id,
             "name": agent.name,
-            "trust_id": agent.trust_id,
+            "company_id": agent.company_id,
             "status": agent.status,
         },
         "warnings": warnings,
@@ -304,7 +304,7 @@ pub async fn handle_agent_info(
                 "ok": true,
                 "id": agent.id,
                 "name": agent.name,
-                "trust_id": agent.trust_id,
+                "company_id": agent.company_id,
                 "model": agent.model,
                 "status": agent.status,
                 "idea_chain": idea_chain,

@@ -3,7 +3,7 @@
 //!
 //! The subscription lane (`subscription.rs`) bills the workspace for
 //! every inference call. The role-budget lane is a per-role accounting
-//! layer that lets a TRUST track how each chair burns its inference
+//! layer that lets a COMPANY track how each chair burns its inference
 //! allowance, with optional pre-flight rejection when the budget is
 //! exhausted.
 //!
@@ -13,7 +13,7 @@
 //! ## Wire shape
 //!
 //! Headers (read on every `/v1/*` request):
-//! - `X-Trust`: trust id (already extracted by the subscription layer).
+//! - `X-Company`: company id (already extracted by the subscription layer).
 //! - `X-Role-Id`: role the calling agent is acting as. Required when
 //!   role gating is active for the workspace; ignored when the gate is
 //!   the no-op variant.
@@ -51,11 +51,11 @@ pub enum BudgetGateOutcome {
         role_id: String,
         remaining_micro_usd: i64,
     },
-    /// The gate is no-op for this trust (feature flag off, or trust
+    /// The gate is no-op for this company (feature flag off, or company
     /// has no `treasury_config`). The call proceeds; settle is a no-op.
     Skipped,
     /// Auth / identity error — e.g. missing `X-Role-Id` when gating is
-    /// required, or role not in the trust. Handler returns HTTP 403.
+    /// required, or role not in the company. Handler returns HTTP 403.
     Forbidden(String),
     /// Internal error — handler should return 500 with the message.
     Error(String),
@@ -80,7 +80,7 @@ pub trait BudgetGate: Send + Sync {
     /// circuit with HTTP 402.
     async fn pre_flight(
         &self,
-        trust_id: &str,
+        company_id: &str,
         role_id: Option<&str>,
         budget_id: Option<&str>,
         estimated_micro_usd: i64,
@@ -92,7 +92,7 @@ pub trait BudgetGate: Send + Sync {
     /// `treasury_events.idempotency_key` is the dedup field).
     async fn settle(
         &self,
-        trust_id: &str,
+        company_id: &str,
         budget_id: &str,
         actual_micro_usd: i64,
         request_hash: &str,
@@ -110,7 +110,7 @@ pub struct NoOpBudgetGate;
 impl BudgetGate for NoOpBudgetGate {
     async fn pre_flight(
         &self,
-        _trust_id: &str,
+        _company_id: &str,
         _role_id: Option<&str>,
         _budget_id: Option<&str>,
         _estimated_micro_usd: i64,
@@ -120,7 +120,7 @@ impl BudgetGate for NoOpBudgetGate {
 
     async fn settle(
         &self,
-        _trust_id: &str,
+        _company_id: &str,
         _budget_id: &str,
         _actual_micro_usd: i64,
         _request_hash: &str,
@@ -138,7 +138,7 @@ pub type SharedBudgetGate = Arc<dyn BudgetGate>;
 /// on the same request id, and by the audit log so events line up
 /// with upstream provider traces.
 ///
-/// `workspace_id`: stable per-tenant id (the trust id from `X-Trust`).
+/// `workspace_id`: stable per-tenant id (the company id from `X-Company`).
 /// `request_id`: a per-call identifier — typically the response's
 ///               `id` from the upstream provider's chat-completion
 ///               envelope. Falls back to a uuid if absent.
@@ -168,7 +168,7 @@ mod tests {
     #[tokio::test]
     async fn no_op_gate_skips_pre_flight() {
         let gate = NoOpBudgetGate;
-        let outcome = gate.pre_flight("trust-1", None, None, 100).await;
+        let outcome = gate.pre_flight("company-1", None, None, 100).await;
         assert!(matches!(outcome, BudgetGateOutcome::Skipped));
     }
 
@@ -176,7 +176,7 @@ mod tests {
     async fn no_op_gate_settles_ok() {
         let gate = NoOpBudgetGate;
         let res = gate
-            .settle("trust-1", "budget-1", 50, "req-1", "agent-1")
+            .settle("company-1", "budget-1", 50, "req-1", "agent-1")
             .await;
         assert!(res.is_ok());
     }

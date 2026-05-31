@@ -20,20 +20,20 @@ function isIdeaLink(link: IdeaLink | null | undefined): link is IdeaLink {
  * uses RefsRow directly with local pendingRefs state inside IdeaCanvas.
  */
 export default function IdeaLinksPanel({ ideaId, agentId }: { ideaId: string; agentId: string }) {
-  const { goEntity, trustId } = useNav();
-  const { data: ideas = NO_IDEAS } = useAgentIdeas(agentId, true, trustId);
+  const { goEntity, companyId } = useNav();
+  const { data: ideas = NO_IDEAS } = useAgentIdeas(agentId, true, companyId);
   const [edges, setEdges] = useState<IdeaEdges>(NO_EDGES);
 
   const loadEdges = useMemo(
     () => async () => {
       try {
-        const res = await getIdeaEdges(ideaId, trustId);
+        const res = await getIdeaEdges(ideaId, companyId);
         setEdges(res ?? NO_EDGES);
       } catch {
         setEdges(NO_EDGES);
       }
     },
-    [ideaId, trustId],
+    [ideaId, companyId],
   );
 
   useEffect(() => {
@@ -62,7 +62,7 @@ export default function IdeaLinksPanel({ ideaId, agentId }: { ideaId: string; ag
 
   const handleAdd = async (target: Idea) => {
     try {
-      await addIdeaEdge(ideaId, target.id, "adjacent", trustId);
+      await addIdeaEdge(ideaId, target.id, "adjacent", companyId);
       await loadEdges();
     } catch {
       /* user retries via picker */
@@ -72,7 +72,7 @@ export default function IdeaLinksPanel({ ideaId, agentId }: { ideaId: string; ag
   const handleRemove = async ({ target_id, relation }: { target_id: string; relation: string }) => {
     if (relation !== "adjacent") return;
     try {
-      await removeIdeaEdge(ideaId, target_id, relation, trustId);
+      await removeIdeaEdge(ideaId, target_id, relation, companyId);
       await loadEdges();
     } catch {
       /* leave chip — user can retry */
@@ -86,7 +86,7 @@ export default function IdeaLinksPanel({ ideaId, agentId }: { ideaId: string; ag
       refs={refs}
       onAdd={handleAdd}
       onRemove={handleRemove}
-      onOpen={(id) => goEntity(trustId, "ideas", id)}
+      onOpen={(id) => goEntity(companyId, "ideas", id)}
     />
   );
 }

@@ -87,7 +87,7 @@ export default function IdeaConversationPanel({
   activityRefreshKey,
 }: IdeaConversationPanelProps) {
   const user = useAuthStore((s) => s.user);
-  const { trustId } = useNav();
+  const { companyId } = useNav();
 
   const [comments, setComments] = useState<CommentRow[]>([]);
   // sessionId is tracked so subsequent operations (e.g. unsubscribe, polling)
@@ -189,7 +189,7 @@ export default function IdeaConversationPanel({
       ) : commentError ? (
         <div className="idea-convo-error">{commentError}</div>
       ) : (
-        <IdeaCommentsList rows={comments} trustId={trustId} />
+        <IdeaCommentsList rows={comments} companyId={companyId} />
       )}
       <IdeaCommentComposer
         ideaId={ideaId}

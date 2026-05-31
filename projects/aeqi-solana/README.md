@@ -1,6 +1,6 @@
 # aeqi-solana
 
-The on-chain protocol for AEQI on Solana. Canonical Solana implementation of the AEQI trust, factory, module, and capital stack.
+The on-chain protocol for AEQI on Solana. Canonical Solana implementation of the AEQI company, factory, module, and capital stack.
 
 > **Decision: 2026-05-07.** Full rewrite, EVM-Base canonical → Solana canonical. Single coherent chain, no L1/L2 fragmentation tax, native fee payer, native session keys, secp256r1 passkey precompile. AEQI becomes the standard primitive on Solana.
 
@@ -12,7 +12,7 @@ Solana-native modular DAO framework. The EVM system at `~/projects/aeqi-core/con
 
 | Program           | Solidity origin                 | Purpose                                                            |
 | ----------------- | ------------------------------- | ------------------------------------------------------------------ |
-| `aeqi_trust`      | `core/TRUST.sol`                | Module registry, ACL flags, config store, execute() gateway        |
+| `aeqi_company`      | `core/COMPANY.sol`                | Module registry, ACL flags, config store, execute() gateway        |
 | `aeqi_factory`    | `core/Factory.sol`              | Template registry + instantiate flow with multi-sig approval gate  |
 | `aeqi_role`       | `modules/Role.module.sol`       | Role DAG (parent walk), role types, delegations, vote checkpoints  |
 | `aeqi_governance` | `modules/Governance.module.sol` | Proposals, voting — token-weighted + per-role-multisig modes       |
@@ -28,40 +28,40 @@ Solana-native modular DAO framework. The EVM system at `~/projects/aeqi-core/con
 **Beacon proxy → provider-published implementation registry.** Solana program
 upgrade authority remains an operational deployment concern. AEQI module
 selection is separate: providers publish executable module implementation
-records, and each TRUST explicitly adopts one implementation version per module
-slot. Provider publication never forces an upgrade; a TRUST moves only when its
+records, and each COMPANY explicitly adopts one implementation version per module
+slot. Provider publication never forces an upgrade; a COMPANY moves only when its
 own authority pulls that implementation into its module record.
 
-**SlotArrays versioning → PDA isolation.** EVM SlotArrays use `keccak256(BASE, timestamp)` to derive fresh storage slots per-instance. Solana PDAs are already namespaced per (program, seeds) — the per-instance isolation is automatic. The "swap-with-last" O(1) array semantics port to a `Vec<Pubkey>` field with manual bookkeeping, OR (preferred) we use indexed PDAs (`[b"role_member", trust, idx]`) with a separate count.
+**SlotArrays versioning → PDA isolation.** EVM SlotArrays use `keccak256(BASE, timestamp)` to derive fresh storage slots per-instance. Solana PDAs are already namespaced per (program, seeds) — the per-instance isolation is automatic. The "swap-with-last" O(1) array semantics port to a `Vec<Pubkey>` field with manual bookkeeping, OR (preferred) we use indexed PDAs (`[b"role_member", company, idx]`) with a separate count.
 
 **ABI-encoded config → Anchor account data.** EVM modules `abi.decode(getBytesConfig(KEY), (T1, T2, T3))` in `finalizeModule()`. On Solana, the Factory passes a `Vec<u8>` of borsh-serialized config; modules `try_from_slice` it. Same shape — the encoding format swaps from ABI → Borsh.
 
-**Bit-flag ACLs → unchanged.** EVM `uint256 trustAcl` with `(acl >> flag) & 1` → Solana `u64 trust_acl` with the same bitwise check. Direct port.
+**Bit-flag ACLs → unchanged.** EVM `uint256 trustAcl` with `(acl >> flag) & 1` → Solana `u64 company_acl` with the same bitwise check. Direct port.
 
 **Role parent-walk DAG → bounded CPI traversal.** EVM uses inline assembly to walk parent role IDs. Solana walks PDAs with a hard depth cap (e.g. 8) per `assert_authority` ix; off-chain client provides the walk path as `remaining_accounts` so each parent role PDA is loaded exactly once.
 
 **Governance multiplexing → unchanged shape.** Proposal stores `governance_config_id`. Vote-power retrieval CPIs into `aeqi_token` (token mode) or `aeqi_role` (role-multisig mode) at `cast_vote` time using the proposal's snapshot `vote_start_slot`.
 
-**Two-phase init → unchanged shape.** Factory sequence: (1) deploy TRUST PDA, (2) for each module: create module-program PDA bound to TRUST + call `init`, (3) wire ACLs in TRUST, (4) call `finalize` on every module → it loads its config and validates. Module init guard via `initialized: u8` field on module PDA.
+**Two-phase init → unchanged shape.** Factory sequence: (1) deploy COMPANY PDA, (2) for each module: create module-program PDA bound to COMPANY + call `init`, (3) wire ACLs in COMPANY, (4) call `finalize` on every module → it loads its config and validates. Module init guard via `initialized: u8` field on module PDA.
 
 ### Module init/finalize ABI
 
 Every module program exposes:
 
 ```rust
-pub fn init(ctx: Context<InitModule>, trust: Pubkey) -> Result<()>;
+pub fn init(ctx: Context<InitModule>, company: Pubkey) -> Result<()>;
 pub fn finalize(ctx: Context<FinalizeModule>, config: Vec<u8>) -> Result<()>;
 ```
 
-`init` is called by the factory immediately after the module PDA is created; it stores the parent TRUST and sets `initialized=1`. `finalize` is called after all ACLs are wired; it borsh-deserializes the module-specific config struct and validates. Modules borsh-decode unconditionally — config absent or malformed = revert. Same gotcha as EVM.
+`init` is called by the factory immediately after the module PDA is created; it stores the parent COMPANY and sets `initialized=1`. `finalize` is called after all ACLs are wired; it borsh-deserializes the module-specific config struct and validates. Modules borsh-decode unconditionally — config absent or malformed = revert. Same gotcha as EVM.
 
 ### Indexer
 
-`aeqi-indexer` is rewritten for Solana — `programSubscribe` live tail per program ID, `getSignaturesForAddress` backfill, finalized-commitment projection for trust mutations + confirmed-tier for UI optimism. Self-hosted RPC by Phase 5.
+`aeqi-indexer` is rewritten for Solana — `programSubscribe` live tail per program ID, `getSignaturesForAddress` backfill, finalized-commitment projection for company mutations + confirmed-tier for UI optimism. Self-hosted RPC by Phase 5.
 
 ## Status
 
-- 2026-05-07: Repo scaffolded. `aeqi_trust` skeleton landing.
+- 2026-05-07: Repo scaffolded. `aeqi_company` skeleton landing.
 
 ## Audit
 

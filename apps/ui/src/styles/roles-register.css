@@ -1,6 +1,6 @@
 /* Roles register view polish kept out of the legacy roles megafile. */
 
-.trust-roles {
+.company-roles {
   --role-director: var(--state-review);
   --role-director-bg: var(--state-review-bg);
   --role-director-border: color-mix(in srgb, var(--state-review) 24%, transparent);
@@ -36,7 +36,7 @@
   transform: rotate(45deg) translateX(0);
 }
 
-.trust-roles-table {
+.company-roles-table {
   --table-separator: color-mix(
     in srgb,
     var(--color-border-faint) 68%,
@@ -44,29 +44,29 @@
   );
 }
 
-.trust-roles-table table thead th,
-.trust-roles-table [data-sticky-header="true"] table thead th {
+.company-roles-table table thead th,
+.company-roles-table [data-sticky-header="true"] table thead th {
   border-bottom: 1px solid var(--table-separator);
 }
 
-.trust-roles-canvas--list .trust-roles-scroll--list {
+.company-roles-canvas--list .company-roles-scroll--list {
   padding: 0;
 }
 
-.trust-roles-main--cards .trust-roles-workspace,
-.trust-roles-main--list .trust-roles-workspace {
+.company-roles-main--cards .company-roles-workspace,
+.company-roles-main--list .company-roles-workspace {
   flex: 0 0 auto;
   min-height: 0;
   overflow: visible;
 }
 
-.trust-roles-canvas--cards,
-.trust-roles-canvas--list {
+.company-roles-canvas--cards,
+.company-roles-canvas--list {
   min-height: auto;
 }
 
-.trust-roles-canvas--cards .trust-roles-scroll,
-.trust-roles-canvas--list .trust-roles-scroll {
+.company-roles-canvas--cards .company-roles-scroll,
+.company-roles-canvas--list .company-roles-scroll {
   flex: 0 0 auto;
   overflow: visible;
 }
@@ -96,15 +96,15 @@
 }
 
 @media (max-width: 720px) {
-  .trust-roles-content--cards,
-  .trust-roles-content--list {
+  .company-roles-content--cards,
+  .company-roles-content--list {
     flex: 0 0 auto;
     min-height: 0;
     overflow: visible;
   }
 
-  .trust-roles-canvas--cards,
-  .trust-roles-canvas--list {
+  .company-roles-canvas--cards,
+  .company-roles-canvas--list {
     overflow: visible;
   }
 
@@ -113,29 +113,29 @@
     padding: var(--space-3);
   }
 
-  .trust-roles-table [data-scroll-width="sm"] {
+  .company-roles-table [data-scroll-width="sm"] {
     overflow-x: visible;
   }
 
-  .trust-roles-table [data-scroll-width="sm"] table {
+  .company-roles-table [data-scroll-width="sm"] table {
     min-width: 0 !important;
   }
 
-  .trust-roles-table table col:nth-child(4),
-  .trust-roles-table table col:nth-child(5),
-  .trust-roles-table table thead th:nth-child(4),
-  .trust-roles-table table thead th:nth-child(5),
-  .trust-roles-table table tbody td:nth-child(4),
-  .trust-roles-table table tbody td:nth-child(5) {
+  .company-roles-table table col:nth-child(4),
+  .company-roles-table table col:nth-child(5),
+  .company-roles-table table thead th:nth-child(4),
+  .company-roles-table table thead th:nth-child(5),
+  .company-roles-table table tbody td:nth-child(4),
+  .company-roles-table table tbody td:nth-child(5) {
     display: none;
   }
 
-  .trust-roles-table table thead th,
-  .trust-roles-table table tbody td {
+  .company-roles-table table thead th,
+  .company-roles-table table tbody td {
     padding-inline: var(--space-3);
   }
 
-  .trust-roles-table table tbody td {
+  .company-roles-table table tbody td {
     height: auto;
     padding-block: 12px;
   }

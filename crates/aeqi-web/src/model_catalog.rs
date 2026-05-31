@@ -75,7 +75,7 @@ default_model = "{default_model}"
     fn hosted_deepseek_proxy_limits_catalog_to_flash_and_pro() {
         let config = config_with_openrouter(
             "deepseek/deepseek-v3.2",
-            Some("http://127.0.0.1:8443/api/llm/v1/tenants/trust-id"),
+            Some("http://127.0.0.1:8443/api/llm/v1/tenants/company-id"),
         );
 
         let policy = policy_for_config(&config);
@@ -101,7 +101,7 @@ default_model = "{default_model}"
     fn platform_proxy_with_non_deepseek_default_keeps_catalog_open() {
         let config = config_with_openrouter(
             "anthropic/claude-sonnet-4.6",
-            Some("http://127.0.0.1:8443/api/llm/v1/tenants/trust-id"),
+            Some("http://127.0.0.1:8443/api/llm/v1/tenants/company-id"),
         );
 
         let policy = policy_for_config(&config);

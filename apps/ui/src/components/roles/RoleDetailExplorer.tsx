@@ -88,7 +88,7 @@ export default function RoleDetailExplorer({
   const forest = buildRoleForest(roles, edges);
 
   return (
-    <aside className="quest-detail-rail trust-role-detail-explorer" aria-label="Role hierarchy">
+    <aside className="quest-detail-rail company-role-detail-explorer" aria-label="Role hierarchy">
       <header className="ideas-workspace-tree-head">
         <span>Explorer</span>
         <small>{roles.length} roles</small>

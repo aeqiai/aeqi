@@ -2,7 +2,7 @@ import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { AeqiGovernance } from "../target/types/aeqi_governance";
 import { AeqiToken } from "../target/types/aeqi_token";
-import { AeqiTrust } from "../target/types/aeqi_trust";
+import { AeqiCompany } from "../target/types/aeqi_company";
 import { PublicKey, Keypair } from "@solana/web3.js";
 import {
   TOKEN_2022_PROGRAM_ID,
@@ -12,7 +12,7 @@ import {
 } from "@solana/spl-token";
 import { expect } from "chai";
 import {
-  createTrust as createTestTrust,
+  createCompany as createTestCompany,
   expectTxFail,
   fundKeypair,
   SUITE_SEED_TAIL,
@@ -29,21 +29,21 @@ describe("aeqi_governance", () => {
   anchor.setProvider(provider);
 
   const program = anchor.workspace.aeqiGovernance as Program<AeqiGovernance>;
-  const trustProgram = anchor.workspace.aeqiTrust as Program<AeqiTrust>;
+  const trustProgram = anchor.workspace.aeqiCompany as Program<AeqiCompany>;
   const tokenProgram = anchor.workspace.aeqiToken as Program<AeqiToken>;
 
-  let fakeTrust: PublicKey;
+  let fakeCompany: PublicKey;
   let modulePda: PublicKey;
 
   before(async () => {
-    fakeTrust = await createTestTrust(
+    fakeCompany = await createTestCompany(
       provider,
       trustProgram,
       "aeqi-governance",
     );
 
     [modulePda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("gov_module"), fakeTrust.toBuffer()],
+      [Buffer.from("gov_module"), fakeCompany.toBuffer()],
       program.programId,
     );
   });
@@ -77,7 +77,7 @@ describe("aeqi_governance", () => {
         encodeTokenInitConfig(9, maxSupplyCap),
       )
       .accountsPartial({
-        trust: trustPda,
+        company: trustPda,
         config: tokenBytesConfigPda,
         sourceModule: null,
         authority: provider.wallet.publicKey,
@@ -88,31 +88,31 @@ describe("aeqi_governance", () => {
     await tokenProgram.methods
       .finalize()
       .accountsPartial({
-        trust: trustPda,
+        company: trustPda,
         moduleState: tokenModuleStatePda,
         bytesConfig: tokenBytesConfigPda,
       })
       .rpc();
   }
 
-  async function createTrust(seed0: number, seed1 = 0) {
-    const trustId = new Uint8Array(32);
-    trustId[0] = seed0;
-    trustId[1] = seed1;
+  async function createCompany(seed0: number, seed1 = 0) {
+    const companyId = new Uint8Array(32);
+    companyId[0] = seed0;
+    companyId[1] = seed1;
     // Fill bytes 2..32 with the per-invocation suite tail so this fixture
-    // produces a fresh trust PDA on every mocha run (ae-041). Within a
+    // produces a fresh company PDA on every mocha run (ae-041). Within a
     // single invocation the tail is constant, so different (seed0, seed1)
     // pairs still yield distinct PDAs as before.
-    trustId.set(SUITE_SEED_TAIL, 2);
+    companyId.set(SUITE_SEED_TAIL, 2);
     const [trustPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("trust"), Buffer.from(trustId)],
+      [Buffer.from("company"), Buffer.from(companyId)],
       trustProgram.programId,
     );
 
     await trustProgram.methods
-      .initialize(Array.from(trustId))
+      .initialize(Array.from(companyId))
       .accountsPartial({
-        trust: trustPda,
+        company: trustPda,
         authority: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
       })
@@ -155,7 +155,7 @@ describe("aeqi_governance", () => {
      * want to assert SnapshotNotCommitted. */
     skipSnapshotCommit?: boolean;
   }) {
-    const trustPda = await createTrust(args.seed0, args.seed1 ?? 0);
+    const trustPda = await createCompany(args.seed0, args.seed1 ?? 0);
 
     const [tokenModuleStatePda] = PublicKey.findProgramAddressSync(
       [Buffer.from("token_module"), trustPda.toBuffer()],
@@ -173,7 +173,7 @@ describe("aeqi_governance", () => {
     await tokenProgram.methods
       .init()
       .accountsPartial({
-        trust: trustPda,
+        company: trustPda,
         moduleState: tokenModuleStatePda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -184,7 +184,7 @@ describe("aeqi_governance", () => {
     await tokenProgram.methods
       .createMint(9)
       .accountsPartial({
-        trust: trustPda,
+        company: trustPda,
         moduleState: tokenModuleStatePda,
         mintAuthority: mintAuthorityPda,
         mint: mintPda,
@@ -219,7 +219,7 @@ describe("aeqi_governance", () => {
       await tokenProgram.methods
         .mintTokens(new anchor.BN(args.voteAmount))
         .accountsPartial({
-          trust: trustPda,
+          company: trustPda,
           moduleState: tokenModuleStatePda,
           mintAuthority: mintAuthorityPda,
           mint: mintPda,
@@ -254,7 +254,7 @@ describe("aeqi_governance", () => {
       await tokenProgram.methods
         .mintTokens(new anchor.BN(args.extraMintAmount ?? 0))
         .accountsPartial({
-          trust: trustPda,
+          company: trustPda,
           moduleState: tokenModuleStatePda,
           mintAuthority: mintAuthorityPda,
           mint: mintPda,
@@ -272,7 +272,7 @@ describe("aeqi_governance", () => {
     await program.methods
       .init()
       .accountsPartial({
-        trust: trustPda,
+        company: trustPda,
         moduleState: govModulePda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -293,7 +293,7 @@ describe("aeqi_governance", () => {
         allowEarlyEnact: args.allowEarlyEnact ?? true,
       })
       .accountsPartial({
-        trust: trustPda,
+        company: trustPda,
         moduleState: govModulePda,
         governanceConfig: cfgPda,
         payer: provider.wallet.publicKey,
@@ -316,7 +316,7 @@ describe("aeqi_governance", () => {
         Array.from(new Uint8Array(64)),
       )
       .accountsPartial({
-        trust: trustPda,
+        company: trustPda,
         moduleState: govModulePda,
         proposal: proposalPda,
         proposer: provider.wallet.publicKey,
@@ -395,7 +395,7 @@ describe("aeqi_governance", () => {
     await program.methods
       .init()
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         moduleState: modulePda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -403,19 +403,19 @@ describe("aeqi_governance", () => {
       .rpc();
 
     const m = await program.account.governanceModuleState.fetch(modulePda);
-    expect(m.trust.toBase58()).to.eq(fakeTrust.toBase58());
+    expect(m.company.toBase58()).to.eq(fakeCompany.toBase58());
     expect(m.proposalCount.toString()).to.eq("0");
     expect(m.configCount).to.eq(0);
   });
 
-  it("init rejects a payer that is not the trust authority", async () => {
-    const trust = await createTestTrust(
+  it("init rejects a payer that is not the company authority", async () => {
+    const company = await createTestCompany(
       provider,
       trustProgram,
       "aeqi-governance-unauthorized-init",
     );
     const [moduleStatePda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("gov_module"), trust.toBuffer()],
+      [Buffer.from("gov_module"), company.toBuffer()],
       program.programId,
     );
     const payer = await fundKeypair(provider);
@@ -425,7 +425,7 @@ describe("aeqi_governance", () => {
         program.methods
           .init()
           .accountsPartial({
-            trust,
+            company,
             moduleState: moduleStatePda,
             payer: payer.publicKey,
             systemProgram: anchor.web3.SystemProgram.programId,
@@ -442,7 +442,7 @@ describe("aeqi_governance", () => {
     const [cfgPda] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("gov_config"),
-        fakeTrust.toBuffer(),
+        fakeCompany.toBuffer(),
         Buffer.from(tokenConfigId),
       ],
       program.programId,
@@ -458,7 +458,7 @@ describe("aeqi_governance", () => {
         allowEarlyEnact: false,
       })
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         moduleState: modulePda,
         governanceConfig: cfgPda,
         payer: provider.wallet.publicKey,
@@ -472,20 +472,20 @@ describe("aeqi_governance", () => {
     expect(cfg.votingPeriod.toString()).to.eq("432000");
   });
 
-  it("register_config rejects a payer that is not the trust authority", async () => {
-    const trust = await createTestTrust(
+  it("register_config rejects a payer that is not the company authority", async () => {
+    const company = await createTestCompany(
       provider,
       trustProgram,
       "aeqi-governance-unauthorized-register-config",
     );
     const [moduleStatePda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("gov_module"), trust.toBuffer()],
+      [Buffer.from("gov_module"), company.toBuffer()],
       program.programId,
     );
     await program.methods
       .init()
       .accountsPartial({
-        trust,
+        company,
         moduleState: moduleStatePda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -495,7 +495,7 @@ describe("aeqi_governance", () => {
     const cfgId = new Uint8Array(32);
     cfgId[0] = 0x51;
     const [cfgPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("gov_config"), trust.toBuffer(), Buffer.from(cfgId)],
+      [Buffer.from("gov_config"), company.toBuffer(), Buffer.from(cfgId)],
       program.programId,
     );
     const payer = await fundKeypair(provider);
@@ -512,7 +512,7 @@ describe("aeqi_governance", () => {
             allowEarlyEnact: false,
           })
           .accountsPartial({
-            trust,
+            company,
             moduleState: moduleStatePda,
             governanceConfig: cfgPda,
             payer: payer.publicKey,
@@ -532,13 +532,13 @@ describe("aeqi_governance", () => {
     const [cfgPda] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("gov_config"),
-        fakeTrust.toBuffer(),
+        fakeCompany.toBuffer(),
         Buffer.from(tokenConfigId),
       ],
       program.programId,
     );
     const [proposalPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("proposal"), fakeTrust.toBuffer(), Buffer.from(proposalId)],
+      [Buffer.from("proposal"), fakeCompany.toBuffer(), Buffer.from(proposalId)],
       program.programId,
     );
 
@@ -551,7 +551,7 @@ describe("aeqi_governance", () => {
         Array.from(ipfsCid),
       )
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         moduleState: modulePda,
         proposal: proposalPda,
         proposer: provider.wallet.publicKey,
@@ -580,13 +580,13 @@ describe("aeqi_governance", () => {
     proposalId[0] = 0xab; // same proposal as previous test
 
     const [proposalPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("proposal"), fakeTrust.toBuffer(), Buffer.from(proposalId)],
+      [Buffer.from("proposal"), fakeCompany.toBuffer(), Buffer.from(proposalId)],
       program.programId,
     );
     const [votePda] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("vote"),
-        fakeTrust.toBuffer(),
+        fakeCompany.toBuffer(),
         Buffer.from(proposalId),
         provider.wallet.publicKey.toBuffer(),
       ],
@@ -663,7 +663,7 @@ describe("aeqi_governance", () => {
     cfgId[0] = 0xec;
 
     const [cfgPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("gov_config"), fakeTrust.toBuffer(), Buffer.from(cfgId)],
+      [Buffer.from("gov_config"), fakeCompany.toBuffer(), Buffer.from(cfgId)],
       program.programId,
     );
 
@@ -677,7 +677,7 @@ describe("aeqi_governance", () => {
         allowEarlyEnact: false,
       })
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         moduleState: modulePda,
         governanceConfig: cfgPda,
         payer: provider.wallet.publicKey,
@@ -691,7 +691,7 @@ describe("aeqi_governance", () => {
     wrongConfigId[0] = 0xad;
 
     const [proposalPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("proposal"), fakeTrust.toBuffer(), Buffer.from(proposalId)],
+      [Buffer.from("proposal"), fakeCompany.toBuffer(), Buffer.from(proposalId)],
       program.programId,
     );
 
@@ -704,7 +704,7 @@ describe("aeqi_governance", () => {
           Array.from(new Uint8Array(64)),
         )
         .accountsPartial({
-          trust: fakeTrust,
+          company: fakeCompany,
           moduleState: modulePda,
           proposal: proposalPda,
           proposer: provider.wallet.publicKey,
@@ -728,7 +728,7 @@ describe("aeqi_governance", () => {
     proposalId[1] = 0x01;
 
     const [proposalPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("proposal"), fakeTrust.toBuffer(), Buffer.from(proposalId)],
+      [Buffer.from("proposal"), fakeCompany.toBuffer(), Buffer.from(proposalId)],
       program.programId,
     );
 
@@ -741,7 +741,7 @@ describe("aeqi_governance", () => {
           Array.from(new Uint8Array(64)),
         )
         .accountsPartial({
-          trust: fakeTrust,
+          company: fakeCompany,
           moduleState: modulePda,
           proposal: proposalPda,
           proposer: provider.wallet.publicKey,
@@ -951,16 +951,16 @@ describe("aeqi_governance", () => {
 
   it("cast_vote_role reads weight from RoleVoteCheckpoint owned by aeqi_role", async () => {
     // Need an actual RoleVoteCheckpoint PDA — set one up by spinning up
-    // aeqi_role on a fresh trust, creating + assigning a role.
+    // aeqi_role on a fresh company, creating + assigning a role.
     const role = anchor.workspace.aeqiRole as anchor.Program<
       import("../target/types/aeqi_role").AeqiRole
     >;
 
-    const trustR = await createTrust(0xee);
+    const trustR = await createCompany(0xee);
     const directorTypeId = new Uint8Array(32);
     directorTypeId[0] = 0xc7;
 
-    // 1. init aeqi_role module on the trust
+    // 1. init aeqi_role module on the company
     const [roleModuleStatePda] = PublicKey.findProgramAddressSync(
       [Buffer.from("role_module"), trustR.toBuffer()],
       role.programId,
@@ -968,7 +968,7 @@ describe("aeqi_governance", () => {
     await role.methods
       .init()
       .accountsPartial({
-        trust: trustR,
+        company: trustR,
         moduleState: roleModuleStatePda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -997,7 +997,7 @@ describe("aeqi_governance", () => {
         contribution: false,
       })
       .accountsPartial({
-        trust: trustR,
+        company: trustR,
         roleType: rtPda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -1020,7 +1020,7 @@ describe("aeqi_governance", () => {
         Array.from(new Uint8Array(64)),
       )
       .accountsPartial({
-        trust: trustR,
+        company: trustR,
         roleType: rtPda,
         role: rolePda,
         callerRole: null,
@@ -1044,7 +1044,7 @@ describe("aeqi_governance", () => {
       .accountsPartial({
         role: rolePda,
         roleType: rtPda,
-        trust: trustR,
+        company: trustR,
         callerRole: null,
         checkpoint: checkpointPda,
         payer: provider.wallet.publicKey,
@@ -1060,7 +1060,7 @@ describe("aeqi_governance", () => {
     await program.methods
       .init()
       .accountsPartial({
-        trust: trustR,
+        company: trustR,
         moduleState: govModulePda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -1085,7 +1085,7 @@ describe("aeqi_governance", () => {
         allowEarlyEnact: true,
       })
       .accountsPartial({
-        trust: trustR,
+        company: trustR,
         moduleState: govModulePda,
         governanceConfig: cfgPda,
         payer: provider.wallet.publicKey,
@@ -1107,7 +1107,7 @@ describe("aeqi_governance", () => {
         Array.from(new Uint8Array(64)),
       )
       .accountsPartial({
-        trust: trustR,
+        company: trustR,
         moduleState: govModulePda,
         proposal: proposalPda,
         proposer: provider.wallet.publicKey,
@@ -1151,27 +1151,27 @@ describe("aeqi_governance", () => {
     // ae-008: full token-mode flow that exercises the new
     // snapshot-root commitment path against a real Token-2022 mint.
     // aeqi_token.create_mint gives the canonical mint at PDA
-    // [b"mint", trust]; aeqi_token.mint_tokens issues 1500 to voter;
+    // [b"mint", company]; aeqi_token.mint_tokens issues 1500 to voter;
     // we snapshot that balance into a Merkle tree, commit the root,
     // then cast_vote_token attests claimed_balance=1500 via inclusion
     // proof — same semantics as before the bug fix but no longer
     // vulnerable to transfer-and-revote.
     const aeqiToken = anchor.workspace.aeqiToken as anchor.Program<AeqiToken>;
-    const trustId = new Uint8Array(32);
-    trustId[0] = 0xf0;
-    trustId[1] = 0x01;
+    const companyId = new Uint8Array(32);
+    companyId[0] = 0xf0;
+    companyId[1] = 0x01;
     // Rotate bytes 2..32 per mocha invocation (ae-041) so re-running
     // against a persistent validator doesn't collide on this fixture's
-    // trust PDA.
-    trustId.set(SUITE_SEED_TAIL, 2);
+    // company PDA.
+    companyId.set(SUITE_SEED_TAIL, 2);
     const [trustV] = PublicKey.findProgramAddressSync(
-      [Buffer.from("trust"), Buffer.from(trustId)],
+      [Buffer.from("company"), Buffer.from(companyId)],
       trustProgram.programId,
     );
     await trustProgram.methods
-      .initialize(Array.from(trustId))
+      .initialize(Array.from(companyId))
       .accountsPartial({
-        trust: trustV,
+        company: trustV,
         authority: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
       })
@@ -1194,7 +1194,7 @@ describe("aeqi_governance", () => {
     await aeqiToken.methods
       .init()
       .accountsPartial({
-        trust: trustV,
+        company: trustV,
         moduleState: tokenModuleStatePda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -1205,7 +1205,7 @@ describe("aeqi_governance", () => {
     await aeqiToken.methods
       .createMint(9)
       .accountsPartial({
-        trust: trustV,
+        company: trustV,
         moduleState: tokenModuleStatePda,
         mintAuthority: mintAuthorityPda,
         mint: mintPda,
@@ -1238,7 +1238,7 @@ describe("aeqi_governance", () => {
     await aeqiToken.methods
       .mintTokens(new anchor.BN(1500))
       .accountsPartial({
-        trust: trustV,
+        company: trustV,
         moduleState: tokenModuleStatePda,
         mintAuthority: mintAuthorityPda,
         mint: mintPda,
@@ -1256,7 +1256,7 @@ describe("aeqi_governance", () => {
     await program.methods
       .init()
       .accountsPartial({
-        trust: trustV,
+        company: trustV,
         moduleState: moduleStatePda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -1278,7 +1278,7 @@ describe("aeqi_governance", () => {
         allowEarlyEnact: true,
       })
       .accountsPartial({
-        trust: trustV,
+        company: trustV,
         moduleState: moduleStatePda,
         governanceConfig: cfgPda,
         payer: provider.wallet.publicKey,
@@ -1299,7 +1299,7 @@ describe("aeqi_governance", () => {
         Array.from(new Uint8Array(64)),
       )
       .accountsPartial({
-        trust: trustV,
+        company: trustV,
         moduleState: moduleStatePda,
         proposal: proposalPda,
         proposer: provider.wallet.publicKey,
@@ -1637,7 +1637,7 @@ describe("aeqi_governance", () => {
       import("../target/types/aeqi_role").AeqiRole
     >;
 
-    const trustR = await createTrust(0xee, 0x03);
+    const trustR = await createCompany(0xee, 0x03);
     const directorTypeId = new Uint8Array(32);
     directorTypeId[0] = 0xc8;
 
@@ -1648,7 +1648,7 @@ describe("aeqi_governance", () => {
     await role.methods
       .init()
       .accountsPartial({
-        trust: trustR,
+        company: trustR,
         moduleState: roleModuleStatePda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -1676,7 +1676,7 @@ describe("aeqi_governance", () => {
         contribution: false,
       })
       .accountsPartial({
-        trust: trustR,
+        company: trustR,
         roleType: rtPda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -1699,7 +1699,7 @@ describe("aeqi_governance", () => {
         Array.from(new Uint8Array(64)),
       )
       .accountsPartial({
-        trust: trustR,
+        company: trustR,
         roleType: rtPda,
         role: rolePda1,
         callerRole: null,
@@ -1723,7 +1723,7 @@ describe("aeqi_governance", () => {
       .accountsPartial({
         role: rolePda1,
         roleType: rtPda,
-        trust: trustR,
+        company: trustR,
         callerRole: null,
         checkpoint: checkpointPda,
         payer: provider.wallet.publicKey,
@@ -1739,7 +1739,7 @@ describe("aeqi_governance", () => {
     await program.methods
       .init()
       .accountsPartial({
-        trust: trustR,
+        company: trustR,
         moduleState: govModulePda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -1764,7 +1764,7 @@ describe("aeqi_governance", () => {
         allowEarlyEnact: true,
       })
       .accountsPartial({
-        trust: trustR,
+        company: trustR,
         moduleState: govModulePda,
         governanceConfig: cfgPda,
         payer: provider.wallet.publicKey,
@@ -1786,7 +1786,7 @@ describe("aeqi_governance", () => {
         Array.from(new Uint8Array(64)),
       )
       .accountsPartial({
-        trust: trustR,
+        company: trustR,
         moduleState: govModulePda,
         proposal: proposalPda,
         proposer: provider.wallet.publicKey,
@@ -1828,7 +1828,7 @@ describe("aeqi_governance", () => {
         Array.from(new Uint8Array(64)),
       )
       .accountsPartial({
-        trust: trustR,
+        company: trustR,
         roleType: rtPda,
         role: rolePda2,
         callerRole: rolePda1,
@@ -1842,7 +1842,7 @@ describe("aeqi_governance", () => {
       .accountsPartial({
         role: rolePda2,
         roleType: rtPda,
-        trust: trustR,
+        company: trustR,
         callerRole: rolePda1,
         checkpoint: checkpointPda,
         payer: provider.wallet.publicKey,
@@ -1904,7 +1904,7 @@ describe("aeqi_governance", () => {
     cfgId[0] = 0xff; // distinct from previous tests' 0xee/0xed
 
     const [cfgPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("gov_config"), fakeTrust.toBuffer(), Buffer.from(cfgId)],
+      [Buffer.from("gov_config"), fakeCompany.toBuffer(), Buffer.from(cfgId)],
       program.programId,
     );
 
@@ -1920,7 +1920,7 @@ describe("aeqi_governance", () => {
           allowEarlyEnact: false,
         })
         .accountsPartial({
-          trust: fakeTrust,
+          company: fakeCompany,
           moduleState: modulePda,
           governanceConfig: cfgPda,
           payer: provider.wallet.publicKey,

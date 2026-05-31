@@ -11,12 +11,12 @@
 //!
 //! ## Auth model
 //!
-//! - **Reads** require `treasury.read` at the trust (entity).
+//! - **Reads** require `treasury.read` at the company (entity).
 //! - **Mutations** require the caller to occupy the budget's owner role
-//!   (or, for `pause_treasury` / `init_treasury_config`, the trust's
+//!   (or, for `pause_treasury` / `init_treasury_config`, the company's
 //!   `admin_role`). The caller's role is resolved by walking
-//!   `roles WHERE trust_id = trust AND occupant_kind = 'human' AND occupant_id = caller_user_id`.
-//!   When the caller occupies multiple roles in this trust the request
+//!   `roles WHERE company_id = company AND occupant_kind = 'human' AND occupant_id = caller_user_id`.
+//!   When the caller occupies multiple roles in this company the request
 //!   must include `as_role_id` to disambiguate.
 //! - `spend_inference` is reserved for the `treasury_config.inference_gateway`
 //!   agent — it is registered as `set_event_only` in `tools/mod.rs` so the
@@ -71,15 +71,15 @@ fn budget_error_response(err: anyhow::Error) -> serde_json::Value {
     }
 }
 
-/// Resolve the caller's acting role within a trust.
+/// Resolve the caller's acting role within a company.
 ///
 /// When `as_role_id` is present, validate the caller actually occupies it.
-/// Otherwise look up the unique role the caller occupies in this trust.
+/// Otherwise look up the unique role the caller occupies in this company.
 /// Multi-role callers without `as_role_id` get `EAmbiguousCallerRole` so
 /// their tool / UI can prompt for which chair they're acting from.
 async fn resolve_caller_role(
     ctx: &super::CommandContext,
-    trust_id: &str,
+    company_id: &str,
     caller_id: &str,
     request: &serde_json::Value,
 ) -> Result<String, serde_json::Value> {
@@ -91,10 +91,10 @@ async fn resolve_caller_role(
         }));
     }
 
-    // Pull every role this user occupies in this trust.
+    // Pull every role this user occupies in this company.
     let (roles, _edges) = match ctx
         .role_registry
-        .list_for_entity_with_grants(trust_id)
+        .list_for_entity_with_grants(company_id)
         .await
     {
         Ok(v) => v,
@@ -124,8 +124,8 @@ async fn resolve_caller_role(
     match occupied.len() {
         0 => Err(serde_json::json!({
             "ok": false,
-            "error": "caller has no role in this trust",
-            "code": "EAgentNotInTrust",
+            "error": "caller has no role in this company",
+            "code": "EAgentNotInCompany",
         })),
         1 => Ok(occupied.into_iter().next().unwrap()),
         _ => Err(serde_json::json!({
@@ -139,7 +139,7 @@ async fn resolve_caller_role(
 
 async fn require_treasury_read(
     ctx: &super::CommandContext,
-    trust_id: &str,
+    company_id: &str,
     caller_id: &str,
 ) -> Option<serde_json::Value> {
     if caller_id.is_empty() {
@@ -151,7 +151,7 @@ async fn require_treasury_read(
     }
     match ctx
         .role_registry
-        .user_has_grant(trust_id, caller_id, GRANT_TREASURY_READ)
+        .user_has_grant(company_id, caller_id, GRANT_TREASURY_READ)
         .await
     {
         Ok(true) => None,
@@ -183,17 +183,17 @@ pub async fn handle_list_budgets(
     request: &serde_json::Value,
     allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let trust_id = match super::request_field(request, "trust_id")
-        .or_else(|| super::request_field(request, "trust_id"))
+    let company_id = match super::request_field(request, "company_id")
+        .or_else(|| super::request_field(request, "company_id"))
     {
         Some(s) => s.to_string(),
-        None => return serde_json::json!({"ok": false, "error": "trust_id is required"}),
+        None => return serde_json::json!({"ok": false, "error": "company_id is required"}),
     };
-    if allowed.is_some() && !is_allowed(allowed, &trust_id) {
+    if allowed.is_some() && !is_allowed(allowed, &company_id) {
         return serde_json::json!({"ok": false, "error": "access denied"});
     }
     let caller = caller_user_id(request).to_string();
-    if let Some(err) = require_treasury_read(ctx, &trust_id, &caller).await {
+    if let Some(err) = require_treasury_read(ctx, &company_id, &caller).await {
         return err;
     }
 
@@ -208,7 +208,7 @@ pub async fn handle_list_budgets(
     let only_primary = request.get("is_primary").and_then(|v| v.as_bool());
 
     match registry(ctx)
-        .list_budgets(&trust_id, owner, parent, only_primary)
+        .list_budgets(&company_id, owner, parent, only_primary)
         .await
     {
         Ok(budgets) => serde_json::json!({"ok": true, "budgets": budgets}),
@@ -240,7 +240,7 @@ pub async fn handle_get_budget(
         Err(e) => return budget_error_response(e),
     };
 
-    if let Some(err) = require_treasury_read(ctx, &budget.trust_id, &caller).await {
+    if let Some(err) = require_treasury_read(ctx, &budget.company_id, &caller).await {
         return err;
     }
 
@@ -260,20 +260,20 @@ pub async fn handle_budget_tree(
     request: &serde_json::Value,
     allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let trust_id = match super::request_field(request, "trust_id")
-        .or_else(|| super::request_field(request, "trust_id"))
+    let company_id = match super::request_field(request, "company_id")
+        .or_else(|| super::request_field(request, "company_id"))
     {
         Some(s) => s.to_string(),
-        None => return serde_json::json!({"ok": false, "error": "trust_id is required"}),
+        None => return serde_json::json!({"ok": false, "error": "company_id is required"}),
     };
-    if allowed.is_some() && !is_allowed(allowed, &trust_id) {
+    if allowed.is_some() && !is_allowed(allowed, &company_id) {
         return serde_json::json!({"ok": false, "error": "access denied"});
     }
     let caller = caller_user_id(request).to_string();
-    if let Some(err) = require_treasury_read(ctx, &trust_id, &caller).await {
+    if let Some(err) = require_treasury_read(ctx, &company_id, &caller).await {
         return err;
     }
-    match registry(ctx).budget_tree(&trust_id).await {
+    match registry(ctx).budget_tree(&company_id).await {
         Ok(tree) => serde_json::json!({"ok": true, "tree": tree}),
         Err(e) => budget_error_response(e),
     }
@@ -300,7 +300,7 @@ pub async fn handle_get_allowance(
             });
         }
     };
-    if let Some(err) = require_treasury_read(ctx, &budget.trust_id, &caller).await {
+    if let Some(err) = require_treasury_read(ctx, &budget.company_id, &caller).await {
         return err;
     }
     match budgets.current_allowance(&id).await {
@@ -330,7 +330,7 @@ pub async fn handle_allowance_history(
             });
         }
     };
-    if let Some(err) = require_treasury_read(ctx, &budget.trust_id, &caller).await {
+    if let Some(err) = require_treasury_read(ctx, &budget.company_id, &caller).await {
         return err;
     }
 
@@ -357,18 +357,18 @@ pub async fn handle_create_budget(
     request: &serde_json::Value,
     allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let trust_id = match super::request_field(request, "trust_id")
-        .or_else(|| super::request_field(request, "trust_id"))
+    let company_id = match super::request_field(request, "company_id")
+        .or_else(|| super::request_field(request, "company_id"))
     {
         Some(s) => s.to_string(),
-        None => return serde_json::json!({"ok": false, "error": "trust_id is required"}),
+        None => return serde_json::json!({"ok": false, "error": "company_id is required"}),
     };
-    if allowed.is_some() && !is_allowed(allowed, &trust_id) {
+    if allowed.is_some() && !is_allowed(allowed, &company_id) {
         return serde_json::json!({"ok": false, "error": "access denied"});
     }
 
     let caller_id = caller_user_id(request).to_string();
-    let caller_role = match resolve_caller_role(ctx, &trust_id, &caller_id, request).await {
+    let caller_role = match resolve_caller_role(ctx, &company_id, &caller_id, request).await {
         Ok(r) => r,
         Err(e) => return e,
     };
@@ -393,7 +393,7 @@ pub async fn handle_create_budget(
 
     match registry(ctx)
         .create_budget(
-            &trust_id,
+            &company_id,
             parent,
             &owner_role_id,
             &name,
@@ -437,7 +437,7 @@ pub async fn handle_allocate_allowance(
     };
     let caller_id = caller_user_id(request).to_string();
     let caller_role =
-        match resolve_caller_role(ctx, &parent_budget.trust_id, &caller_id, request).await {
+        match resolve_caller_role(ctx, &parent_budget.company_id, &caller_id, request).await {
             Ok(r) => r,
             Err(e) => return e,
         };
@@ -518,7 +518,8 @@ pub async fn handle_set_policy(
         }
     };
     let caller_id = caller_user_id(request).to_string();
-    let caller_role = match resolve_caller_role(ctx, &budget.trust_id, &caller_id, request).await {
+    let caller_role = match resolve_caller_role(ctx, &budget.company_id, &caller_id, request).await
+    {
         Ok(r) => r,
         Err(e) => return e,
     };
@@ -574,7 +575,8 @@ pub async fn handle_spend_treasury(
         }
     };
     let caller_id = caller_user_id(request).to_string();
-    let caller_role = match resolve_caller_role(ctx, &budget.trust_id, &caller_id, request).await {
+    let caller_role = match resolve_caller_role(ctx, &budget.company_id, &caller_id, request).await
+    {
         Ok(r) => r,
         Err(e) => return e,
     };
@@ -600,7 +602,7 @@ pub async fn handle_spend_treasury(
 /// agent. Registered as `set_event_only` in `tools/mod.rs`. The IPC
 /// surface validates the gateway identity by passing `caller_agent_id`
 /// through to `BudgetRegistry::spend_inference` which checks against the
-/// trust config row.
+/// company config row.
 pub async fn handle_spend_inference(
     ctx: &super::CommandContext,
     request: &serde_json::Value,
@@ -678,7 +680,7 @@ pub async fn handle_hire_role(
     };
     let caller_id = caller_user_id(request).to_string();
     let caller_role =
-        match resolve_caller_role(ctx, &parent_budget.trust_id, &caller_id, request).await {
+        match resolve_caller_role(ctx, &parent_budget.company_id, &caller_id, request).await {
             Ok(r) => r,
             Err(e) => return e,
         };
@@ -740,7 +742,8 @@ pub async fn handle_dissolve_budget(
         }
     };
     let caller_id = caller_user_id(request).to_string();
-    let caller_role = match resolve_caller_role(ctx, &budget.trust_id, &caller_id, request).await {
+    let caller_role = match resolve_caller_role(ctx, &budget.company_id, &caller_id, request).await
+    {
         Ok(r) => r,
         Err(e) => return e,
     };
@@ -763,13 +766,13 @@ pub async fn handle_pause_treasury(
     request: &serde_json::Value,
     allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let trust_id = match super::request_field(request, "trust_id")
-        .or_else(|| super::request_field(request, "trust_id"))
+    let company_id = match super::request_field(request, "company_id")
+        .or_else(|| super::request_field(request, "company_id"))
     {
         Some(s) => s.to_string(),
-        None => return serde_json::json!({"ok": false, "error": "trust_id is required"}),
+        None => return serde_json::json!({"ok": false, "error": "company_id is required"}),
     };
-    if allowed.is_some() && !is_allowed(allowed, &trust_id) {
+    if allowed.is_some() && !is_allowed(allowed, &company_id) {
         return serde_json::json!({"ok": false, "error": "access denied"});
     }
     let paused = request
@@ -777,12 +780,12 @@ pub async fn handle_pause_treasury(
         .and_then(|v| v.as_bool())
         .unwrap_or(true);
     let caller_id = caller_user_id(request).to_string();
-    let caller_role = match resolve_caller_role(ctx, &trust_id, &caller_id, request).await {
+    let caller_role = match resolve_caller_role(ctx, &company_id, &caller_id, request).await {
         Ok(r) => r,
         Err(e) => return e,
     };
     match registry(ctx)
-        .set_pause(&trust_id, paused, &caller_role, caller_agent_id(request))
+        .set_pause(&company_id, paused, &caller_role, caller_agent_id(request))
         .await
     {
         Ok(()) => serde_json::json!({"ok": true, "paused": paused}),
@@ -795,13 +798,13 @@ pub async fn handle_init_treasury_config(
     request: &serde_json::Value,
     allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let trust_id = match super::request_field(request, "trust_id")
-        .or_else(|| super::request_field(request, "trust_id"))
+    let company_id = match super::request_field(request, "company_id")
+        .or_else(|| super::request_field(request, "company_id"))
     {
         Some(s) => s.to_string(),
-        None => return serde_json::json!({"ok": false, "error": "trust_id is required"}),
+        None => return serde_json::json!({"ok": false, "error": "company_id is required"}),
     };
-    if allowed.is_some() && !is_allowed(allowed, &trust_id) {
+    if allowed.is_some() && !is_allowed(allowed, &company_id) {
         return serde_json::json!({"ok": false, "error": "access denied"});
     }
     let gateway = match super::request_field(request, "inference_gateway") {
@@ -817,7 +820,7 @@ pub async fn handle_init_treasury_config(
         Some(s) => s.to_string(),
         None => return serde_json::json!({"ok": false, "error": "admin_role_id is required"}),
     };
-    // Caller must hold roles.manage on the trust to call this — admin role
+    // Caller must hold roles.manage on the company to call this — admin role
     // bootstrapping is administrative.
     let caller_id = caller_user_id(request).to_string();
     if caller_id.is_empty() {
@@ -830,7 +833,7 @@ pub async fn handle_init_treasury_config(
     match ctx
         .role_registry
         .user_has_grant(
-            &trust_id,
+            &company_id,
             &caller_id,
             crate::role_registry::GRANT_ROLES_MANAGE,
         )
@@ -848,7 +851,7 @@ pub async fn handle_init_treasury_config(
     }
 
     match registry(ctx)
-        .init_treasury_config(&trust_id, &gateway, &admin)
+        .init_treasury_config(&company_id, &gateway, &admin)
         .await
     {
         Ok(()) => serde_json::json!({"ok": true}),

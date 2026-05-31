@@ -28,6 +28,7 @@ dependencies = [
 name = "aeqi"
 version = "0.15.0"
 dependencies = [
+ "aeqi-company",
  "aeqi-core",
  "aeqi-gates",
  "aeqi-graph",
@@ -37,7 +38,6 @@ dependencies = [
  "aeqi-quests",
  "aeqi-redact",
  "aeqi-tools",
- "aeqi-trust",
  "aeqi-web",
  "anyhow",
  "chrono",
@@ -73,6 +73,16 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "aeqi-company"
+version = "0.15.0"
+dependencies = [
+ "hex",
+ "serde",
+ "sha2 0.11.0",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -447,16 +457,6 @@ dependencies = [
  "tokio",
  "tracing",
  "uuid",
-]
-
-[[package]]
-name = "aeqi-trust"
-version = "0.15.0"
-dependencies = [
- "hex",
- "serde",
- "sha2 0.11.0",
- "thiserror 2.0.18",
 ]
 
 [[package]]

@@ -39,7 +39,7 @@ export type CredentialStatus =
 
 export interface CredentialView {
   id: string;
-  scope_kind: "global" | "trust" | "agent" | "user" | "channel" | "installation";
+  scope_kind: "global" | "company" | "agent" | "user" | "channel" | "installation";
   scope_id: string;
   provider: string;
   name: string;
@@ -81,10 +81,10 @@ export interface AgentGoogleStatusResponse {
 
 export type AgentGithubStartResponse = AgentGoogleStartResponse;
 export type AgentGithubStatusResponse = AgentGoogleStatusResponse;
-export type TrustGoogleStartResponse = AgentGoogleStartResponse;
-export type TrustGoogleStatusResponse = AgentGoogleStatusResponse;
-export type TrustEtsyStartResponse = AgentGoogleStartResponse;
-export type TrustEtsyStatusResponse = AgentGoogleStatusResponse;
+export type CompanyGoogleStartResponse = AgentGoogleStartResponse;
+export type CompanyGoogleStatusResponse = AgentGoogleStatusResponse;
+export type CompanyEtsyStartResponse = AgentGoogleStartResponse;
+export type CompanyEtsyStatusResponse = AgentGoogleStatusResponse;
 
 // ── API ──────────────────────────────────────────────────────────────────
 
@@ -129,20 +129,20 @@ export const integrationsApi = {
     return apiRequest(`/agents/${encodeURIComponent(agentId)}/integrations/google/status`);
   },
 
-  startTrustGoogle(trustId: string): Promise<TrustGoogleStartResponse> {
-    return apiRequest(`/trust/${encodeURIComponent(trustId)}/apps/google/start`);
+  startCompanyGoogle(companyId: string): Promise<CompanyGoogleStartResponse> {
+    return apiRequest(`/company/${encodeURIComponent(companyId)}/apps/google/start`);
   },
 
-  getTrustGoogleStatus(trustId: string): Promise<TrustGoogleStatusResponse> {
-    return apiRequest(`/trust/${encodeURIComponent(trustId)}/apps/google/status`);
+  getCompanyGoogleStatus(companyId: string): Promise<CompanyGoogleStatusResponse> {
+    return apiRequest(`/company/${encodeURIComponent(companyId)}/apps/google/status`);
   },
 
-  startTrustEtsy(trustId: string): Promise<TrustEtsyStartResponse> {
-    return apiRequest(`/trust/${encodeURIComponent(trustId)}/apps/etsy/start`);
+  startCompanyEtsy(companyId: string): Promise<CompanyEtsyStartResponse> {
+    return apiRequest(`/company/${encodeURIComponent(companyId)}/apps/etsy/start`);
   },
 
-  getTrustEtsyStatus(trustId: string): Promise<TrustEtsyStatusResponse> {
-    return apiRequest(`/trust/${encodeURIComponent(trustId)}/apps/etsy/status`);
+  getCompanyEtsyStatus(companyId: string): Promise<CompanyEtsyStatusResponse> {
+    return apiRequest(`/company/${encodeURIComponent(companyId)}/apps/etsy/status`);
   },
 
   startAgentGithub(agentId: string): Promise<AgentGithubStartResponse> {

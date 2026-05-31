@@ -94,7 +94,7 @@ export default function RolesChart({
   // anchored to .roles-chart-stack.
   //
   // When the data has explicit director→operational edges, draw those.
-  // When it doesn't (very common — Foundation TRUSTs rarely encode the
+  // When it doesn't (very common — Foundation Companies rarely encode the
   // board-governs-leadership relation as an edge), synthesize
   // a connection from each director to each operational APEX role
   // (roles with no operational parent). The relationship is structural,

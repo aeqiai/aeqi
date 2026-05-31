@@ -2,10 +2,10 @@
 
 ## Start here
 
-- Existing hosted TRUST: a TRUST is the shared AI workspace and runtime for one
+- Existing hosted COMPANY: a COMPANY is the shared AI workspace and runtime for one
   mission. Install the CLI, set `AEQI_API_KEY`, and use `aeqi chat`; use
   [mcp-setup.md](mcp-setup.md) to connect Codex, Claude Code, editors, or
-  other MCP clients to the same TRUST runtime.
+  other MCP clients to the same COMPANY runtime.
 - [quickstart.md](quickstart.md) — install, set up, run the daemon/dashboard,
   and create a first useful quest.
 - [self-hosting.md](self-hosting.md) — honest operator guide for running your own runtime.
@@ -15,7 +15,7 @@
 - [onboarding-excellence-loop.md](onboarding-excellence-loop.md) — repeatable
   operator/contributor loop for improving setup paths with evidence.
 - [vision.md](vision.md) — product north star and design principles.
-- [primitive-contract.md](primitive-contract.md) — canonical TRUST, roles,
+- [primitive-contract.md](primitive-contract.md) — canonical COMPANY, roles,
   agents, quests, ideas, events, sessions, and apps/tools vocabulary.
 - [product-contract.md](product-contract.md) — shared runtime vocabulary and UX rules.
 - [agent-runtime-bar.md](agent-runtime-bar.md) — competitive product bar for
@@ -26,14 +26,14 @@
 - [deployment.md](deployment.md) — production topology, systemd, reverse proxy.
 - [runtime-platform-separation.md](runtime-platform-separation.md) — source-available runtime vs hosted platform.
 - [mcp-setup.md](mcp-setup.md) — wire hosted or self-hosted aeqi into an MCP-aware client.
-- [solana-trust-handover.md](solana-trust-handover.md) — current Solana trust MVP state and next-step plan.
+- [solana-company-handover.md](solana-company-handover.md) — current Solana company MVP state and next-step plan.
 
 ## Build with aeqi
 
 - [architecture.md](architecture.md) — system map, crates, primitive contract, agent loop.
 - [extension-plane.md](extension-plane.md) — runtime capability registry,
   typed event triggers, namespaces, and owner-token lifecycle.
-- [operate-console.md](operate-console.md) — TRUST-scoped observability spine
+- [operate-console.md](operate-console.md) — COMPANY-scoped observability spine
   for sessions, quests, events, tool calls, queues, and runtime health.
 - [context-injection.md](context-injection.md) — how agent input context is assembled per quest.
 - [agent-loop-parity.md](agent-loop-parity.md) — comparison with Claude Code's agent loop.

@@ -14,7 +14,7 @@ Use this file to start a fresh session on the Solana protocol work.
 
 - `aeqi_governance`
   - `propose` and `execute_proposal` now validate config via a shared loader.
-  - the loader checks PDA address, owner, Anchor discriminator, embedded trust,
+  - the loader checks PDA address, owner, Anchor discriminator, embedded company,
     and `governance_config_id`.
   - config mismatches surface as `ConfigMismatch`.
   - generic caller-supplied vote weights are disabled with
@@ -27,12 +27,12 @@ Use this file to start a fresh session on the Solana protocol work.
   - missing config `remainingAccounts` are covered on both `propose` and
     `execute_proposal`.
   - Rust loader tests cover wrong discriminator, truncated body, and embedded
-    trust mismatch.
+    company mismatch.
 - `aeqi_token`
   - token CPI entrypoints now require the Token-2022 program explicitly.
   - `create_mint` rejects the legacy SPL Token program with `InvalidTokenProgram`.
-  - `mint_tokens` now requires a real `aeqi_trust::Trust` account, verifies the
-    token module is bound to that TRUST, and requires the TRUST authority signer
+  - `mint_tokens` now requires a real `aeqi_company::Company` account, verifies the
+    token module is bound to that COMPANY, and requires the COMPANY authority signer
     before the program PDA mints cap-table tokens.
 - `aeqi_role`
   - `create_role` no longer permits arbitrary child-role creation without an
@@ -43,7 +43,7 @@ Use this file to start a fresh session on the Solana protocol work.
   - root-role bootstrap without `caller_role` is limited to the first role for
     that role type.
   - caller roles must be occupied, held by the payer, and bound to the same
-    trust before their authority walk can create child roles.
+    company before their authority walk can create child roles.
 - `aeqi_fund`
   - `deposit`, `redeem`, and `claim_carry` now require the passed `quote_mint`
     to match the fund's configured quote mint.
@@ -55,7 +55,7 @@ Use this file to start a fresh session on the Solana protocol work.
   - arbitrary signer quota-burning is covered with an adversarial spend test.
 - `aeqi_funding`
   - funding requests and activation paths now require a real `aeqi_budget`
-    account matching the request's trust and budget id.
+    account matching the request's company and budget id.
   - frozen, expired, or under-capacity budgets reject request creation or
     activation before a Unifutures primitive is created.
 
@@ -63,7 +63,7 @@ Use this file to start a fresh session on the Solana protocol work.
 
 1. Replace budget capacity checks with an actual budget spend/reservation CPI
    once the settlement path is ready.
-2. Replace the temporary TRUST-authority mint bridge with a governance/module
+2. Replace the temporary COMPANY-authority mint bridge with a governance/module
    ACL mint execution path once proposal execution is wired to module actions.
 3. Keep the Solana code readable and audit-friendly.
 

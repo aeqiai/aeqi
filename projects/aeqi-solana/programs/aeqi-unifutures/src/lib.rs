@@ -15,7 +15,7 @@
 // lints. Keep this crate's warning output focused on protocol code.
 #![allow(deprecated, unexpected_cfgs)]
 
-use aeqi_trust::state::Trust;
+use aeqi_company::state::Company;
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token_interface::{
@@ -29,25 +29,25 @@ pub use curve::CurveType;
 
 declare_id!("CAz7bt2gLYTe3VUZ4xEyF8AA8syth4NkUKb5c1NRq8JF");
 
-/// aeqi_trust program id — used for cross-program PDA derivation so module
-/// setup paths cannot accept arbitrary trust pubkeys.
-pub const AEQI_TRUST_ID: Pubkey =
+/// aeqi_company program id — used for cross-program PDA derivation so module
+/// setup paths cannot accept arbitrary company pubkeys.
+pub const AEQI_COMPANY_ID: Pubkey =
     anchor_lang::pubkey!("CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV");
 
 #[program]
 pub mod aeqi_unifutures {
     use super::*;
 
-    /// Module init — creates UnifuturesModuleState PDA bound to a trust.
-    /// Gated to the trust authority during creation mode so the
+    /// Module init — creates UnifuturesModuleState PDA bound to a company.
+    /// Gated to the company authority during creation mode so the
     /// module_state PDA cannot be squatted by an attacker.
     pub fn init(ctx: Context<InitUnifutures>) -> Result<()> {
-        let trust = &ctx.accounts.trust;
-        require!(trust.creation_mode, UnifuturesError::TrustNotInCreationMode);
-        require_keys_eq!(ctx.accounts.payer.key(), trust.authority, UnifuturesError::Unauthorized);
+        let company = &ctx.accounts.company;
+        require!(company.creation_mode, UnifuturesError::CompanyNotInCreationMode);
+        require_keys_eq!(ctx.accounts.payer.key(), company.authority, UnifuturesError::Unauthorized);
 
         let m = &mut ctx.accounts.module_state;
-        m.trust = ctx.accounts.trust.key();
+        m.company = ctx.accounts.company.key();
         m.curve_count = 0;
         m.bump = ctx.bumps.module_state;
         m.pool_count = 0;
@@ -76,7 +76,7 @@ pub mod aeqi_unifutures {
             .ok_or_else(|| error!(UnifuturesError::InvalidCurveType))?;
 
         let c = &mut ctx.accounts.curve;
-        c.trust = ctx.accounts.trust.key();
+        c.company = ctx.accounts.company.key();
         c.curve_id = curve_id;
         c.creator = ctx.accounts.creator.key();
         c.asset_mint = ctx.accounts.asset_mint.key();
@@ -96,7 +96,7 @@ pub mod aeqi_unifutures {
             m.curve_count.checked_add(1).ok_or(error!(UnifuturesError::MathOverflow))?;
 
         emit!(CurveCreated {
-            trust: c.trust,
+            company: c.company,
             curve_id,
             creator: c.creator,
             asset_mint: c.asset_mint,
@@ -123,7 +123,7 @@ pub mod aeqi_unifutures {
         require!(fee_bps < 10_000, UnifuturesError::InvalidFeeBps);
 
         let p = &mut ctx.accounts.pool;
-        p.trust = ctx.accounts.trust.key();
+        p.company = ctx.accounts.company.key();
         p.pool_id = pool_id;
         p.base_mint = ctx.accounts.base_mint.key();
         p.quote_mint = ctx.accounts.quote_mint.key();
@@ -137,7 +137,7 @@ pub mod aeqi_unifutures {
         p.bump = ctx.bumps.pool;
 
         emit!(LiquidityPoolCreated {
-            trust: p.trust,
+            company: p.company,
             pool_id,
             base_mint: p.base_mint,
             quote_mint: p.quote_mint,
@@ -212,11 +212,11 @@ pub mod aeqi_unifutures {
             ctx.accounts.quote_mint.decimals,
         )?;
 
-        let trust_key = p.trust;
+        let company_key = p.company;
         let pool_id_bytes = p.pool_id;
         let bump = ctx.bumps.pool_authority;
         let seeds: &[&[&[u8]]] =
-            &[&[b"liquidity_pool_authority", trust_key.as_ref(), pool_id_bytes.as_ref(), &[bump]]];
+            &[&[b"liquidity_pool_authority", company_key.as_ref(), pool_id_bytes.as_ref(), &[bump]]];
         let mint_lp = MintTo {
             mint: ctx.accounts.lp_mint.to_account_info(),
             to: ctx.accounts.provider_lp_ta.to_account_info(),
@@ -243,7 +243,7 @@ pub mod aeqi_unifutures {
             p.lp_supply.checked_add(quote.lp_out).ok_or(error!(UnifuturesError::MathOverflow))?;
 
         emit!(LiquidityAdded {
-            trust: p.trust,
+            company: p.company,
             pool_id: p.pool_id,
             provider: ctx.accounts.provider.key(),
             base_used: quote.base_used,
@@ -289,11 +289,11 @@ pub mod aeqi_unifutures {
         };
         burn(CpiContext::new(ctx.accounts.token_program.to_account_info(), burn_lp), lp_amount)?;
 
-        let trust_key = p.trust;
+        let company_key = p.company;
         let pool_id_bytes = p.pool_id;
         let bump = ctx.bumps.pool_authority;
         let seeds: &[&[&[u8]]] =
-            &[&[b"liquidity_pool_authority", trust_key.as_ref(), pool_id_bytes.as_ref(), &[bump]]];
+            &[&[b"liquidity_pool_authority", company_key.as_ref(), pool_id_bytes.as_ref(), &[bump]]];
 
         let transfer_base = TransferChecked {
             from: ctx.accounts.base_vault.to_account_info(),
@@ -341,7 +341,7 @@ pub mod aeqi_unifutures {
             .ok_or(error!(UnifuturesError::InsufficientLiquidity))?;
 
         emit!(LiquidityRemoved {
-            trust: p.trust,
+            company: p.company,
             pool_id: p.pool_id,
             provider: ctx.accounts.provider.key(),
             lp_burned: lp_amount,
@@ -400,12 +400,12 @@ pub mod aeqi_unifutures {
                     ctx.accounts.base_mint.decimals,
                 )?;
 
-                let trust_key = p.trust;
+                let company_key = p.company;
                 let pool_id_bytes = p.pool_id;
                 let bump = ctx.bumps.pool_authority;
                 let seeds: &[&[&[u8]]] = &[&[
                     b"liquidity_pool_authority",
-                    trust_key.as_ref(),
+                    company_key.as_ref(),
                     pool_id_bytes.as_ref(),
                     &[bump],
                 ]];
@@ -447,12 +447,12 @@ pub mod aeqi_unifutures {
                     ctx.accounts.quote_mint.decimals,
                 )?;
 
-                let trust_key = p.trust;
+                let company_key = p.company;
                 let pool_id_bytes = p.pool_id;
                 let bump = ctx.bumps.pool_authority;
                 let seeds: &[&[&[u8]]] = &[&[
                     b"liquidity_pool_authority",
-                    trust_key.as_ref(),
+                    company_key.as_ref(),
                     pool_id_bytes.as_ref(),
                     &[bump],
                 ]];
@@ -484,7 +484,7 @@ pub mod aeqi_unifutures {
         }
 
         emit!(SwapExecuted {
-            trust: p.trust,
+            company: p.company,
             pool_id: p.pool_id,
             trader: ctx.accounts.trader.key(),
             direction,
@@ -510,7 +510,7 @@ pub mod aeqi_unifutures {
 
         s.status = SaleStatus::Completed as u8;
         emit!(SaleFinalized {
-            trust: s.trust,
+            company: s.company,
             sale_id: s.sale_id,
             proceeds_collected: s.proceeds_collected,
             commitments_collected: s.commitments_collected,
@@ -540,11 +540,11 @@ pub mod aeqi_unifutures {
         require!(allocation > 0, UnifuturesError::ShareTooSmall);
 
         // PDA-signed transfer from sale_asset_vault → buyer_asset_ta
-        let trust_key = s.trust;
+        let company_key = s.company;
         let sale_id_bytes = s.sale_id;
         let bump = ctx.bumps.sale_authority;
         let seeds: &[&[&[u8]]] =
-            &[&[b"sale_authority", trust_key.as_ref(), sale_id_bytes.as_ref(), &[bump]]];
+            &[&[b"sale_authority", company_key.as_ref(), sale_id_bytes.as_ref(), &[bump]]];
         let cpi = TransferChecked {
             from: ctx.accounts.sale_asset_vault.to_account_info(),
             mint: ctx.accounts.asset_mint.to_account_info(),
@@ -560,7 +560,7 @@ pub mod aeqi_unifutures {
         // Zero the commitment so it can't be claimed twice.
         c.amount = 0;
 
-        emit!(AllocationClaimed { trust: s.trust, sale_id: s.sale_id, buyer: c.buyer, allocation });
+        emit!(AllocationClaimed { company: s.company, sale_id: s.sale_id, buyer: c.buyer, allocation });
         Ok(())
     }
 
@@ -589,7 +589,7 @@ pub mod aeqi_unifutures {
         e.proceeds_collected = e.exit_quote;
 
         emit!(ExitSettled {
-            trust: e.trust,
+            company: e.company,
             exit_id: e.exit_id,
             creator: e.creator,
             exit_quote: e.exit_quote,
@@ -635,11 +635,11 @@ pub mod aeqi_unifutures {
         burn(CpiContext::new(ctx.accounts.token_program.to_account_info(), burn_cpi), burn_amount)?;
 
         // 2. Exit vault → holder (exit_authority PDA signs)
-        let trust_key = e.trust;
+        let company_key = e.company;
         let exit_id_bytes = e.exit_id;
         let bump = ctx.bumps.exit_authority;
         let seeds: &[&[&[u8]]] =
-            &[&[b"exit_authority", trust_key.as_ref(), exit_id_bytes.as_ref(), &[bump]]];
+            &[&[b"exit_authority", company_key.as_ref(), exit_id_bytes.as_ref(), &[bump]]];
         let cpi = TransferChecked {
             from: ctx.accounts.exit_quote_vault.to_account_info(),
             mint: ctx.accounts.quote_mint.to_account_info(),
@@ -657,7 +657,7 @@ pub mod aeqi_unifutures {
             e.remaining_proceeds.checked_sub(share).ok_or(error!(UnifuturesError::MathOverflow))?;
 
         emit!(ProRataClaimed {
-            trust: e.trust,
+            company: e.company,
             exit_id: e.exit_id,
             holder: ctx.accounts.holder.key(),
             burned: burn_amount,
@@ -699,7 +699,7 @@ pub mod aeqi_unifutures {
         let now = Clock::get()?.unix_timestamp;
         let asset_mint_key = ctx.accounts.asset_mint.key();
         let e = &mut ctx.accounts.exit;
-        e.trust = ctx.accounts.trust.key();
+        e.company = ctx.accounts.company.key();
         e.exit_id = exit_id;
         e.creator = ctx.accounts.creator.key();
         e.asset_mint = asset_mint_key;
@@ -716,7 +716,7 @@ pub mod aeqi_unifutures {
         m.exit_count = m.exit_count.checked_add(1).ok_or(error!(UnifuturesError::MathOverflow))?;
 
         emit!(ExitCreated {
-            trust: e.trust,
+            company: e.company,
             exit_id,
             creator: e.creator,
             asset_mint: asset_mint_key,
@@ -745,7 +745,7 @@ pub mod aeqi_unifutures {
 
         let now = Clock::get()?.unix_timestamp;
         let s = &mut ctx.accounts.sale;
-        s.trust = ctx.accounts.trust.key();
+        s.company = ctx.accounts.company.key();
         s.sale_id = sale_id;
         s.creator = ctx.accounts.creator.key();
         s.asset_amount = asset_amount;
@@ -762,7 +762,7 @@ pub mod aeqi_unifutures {
         m.sale_count = m.sale_count.checked_add(1).ok_or(error!(UnifuturesError::MathOverflow))?;
 
         emit!(SaleCreated {
-            trust: s.trust,
+            company: s.company,
             sale_id,
             creator: s.creator,
             asset_amount,
@@ -806,7 +806,7 @@ pub mod aeqi_unifutures {
 
         let c = &mut ctx.accounts.commitment;
         // Init-if-needed: zero on first call, accumulate on subsequent.
-        c.trust = s.trust;
+        c.company = s.company;
         c.sale_id = s.sale_id;
         c.buyer = ctx.accounts.buyer.key();
         c.amount = c.amount.checked_add(amount).ok_or(error!(UnifuturesError::MathOverflow))?;
@@ -822,7 +822,7 @@ pub mod aeqi_unifutures {
             .ok_or(error!(UnifuturesError::MathOverflow))?;
 
         emit!(SaleCommitted {
-            trust: s.trust,
+            company: s.company,
             sale_id: s.sale_id,
             buyer: c.buyer,
             amount,
@@ -890,11 +890,11 @@ pub mod aeqi_unifutures {
         )?;
 
         // 2. curve_asset_vault → buyer_asset_ta (curve_authority PDA signs)
-        let trust_key = c.trust;
+        let company_key = c.company;
         let curve_id_bytes = c.curve_id;
         let bump = ctx.bumps.curve_authority;
         let seeds: &[&[&[u8]]] =
-            &[&[b"curve_authority", trust_key.as_ref(), curve_id_bytes.as_ref(), &[bump]]];
+            &[&[b"curve_authority", company_key.as_ref(), curve_id_bytes.as_ref(), &[bump]]];
         let cpi_out = TransferChecked {
             from: ctx.accounts.curve_asset_vault.to_account_info(),
             mint: ctx.accounts.asset_mint.to_account_info(),
@@ -925,7 +925,7 @@ pub mod aeqi_unifutures {
             .ok_or(error!(UnifuturesError::MathOverflow))?;
 
         emit!(CurveBuy {
-            trust: c.trust,
+            company: c.company,
             curve_id: c.curve_id,
             buyer: ctx.accounts.buyer.key(),
             token_amount,
@@ -993,11 +993,11 @@ pub mod aeqi_unifutures {
         )?;
 
         // 2. curve_quote_vault → seller_quote_ta (curve_authority signs via PDA seeds)
-        let trust_key = c.trust;
+        let company_key = c.company;
         let curve_id_bytes = c.curve_id;
         let bump = ctx.bumps.curve_authority;
         let seeds: &[&[&[u8]]] =
-            &[&[b"curve_authority", trust_key.as_ref(), curve_id_bytes.as_ref(), &[bump]]];
+            &[&[b"curve_authority", company_key.as_ref(), curve_id_bytes.as_ref(), &[bump]]];
         let cpi_out = TransferChecked {
             from: ctx.accounts.curve_quote_vault.to_account_info(),
             mint: ctx.accounts.quote_mint.to_account_info(),
@@ -1024,7 +1024,7 @@ pub mod aeqi_unifutures {
             .ok_or(error!(UnifuturesError::MathOverflow))?;
 
         emit!(CurveSell {
-            trust: c.trust,
+            company: c.company,
             curve_id: c.curve_id,
             seller: ctx.accounts.seller.key(),
             token_amount,
@@ -1060,7 +1060,7 @@ pub mod aeqi_unifutures {
 #[account]
 #[derive(InitSpace)]
 pub struct UnifuturesModuleState {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub curve_count: u64,
     pub sale_count: u64,
     pub exit_count: u64,
@@ -1071,7 +1071,7 @@ pub struct UnifuturesModuleState {
 #[account]
 #[derive(InitSpace)]
 pub struct LiquidityPool {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub pool_id: [u8; 32],
     pub base_mint: Pubkey,
     pub quote_mint: Pubkey,
@@ -1095,7 +1095,7 @@ pub enum SaleStatus {
 #[account]
 #[derive(InitSpace)]
 pub struct CommitmentSale {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub sale_id: [u8; 32],
     pub creator: Pubkey,
     pub asset_amount: u64,
@@ -1112,7 +1112,7 @@ pub struct CommitmentSale {
 #[account]
 #[derive(InitSpace)]
 pub struct SaleCommitment {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub sale_id: [u8; 32],
     pub buyer: Pubkey,
     pub amount: u64,
@@ -1122,7 +1122,7 @@ pub struct SaleCommitment {
 #[account]
 #[derive(InitSpace)]
 pub struct Exit {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub exit_id: [u8; 32],
     pub creator: Pubkey,
     /// Canonical asset mint pinned at exit creation. claim_pro_rata MUST
@@ -1147,11 +1147,11 @@ pub struct Exit {
 #[account]
 #[derive(InitSpace)]
 pub struct BondingCurve {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub curve_id: [u8; 32],
     pub creator: Pubkey,
     /// Canonical asset mint sold by this curve. Buy/sell reject any other
-    /// asset mint so callers cannot route a TRUST curve through a worthless
+    /// asset mint so callers cannot route a COMPANY curve through a worthless
     /// substitute token.
     pub asset_mint: Pubkey,
     /// Canonical quote mint accepted by this curve, typically USDC.
@@ -1173,18 +1173,18 @@ pub struct BondingCurve {
 
 #[derive(Accounts)]
 pub struct InitUnifutures<'info> {
-    /// Trust PDA — must be a real Trust account owned by aeqi_trust.
+    /// Company PDA — must be a real Company account owned by aeqi_company.
     #[account(
-        seeds = [b"trust", trust.trust_id.as_ref()],
-        bump = trust.bump,
-        seeds::program = AEQI_TRUST_ID,
+        seeds = [b"company", company.company_id.as_ref()],
+        bump = company.bump,
+        seeds::program = AEQI_COMPANY_ID,
     )]
-    pub trust: Account<'info, Trust>,
+    pub company: Account<'info, Company>,
     #[account(
         init,
         payer = payer,
         space = 8 + UnifuturesModuleState::INIT_SPACE,
-        seeds = [b"unifutures_module", trust.key().as_ref()],
+        seeds = [b"unifutures_module", company.key().as_ref()],
         bump,
     )]
     pub module_state: Account<'info, UnifuturesModuleState>,
@@ -1196,11 +1196,11 @@ pub struct InitUnifutures<'info> {
 #[derive(Accounts)]
 #[instruction(curve_id: [u8; 32])]
 pub struct CreateCurve<'info> {
-    /// CHECK: trust pda
-    pub trust: UncheckedAccount<'info>,
+    /// CHECK: company pda
+    pub company: UncheckedAccount<'info>,
     #[account(
         mut,
-        seeds = [b"unifutures_module", trust.key().as_ref()],
+        seeds = [b"unifutures_module", company.key().as_ref()],
         bump = module_state.bump,
     )]
     pub module_state: Account<'info, UnifuturesModuleState>,
@@ -1208,7 +1208,7 @@ pub struct CreateCurve<'info> {
         init,
         payer = creator,
         space = 8 + BondingCurve::INIT_SPACE,
-        seeds = [b"curve", trust.key().as_ref(), curve_id.as_ref()],
+        seeds = [b"curve", company.key().as_ref(), curve_id.as_ref()],
         bump,
     )]
     pub curve: Account<'info, BondingCurve>,
@@ -1222,11 +1222,11 @@ pub struct CreateCurve<'info> {
 #[derive(Accounts)]
 #[instruction(pool_id: [u8; 32])]
 pub struct CreateLiquidityPool<'info> {
-    /// CHECK: trust pda
-    pub trust: UncheckedAccount<'info>,
+    /// CHECK: company pda
+    pub company: UncheckedAccount<'info>,
     #[account(
         mut,
-        seeds = [b"unifutures_module", trust.key().as_ref()],
+        seeds = [b"unifutures_module", company.key().as_ref()],
         bump = module_state.bump,
     )]
     pub module_state: Account<'info, UnifuturesModuleState>,
@@ -1234,13 +1234,13 @@ pub struct CreateLiquidityPool<'info> {
         init,
         payer = creator,
         space = 8 + LiquidityPool::INIT_SPACE,
-        seeds = [b"liquidity_pool", trust.key().as_ref(), pool_id.as_ref()],
+        seeds = [b"liquidity_pool", company.key().as_ref(), pool_id.as_ref()],
         bump,
     )]
     pub pool: Account<'info, LiquidityPool>,
     /// CHECK: PDA authority for vaults and LP mint.
     #[account(
-        seeds = [b"liquidity_pool_authority", trust.key().as_ref(), pool_id.as_ref()],
+        seeds = [b"liquidity_pool_authority", company.key().as_ref(), pool_id.as_ref()],
         bump,
     )]
     pub pool_authority: UncheckedAccount<'info>,
@@ -1252,7 +1252,7 @@ pub struct CreateLiquidityPool<'info> {
         mint::decimals = 6,
         mint::authority = pool_authority,
         mint::token_program = token_program,
-        seeds = [b"lp_mint", trust.key().as_ref(), pool_id.as_ref()],
+        seeds = [b"lp_mint", company.key().as_ref(), pool_id.as_ref()],
         bump,
     )]
     pub lp_mint: InterfaceAccount<'info, Mint>,
@@ -1288,12 +1288,12 @@ pub struct QuoteBuy<'info> {
 pub struct CommitToSale<'info> {
     #[account(
         mut,
-        seeds = [b"sale", sale.trust.as_ref(), sale.sale_id.as_ref()],
+        seeds = [b"sale", sale.company.as_ref(), sale.sale_id.as_ref()],
         bump = sale.bump,
     )]
     pub sale: Box<Account<'info, CommitmentSale>>,
     /// CHECK: program-controlled vault authority
-    #[account(seeds = [b"sale_authority", sale.trust.as_ref(), sale.sale_id.as_ref()], bump)]
+    #[account(seeds = [b"sale_authority", sale.company.as_ref(), sale.sale_id.as_ref()], bump)]
     pub sale_authority: UncheckedAccount<'info>,
     pub quote_mint: Box<InterfaceAccount<'info, Mint>>,
     #[account(mut, token::mint = quote_mint, token::authority = sale_authority)]
@@ -1304,7 +1304,7 @@ pub struct CommitToSale<'info> {
         init_if_needed,
         payer = buyer,
         space = 8 + SaleCommitment::INIT_SPACE,
-        seeds = [b"sale_commitment", sale.trust.as_ref(), sale.sale_id.as_ref(), buyer.key().as_ref()],
+        seeds = [b"sale_commitment", sale.company.as_ref(), sale.sale_id.as_ref(), buyer.key().as_ref()],
         bump,
     )]
     pub commitment: Box<Account<'info, SaleCommitment>>,
@@ -1318,7 +1318,7 @@ pub struct CommitToSale<'info> {
 pub struct FinalizeSale<'info> {
     #[account(
         mut,
-        seeds = [b"sale", sale.trust.as_ref(), sale.sale_id.as_ref()],
+        seeds = [b"sale", sale.company.as_ref(), sale.sale_id.as_ref()],
         bump = sale.bump,
     )]
     pub sale: Box<Account<'info, CommitmentSale>>,
@@ -1328,19 +1328,19 @@ pub struct FinalizeSale<'info> {
 #[derive(Accounts)]
 pub struct ClaimAllocation<'info> {
     #[account(
-        seeds = [b"sale", sale.trust.as_ref(), sale.sale_id.as_ref()],
+        seeds = [b"sale", sale.company.as_ref(), sale.sale_id.as_ref()],
         bump = sale.bump,
     )]
     pub sale: Box<Account<'info, CommitmentSale>>,
     /// CHECK: sale_authority PDA — signs asset out-transfer
-    #[account(seeds = [b"sale_authority", sale.trust.as_ref(), sale.sale_id.as_ref()], bump)]
+    #[account(seeds = [b"sale_authority", sale.company.as_ref(), sale.sale_id.as_ref()], bump)]
     pub sale_authority: UncheckedAccount<'info>,
     pub asset_mint: Box<InterfaceAccount<'info, Mint>>,
     #[account(mut, token::mint = asset_mint, token::authority = sale_authority)]
     pub sale_asset_vault: Box<InterfaceAccount<'info, TokenAccount>>,
     #[account(
         mut,
-        seeds = [b"sale_commitment", sale.trust.as_ref(), sale.sale_id.as_ref(), buyer.key().as_ref()],
+        seeds = [b"sale_commitment", sale.company.as_ref(), sale.sale_id.as_ref(), buyer.key().as_ref()],
         bump = commitment.bump,
     )]
     pub commitment: Box<Account<'info, SaleCommitment>>,
@@ -1354,12 +1354,12 @@ pub struct ClaimAllocation<'info> {
 pub struct SettleExit<'info> {
     #[account(
         mut,
-        seeds = [b"exit", exit.trust.as_ref(), exit.exit_id.as_ref()],
+        seeds = [b"exit", exit.company.as_ref(), exit.exit_id.as_ref()],
         bump = exit.bump,
     )]
     pub exit: Box<Account<'info, Exit>>,
     /// CHECK: vault authority PDA
-    #[account(seeds = [b"exit_authority", exit.trust.as_ref(), exit.exit_id.as_ref()], bump)]
+    #[account(seeds = [b"exit_authority", exit.company.as_ref(), exit.exit_id.as_ref()], bump)]
     pub exit_authority: UncheckedAccount<'info>,
     pub quote_mint: Box<InterfaceAccount<'info, Mint>>,
     #[account(mut, token::mint = quote_mint, token::authority = exit_authority)]
@@ -1374,12 +1374,12 @@ pub struct SettleExit<'info> {
 pub struct ClaimProRata<'info> {
     #[account(
         mut,
-        seeds = [b"exit", exit.trust.as_ref(), exit.exit_id.as_ref()],
+        seeds = [b"exit", exit.company.as_ref(), exit.exit_id.as_ref()],
         bump = exit.bump,
     )]
     pub exit: Box<Account<'info, Exit>>,
     /// CHECK: PDA signer for vault out-transfer
-    #[account(seeds = [b"exit_authority", exit.trust.as_ref(), exit.exit_id.as_ref()], bump)]
+    #[account(seeds = [b"exit_authority", exit.company.as_ref(), exit.exit_id.as_ref()], bump)]
     pub exit_authority: UncheckedAccount<'info>,
     /// Must equal the exit's canonical asset mint pinned at create time —
     /// closes the worthless-token drain vector (Explorer A 67-162.4).
@@ -1402,11 +1402,11 @@ pub struct ClaimProRata<'info> {
 #[derive(Accounts)]
 #[instruction(exit_id: [u8; 32])]
 pub struct CreateExit<'info> {
-    /// CHECK: trust pda
-    pub trust: UncheckedAccount<'info>,
+    /// CHECK: company pda
+    pub company: UncheckedAccount<'info>,
     #[account(
         mut,
-        seeds = [b"unifutures_module", trust.key().as_ref()],
+        seeds = [b"unifutures_module", company.key().as_ref()],
         bump = module_state.bump,
     )]
     pub module_state: Account<'info, UnifuturesModuleState>,
@@ -1414,7 +1414,7 @@ pub struct CreateExit<'info> {
         init,
         payer = creator,
         space = 8 + Exit::INIT_SPACE,
-        seeds = [b"exit", trust.key().as_ref(), exit_id.as_ref()],
+        seeds = [b"exit", company.key().as_ref(), exit_id.as_ref()],
         bump,
     )]
     pub exit: Account<'info, Exit>,
@@ -1430,11 +1430,11 @@ pub struct CreateExit<'info> {
 #[derive(Accounts)]
 #[instruction(sale_id: [u8; 32])]
 pub struct CreateCommitmentSale<'info> {
-    /// CHECK: trust pda
-    pub trust: UncheckedAccount<'info>,
+    /// CHECK: company pda
+    pub company: UncheckedAccount<'info>,
     #[account(
         mut,
-        seeds = [b"unifutures_module", trust.key().as_ref()],
+        seeds = [b"unifutures_module", company.key().as_ref()],
         bump = module_state.bump,
     )]
     pub module_state: Account<'info, UnifuturesModuleState>,
@@ -1442,7 +1442,7 @@ pub struct CreateCommitmentSale<'info> {
         init,
         payer = creator,
         space = 8 + CommitmentSale::INIT_SPACE,
-        seeds = [b"sale", trust.key().as_ref(), sale_id.as_ref()],
+        seeds = [b"sale", company.key().as_ref(), sale_id.as_ref()],
         bump,
     )]
     pub sale: Account<'info, CommitmentSale>,
@@ -1455,12 +1455,12 @@ pub struct CreateCommitmentSale<'info> {
 pub struct SellToCurve<'info> {
     #[account(
         mut,
-        seeds = [b"curve", curve.trust.as_ref(), curve.curve_id.as_ref()],
+        seeds = [b"curve", curve.company.as_ref(), curve.curve_id.as_ref()],
         bump = curve.bump,
     )]
     pub curve: Box<Account<'info, BondingCurve>>,
     /// CHECK: PDA — signs quote out-transfer.
-    #[account(seeds = [b"curve_authority", curve.trust.as_ref(), curve.curve_id.as_ref()], bump)]
+    #[account(seeds = [b"curve_authority", curve.company.as_ref(), curve.curve_id.as_ref()], bump)]
     pub curve_authority: UncheckedAccount<'info>,
     pub asset_mint: Box<InterfaceAccount<'info, Mint>>,
     pub quote_mint: Box<InterfaceAccount<'info, Mint>>,
@@ -1480,12 +1480,12 @@ pub struct SellToCurve<'info> {
 pub struct BuyFromCurve<'info> {
     #[account(
         mut,
-        seeds = [b"curve", curve.trust.as_ref(), curve.curve_id.as_ref()],
+        seeds = [b"curve", curve.company.as_ref(), curve.curve_id.as_ref()],
         bump = curve.bump,
     )]
     pub curve: Box<Account<'info, BondingCurve>>,
     /// CHECK: program-controlled vault authority — signs the asset out-transfer.
-    #[account(seeds = [b"curve_authority", curve.trust.as_ref(), curve.curve_id.as_ref()], bump)]
+    #[account(seeds = [b"curve_authority", curve.company.as_ref(), curve.curve_id.as_ref()], bump)]
     pub curve_authority: UncheckedAccount<'info>,
     pub asset_mint: Box<InterfaceAccount<'info, Mint>>,
     pub quote_mint: Box<InterfaceAccount<'info, Mint>>,
@@ -1505,19 +1505,19 @@ pub struct BuyFromCurve<'info> {
 pub struct AddLiquidity<'info> {
     #[account(
         mut,
-        seeds = [b"liquidity_pool", pool.trust.as_ref(), pool.pool_id.as_ref()],
+        seeds = [b"liquidity_pool", pool.company.as_ref(), pool.pool_id.as_ref()],
         bump = pool.bump,
     )]
     pub pool: Box<Account<'info, LiquidityPool>>,
     /// CHECK: PDA authority for vaults and LP mint.
     #[account(
-        seeds = [b"liquidity_pool_authority", pool.trust.as_ref(), pool.pool_id.as_ref()],
+        seeds = [b"liquidity_pool_authority", pool.company.as_ref(), pool.pool_id.as_ref()],
         bump,
     )]
     pub pool_authority: UncheckedAccount<'info>,
     pub base_mint: Box<InterfaceAccount<'info, Mint>>,
     pub quote_mint: Box<InterfaceAccount<'info, Mint>>,
-    #[account(mut, seeds = [b"lp_mint", pool.trust.as_ref(), pool.pool_id.as_ref()], bump)]
+    #[account(mut, seeds = [b"lp_mint", pool.company.as_ref(), pool.pool_id.as_ref()], bump)]
     pub lp_mint: Box<InterfaceAccount<'info, Mint>>,
     #[account(mut, token::mint = base_mint, token::authority = provider)]
     pub provider_base_ta: Box<InterfaceAccount<'info, TokenAccount>>,
@@ -1537,19 +1537,19 @@ pub struct AddLiquidity<'info> {
 pub struct RemoveLiquidity<'info> {
     #[account(
         mut,
-        seeds = [b"liquidity_pool", pool.trust.as_ref(), pool.pool_id.as_ref()],
+        seeds = [b"liquidity_pool", pool.company.as_ref(), pool.pool_id.as_ref()],
         bump = pool.bump,
     )]
     pub pool: Box<Account<'info, LiquidityPool>>,
     /// CHECK: PDA authority for vaults and LP mint.
     #[account(
-        seeds = [b"liquidity_pool_authority", pool.trust.as_ref(), pool.pool_id.as_ref()],
+        seeds = [b"liquidity_pool_authority", pool.company.as_ref(), pool.pool_id.as_ref()],
         bump,
     )]
     pub pool_authority: UncheckedAccount<'info>,
     pub base_mint: Box<InterfaceAccount<'info, Mint>>,
     pub quote_mint: Box<InterfaceAccount<'info, Mint>>,
-    #[account(mut, seeds = [b"lp_mint", pool.trust.as_ref(), pool.pool_id.as_ref()], bump)]
+    #[account(mut, seeds = [b"lp_mint", pool.company.as_ref(), pool.pool_id.as_ref()], bump)]
     pub lp_mint: Box<InterfaceAccount<'info, Mint>>,
     #[account(mut, token::mint = lp_mint, token::authority = provider)]
     pub provider_lp_ta: Box<InterfaceAccount<'info, TokenAccount>>,
@@ -1569,13 +1569,13 @@ pub struct RemoveLiquidity<'info> {
 pub struct SwapExactIn<'info> {
     #[account(
         mut,
-        seeds = [b"liquidity_pool", pool.trust.as_ref(), pool.pool_id.as_ref()],
+        seeds = [b"liquidity_pool", pool.company.as_ref(), pool.pool_id.as_ref()],
         bump = pool.bump,
     )]
     pub pool: Box<Account<'info, LiquidityPool>>,
     /// CHECK: PDA authority for vault out-transfers.
     #[account(
-        seeds = [b"liquidity_pool_authority", pool.trust.as_ref(), pool.pool_id.as_ref()],
+        seeds = [b"liquidity_pool_authority", pool.company.as_ref(), pool.pool_id.as_ref()],
         bump,
     )]
     pub pool_authority: UncheckedAccount<'info>,
@@ -1595,7 +1595,7 @@ pub struct SwapExactIn<'info> {
 
 #[event]
 pub struct CurveCreated {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub curve_id: [u8; 32],
     pub creator: Pubkey,
     pub asset_mint: Pubkey,
@@ -1608,7 +1608,7 @@ pub struct CurveCreated {
 
 #[event]
 pub struct CurveBuy {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub curve_id: [u8; 32],
     pub buyer: Pubkey,
     pub token_amount: u64,
@@ -1617,7 +1617,7 @@ pub struct CurveBuy {
 
 #[event]
 pub struct CurveSell {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub curve_id: [u8; 32],
     pub seller: Pubkey,
     pub token_amount: u64,
@@ -1626,7 +1626,7 @@ pub struct CurveSell {
 
 #[event]
 pub struct LiquidityPoolCreated {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub pool_id: [u8; 32],
     pub base_mint: Pubkey,
     pub quote_mint: Pubkey,
@@ -1636,7 +1636,7 @@ pub struct LiquidityPoolCreated {
 
 #[event]
 pub struct LiquidityAdded {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub pool_id: [u8; 32],
     pub provider: Pubkey,
     pub base_used: u64,
@@ -1646,7 +1646,7 @@ pub struct LiquidityAdded {
 
 #[event]
 pub struct LiquidityRemoved {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub pool_id: [u8; 32],
     pub provider: Pubkey,
     pub lp_burned: u64,
@@ -1656,7 +1656,7 @@ pub struct LiquidityRemoved {
 
 #[event]
 pub struct SwapExecuted {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub pool_id: [u8; 32],
     pub trader: Pubkey,
     pub direction: u8,
@@ -1667,7 +1667,7 @@ pub struct SwapExecuted {
 
 #[event]
 pub struct SaleCreated {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub sale_id: [u8; 32],
     pub creator: Pubkey,
     pub asset_amount: u64,
@@ -1678,7 +1678,7 @@ pub struct SaleCreated {
 
 #[event]
 pub struct ExitCreated {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub exit_id: [u8; 32],
     pub creator: Pubkey,
     pub asset_mint: Pubkey,
@@ -1689,7 +1689,7 @@ pub struct ExitCreated {
 
 #[event]
 pub struct SaleCommitted {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub sale_id: [u8; 32],
     pub buyer: Pubkey,
     pub amount: u64,
@@ -1698,7 +1698,7 @@ pub struct SaleCommitted {
 
 #[event]
 pub struct SaleFinalized {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub sale_id: [u8; 32],
     pub proceeds_collected: u64,
     pub commitments_collected: u64,
@@ -1707,7 +1707,7 @@ pub struct SaleFinalized {
 
 #[event]
 pub struct AllocationClaimed {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub sale_id: [u8; 32],
     pub buyer: Pubkey,
     pub allocation: u64,
@@ -1715,7 +1715,7 @@ pub struct AllocationClaimed {
 
 #[event]
 pub struct ExitSettled {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub exit_id: [u8; 32],
     pub creator: Pubkey,
     pub exit_quote: u64,
@@ -1723,7 +1723,7 @@ pub struct ExitSettled {
 
 #[event]
 pub struct ProRataClaimed {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub exit_id: [u8; 32],
     pub holder: Pubkey,
     pub burned: u64,
@@ -1786,8 +1786,8 @@ pub enum UnifuturesError {
     SaleNotCompleted,
     #[msg("commitment already claimed")]
     AlreadyClaimed,
-    #[msg("trust must be in creation mode to initialize the unifutures module")]
-    TrustNotInCreationMode,
+    #[msg("company must be in creation mode to initialize the unifutures module")]
+    CompanyNotInCreationMode,
     #[msg("asset_mint does not match the exit's canonical asset mint")]
     AssetMintMismatch,
     #[msg("quote_mint does not match the curve's canonical quote mint")]

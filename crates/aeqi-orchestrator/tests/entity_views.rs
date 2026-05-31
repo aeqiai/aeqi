@@ -7,12 +7,12 @@ use aeqi_test_support::TestHarness;
 #[tokio::test]
 async fn entity_views_upsert_lists_and_updates_without_duplicates() {
     let h = TestHarness::build().await.unwrap();
-    let trust_id = create_company_trust(&h, "Views Co", "user-1").await;
+    let company_id = create_company_company(&h, "Views Co", "user-1").await;
 
     let views = h
         .registry()
         .upsert_entity_views(
-            &trust_id,
+            &company_id,
             Some("user-1"),
             vec![EntityViewUpsert {
                 id: None,
@@ -36,7 +36,7 @@ async fn entity_views_upsert_lists_and_updates_without_duplicates() {
     let views = h
         .registry()
         .upsert_entity_views(
-            &trust_id,
+            &company_id,
             Some("user-1"),
             vec![EntityViewUpsert {
                 id: None,
@@ -69,11 +69,11 @@ async fn entity_views_upsert_lists_and_updates_without_duplicates() {
 #[tokio::test]
 async fn entity_views_owner_scope_isolated_with_public_rows_shared() {
     let h = TestHarness::build().await.unwrap();
-    let trust_id = create_company_trust(&h, "Scoped Views Co", "user-a").await;
+    let company_id = create_company_company(&h, "Scoped Views Co", "user-a").await;
 
     h.registry()
         .upsert_entity_views(
-            &trust_id,
+            &company_id,
             Some("user-a"),
             vec![view("overview", "User A", "private", 1)],
         )
@@ -81,7 +81,7 @@ async fn entity_views_owner_scope_isolated_with_public_rows_shared() {
         .unwrap();
     h.registry()
         .upsert_entity_views(
-            &trust_id,
+            &company_id,
             Some("user-b"),
             vec![view("overview", "User B", "private", 1)],
         )
@@ -89,7 +89,7 @@ async fn entity_views_owner_scope_isolated_with_public_rows_shared() {
         .unwrap();
     h.registry()
         .upsert_entity_views(
-            &trust_id,
+            &company_id,
             Some("user-a"),
             vec![view("public-overview", "Public", "public", 0)],
         )
@@ -98,12 +98,12 @@ async fn entity_views_owner_scope_isolated_with_public_rows_shared() {
 
     let user_a = h
         .registry()
-        .list_entity_views(&trust_id, Some("user-a"))
+        .list_entity_views(&company_id, Some("user-a"))
         .await
         .unwrap();
     let user_b = h
         .registry()
-        .list_entity_views(&trust_id, Some("user-b"))
+        .list_entity_views(&company_id, Some("user-b"))
         .await
         .unwrap();
 
@@ -118,11 +118,11 @@ async fn entity_views_owner_scope_isolated_with_public_rows_shared() {
 #[tokio::test]
 async fn entity_views_delete_removes_only_matching_owner_view() {
     let h = TestHarness::build().await.unwrap();
-    let trust_id = create_company_trust(&h, "Delete Views Co", "user-a").await;
+    let company_id = create_company_company(&h, "Delete Views Co", "user-a").await;
 
     h.registry()
         .upsert_entity_views(
-            &trust_id,
+            &company_id,
             Some("user-a"),
             vec![view("overview", "User A", "private", 0)],
         )
@@ -130,7 +130,7 @@ async fn entity_views_delete_removes_only_matching_owner_view() {
         .unwrap();
     h.registry()
         .upsert_entity_views(
-            &trust_id,
+            &company_id,
             Some("user-b"),
             vec![view("overview", "User B", "private", 0)],
         )
@@ -139,19 +139,19 @@ async fn entity_views_delete_removes_only_matching_owner_view() {
 
     let deleted = h
         .registry()
-        .delete_entity_view(&trust_id, Some("user-a"), "overview")
+        .delete_entity_view(&company_id, Some("user-a"), "overview")
         .await
         .unwrap();
     assert_eq!(deleted, 1);
 
     let user_a = h
         .registry()
-        .list_entity_views(&trust_id, Some("user-a"))
+        .list_entity_views(&company_id, Some("user-a"))
         .await
         .unwrap();
     let user_b = h
         .registry()
-        .list_entity_views(&trust_id, Some("user-b"))
+        .list_entity_views(&company_id, Some("user-b"))
         .await
         .unwrap();
     assert!(!user_a.iter().any(|row| row.key == "overview"));
@@ -162,16 +162,16 @@ async fn entity_views_delete_removes_only_matching_owner_view() {
 async fn entity_views_ipc_respects_scope_and_caller_owner() {
     let h = TestHarness::build().await.unwrap();
     let ctx = h.ctx();
-    let trust_id = create_company_trust(&h, "IPC Views Co", "user-a").await;
+    let company_id = create_company_company(&h, "IPC Views Co", "user-a").await;
 
     let upsert = handle_upsert_views(
         &ctx,
         &serde_json::json!({
-            "trust_id": trust_id,
+            "company_id": company_id,
             "caller_user_id": "user-a",
             "views": [{"key": "overview", "label": "Overview", "layout_json": {"widgets": ["quests"]}}]
         }),
-        &Some(vec![trust_id.clone()]),
+        &Some(vec![company_id.clone()]),
     )
     .await;
     assert_eq!(upsert["ok"], true);
@@ -179,8 +179,8 @@ async fn entity_views_ipc_respects_scope_and_caller_owner() {
 
     let listed = handle_list_views(
         &ctx,
-        &serde_json::json!({"trust_id": trust_id, "caller_user_id": "user-a"}),
-        &Some(vec![trust_id.clone()]),
+        &serde_json::json!({"company_id": company_id, "caller_user_id": "user-a"}),
+        &Some(vec![company_id.clone()]),
     )
     .await;
     assert_eq!(listed["ok"], true);
@@ -188,8 +188,8 @@ async fn entity_views_ipc_respects_scope_and_caller_owner() {
 
     let denied = handle_list_views(
         &ctx,
-        &serde_json::json!({"trust_id": trust_id}),
-        &Some(vec!["other-trust".to_string()]),
+        &serde_json::json!({"company_id": company_id}),
+        &Some(vec!["other-company".to_string()]),
     )
     .await;
     assert_eq!(denied["ok"], false);
@@ -197,15 +197,15 @@ async fn entity_views_ipc_respects_scope_and_caller_owner() {
 
     let deleted = handle_delete_view(
         &ctx,
-        &serde_json::json!({"trust_id": trust_id, "caller_user_id": "user-a", "key": "overview"}),
-        &Some(vec![trust_id.clone()]),
+        &serde_json::json!({"company_id": company_id, "caller_user_id": "user-a", "key": "overview"}),
+        &Some(vec![company_id.clone()]),
     )
     .await;
     assert_eq!(deleted["ok"], true);
     assert_eq!(deleted["deleted"], 1);
 }
 
-async fn create_company_trust(h: &TestHarness, name: &str, caller_user_id: &str) -> String {
+async fn create_company_company(h: &TestHarness, name: &str, caller_user_id: &str) -> String {
     let resp = handle_create_entity(
         &h.ctx(),
         &serde_json::json!({

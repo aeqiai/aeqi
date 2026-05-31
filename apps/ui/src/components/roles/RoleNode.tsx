@@ -35,9 +35,9 @@ const AVATAR_SIZE = 32;
  *   agent   → Bot icon in a circular frame. Agents are identity actors
  *             like humans in the register, while the glyph keeps them
  *             clearly software.
- *   trust   → Landmark icon in an outlined rounded-square frame —
+ *   company   → Landmark icon in an outlined rounded-square frame —
  *             signals a board / director seat held by another entity's
- *             TRUST address (e.g. parent holding's TRUST). The outlined
+ *             COMPANY address (e.g. parent holding's COMPANY). The outlined
  *             vs filled distinction keeps board-tier authority visually
  *             distinct from execution-tier (agent).
  *   vacant  → dashed circle silhouette
@@ -45,7 +45,7 @@ const AVATAR_SIZE = 32;
  * The agent-always-robot rule is intentional. Hash-based identicons and
  * uncontrolled photos can invite users to anthropomorphise; a literal
  * robot glyph keeps the line between human and software legible at a
- * glance. Same principle for TRUST seats: institutional iconography
+ * glance. Same principle for COMPANY seats: institutional iconography
  * instead of any portrait.
  */
 export default function RoleNode({
@@ -59,12 +59,12 @@ export default function RoleNode({
   nodeRef,
   implicit = false,
 }: RoleNodeProps) {
-  // Entity name lookup for `occupant_kind === "trust"` holders (parent
-  // holding's TRUST in a Director / board seat). Falls back to "a TRUST"
+  // Entity name lookup for `occupant_kind === "company"` holders (parent
+  // holding's COMPANY in a Director / board seat). Falls back to "a COMPANY"
   // when the entity isn't in the viewer's daemon scope.
   const entities = useDaemonStore((s) => s.entities);
   const entityName = useMemo(() => {
-    if (role.occupant_kind !== "trust" || !role.occupant_id) return undefined;
+    if (role.occupant_kind !== "company" || !role.occupant_id) return undefined;
     return entities.find((e) => e.id === role.occupant_id)?.name;
   }, [entities, role.occupant_id, role.occupant_kind]);
 
@@ -72,7 +72,7 @@ export default function RoleNode({
   const isVacant = role.occupant_kind === "vacant";
   const isAgent = role.occupant_kind === "agent";
   const isHuman = role.occupant_kind === "human";
-  const isTrust = role.occupant_kind === "trust";
+  const isCompany = role.occupant_kind === "company";
   // agentAvatar URL is intentionally NOT used — see avatar-contract doc
   // comment above. Keeping the prop signature stable for callers.
   void agentAvatar;
@@ -119,8 +119,8 @@ export default function RoleNode({
                 src={role.occupant_avatar_url ?? null}
                 size={AVATAR_SIZE}
               />
-            ) : isTrust ? (
-              <span className="role-node-avatar-trust">
+            ) : isCompany ? (
+              <span className="role-node-avatar-company">
                 <Landmark size={AVATAR_SIZE - 12} strokeWidth={1.6} />
               </span>
             ) : isAgent ? (
@@ -144,11 +144,11 @@ function pillTone(role: Role): "director" | "advisor" | "operational" | "owner" 
 }
 
 // Occupant subtitle for the card. Returns a human-readable label
-// only — never a raw UUID prefix. When the agent / human / trust name
-// can't resolve (cross-trust occupant, missing platform record,
+// only — never a raw UUID prefix. When the agent / human / company name
+// can't resolve (cross-company occupant, missing platform record,
 // daemon-store not yet hydrated), fall back to a phrase with the
 // indefinite article so the card subtitle reads "Held by an agent" /
-// "Held by a human" / "Held by a TRUST" — grammatical and matching
+// "Held by a human" / "Held by a COMPANY" — grammatical and matching
 // the inspector header copy. Sibling fix to cf32cc78 (no UUID prose)
 // and to ae8fe2fe (Held-by prefix).
 function describeOccupant(role: Role, agentName?: string, entityName?: string): { label: string } {
@@ -159,7 +159,7 @@ function describeOccupant(role: Role, agentName?: string, entityName?: string): 
     // identity matters, the indefinite article doesn't.
     return { label: agentName ?? compactId(role.occupant_id) };
   }
-  if (role.occupant_kind === "trust") {
+  if (role.occupant_kind === "company") {
     return { label: entityName ?? compactId(role.occupant_id) };
   }
   if (role.occupant_name) return { label: role.occupant_name };

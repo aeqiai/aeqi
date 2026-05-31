@@ -1,18 +1,18 @@
 /**
  * On-chain reads for the Equity surface.
  *
- * Equity is the second TRUST-scope surface to land after Incorporation
- * (ja-001.2). The cap table is "real" only for Venture-shape TRUSTs —
+ * Equity is the second COMPANY-scope surface to land after Incorporation
+ * (ja-001.2). The cap table is "real" only for Venture-shape Companies —
  * those that adopted the `aeqi_token` + `aeqi_vesting` modules at
- * registration. Foundation-shape TRUSTs (the signup default) have no
+ * registration. Foundation-shape Companies (the signup default) have no
  * `TokenModuleState`; `readTokenModuleState` resolves to `null` and the
  * page renders a quiet empty state instead.
  *
  * Source-of-truth references:
  *   - `TokenModuleState`: `programs/aeqi-token/src/lib.rs` (TS mirror at
  *     `apps/ui/src/solana/generated/types/aeqi_token.ts`, type
- *     `tokenModuleState`, PDA `[b"token_module", trust]`).
- *   - Token-2022 mint PDA: `[b"mint", trust]` under `AEQI_TOKEN_PROGRAM_ID`.
+ *     `tokenModuleState`, PDA `[b"token_module", company]`).
+ *   - Token-2022 mint PDA: `[b"mint", company]` under `AEQI_TOKEN_PROGRAM_ID`.
  *     Owned by the Token-2022 program at runtime — read via
  *     `getMint(connection, mintPda, commitment, TOKEN_2022_PROGRAM_ID)`.
  *   - Holders: SPL Token account layout is 165 bytes with `mint` at
@@ -22,9 +22,9 @@
  *   - `VestingPosition`: `programs/aeqi-vesting/src/lib.rs` (TS mirror at
  *     `apps/ui/src/solana/generated/types/aeqi_vesting.ts`, type
  *     `vestingPosition`). Anchor account layout is
- *     `[discriminator(8)][trust(32)][position_id(32)][recipient(32)][mint(32)]…`,
- *     so a memcmp at offset 8 with the trust pubkey scopes the list to
- *     one TRUST. We then filter client-side by `mint == cap_table_mint`.
+ *     `[discriminator(8)][company(32)][position_id(32)][recipient(32)][mint(32)]…`,
+ *     so a memcmp at offset 8 with the company pubkey scopes the list to
+ *     one COMPANY. We then filter client-side by `mint == cap_table_mint`.
  *
  * All reads go DIRECT from the browser through the shared Anchor /
  * web3.js provider; writes (mint, transfer, burn, claim) belong on
@@ -85,17 +85,17 @@ export interface VestingPositionWithPda {
 }
 
 /**
- * Fetch the `TokenModuleState` PDA for the given TRUST.
+ * Fetch the `TokenModuleState` PDA for the given COMPANY.
  *
  * Returns `null` when:
- *   - the TRUST is Foundation-shape (never registered `aeqi_token`), OR
- *   - the TRUST has not been bridged on-chain yet.
+ *   - the COMPANY is Foundation-shape (never registered `aeqi_token`), OR
+ *   - the COMPANY has not been bridged on-chain yet.
  *
  * Both shapes look identical to the caller — the Equity page renders a
  * "no equity module" empty state and lets the user keep moving.
  *
- * `trustPda` is the base58-encoded Trust PDA — same value as
- * `entity.trust_address` on the platform-side Trust record.
+ * `trustPda` is the base58-encoded Company PDA — same value as
+ * `entity.company_address` on the platform-side Company record.
  */
 export async function readTokenModuleState(
   trustPda: string | PublicKey,
@@ -109,9 +109,9 @@ export async function readTokenModuleState(
 }
 
 /**
- * Fetch the Token-2022 mint that backs the TRUST's cap table.
+ * Fetch the Token-2022 mint that backs the COMPANY's cap table.
  *
- * Returns `null` if the mint PDA does not exist (Foundation-shape TRUSTs
+ * Returns `null` if the mint PDA does not exist (Foundation-shape Companies
  * never create one). The mint is owned by the Token-2022 program — pass
  * `TOKEN_2022_PROGRAM_ID` to `getMint` so the layout parses correctly
  * past the base mint header.
@@ -178,16 +178,16 @@ export async function readHolders(mintPda: string | PublicKey): Promise<TokenHol
 }
 
 /**
- * List every `VestingPosition` account for the given TRUST + mint.
+ * List every `VestingPosition` account for the given COMPANY + mint.
  *
- * `aeqi_vesting` indexes positions by `(trust, position_id)`; there is
- * no on-chain `(trust, mint)` index, so the cheapest read is:
- *   1. `getProgramAccounts(aeqi_vesting, [memcmp(offset=8, trust)])`
+ * `aeqi_vesting` indexes positions by `(company, position_id)`; there is
+ * no on-chain `(company, mint)` index, so the cheapest read is:
+ *   1. `getProgramAccounts(aeqi_vesting, [memcmp(offset=8, company)])`
  *      (Anchor's `account.vestingPosition.all([memcmp])` is the typed
  *      wrapper around this).
  *   2. Client-side filter by `account.mint === capTableMint`.
  *
- * Returns `[]` when the vesting module isn't deployed for this TRUST.
+ * Returns `[]` when the vesting module isn't deployed for this COMPANY.
  * The `getProgramAccounts` call itself is cheap when no accounts match.
  */
 export async function readVestingPositions(
@@ -201,7 +201,7 @@ export async function readVestingPositions(
   const results = await program.account.vestingPosition.all([
     {
       memcmp: {
-        // Discriminator(8) + trust(32) — `trust` is the first struct field.
+        // Discriminator(8) + company(32) — `company` is the first struct field.
         offset: 8,
         bytes: trustKey.toBase58(),
       },
@@ -217,7 +217,7 @@ export async function readVestingPositions(
 }
 
 /**
- * Convenience: derive the cap-table mint PDA for a TRUST. Exported here
+ * Convenience: derive the cap-table mint PDA for a COMPANY. Exported here
  * so the Equity hook can reuse the derivation without re-importing the
  * full `pdas` surface from page-level code.
  */
@@ -227,11 +227,11 @@ export function deriveCapTableMintPda(trustPda: string | PublicKey): PublicKey {
 }
 
 /**
- * List every `FundingRequest` declared against the given TRUST.
+ * List every `FundingRequest` declared against the given COMPANY.
  *
  * The on-chain layout is
- *   `[discriminator(8)][trust(32)][request_id(32)][creator(32)]…`,
- * so `memcmp(offset=8, trust)` filters to one TRUST in a single
+ *   `[discriminator(8)][company(32)][request_id(32)][creator(32)]…`,
+ * so `memcmp(offset=8, company)` filters to one COMPANY in a single
  * round-trip. Returns `[]` when the funding module isn't deployed or no
  * rounds have been declared — the section renders a quiet empty state
  * in that case.
@@ -293,9 +293,9 @@ export type FundingPrimitive =
  * Resolve the underlying Unifutures primitive backing an activated
  * FundingRequest. PDA derivation mirrors `aeqi-unifutures`:
  *
- *   - kind 0 (CommitmentSale): `[b"sale",  trust, sale_id]`
- *   - kind 1 (BondingCurve):   `[b"curve", trust, curve_id]`
- *   - kind 2 (Exit):           `[b"exit",  trust, exit_id]`
+ *   - kind 0 (CommitmentSale): `[b"sale",  company, sale_id]`
+ *   - kind 1 (BondingCurve):   `[b"curve", company, curve_id]`
+ *   - kind 2 (Exit):           `[b"exit",  company, exit_id]`
  *
  * `primitive_id` lives on the FundingRequest and is set on activation by
  * the platform to the sale_id / curve_id / exit_id of the newly-created

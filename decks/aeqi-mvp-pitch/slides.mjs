@@ -7,7 +7,7 @@ const productShell = ({
     <aside class="product-rail">
       <div class="rail-brand">aeqi</div>
       ${["Home", "Inbox", "Economy"].map((item) => `<span>${item}</span>`).join("")}
-      <b>TRUST</b>
+      <b>COMPANY</b>
       <strong>Luca Fish</strong>
       ${["Overview", "Roles"].map((item) => `<span class="${active === item ? "is-active" : ""}">${item}</span>`).join("")}
       <b>OPERATE</b>
@@ -215,7 +215,7 @@ const slides = [
       <div class="ask-panel">
         <h3>Milestones</h3>
         <p>3-5 design partners</p>
-        <p>25-100 created TRUSTs</p>
+        <p>25-100 created Companies</p>
         <p>First paid pilots</p>
         <p>One public operator loop people can feel</p>
       </div>

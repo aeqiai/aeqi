@@ -9,19 +9,25 @@ use crate::server::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
-        .route("/trusts", get(list_trusts).post(create_trust))
-        .route("/trusts/{name}", axum::routing::put(update_trust_handler))
+        .route("/companies", get(list_companies).post(create_company))
         .route(
-            "/trusts/{trust_id}/channels",
+            "/companies/{name}",
+            axum::routing::put(update_company_handler),
+        )
+        .route(
+            "/companies/{company_id}/channels",
             get(list_entity_channels).post(create_entity_channel),
         )
-        .route("/trusts/{trust_id}/cap-table", get(list_cap_table_entries))
         .route(
-            "/trusts/{trust_id}/views",
+            "/companies/{company_id}/cap-table",
+            get(list_cap_table_entries),
+        )
+        .route(
+            "/companies/{company_id}/views",
             get(list_views).put(upsert_views),
         )
         .route(
-            "/trusts/{trust_id}/views/{view_id}",
+            "/companies/{company_id}/views/{view_id}",
             axum::routing::delete(delete_view),
         )
         .route("/entities", get(list_entities).post(create_entity))
@@ -33,19 +39,19 @@ pub fn routes() -> Router<AppState> {
         // Distinct from `/channels/*` which routes transport channels
         // (Telegram / WhatsApp / Slack-app webhook bindings).
         .route(
-            "/entities/{trust_id}/channels",
+            "/entities/{company_id}/channels",
             get(list_entity_channels).post(create_entity_channel),
         )
         .route(
-            "/entities/{trust_id}/cap-table",
+            "/entities/{company_id}/cap-table",
             get(list_cap_table_entries),
         )
         .route(
-            "/entities/{trust_id}/views",
+            "/entities/{company_id}/views",
             get(list_views).put(upsert_views),
         )
         .route(
-            "/entities/{trust_id}/views/{view_id}",
+            "/entities/{company_id}/views/{view_id}",
             axum::routing::delete(delete_view),
         )
 }
@@ -53,13 +59,13 @@ pub fn routes() -> Router<AppState> {
 async fn list_cap_table_entries(
     State(state): State<AppState>,
     scope: Scope,
-    axum::extract::Path(trust_id): axum::extract::Path<String>,
+    axum::extract::Path(company_id): axum::extract::Path<String>,
 ) -> Response {
     ipc_proxy(
         state,
         scope.as_ref(),
         "list_cap_table_entries",
-        serde_json::json!({"trust_id": trust_id}),
+        serde_json::json!({"company_id": company_id}),
     )
     .await
 }
@@ -67,13 +73,13 @@ async fn list_cap_table_entries(
 async fn list_views(
     State(state): State<AppState>,
     scope: Scope,
-    axum::extract::Path(trust_id): axum::extract::Path<String>,
+    axum::extract::Path(company_id): axum::extract::Path<String>,
 ) -> Response {
     ipc_proxy(
         state,
         scope.as_ref(),
         "list_views",
-        serde_json::json!({"trust_id": trust_id}),
+        serde_json::json!({"company_id": company_id}),
     )
     .await
 }
@@ -81,24 +87,24 @@ async fn list_views(
 async fn upsert_views(
     State(state): State<AppState>,
     scope: Scope,
-    axum::extract::Path(trust_id): axum::extract::Path<String>,
+    axum::extract::Path(company_id): axum::extract::Path<String>,
     Json(body): Json<serde_json::Value>,
 ) -> Response {
     let mut params = body;
-    params["trust_id"] = serde_json::Value::String(trust_id);
+    params["company_id"] = serde_json::Value::String(company_id);
     ipc_proxy(state, scope.as_ref(), "upsert_views", params).await
 }
 
 async fn delete_view(
     State(state): State<AppState>,
     scope: Scope,
-    axum::extract::Path((trust_id, view_id)): axum::extract::Path<(String, String)>,
+    axum::extract::Path((company_id, view_id)): axum::extract::Path<(String, String)>,
 ) -> Response {
     ipc_proxy(
         state,
         scope.as_ref(),
         "delete_view",
-        serde_json::json!({"trust_id": trust_id, "view_id": view_id}),
+        serde_json::json!({"company_id": company_id, "view_id": view_id}),
     )
     .await
 }
@@ -106,13 +112,13 @@ async fn delete_view(
 async fn list_entity_channels(
     State(state): State<AppState>,
     scope: Scope,
-    axum::extract::Path(trust_id): axum::extract::Path<String>,
+    axum::extract::Path(company_id): axum::extract::Path<String>,
 ) -> Response {
     ipc_proxy(
         state,
         scope.as_ref(),
         "list_channels_for_entity",
-        serde_json::json!({"trust_id": trust_id}),
+        serde_json::json!({"company_id": company_id}),
     )
     .await
 }
@@ -120,11 +126,11 @@ async fn list_entity_channels(
 async fn create_entity_channel(
     State(state): State<AppState>,
     scope: Scope,
-    axum::extract::Path(trust_id): axum::extract::Path<String>,
+    axum::extract::Path(company_id): axum::extract::Path<String>,
     Json(body): Json<serde_json::Value>,
 ) -> Response {
     let mut params = body;
-    params["trust_id"] = serde_json::Value::String(trust_id);
+    params["company_id"] = serde_json::Value::String(company_id);
     ipc_proxy(state, scope.as_ref(), "create_channel", params).await
 }
 
@@ -132,7 +138,7 @@ async fn list_entities(State(state): State<AppState>, scope: Scope) -> Response 
     ipc_proxy(state, scope.as_ref(), "entities", serde_json::Value::Null).await
 }
 
-async fn list_trusts(State(state): State<AppState>, scope: Scope) -> Response {
+async fn list_companies(State(state): State<AppState>, scope: Scope) -> Response {
     let params = if let Some(scope_ref) = scope.as_ref() {
         serde_json::json!({
             "allowed_roots": scope_ref.roots,
@@ -149,22 +155,22 @@ async fn list_trusts(State(state): State<AppState>, scope: Scope) -> Response {
     if resp.get("ok") == Some(&serde_json::Value::Bool(false)) {
         return Json(resp).into_response();
     }
-    let trusts = resp
+    let companies = resp
         .get("roots")
         .or_else(|| resp.get("entities"))
         .cloned()
         .unwrap_or_else(|| serde_json::json!([]));
-    let trusts = match trusts {
+    let companies = match companies {
         serde_json::Value::Array(rows) => serde_json::Value::Array(
             rows.into_iter()
-                .map(|mut trust| {
-                    if let serde_json::Value::Object(obj) = &mut trust {
+                .map(|mut company| {
+                    if let serde_json::Value::Object(obj) = &mut company {
                         obj.insert(
                             "type".to_string(),
-                            serde_json::Value::String("trust".to_string()),
+                            serde_json::Value::String("company".to_string()),
                         );
                     }
-                    trust
+                    company
                 })
                 .collect(),
         ),
@@ -172,17 +178,17 @@ async fn list_trusts(State(state): State<AppState>, scope: Scope) -> Response {
     };
     Json(serde_json::json!({
         "ok": true,
-        "trusts": trusts,
+        "companies": companies,
     }))
     .into_response()
 }
 
-async fn create_trust(
+async fn create_company(
     State(state): State<AppState>,
     scope: Scope,
     req: axum::extract::Request,
 ) -> Response {
-    create_trust_inner(state, scope, req, "create_trust").await
+    create_company_inner(state, scope, req, "create_company").await
 }
 
 async fn create_entity(
@@ -190,10 +196,10 @@ async fn create_entity(
     scope: Scope,
     req: axum::extract::Request,
 ) -> Response {
-    create_trust_inner(state, scope, req, "create_entity").await
+    create_company_inner(state, scope, req, "create_entity").await
 }
 
-async fn create_trust_inner(
+async fn create_company_inner(
     state: AppState,
     scope: Scope,
     req: axum::extract::Request,
@@ -236,27 +242,27 @@ async fn create_trust_inner(
     if resp.get("ok") == Some(&serde_json::Value::Bool(true))
         && let (Some(accounts), Some(claims)) = (&state.accounts, &claims)
         && let Some(user_id) = claims.user_id.as_deref()
-        && let Some(trust_id) = resp.get("id").and_then(|v| v.as_str())
-        && let Err(err) = accounts.add_director(user_id, trust_id)
+        && let Some(company_id) = resp.get("id").and_then(|v| v.as_str())
+        && let Err(err) = accounts.add_director(user_id, company_id)
     {
         tracing::warn!(
             user_id,
-            trust_id,
+            company_id,
             action = log_action,
-            "failed to link trust to user: {err}"
+            "failed to link company to user: {err}"
         );
     }
 
     Json(resp).into_response()
 }
 
-async fn update_trust_handler(
+async fn update_company_handler(
     State(state): State<AppState>,
     scope: Scope,
     axum::extract::Path(name): axum::extract::Path<String>,
     Json(body): Json<serde_json::Value>,
 ) -> Response {
-    update_trust_inner(state, scope, name, body).await
+    update_company_inner(state, scope, name, body).await
 }
 
 async fn update_entity_handler(
@@ -265,10 +271,10 @@ async fn update_entity_handler(
     axum::extract::Path(name): axum::extract::Path<String>,
     Json(body): Json<serde_json::Value>,
 ) -> Response {
-    update_trust_inner(state, scope, name, body).await
+    update_company_inner(state, scope, name, body).await
 }
 
-async fn update_trust_inner(
+async fn update_company_inner(
     state: AppState,
     scope: Scope,
     name: String,
@@ -353,7 +359,7 @@ mod tests {
             tx,
             serde_json::json!({
                 "ok": true,
-                "trust_id": "trust-route-test",
+                "company_id": "company-route-test",
                 "entries": []
             }),
         ));
@@ -373,7 +379,7 @@ mod tests {
         let request = rx.await.unwrap();
 
         assert_eq!(request["cmd"], "list_cap_table_entries");
-        assert_eq!(request["trust_id"], "trust-route-test");
+        assert_eq!(request["company_id"], "company-route-test");
 
         (status, json)
     }
@@ -391,7 +397,7 @@ mod tests {
             tx,
             serde_json::json!({
                 "ok": true,
-                "trust_id": "trust-route-test",
+                "company_id": "company-route-test",
                 "views": []
             }),
         ));
@@ -425,39 +431,39 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn trusts_cap_table_route_dispatches_to_ipc() {
+    async fn companies_cap_table_route_dispatches_to_ipc() {
         let (status, json) =
-            exercise_cap_table_route("/api/trusts/trust-route-test/cap-table").await;
+            exercise_cap_table_route("/api/companies/company-route-test/cap-table").await;
 
         assert_eq!(status, axum::http::StatusCode::OK);
         assert_eq!(json["ok"], true);
-        assert_eq!(json["trust_id"], "trust-route-test");
+        assert_eq!(json["company_id"], "company-route-test");
         assert_eq!(json["entries"], serde_json::json!([]));
     }
 
     #[tokio::test]
     async fn entities_cap_table_route_dispatches_to_ipc() {
         let (status, json) =
-            exercise_cap_table_route("/api/entities/trust-route-test/cap-table").await;
+            exercise_cap_table_route("/api/entities/company-route-test/cap-table").await;
 
         assert_eq!(status, axum::http::StatusCode::OK);
         assert_eq!(json["ok"], true);
-        assert_eq!(json["trust_id"], "trust-route-test");
+        assert_eq!(json["company_id"], "company-route-test");
         assert_eq!(json["entries"], serde_json::json!([]));
     }
 
     #[tokio::test]
-    async fn trusts_views_list_route_dispatches_to_ipc() {
+    async fn companies_views_list_route_dispatches_to_ipc() {
         let (status, json, request) = exercise_views_route(
             axum::http::Method::GET,
-            "/api/trusts/trust-route-test/views",
+            "/api/companies/company-route-test/views",
             serde_json::Value::Null,
         )
         .await;
 
         assert_eq!(status, axum::http::StatusCode::OK);
         assert_eq!(request["cmd"], "list_views");
-        assert_eq!(request["trust_id"], "trust-route-test");
+        assert_eq!(request["company_id"], "company-route-test");
         assert_eq!(json["ok"], true);
         assert_eq!(json["views"], serde_json::json!([]));
     }
@@ -466,7 +472,7 @@ mod tests {
     async fn entities_views_upsert_route_dispatches_to_ipc_with_body() {
         let (status, _json, request) = exercise_views_route(
             axum::http::Method::PUT,
-            "/api/entities/trust-route-test/views",
+            "/api/entities/company-route-test/views",
             serde_json::json!({
                 "views": [{"key": "overview", "label": "Overview"}]
             }),
@@ -475,22 +481,22 @@ mod tests {
 
         assert_eq!(status, axum::http::StatusCode::OK);
         assert_eq!(request["cmd"], "upsert_views");
-        assert_eq!(request["trust_id"], "trust-route-test");
+        assert_eq!(request["company_id"], "company-route-test");
         assert_eq!(request["views"][0]["key"], "overview");
     }
 
     #[tokio::test]
-    async fn trusts_views_delete_route_dispatches_to_ipc() {
+    async fn companies_views_delete_route_dispatches_to_ipc() {
         let (status, _json, request) = exercise_views_route(
             axum::http::Method::DELETE,
-            "/api/trusts/trust-route-test/views/view-123",
+            "/api/companies/company-route-test/views/view-123",
             serde_json::Value::Null,
         )
         .await;
 
         assert_eq!(status, axum::http::StatusCode::OK);
         assert_eq!(request["cmd"], "delete_view");
-        assert_eq!(request["trust_id"], "trust-route-test");
+        assert_eq!(request["company_id"], "company-route-test");
         assert_eq!(request["view_id"], "view-123");
     }
 }

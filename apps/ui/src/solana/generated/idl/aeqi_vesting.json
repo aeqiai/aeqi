@@ -27,7 +27,7 @@
       ],
       "accounts": [
         {
-          "name": "trust"
+          "name": "company"
         },
         {
           "name": "position",
@@ -52,7 +52,7 @@
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               },
               {
                 "kind": "account",
@@ -96,7 +96,7 @@
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -138,7 +138,7 @@
       ],
       "accounts": [
         {
-          "name": "trust"
+          "name": "company"
         },
         {
           "name": "module_state",
@@ -166,7 +166,7 @@
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -194,7 +194,7 @@
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               },
               {
                 "kind": "arg",
@@ -259,7 +259,7 @@
     {
       "name": "init",
       "docs": [
-        "Module init — gated to the trust authority during creation mode so",
+        "Module init — gated to the company authority during creation mode so",
         "the module_state PDA cannot be squatted by an attacker."
       ],
       "discriminator": [
@@ -274,9 +274,9 @@
       ],
       "accounts": [
         {
-          "name": "trust",
+          "name": "company",
           "docs": [
-            "Trust PDA — must be a real Trust account owned by aeqi_trust."
+            "Company PDA — must be a real Company account owned by aeqi_company."
           ],
           "pda": {
             "seeds": [
@@ -292,8 +292,8 @@
               },
               {
                 "kind": "account",
-                "path": "trust.trust_id",
-                "account": "Trust"
+                "path": "company.company_id",
+                "account": "Company"
               }
             ],
             "program": {
@@ -361,7 +361,7 @@
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -421,7 +421,7 @@
               },
               {
                 "kind": "account",
-                "path": "position.trust",
+                "path": "position.company",
                 "account": "VestingPosition"
               },
               {
@@ -481,7 +481,7 @@
               },
               {
                 "kind": "account",
-                "path": "position.trust",
+                "path": "position.company",
                 "account": "VestingPosition"
               },
               {
@@ -513,7 +513,7 @@
   ],
   "accounts": [
     {
-      "name": "Trust",
+      "name": "Company",
       "discriminator": [
         71,
         85,
@@ -659,8 +659,8 @@
     },
     {
       "code": 6010,
-      "name": "TrustNotInCreationMode",
-      "msg": "trust must be in creation mode to initialize the vesting module"
+      "name": "CompanyNotInCreationMode",
+      "msg": "company must be in creation mode to initialize the vesting module"
     }
   ],
   "types": [
@@ -670,7 +670,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -703,7 +703,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -732,7 +732,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -761,7 +761,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -801,15 +801,15 @@
       }
     },
     {
-      "name": "Trust",
+      "name": "Company",
       "docs": [
-        "Core TRUST account — one per AEQI company. PDA seeded `[b\"trust\", trust_id]`."
+        "Core COMPANY account — one per AEQI company. PDA seeded `[b\"company\", company_id]`."
       ],
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust_id",
+            "name": "company_id",
             "type": {
               "array": [
                 "u8",
@@ -846,7 +846,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -866,7 +866,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {

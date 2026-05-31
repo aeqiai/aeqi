@@ -382,7 +382,7 @@ export default function SecurityPanel() {
         <h3 className="account-section-title">Danger zone</h3>
         <p className="account-field-desc">
           Request deletion of your account. We'll process within 30 days. Some data (legal records,
-          on-chain TRUST relationships) may be retained as required by law.
+          on-chain COMPANY relationships) may be retained as required by law.
         </p>
         <Button variant="danger" type="button" onClick={handleDeleteAccount}>
           Request account deletion
@@ -437,7 +437,7 @@ export default function SecurityPanel() {
           <div className="account-form-stack">
             <p>
               We'll process your deletion request within 30 days. Some data (legal records, on-chain
-              TRUST relationships) may be retained as required by law. You'll receive an email
+              COMPANY relationships) may be retained as required by law. You'll receive an email
               confirmation when the request is processed.
             </p>
             <p>

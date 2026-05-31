@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { AlertTriangle, ArrowUpRight } from "lucide-react";
-import TrustAvatar from "@/components/TrustAvatar";
+import CompanyAvatar from "@/components/CompanyAvatar";
 import { Button, EmptyState, Loading, PageSection, type TableColumn } from "@/components/ui";
 import { formatInteger, formatMediumDate } from "@/lib/i18n";
-import type { Role, RoleType, Trust } from "@/lib/types";
+import type { Role, RoleType, Company } from "@/lib/types";
 import type { CapTableSeedRow } from "./EconomyPage.capTable";
 import {
   compactAddress,
@@ -14,17 +14,16 @@ import {
   type PoolKind,
   type PoolKindFilter,
   type RoleTypeFilter,
-  type TrustVisibilityFilter,
+  type CompanyVisibilityFilter,
 } from "./EconomyPage.utils";
 import styles from "./EconomyPage.module.css";
-
 export function CapitalReadinessSection({
   loading,
   capTableRows,
   onChainCount,
   poolCount,
-  riskTrusts,
-  totalTrusts,
+  riskCompanies,
+  totalCompanies,
   onOpenFunding,
   onOpenPools,
 }: {
@@ -32,15 +31,15 @@ export function CapitalReadinessSection({
   capTableRows: CapTableSeedRow[];
   onChainCount: number;
   poolCount: number;
-  riskTrusts: Trust[];
-  totalTrusts: number;
+  riskCompanies: Company[];
+  totalCompanies: number;
   onOpenFunding: () => void;
   onOpenPools: () => void;
 }) {
-  const riskCount = riskTrusts.length;
+  const riskCount = riskCompanies.length;
   const hasRisk = !loading && riskCount > 0;
-  const trustNoun = totalTrusts === 1 ? "TRUST" : "TRUSTs";
-  const riskNoun = riskCount === 1 ? "TRUST" : "TRUSTs";
+  const trustNoun = totalCompanies === 1 ? "COMPANY" : "Companies";
+  const riskNoun = riskCount === 1 ? "COMPANY" : "Companies";
   const riskVerb = riskCount === 1 ? "has" : "have";
   const allocationNoun = capTableRows.length === 1 ? "allocation" : "allocations";
 
@@ -69,7 +68,7 @@ export function CapitalReadinessSection({
         <div className={styles.capitalSignalGrid} aria-label="Capital readiness signals">
           <span className={styles.capitalSignal}>
             <span className={styles.capitalSignalHead}>
-              <span className={styles.capitalSignalLabel}>TRUST identity</span>
+              <span className={styles.capitalSignalLabel}>COMPANY identity</span>
               <TableStatus
                 state={onChainCount > 0 ? "done" : loading ? "in_progress" : "backlog"}
                 label={
@@ -82,8 +81,8 @@ export function CapitalReadinessSection({
               />
             </span>
             <span className={styles.capitalSignalBody}>
-              {totalTrusts} visible {trustNoun}; TRUST addresses are shown only when the entity API
-              returns them.
+              {totalCompanies} visible {trustNoun}; COMPANY addresses are shown only when the entity
+              API returns them.
             </span>
           </span>
 
@@ -153,66 +152,68 @@ export function CapitalReadinessSection({
 
 export interface RoleOpeningRow {
   id: string;
-  trust: Trust;
+  company: Company;
   role: Role;
 }
 
-export function makeTrustColumns(getRoleCount: (trust: Trust) => number | undefined) {
+export function makeCompanyColumns(getRoleCount: (company: Company) => number | undefined) {
   return [
     {
-      key: "trust",
-      header: "Trust",
-      cell: (trust) => (
+      key: "company",
+      header: "Company",
+      cell: (company) => (
         <span className={styles.trustCell}>
-          <TrustAvatar name={trust.name} size={28} />
+          <CompanyAvatar name={company.name} size={28} />
           <span className={styles.trustCellText}>
-            <span className={styles.trustName}>{trust.name}</span>
+            <span className={styles.trustName}>{company.name}</span>
             <span className={styles.trustMeta}>
-              {trust.tagline || trust.plan || "Operating trust"}
+              {company.tagline || company.plan || "Operating company"}
             </span>
           </span>
         </span>
       ),
       sortable: true,
-      sortAccessor: (trust) => trust.name,
+      sortAccessor: (company) => company.name,
     },
     {
       key: "public",
       header: "Public",
-      cell: (trust) => (
+      cell: (company) => (
         <TableStatus
-          state={trust.public ? "done" : "backlog"}
-          label={trust.public ? "Public" : "Private"}
+          state={company.public ? "done" : "backlog"}
+          label={company.public ? "Public" : "Private"}
         />
       ),
       width: "96px",
       sortable: true,
-      sortAccessor: (trust) => (trust.public ? 1 : 0),
+      sortAccessor: (company) => (company.public ? 1 : 0),
     },
     {
       key: "address",
-      header: "TRUST",
-      cell: (trust) => <span className={styles.mono}>{compactAddress(trust.trust_address)}</span>,
+      header: "COMPANY",
+      cell: (company) => (
+        <span className={styles.mono}>{compactAddress(company.company_address)}</span>
+      ),
       width: "150px",
     },
     {
       key: "roles",
       header: "Roles",
-      cell: (trust) => getRoleCount(trust) ?? "-",
+      cell: (company) => getRoleCount(company) ?? "-",
       width: "90px",
       align: "end",
       sortable: true,
-      sortAccessor: (trust) => getRoleCount(trust) ?? 0,
+      sortAccessor: (company) => getRoleCount(company) ?? 0,
     },
     {
       key: "created",
       header: "Created",
-      cell: (trust) => formatMediumDate(trust.created_at, { fallback: "Unknown" }),
+      cell: (company) => formatMediumDate(company.created_at, { fallback: "Unknown" }),
       width: "140px",
       sortable: true,
-      sortAccessor: (trust) => trust.created_at,
+      sortAccessor: (company) => company.created_at,
     },
-  ] satisfies Array<TableColumn<Trust>>;
+  ] satisfies Array<TableColumn<Company>>;
 }
 
 const ROLE_TYPE_DOT_STATE: Record<RoleType, MetricStatusState> = {
@@ -232,7 +233,7 @@ export function makeRoleColumns(
       cell: (row) => (
         <span className={styles.trustCellText}>
           <span className={styles.trustName}>{row.role.title}</span>
-          <span className={styles.trustMeta}>{row.trust.name}</span>
+          <span className={styles.trustMeta}>{row.company.name}</span>
         </span>
       ),
       sortable: true,
@@ -280,7 +281,7 @@ export function makeRoleColumns(
 
 export interface PoolRow {
   id: string;
-  trust: Trust;
+  company: Company;
   kind: PoolKind;
   curve: string;
   assetMint: string;
@@ -297,11 +298,11 @@ export function makePoolColumns(onOpen: (row: PoolRow) => void): Array<TableColu
       cell: (row) => (
         <span className={styles.trustCellText}>
           <span className={styles.trustName}>{POOL_KIND_LABEL[row.kind]}</span>
-          <span className={styles.trustMeta}>{row.trust.name}</span>
+          <span className={styles.trustMeta}>{row.company.name}</span>
         </span>
       ),
       sortable: true,
-      sortAccessor: (row) => row.trust.name,
+      sortAccessor: (row) => row.company.name,
     },
     {
       key: "liquidity",
@@ -408,19 +409,24 @@ export function PoolKindChips({
   return <FilterChips ariaLabel="Pool kind" options={options} value={value} onChange={onChange} />;
 }
 
-export function TrustVisibilityChips({
+export function CompanyVisibilityChips({
   value,
   onChange,
 }: {
-  value: TrustVisibilityFilter;
-  onChange: (next: TrustVisibilityFilter) => void;
+  value: CompanyVisibilityFilter;
+  onChange: (next: CompanyVisibilityFilter) => void;
 }) {
-  const options: Array<{ id: TrustVisibilityFilter; label: string }> = [
+  const options: Array<{ id: CompanyVisibilityFilter; label: string }> = [
     { id: "all", label: "All" },
     { id: "public", label: "Public only" },
   ];
   return (
-    <FilterChips ariaLabel="Trust visibility" options={options} value={value} onChange={onChange} />
+    <FilterChips
+      ariaLabel="Company visibility"
+      options={options}
+      value={value}
+      onChange={onChange}
+    />
   );
 }
 
@@ -440,20 +446,20 @@ export function RoleTypeChips({
   return <FilterChips ariaLabel="Role type" options={options} value={value} onChange={onChange} />;
 }
 
-export function TrustDirectory({
-  trusts,
+export function CompanyDirectory({
+  companies,
   loading,
   onOpen,
   onViewAll,
 }: {
-  trusts: Trust[];
+  companies: Company[];
   loading: boolean;
-  onOpen: (trust: Trust) => void;
+  onOpen: (company: Company) => void;
   onViewAll: () => void;
 }) {
   return (
     <PageSection
-      title="TRUST directory"
+      title="COMPANY directory"
       description="Inspect programmable companies that can be operated, joined, or used as launch references."
       actions={
         <Button
@@ -462,26 +468,35 @@ export function TrustDirectory({
           onClick={onViewAll}
           trailingIcon={<ArrowUpRight size={13} strokeWidth={1.5} />}
         >
-          All TRUSTs
+          All Companies
         </Button>
       }
     >
       {loading ? (
         <div className={styles.loadingRow}>
-          <Loading size="sm" /> Loading trusts...
+          <Loading size="sm" /> Loading companies...
         </div>
-      ) : trusts.length === 0 ? (
-        <EmptyState title="No trusts found" description="No trust matches the current search." />
+      ) : companies.length === 0 ? (
+        <EmptyState
+          title="No companies found"
+          description="No company matches the current search."
+        />
       ) : (
         <div className={styles.trustGrid}>
-          {trusts.map((trust) => (
-            <article key={trust.id} className={styles.trustCard}>
-              <button type="button" className={styles.trustCardMain} onClick={() => onOpen(trust)}>
+          {companies.map((company) => (
+            <article key={company.id} className={styles.trustCard}>
+              <button
+                type="button"
+                className={styles.trustCardMain}
+                onClick={() => onOpen(company)}
+              >
                 <span className={styles.trustCardHead}>
-                  <TrustAvatar name={trust.name} size={36} />
+                  <CompanyAvatar name={company.name} size={36} />
                   <span className={styles.trustCellText}>
-                    <span className={styles.trustName}>{trust.name}</span>
-                    <span className={styles.trustMeta}>{trust.tagline || "Operating trust"}</span>
+                    <span className={styles.trustName}>{company.name}</span>
+                    <span className={styles.trustMeta}>
+                      {company.tagline || "Operating company"}
+                    </span>
                   </span>
                 </span>
               </button>
@@ -489,20 +504,20 @@ export function TrustDirectory({
                 <span className={styles.trustStatus}>
                   <span
                     className={`quest-status-dot quest-status-dot--${
-                      trust.public ? "done" : "backlog"
+                      company.public ? "done" : "backlog"
                     }`}
                     aria-hidden
                   />
                   <span className={styles.trustStatusLabel}>
-                    {trust.public ? "Public" : "Private"}
+                    {company.public ? "Public" : "Private"}
                   </span>
                 </span>
-                {trust.public && (
-                  <Link to={`/${encodeURIComponent(trust.id)}`} className={styles.publicLink}>
+                {company.public && (
+                  <Link to={`/${encodeURIComponent(company.id)}`} className={styles.publicLink}>
                     Profile
                   </Link>
                 )}
-                {!trust.public && <span className={styles.publicLink}>Open TRUST</span>}
+                {!company.public && <span className={styles.publicLink}>Open COMPANY</span>}
               </span>
             </article>
           ))}

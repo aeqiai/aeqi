@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import AgentEventsTab from "@/components/AgentEventsTab";
 import * as eventsApi from "@/api/events";
 import { useDaemonStore } from "@/store/daemon";
-import type { Agent, AgentEvent, Trust } from "@/lib/types";
+import type { Agent, AgentEvent, Company } from "@/lib/types";
 
 vi.mock("@/api/events", () => ({
   listAgentEvents: vi.fn(),
@@ -14,26 +14,26 @@ vi.mock("@/api/events", () => ({
   deleteEvent: vi.fn(),
 }));
 
-const TRUST: Trust = {
-  id: "trust-1",
+const COMPANY: Company = {
+  id: "company-1",
   name: "Runtime",
-  type: "trust",
+  type: "company",
   status: "active",
   created_at: "2026-05-01T00:00:00Z",
-  trust_address: "0xabc",
+  company_address: "0xabc",
 };
 
 const AGENTS: Agent[] = [
   {
     id: "agent-1",
     name: "Janus",
-    trust_id: TRUST.id,
+    company_id: COMPANY.id,
     status: "active",
   },
   {
     id: "agent-2",
     name: "Operator",
-    trust_id: TRUST.id,
+    company_id: COMPANY.id,
     status: "idle",
   },
 ];
@@ -60,7 +60,7 @@ function LocationProbe() {
   return <div data-testid="location">{`${location.pathname}${location.search}`}</div>;
 }
 
-function renderEvents(initialEntry = "/trust/0xabc/events") {
+function renderEvents(initialEntry = "/company/0xabc/events") {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -69,7 +69,7 @@ function renderEvents(initialEntry = "/trust/0xabc/events") {
       <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
           <Route
-            path="/trust/:trustAddress/events"
+            path="/company/:companyAddress/events"
             element={
               <>
                 <AgentEventsTab agentId="agent-1" agentRail />
@@ -78,7 +78,7 @@ function renderEvents(initialEntry = "/trust/0xabc/events") {
             }
           />
           <Route
-            path="/trust/:trustAddress/events/:itemId"
+            path="/company/:companyAddress/events/:itemId"
             element={
               <>
                 <AgentEventsTab agentId="agent-1" agentRail />
@@ -97,7 +97,7 @@ describe("AgentEventsTab agent filter", () => {
     localStorage.clear();
     useDaemonStore.setState({
       ...initialDaemonState,
-      entities: [TRUST],
+      entities: [COMPANY],
       agents: AGENTS,
     });
     vi.mocked(eventsApi.listAgentEvents).mockImplementation(async (agentId: string) => ({
@@ -115,7 +115,7 @@ describe("AgentEventsTab agent filter", () => {
   });
 
   it("uses the query-string agent as the active event lens", async () => {
-    renderEvents("/trust/0xabc/events?agent=agent-2");
+    renderEvents("/company/0xabc/events?agent=agent-2");
 
     expect(await screen.findByText("Operator loop check")).toBeInTheDocument();
     expect(eventsApi.listAgentEvents).toHaveBeenCalledWith("agent-2");
@@ -132,7 +132,7 @@ describe("AgentEventsTab agent filter", () => {
   });
 
   it("switches the selected agent without leaving the Events page", async () => {
-    renderEvents("/trust/0xabc/events?agent=agent-2");
+    renderEvents("/company/0xabc/events?agent=agent-2");
     expect(await screen.findByText("Operator loop check")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Agent: Operator" }));
@@ -140,11 +140,11 @@ describe("AgentEventsTab agent filter", () => {
 
     await waitFor(() => expect(eventsApi.listAgentEvents).toHaveBeenCalledWith("agent-1"));
     expect(await screen.findByText("Session birth context")).toBeInTheDocument();
-    expect(screen.getByTestId("location")).toHaveTextContent("/trust/0xabc/events?agent=agent-1");
+    expect(screen.getByTestId("location")).toHaveTextContent("/company/0xabc/events?agent=agent-1");
   });
 
   it("keeps creation focused on runtime loop handlers", async () => {
-    renderEvents("/trust/0xabc/events");
+    renderEvents("/company/0xabc/events");
     expect(await screen.findByText("Session birth context")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "New handler" }));

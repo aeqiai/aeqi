@@ -99,7 +99,7 @@ describe("TemplatesPage (catalog)", () => {
     // a card render to prove the page mounted.
     expect(await screen.findByRole("searchbox", { name: /search templates/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1, name: "Templates" })).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Launch TRUST" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Launch COMPANY" }).length).toBeGreaterThan(0);
     expect(screen.getByText("Company packages")).toBeInTheDocument();
     expect(screen.getByText("Launch action")).toBeInTheDocument();
     expect(screen.getByText("1 shipped in v1")).toBeInTheDocument();
@@ -130,13 +130,13 @@ describe("TemplatesPage (catalog)", () => {
     await user.click(await screen.findByText("Solo Founder"));
 
     // Detail page renders the template name as h1, the seed counts list,
-    // and the "Launch TRUST" CTA — but no spawn form (that lives
+    // and the "Launch COMPANY" CTA — but no spawn form (that lives
     // exclusively on /launch now).
     expect(
       await screen.findByRole("heading", { level: 1, name: "Solo Founder" }),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("What this template seeds")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /launch trust/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /launch company/i })).toBeInTheDocument();
   });
 
   it("renders reusable agent templates on the Agents catalog lane", async () => {
@@ -243,7 +243,7 @@ describe("BlueprintDetailPage", () => {
     );
   });
 
-  it("'Launch TRUST' CTA navigates to /launch with the slug pre-loaded", async () => {
+  it("'Launch COMPANY' CTA navigates to /launch with the slug pre-loaded", async () => {
     vi.spyOn(api, "getBlueprint").mockResolvedValue({ ok: true, blueprint: SOLO });
     const user = userEvent.setup();
 
@@ -267,7 +267,7 @@ describe("BlueprintDetailPage", () => {
     );
 
     await screen.findByRole("heading", { level: 1, name: "Solo Founder" });
-    await user.click(screen.getByRole("button", { name: /launch trust/i }));
+    await user.click(screen.getByRole("button", { name: /launch company/i }));
 
     await waitFor(() => {
       expect(landed).not.toBeNull();

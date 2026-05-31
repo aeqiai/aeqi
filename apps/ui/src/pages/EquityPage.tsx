@@ -44,11 +44,11 @@ import {
 /**
  * Equity — `e` in the AEQI grammar (assets · equity · quorum · identity).
  *
- * v1 = read-only cap table for Venture-shape TRUSTs. Foundation-shape
- * TRUSTs (the signup default) have no `TokenModuleState` and render a
+ * v1 = read-only cap table for Venture-shape Companies. Foundation-shape
+ * Companies (the signup default) have no `TokenModuleState` and render a
  * quiet empty state inviting the user to start a Company instead.
  *
- * Sections (only rendered for Venture TRUSTs):
+ * Sections (only rendered for Venture Companies):
  *   1. Mint identity — mint pubkey (copy), supply (formatted with
  *      decimals), max_supply_cap (or "uncapped"), decimals.
  *   2. Cap table — every Token-2022 holder of the mint, sorted by
@@ -67,10 +67,10 @@ import {
  *
  * Anti-scope: no share-class editor.
  */
-export default function EquityPage({ trustId }: { trustId: string }) {
+export default function EquityPage({ companyId }: { companyId: string }) {
   const entities = useDaemonStore((s) => s.entities);
-  const entity = useMemo(() => entities.find((e) => e.id === trustId), [entities, trustId]);
-  const trustAddress = entity?.trust_address ?? null;
+  const entity = useMemo(() => entities.find((e) => e.id === companyId), [entities, companyId]);
+  const companyAddress = entity?.company_address ?? null;
 
   const {
     tokenModuleState,
@@ -82,7 +82,7 @@ export default function EquityPage({ trustId }: { trustId: string }) {
     isLoading,
     error,
     isFoundation,
-  } = useEquity(trustAddress);
+  } = useEquity(companyAddress);
 
   // iter-6: shared curve-state fetch via `useCurveTrades`. Both the
   // genesis-curve section (chart marker, RecentTradesLog under the
@@ -97,24 +97,24 @@ export default function EquityPage({ trustId }: { trustId: string }) {
   // collapses both into the same hook.
   const [curveTick, setCurveTick] = useState(0);
   const bumpCurveTick = useCallback(() => setCurveTick((t) => t + 1), []);
-  const { trades: recentTrades } = useCurveTrades(trustId, curveTick);
+  const { trades: recentTrades } = useCurveTrades(companyId, curveTick);
 
   // Iter-7: shared vesting subscriber. The hook holds the canonical
   // positions list (sourced from the same RQ cache `useEquity` populates)
   // and exposes a `refresh()` lever. VestingSection calls refresh after
   // a Claim succeeds; HolderDrawer reads from the same hook so the
   // claimable-now rollup re-renders on the same beat.
-  const vestingShared = useEquityVesting(trustAddress, vesting ?? []);
+  const vestingShared = useEquityVesting(companyAddress, vesting ?? []);
 
   // ── Pre-bridge state: entity exists but has no on-chain mirror yet.
-  if (!trustAddress) {
+  if (!companyAddress) {
     return (
       <Page>
-        <PageHeader title="Equity" description="The TRUST's cap table." />
+        <PageHeader title="Equity" description="The COMPANY's cap table." />
         <PageBody>
           <EmptyState
             title="Not yet on-chain"
-            description="This entity does not have a TRUST proxy address yet. Once the click-to-DAO bridge fires, the on-chain cap table will render here."
+            description="This entity does not have a COMPANY proxy address yet. Once the click-to-DAO bridge fires, the on-chain cap table will render here."
           />
         </PageBody>
       </Page>
@@ -124,7 +124,7 @@ export default function EquityPage({ trustId }: { trustId: string }) {
   if (isLoading) {
     return (
       <Page>
-        <PageHeader title="Equity" description="The TRUST's cap table." />
+        <PageHeader title="Equity" description="The COMPANY's cap table." />
         <PageBody>
           <Loading variant="section" label="Reading on-chain cap table" />
         </PageBody>
@@ -135,7 +135,7 @@ export default function EquityPage({ trustId }: { trustId: string }) {
   if (error) {
     return (
       <Page>
-        <PageHeader title="Equity" description="The TRUST's cap table." />
+        <PageHeader title="Equity" description="The COMPANY's cap table." />
         <PageBody>
           <EmptyState
             title="Couldn't read cap table"
@@ -146,16 +146,16 @@ export default function EquityPage({ trustId }: { trustId: string }) {
     );
   }
 
-  // ── Foundation TRUST: no equity module deployed. Quiet empty state +
+  // ── Foundation COMPANY: no equity module deployed. Quiet empty state +
   //    pointer to the path that DOES issue equity (start a Company).
   if (isFoundation) {
     return (
       <Page>
-        <PageHeader title="Equity" description="The TRUST's cap table." />
+        <PageHeader title="Equity" description="The COMPANY's cap table." />
         <PageBody>
           <EmptyState
-            title="This TRUST has no equity module"
-            description="Equity issuance is a Company feature — personal TRUSTs are Foundation-shape and don't carry a cap table."
+            title="This COMPANY has no equity module"
+            description="Equity issuance is a Company feature — personal Companies are Foundation-shape and don't carry a cap table."
             action={<Link to="/start">+ New Company</Link>}
           />
         </PageBody>
@@ -171,11 +171,11 @@ export default function EquityPage({ trustId }: { trustId: string }) {
   if (!tokenModuleState || !mint || !mintAddress) {
     return (
       <Page>
-        <PageHeader title="Equity" description="The TRUST's cap table." />
+        <PageHeader title="Equity" description="The COMPANY's cap table." />
         <PageBody>
           <EmptyState
             title="Cap-table mint not found"
-            description={`TokenModuleState exists at this TRUST but the mint account at ${mintAddress ? shortAddress(mintAddress) : "the derived PDA"} is missing on the configured cluster. Check that the RPC URL matches the cluster the TRUST was deployed to.`}
+            description={`TokenModuleState exists at this COMPANY but the mint account at ${mintAddress ? shortAddress(mintAddress) : "the derived PDA"} is missing on the configured cluster. Check that the RPC URL matches the cluster the COMPANY was deployed to.`}
           />
         </PageBody>
       </Page>
@@ -205,7 +205,7 @@ export default function EquityPage({ trustId }: { trustId: string }) {
   return (
     <EquityPrefillProvider>
       <Page>
-        <PageHeader title="Equity" description="The TRUST's cap table." />
+        <PageHeader title="Equity" description="The COMPANY's cap table." />
         <PageBody>
           {/* Coherent ownership story top-to-bottom:
            *   1. Mint identity — the on-chain anchor for this cap table.
@@ -235,7 +235,7 @@ export default function EquityPage({ trustId }: { trustId: string }) {
             registryInitialized={tokenModuleState.initialized}
           />
           <CapTableSection
-            trustId={trustId}
+            companyId={companyId}
             holders={holders ?? []}
             totalSupply={mint.supply}
             decimals={mint.decimals}
@@ -243,21 +243,21 @@ export default function EquityPage({ trustId }: { trustId: string }) {
             vestingTick={vestingShared.tick}
             recentTrades={recentTrades}
           />
-          <EquityShareControls trustId={trustId} />
+          <EquityShareControls companyId={companyId} />
           <EquityGenesisCurveSection
-            trustId={trustId}
+            companyId={companyId}
             refreshTick={curveTick}
             onTradeSettled={bumpCurveTick}
           />
-          <EquityFundingRoundControl trustId={trustId} declaredRounds={fundingRequests ?? []} />
+          <EquityFundingRoundControl companyId={companyId} declaredRounds={fundingRequests ?? []} />
           <VestingSection
-            trustId={trustId}
+            companyId={companyId}
             positions={vestingShared.positions}
             decimals={mint.decimals}
             refreshTick={vestingShared.tick}
             onClaimSettled={vestingShared.refresh}
           />
-          <EquityVestingControls trustId={trustId} holders={holders ?? []} />
+          <EquityVestingControls companyId={companyId} holders={holders ?? []} />
         </PageBody>
       </Page>
     </EquityPrefillProvider>
@@ -304,7 +304,7 @@ const CAP_TABLE_FILTER_LABELS: Record<CapTableFilter, string> = {
 };
 
 function CapTableSection({
-  trustId,
+  companyId,
   holders,
   totalSupply,
   decimals,
@@ -312,7 +312,7 @@ function CapTableSection({
   vestingTick,
   recentTrades,
 }: {
-  trustId: string;
+  companyId: string;
   holders: TokenHolder[];
   totalSupply: bigint;
   decimals: number;
@@ -343,7 +343,7 @@ function CapTableSection({
   // query param (typically from a HolderDrawer share link), open the
   // drawer for that holder on first mount. Skips when the address
   // doesn't match any current holder (operator probably shared from a
-  // different TRUST; renders cap-table normally without a drawer).
+  // different COMPANY; renders cap-table normally without a drawer).
   // Only fires once per mount — the deep-link is a single-shot
   // affordance, not an ongoing URL sync; closing the drawer doesn't
   // strip the query param.
@@ -733,7 +733,7 @@ function CapTableSection({
       <CapTableImportModal
         open={importOpen}
         onClose={() => setImportOpen(false)}
-        trustId={trustId}
+        companyId={companyId}
       />
     </>
   );

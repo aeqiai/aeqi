@@ -27,7 +27,7 @@
         "crates/aeqi-redact/Cargo.toml",
         "crates/aeqi-test-support/Cargo.toml",
         "crates/aeqi-tools/Cargo.toml",
-        "crates/aeqi-trust/Cargo.toml",
+        "crates/aeqi-company/Cargo.toml",
         "crates/aeqi-wallets/Cargo.toml",
         "crates/aeqi-web/Cargo.toml",
         "projects/aeqi-solana/Cargo.toml",
@@ -40,7 +40,7 @@
         "projects/aeqi-solana/programs/aeqi-role/Cargo.toml",
         "projects/aeqi-solana/programs/aeqi-token/Cargo.toml",
         "projects/aeqi-solana/programs/aeqi-treasury/Cargo.toml",
-        "projects/aeqi-solana/programs/aeqi-trust/Cargo.toml",
+        "projects/aeqi-solana/programs/aeqi-company/Cargo.toml",
         "projects/aeqi-solana/programs/aeqi-unifutures/Cargo.toml",
         "projects/aeqi-solana/programs/aeqi-vesting/Cargo.toml"
       ]
@@ -69,7 +69,7 @@
         "crates/aeqi-redact/Cargo.toml",
         "crates/aeqi-test-support/Cargo.toml",
         "crates/aeqi-tools/Cargo.toml",
-        "crates/aeqi-trust/Cargo.toml",
+        "crates/aeqi-company/Cargo.toml",
         "crates/aeqi-wallets/Cargo.toml",
         "crates/aeqi-web/Cargo.toml"
       ]
@@ -121,7 +121,7 @@
         "docs/security/configuration.md",
         "docs/security/hardening-2026-04.md",
         "docs/self-hosting.md",
-        "docs/solana-trust-handover.md",
+        "docs/solana-company-handover.md",
         "docs/ui-design.md",
         "docs/vision.md"
       ]

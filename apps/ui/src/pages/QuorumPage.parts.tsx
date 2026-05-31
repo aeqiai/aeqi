@@ -390,20 +390,20 @@ function RowFragment({ children }: { children: React.ReactNode }) {
 /* ────────────────────────────────────────────────────────────────── */
 
 /**
- * No-config empty state. Rendered when a TRUST has registered the
+ * No-config empty state. Rendered when a COMPANY has registered the
  * `aeqi_governance` module but no GovernanceConfig PDA exists yet
- * (the dominant Foundation-TRUST shape post-signup). Shows a polished
+ * (the dominant Foundation-COMPANY shape post-signup). Shows a polished
  * card with the rationale + a primary CTA that opens a Modal walking
  * the operator through the two paths (token-mode via Equity vs role-
  * mode via Roles).
  */
-export function NoGovernanceSetup({ trustId }: { trustId: string }) {
+export function NoGovernanceSetup({ companyId }: { companyId: string }) {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   return (
     <PageSection title="Voting configs">
       <div className={styles.configsEmptyCard}>
-        <h3 className={styles.configsEmptyTitle}>Set up governance for this TRUST</h3>
+        <h3 className={styles.configsEmptyTitle}>Set up governance for this COMPANY</h3>
         <p className={styles.configsEmptyBody}>
           The <code>aeqi_governance</code> module is registered, but no voting config has been
           written yet. Until one exists, no proposals can open and no votes can be cast.
@@ -426,17 +426,17 @@ export function NoGovernanceSetup({ trustId }: { trustId: string }) {
           <p className={styles.configsEmptyBody}>
             Governance is two things: a <strong>voting config</strong> (who can vote, what
             thresholds apply) and the <strong>proposals</strong> opened against it. Pick the mode
-            that fits this TRUST.
+            that fits this COMPANY.
           </p>
           <ol className={styles.configsEmptySteps}>
             <li>
               <strong>Token-weighted</strong> — every equity-share holder votes by balance. Default
               for cap-table-driven companies. Register from the{" "}
-              <Link to={`/trust/${trustId}/shares`}>Shares</Link> surface.
+              <Link to={`/company/${companyId}/shares`}>Shares</Link> surface.
             </li>
             <li>
               <strong>Role-mode</strong> — multisig per role (e.g. Founders, Board, Ops). Register
-              from the <Link to={`/trust/${trustId}/roles`}>Roles</Link> surface, one config per
+              from the <Link to={`/company/${companyId}/roles`}>Roles</Link> surface, one config per
               role type that should be able to vote.
             </li>
             <li>
@@ -458,7 +458,7 @@ export function NoGovernanceSetup({ trustId }: { trustId: string }) {
               size="sm"
               onClick={() => {
                 setOpen(false);
-                navigate(`/trust/${trustId}/roles`);
+                navigate(`/company/${companyId}/roles`);
               }}
             >
               Go to Roles
@@ -476,7 +476,7 @@ export function NoGovernanceSetup({ trustId }: { trustId: string }) {
 
 /**
  * Rendered when the active cluster does not have the `aeqi_governance`
- * program deployed. This is a deployment-level gap, not a per-TRUST
+ * program deployed. This is a deployment-level gap, not a per-COMPANY
  * config gap — the surface can't recover by setting up a config because
  * `register_config` is a `aeqi_governance` ix. Operator action lives
  * upstream (deploy the program / point the RPC URL at a cluster where
@@ -490,7 +490,7 @@ export function ProgramNotProvisionedCard() {
         <h3 className={styles.configsEmptyTitle}>Governance program not deployed</h3>
         <p className={styles.configsEmptyBody}>
           The active Solana cluster doesn&apos;t have <code>aeqi_governance</code> deployed yet, so
-          no voting configs or proposals can exist for any TRUST on it. This is a deployment-level
+          no voting configs or proposals can exist for any COMPANY on it. This is a deployment-level
           gap — once an operator deploys the program (or points the RPC URL at a cluster where
           it&apos;s deployed), the surface will populate automatically.
         </p>
@@ -516,7 +516,7 @@ export function ProgramNotProvisionedCard() {
 
 /**
  * Rendered when at least one voting config is registered but no
- * proposal has been opened against the TRUST yet. The default empty
+ * proposal has been opened against the COMPANY yet. The default empty
  * states elsewhere read as "nothing here yet, here&apos;s why"; this one
  * has the affordance to fix it directly, so it&apos;s CTA-led instead.
  */
@@ -524,12 +524,12 @@ export function NoProposalsYetCard({ onOpen }: { onOpen: () => void }) {
   return (
     <PageSection
       title="Proposals"
-      description="Every proposal opened against this TRUST. Status derives from tallies + the cluster clock."
+      description="Every proposal opened against this COMPANY. Status derives from tallies + the cluster clock."
     >
       <div className={styles.configsEmptyCard}>
         <h3 className={styles.configsEmptyTitle}>Draft your first proposal</h3>
         <p className={styles.configsEmptyBody}>
-          A voting config exists but no proposal has been opened against this TRUST. The first
+          A voting config exists but no proposal has been opened against this COMPANY. The first
           proposal sets the cadence — write it like the audit-trail entry it&apos;ll always be.
         </p>
         <Inline gap="2" wrap>

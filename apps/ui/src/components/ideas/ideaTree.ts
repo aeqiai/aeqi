@@ -27,28 +27,28 @@ export interface IdeaWikiStructure {
   clusters: IdeaWikiCluster[];
 }
 
-export const TRUST_ROOT_KIND = "trust_root";
-export const TRUST_ROOT_PROPERTY = "aeqi_trust_root";
-export const TRUST_ID_PROPERTY = "aeqi_trust_id";
+export const COMPANY_ROOT_KIND = "company_root";
+export const COMPANY_ROOT_PROPERTY = "aeqi_company_root";
+export const COMPANY_ID_PROPERTY = "aeqi_company_id";
 
-export function isTrustRootIdea(idea: Pick<Idea, "properties">): boolean {
+export function isCompanyRootIdea(idea: Pick<Idea, "properties">): boolean {
   const properties = idea.properties ?? {};
-  return properties[TRUST_ROOT_PROPERTY] === true || properties.kind === TRUST_ROOT_KIND;
+  return properties[COMPANY_ROOT_PROPERTY] === true || properties.kind === COMPANY_ROOT_KIND;
 }
 
-export function trustRootProperties(trustId: string): Record<string, unknown> {
+export function trustRootProperties(companyId: string): Record<string, unknown> {
   return {
-    [TRUST_ROOT_PROPERTY]: true,
-    [TRUST_ID_PROPERTY]: trustId,
-    kind: TRUST_ROOT_KIND,
+    [COMPANY_ROOT_PROPERTY]: true,
+    [COMPANY_ID_PROPERTY]: companyId,
+    kind: COMPANY_ROOT_KIND,
   };
 }
 
-export function findTrustRootIdea(ideas: Idea[], trustId?: string | null): Idea | null {
-  const roots = ideas.filter(isTrustRootIdea);
+export function findCompanyRootIdea(ideas: Idea[], companyId?: string | null): Idea | null {
+  const roots = ideas.filter(isCompanyRootIdea);
   if (roots.length === 0) return null;
-  if (trustId) {
-    const scoped = roots.find((idea) => idea.properties?.[TRUST_ID_PROPERTY] === trustId);
+  if (companyId) {
+    const scoped = roots.find((idea) => idea.properties?.[COMPANY_ID_PROPERTY] === companyId);
     if (scoped) return scoped;
   }
   return roots[0];
@@ -78,7 +78,7 @@ export function buildIdeaTree(ideas: Idea[]): IdeaTreeNode[] {
 }
 
 export function buildWorkspaceTree(root: Idea, ideas: Idea[]): IdeaTreeNode {
-  const visible = ideas.filter((idea) => idea.id !== root.id && !isTrustRootIdea(idea));
+  const visible = ideas.filter((idea) => idea.id !== root.id && !isCompanyRootIdea(idea));
   const visibleIds = new Set(visible.map((idea) => idea.id));
   const workspaceIdeas = [
     root,
@@ -94,7 +94,7 @@ export function buildWorkspaceTree(root: Idea, ideas: Idea[]): IdeaTreeNode {
 }
 
 export function buildIdeaWikiStructure(root: Idea, ideas: Idea[]): IdeaWikiStructure {
-  const visible = ideas.filter((idea) => idea.id !== root.id && !isTrustRootIdea(idea));
+  const visible = ideas.filter((idea) => idea.id !== root.id && !isCompanyRootIdea(idea));
   const visibleIds = new Set(visible.map((idea) => idea.id));
   const tree = buildWorkspaceTree(root, ideas);
   let maxDepth = 0;

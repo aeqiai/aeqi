@@ -27,9 +27,9 @@ function activityLabel(session: SessionInfo | null, isStreaming: boolean): strin
 export default function AgentSessionContextHeader() {
   useRelativeNow();
 
-  const { trustId, trustAddress, agentId, itemId } = useParams<{
-    trustId?: string;
-    trustAddress?: string;
+  const { companyId, companyAddress, agentId, itemId } = useParams<{
+    companyId?: string;
+    companyAddress?: string;
     agentId?: string;
     itemId?: string;
   }>();
@@ -46,9 +46,11 @@ export default function AgentSessionContextHeader() {
     () => sessions.find((session) => session.id === itemId) ?? null,
     [sessions, itemId],
   );
-  const resolvedTrustId =
-    trustId ||
-    (trustAddress ? entities.find((entity) => entity.trust_address === trustAddress)?.id : "");
+  const resolvedCompanyId =
+    companyId ||
+    (companyAddress
+      ? entities.find((entity) => entity.company_address === companyAddress)?.id
+      : "");
 
   const title = currentSession ? sessionLabel(currentSession) : agent?.name || agentId || "Agent";
   const subtitle = currentSession
@@ -90,7 +92,7 @@ export default function AgentSessionContextHeader() {
           <MobileSessionsSwitcher currentTitle={title} />
           <ParticipantStrip
             sessionId={itemId ?? null}
-            trustId={resolvedTrustId || undefined}
+            companyId={resolvedCompanyId || undefined}
             activeParticipantIds={isStreaming && agentId ? [agentId] : []}
           />
         </div>

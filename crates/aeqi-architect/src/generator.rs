@@ -40,11 +40,11 @@ pub const STUB_SLUG: &str = "architect-foundation";
 /// token + vesting + funding). Foundation looks like a softer fit
 /// (no token model implied) but its 5th module slot
 /// `keccak256("foundation")` has no Beacon implementation registered
-/// — every TRUST minted under it reverts at module-init with
+/// — every COMPANY minted under it reverts at module-init with
 /// `BeaconProxy_ImplementationNotFound()`. Stays on `entity` until
 /// the chain-side `_registerFoundation` shrink lands. Mirror of the
 /// allow-list rationale documented on `llm::VALID_TEMPLATES`.
-pub const STUB_TEMPLATE: &str = "trust";
+pub const STUB_TEMPLATE: &str = "company";
 
 /// Hard cap on brief length. Beyond this we refuse the request — the
 /// orchestrator IPC layer should already reject before hitting us, but
@@ -56,7 +56,7 @@ pub const HARD_CHAR_CAP: usize = 8_000;
 /// Phase 1: returns a hard-coded entity-template blueprint populated
 /// with the brief text in the root agent's identity idea, the
 /// description field, and a kickoff quest. Always emits
-/// `template = "trust"` — see [`STUB_TEMPLATE`] for why we don't
+/// `template = "company"` — see [`STUB_TEMPLATE`] for why we don't
 /// pick `foundation`.
 pub fn generate(brief: &Brief) -> Result<GeneratedBlueprint, ArchitectError> {
     let trimmed = brief.text.trim();

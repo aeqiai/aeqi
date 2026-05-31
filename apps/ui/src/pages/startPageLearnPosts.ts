@@ -16,17 +16,17 @@ export const LEARN_POSTS = [
     href: "https://aeqi.ai/blog/the-agent-economy",
   },
   {
-    title: "What a TRUST runs",
+    title: "What a COMPANY runs",
     kicker: "Manifesto",
     summary:
-      "A TRUST keeps people, agents, work, memory, tools, and evidence together for one mission.",
+      "A COMPANY keeps people, agents, work, memory, tools, and evidence together for one mission.",
     image: "/blog/programmable-capitalism-hero.webp",
     href: "https://aeqi.ai/blog/programmable-capitalism",
   },
   {
     title: "The mission workspace is the product",
     kicker: "Manifesto",
-    summary: "The agent is not the product. The TRUST is the workspace where a mission runs.",
+    summary: "The agent is not the product. The COMPANY is the workspace where a mission runs.",
     image: "/blog/the-company-is-the-primitive-hero.webp",
     href: "https://aeqi.ai/blog/the-company-is-the-primitive",
   },

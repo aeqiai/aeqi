@@ -142,7 +142,7 @@ export default function RolesList({
   );
 
   return (
-    <div className="trust-roles-table">
+    <div className="company-roles-table">
       <Table<Role>
         columns={columns}
         data={roles}
@@ -220,7 +220,7 @@ function parentOccupantLabel(role: Role, agentNames: Map<string, string>): strin
  *   human + URL    → circular <img> (borderRadius 999px)
  *   human + no URL → circular initials chip (borderRadius 999px)
  *
- * Humans and agents are identity circles; TRUSTs keep the institutional
+ * Humans and agents are identity circles; Companies keep the institutional
  * rounded-square shape.
  */
 function AgentAvatarChip({

@@ -12,7 +12,7 @@ assumptions must be removed.
 
 The EVM contracts are the semantic source:
 
-- `~/projects/aeqi-core/contracts/core/TRUST.sol`
+- `~/projects/aeqi-core/contracts/core/COMPANY.sol`
 - `~/projects/aeqi-core/contracts/core/Factory.sol`
 - `~/projects/aeqi-core/contracts/core/Module.sol`
 - `~/projects/aeqi-core/contracts/modules/*.module.sol`
@@ -53,7 +53,7 @@ The core idea is:
 
 ```text
 template + signers + module graph + ACL graph + configs
-  -> TRUST
+  -> COMPANY
   -> roles, governance, treasury, capital formation, vesting, execution
   -> a company that can operate through humans and agents
 ```
@@ -66,7 +66,7 @@ The EVM system was valuable because it modeled a company as a compiled,
 auditable institution:
 
 - factory-born company runtime
-- one TRUST policy root
+- one COMPANY policy root
 - declared signers and metadata
 - versioned template and module graph
 - explicit ACL edges
@@ -83,22 +83,22 @@ builders.
 
 | EVM primitive                        | Original insight                                                                                                                                                                       | Solana state today                                                                                                                                                                                                                                                                          | Verdict                                                  | Target                                                                                                                                                                                               |
 | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TRUST` policy root                  | A company is a policy root, module registry, config store, asset holder, and execution gateway. Module access flows through `hasTRUSTAccess`; actions execute through `TRUST.execute`. | `aeqi_trust` stores module registry/config/paused state, but several module mutators still treat TRUST as unchecked namespace or do not enforce paused/finalized state.                                                                                                                     | Preserved conceptually, diluted operationally.           | TRUST remains the policy root. Modules may move into separate Solana programs and accounts, but high-risk mutations must either load canonical TRUST state or document why they are safe without it. |
-| Factory as institution compiler      | `Factory` registers a TRUST request with declared signers, waits for approvals, applies user/template configs, deploys modules, wires ACLs, finalizes, and marks the institution live. | `aeqi_factory.instantiate_template` validates provider-published module implementations, registers module slots, replays template ACL edges, and finalizes the TRUST. Docs/SDK still need to make this the default company-level flow.                                                      | Meaningfully preserved in protocol, underexposed in SDK. | Make `createCompany` the canonical SDK flow: signers, metadata, template, configs, module graph, ACL graph, lifecycle events, and post-create verification.                                          |
-| Creation-mode bootstrap              | EVM modules can bypass normal ACL while the factory is building the institution, then the TRUST finalization gate closes that bootstrap mode.                                          | Solana has init/finalize language and finalized state, but the bootstrap boundary is not consistently enforced across modules.                                                                                                                                                              | Important semantic risk.                                 | Define creation mode as a state machine: only factory/template authorities can mutate during bootstrap; after finalize, normal TRUST/role/governance policy must own mutation.                       |
-| Module ACL graph                     | Modules have both TRUST-level ACL flags and module-to-module ACL edges. Authority is not just user -> program; it is module -> module capability routing.                              | Solana templates now persist ACL edge specs and `instantiate_template` replays them into TRUST `ModuleAclEdge` PDAs during bootstrap. SDK graph rendering and denial tests are still missing.                                                                                               | Preserved in protocol, missing as a product primitive.   | Publish an ACL graph model: which module may call/mutate which module, with SDK helpers and tests for allowed/denied edges.                                                                          |
+| `COMPANY` policy root                  | A company is a policy root, module registry, config store, asset holder, and execution gateway. Module access flows through `hasCOMPANYAccess`; actions execute through `COMPANY.execute`. | `aeqi_company` stores module registry/config/paused state, but several module mutators still treat COMPANY as unchecked namespace or do not enforce paused/finalized state.                                                                                                                     | Preserved conceptually, diluted operationally.           | COMPANY remains the policy root. Modules may move into separate Solana programs and accounts, but high-risk mutations must either load canonical COMPANY state or document why they are safe without it. |
+| Factory as institution compiler      | `Factory` registers a COMPANY request with declared signers, waits for approvals, applies user/template configs, deploys modules, wires ACLs, finalizes, and marks the institution live. | `aeqi_factory.instantiate_template` validates provider-published module implementations, registers module slots, replays template ACL edges, and finalizes the COMPANY. Docs/SDK still need to make this the default company-level flow.                                                      | Meaningfully preserved in protocol, underexposed in SDK. | Make `createCompany` the canonical SDK flow: signers, metadata, template, configs, module graph, ACL graph, lifecycle events, and post-create verification.                                          |
+| Creation-mode bootstrap              | EVM modules can bypass normal ACL while the factory is building the institution, then the COMPANY finalization gate closes that bootstrap mode.                                          | Solana has init/finalize language and finalized state, but the bootstrap boundary is not consistently enforced across modules.                                                                                                                                                              | Important semantic risk.                                 | Define creation mode as a state machine: only factory/template authorities can mutate during bootstrap; after finalize, normal COMPANY/role/governance policy must own mutation.                       |
+| Module ACL graph                     | Modules have both COMPANY-level ACL flags and module-to-module ACL edges. Authority is not just user -> program; it is module -> module capability routing.                              | Solana templates now persist ACL edge specs and `instantiate_template` replays them into COMPANY `ModuleAclEdge` PDAs during bootstrap. SDK graph rendering and denial tests are still missing.                                                                                               | Preserved in protocol, missing as a product primitive.   | Publish an ACL graph model: which module may call/mutate which module, with SDK helpers and tests for allowed/denied edges.                                                                          |
 | Two-phase module lifecycle           | Factory deploys/registers all modules first, then finalizes after ACLs/configs exist, so modules can resolve each other safely.                                                        | README documents two-phase init/finalize; several module `finalize` functions are still skeletal or light.                                                                                                                                                                                  | Preserved as architecture, incomplete as implementation. | Each module needs meaningful `finalize`: decode config, validate dependencies, write canonical module state, and reject malformed templates.                                                         |
-| Versioned storage and upgrade intent | EVM uses SlotArrays plus beacon/source delegation to isolate storage, bind module IDs to implementations, and keep module data evolvable.                                              | Solana maps this to PDA namespaces, account versions, IDLs, program IDs, indexed accounts, provider-published implementation records, and per-TRUST adopted module versions. Factory templates now require active implementation records before a TRUST can be compiled from a module spec. | Active implementation work.                              | Keep Solana program upgrade authority separate from AEQI module selection. Providers publish executable implementation records; each TRUST pulls the version it wants for each module slot.          |
-| Typed config bus                     | EVM factory/TRUST move typed config values and indexed IDs through the module graph before finalization.                                                                               | Solana configs exist in program accounts and docs, but the template config schema is not yet treated as a typed product boundary.                                                                                                                                                           | Partly preserved.                                        | Template configs need schemas, validation, compatibility notes, and SDK encoders. Unknown or malformed config must fail before finalize.                                                             |
+| Versioned storage and upgrade intent | EVM uses SlotArrays plus beacon/source delegation to isolate storage, bind module IDs to implementations, and keep module data evolvable.                                              | Solana maps this to PDA namespaces, account versions, IDLs, program IDs, indexed accounts, provider-published implementation records, and per-COMPANY adopted module versions. Factory templates now require active implementation records before a COMPANY can be compiled from a module spec. | Active implementation work.                              | Keep Solana program upgrade authority separate from AEQI module selection. Providers publish executable implementation records; each COMPANY pulls the version it wants for each module slot.          |
+| Typed config bus                     | EVM factory/COMPANY move typed config values and indexed IDs through the module graph before finalization.                                                                               | Solana configs exist in program accounts and docs, but the template config schema is not yet treated as a typed product boundary.                                                                                                                                                           | Partly preserved.                                        | Template configs need schemas, validation, compatibility notes, and SDK encoders. Unknown or malformed config must fail before finalize.                                                             |
 | Role DAG as operating hierarchy      | Roles encode company structure: parent chain, hierarchy, statuses, assignments, delegation, checkpoints, and metadata. This is not just auth.                                          | Solana role supports role types, parent walk, assignment, transfer, resignation, delegation checkpoints. Assignment invitation/application lifecycle is missing.                                                                                                                            | Strongly preserved, missing human workflow states.       | Add role assignment lifecycle: invited, applied, accepted, rejected, revoked. Keep role actions tied to status, metadata, budgets, and vesting.                                                      |
 | Roles create budgets and vesting     | EVM `RoleRequest` can include budget and vesting requests. A role can instantiate operating budget and compensation logic together.                                                    | Solana has separate role, budget, and vesting modules, but the company-level workflow is not yet a single typed operation.                                                                                                                                                                  | Concept preserved by modules, missing composition.       | SDK transaction builders should create role + optional budget + optional vesting as one company-level workflow.                                                                                      |
-| Budget graph over treasury           | EVM budgets are scoped allocations nested by source budget and role, so spending is an institutional graph over treasury assets.                                                       | Solana has budget and treasury modules, but budget spend is not yet clearly tied to vault movement, parent-budget depletion, or TRUST pause.                                                                                                                                                | Preserved as modules, missing policy composition.        | Budget spend/freeze/unfreeze must load TRUST, enforce parent budget constraints, and connect accounting to treasury movement or approved execution.                                                  |
-| Governance as company action router  | EVM governance hashes proposals over target calls and executes through `TRUST.execute`, so successful proposals operate the company.                                                   | Solana governance has proposal/vote/execute state, but execution remains less explicit than the EVM action-router model.                                                                                                                                                                    | Partly preserved, needs tightening.                      | Proposal should store action digest and execute typed module actions through TRUST policy. Settlement must use stored snapshots, not caller-supplied inputs.                                         |
+| Budget graph over treasury           | EVM budgets are scoped allocations nested by source budget and role, so spending is an institutional graph over treasury assets.                                                       | Solana has budget and treasury modules, but budget spend is not yet clearly tied to vault movement, parent-budget depletion, or COMPANY pause.                                                                                                                                                | Preserved as modules, missing policy composition.        | Budget spend/freeze/unfreeze must load COMPANY, enforce parent budget constraints, and connect accounting to treasury movement or approved execution.                                                  |
+| Governance as company action router  | EVM governance hashes proposals over target calls and executes through `COMPANY.execute`, so successful proposals operate the company.                                                   | Solana governance has proposal/vote/execute state, but execution remains less explicit than the EVM action-router model.                                                                                                                                                                    | Partly preserved, needs tightening.                      | Proposal should store action digest and execute typed module actions through COMPANY policy. Settlement must use stored snapshots, not caller-supplied inputs.                                         |
 | Role-bound vesting/economic rights   | EVM vesting consumes budgets, activates with roles, and ties contribution, time, FDV, and non-transferable vesting rights to the institution.                                          | Solana vesting has cliff/duration, contribution, FDV milestone, and claims, but factory/template role allocation is not end-to-end yet.                                                                                                                                                     | Preserved as primitives, missing workflow.               | Template-driven founder/worker vesting should be created with roles and budgets, with activation/removal states and authority tests.                                                                 |
-| Account abstraction and passkeys     | EVM TRUST is an ERC-4337 account with passkey/EOA/multisig signer surfaces. Identity is part of the company primitive.                                                                 | Solana README names native fee payer/session keys/secp256r1 passkey precompile as rationale, but implementation/docs do not yet define the signer/session-key model.                                                                                                                        | Insight identified, not implemented.                     | Define Solana identity model: passkey signer, session key, agent authority, recovery path, and how each maps to TRUST/role/governance permissions.                                                   |
+| Account abstraction and passkeys     | EVM COMPANY is an ERC-4337 account with passkey/EOA/multisig signer surfaces. Identity is part of the company primitive.                                                                 | Solana README names native fee payer/session keys/secp256r1 passkey precompile as rationale, but implementation/docs do not yet define the signer/session-key model.                                                                                                                        | Insight identified, not implemented.                     | Define Solana identity model: passkey signer, session key, agent authority, recovery path, and how each maps to COMPANY/role/governance permissions.                                                   |
 | Native capital formation             | Unifutures, Funding, Fund, Token, Vesting, and Budget make capital formation part of the company OS, not an integration afterthought.                                                  | Solana has these programs and tests, but docs still explain them as modules more than as a coherent capital lifecycle.                                                                                                                                                                      | Preserved in scope, underexpressed as product.           | Define capital lifecycle workflows: open round, commit/buy, vest, budget, fund NAV/carry, exit, governance action. SDK examples should prove them end to end.                                        |
-| Managers/position orchestration      | EVM managers coordinate external positions and protocol primitives while assets remain controlled by TRUST.                                                                            | Solana has direct Unifutures/Fund/Funding modules but no clear manager/position orchestration layer yet.                                                                                                                                                                                    | Missing or deferred.                                     | Decide whether Solana needs manager programs or SDK-managed orchestration. Preserve the rule: assets and permissions stay anchored to TRUST.                                                         |
-| Metadata as institutional memory     | EVM carries IPFS CIDs through TRUST registration, templates, approvals, roles, and proposals.                                                                                          | Solana uses fixed CID fields in places, but metadata is not yet treated as a universal institutional memory layer.                                                                                                                                                                          | Partly preserved.                                        | Standardize metadata fields and SDK encoding for company, template, role assignment, proposal, funding, and audit records.                                                                           |
+| Managers/position orchestration      | EVM managers coordinate external positions and protocol primitives while assets remain controlled by COMPANY.                                                                            | Solana has direct Unifutures/Fund/Funding modules but no clear manager/position orchestration layer yet.                                                                                                                                                                                    | Missing or deferred.                                     | Decide whether Solana needs manager programs or SDK-managed orchestration. Preserve the rule: assets and permissions stay anchored to COMPANY.                                                         |
+| Metadata as institutional memory     | EVM carries IPFS CIDs through COMPANY registration, templates, approvals, roles, and proposals.                                                                                          | Solana uses fixed CID fields in places, but metadata is not yet treated as a universal institutional memory layer.                                                                                                                                                                          | Partly preserved.                                        | Standardize metadata fields and SDK encoding for company, template, role assignment, proposal, funding, and audit records.                                                                           |
 
 ## System Map
 
@@ -107,7 +107,7 @@ The Solana implementation should read as this product system:
 ```text
 Template
   -> Factory
-  -> TRUST
+  -> COMPANY
   -> Module registry + ACL graph + typed configs
   -> Role DAG + governance + token/cap table
   -> Treasury + budget + vesting + funding + fund/unifutures
@@ -128,7 +128,7 @@ The differentiators are:
 - **Company-level compilation.** Builders should not assemble raw programs.
   They should compile a company from a template.
 - **One policy root.** Roles, treasury, funding, vesting, and execution share a
-  TRUST root.
+  COMPANY root.
 - **Module graph, not app pages.** Every module declares capabilities and ACL
   edges; the graph is inspectable and testable.
 - **Capital and labor in one system.** Budgets, vesting, token allocation,
@@ -140,22 +140,22 @@ The differentiators are:
 
 ## Solana Translation Rules
 
-### 1. TRUST Is Mandatory For High-Risk Mutation
+### 1. COMPANY Is Mandatory For High-Risk Mutation
 
 Any instruction that changes assets, permissions, roles, governance, funding,
 vesting, budgets, fund accounting, or executable actions should load the typed
-TRUST account unless it has a narrow reason not to.
+COMPANY account unless it has a narrow reason not to.
 
 It must enforce:
 
-- correct TRUST PDA
+- correct COMPANY PDA
 - correct owning program or cross-program seed relation
 - not paused
 - finalized/live state where creation mode should be closed
 - caller/module/role authority
 
-If a module does not load TRUST for a mutator, the code or docs must state the
-reason. "The caller passed a trust id" is not enough.
+If a module does not load COMPANY for a mutator, the code or docs must state the
+reason. "The caller passed a company id" is not enough.
 
 ### 2. SDK Names Must Be Company-Level
 
@@ -243,7 +243,7 @@ This is the part most DAO frameworks do not have.
 
 ## Concepts To Keep
 
-- TRUST as the company policy root.
+- COMPANY as the company policy root.
 - Factory as the institution compiler.
 - Template-driven module graph and config graph.
 - Creation-mode bootstrap followed by explicit finalization.
@@ -290,7 +290,7 @@ An auditor should be able to answer:
 1. **Write SDK package skeleton.** Start with PDA helpers and company-level
    transaction builders for `createCompany`, `assignRole`, `createProposal`,
    `vote`, and `executeApprovedAction`.
-2. **Make TRUST live/paused state universal.** Add typed TRUST enforcement to
+2. **Make COMPANY live/paused state universal.** Add typed COMPANY enforcement to
    high-risk module mutators.
 3. **Define module ACL graph docs and tests.** Every template should have a
    rendered module ACL graph and denial tests for invalid edges.
@@ -299,7 +299,7 @@ An auditor should be able to answer:
 5. **Add role assignment lifecycle.** Preserve invited/applied/accepted/rejected
    workflows from EVM.
 6. **Harden governance action execution.** Store action digests, status enum,
-   snapshots, queue windows, and dispatch through TRUST policy.
+   snapshots, queue windows, and dispatch through COMPANY policy.
 7. **Define signer/session-key model.** Specify passkey, session key, agent key,
    recovery, and revocation semantics.
 8. **Add capital lifecycle examples.** SDK-backed localnet examples for funding,
@@ -321,7 +321,7 @@ AEQI has preserved its essence on Solana when a builder can:
 5. assign roles with budgets and vesting,
 6. open a funding workflow,
 7. propose and vote on a company action,
-8. execute it through TRUST policy,
+8. execute it through COMPANY policy,
 9. verify the deployed programs and SDK version,
 10. hand the system to agents with scoped roles and session keys.
 

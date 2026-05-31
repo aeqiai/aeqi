@@ -15,7 +15,7 @@ vi.mock("@/lib/indexer", async () => {
 
 import { useTreasury } from "@/hooks/useTreasury";
 
-const TRUST_ID = "0x59bc9fd3956a4104aaf883253fde840c00000000000000000000000000000000";
+const COMPANY_ID = "0x59bc9fd3956a4104aaf883253fde840c00000000000000000000000000000000";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -44,7 +44,7 @@ describe("useTreasury", () => {
 
   it("returns loading=true initially", () => {
     global.fetch = vi.fn().mockReturnValue(new Promise(() => {}));
-    const { result, unmount } = renderHook(() => useTreasury(TRUST_ID));
+    const { result, unmount } = renderHook(() => useTreasury(COMPANY_ID));
     expect(result.current.loading).toBe(true);
     expect(result.current.balances).toBeNull();
     expect(result.current.transfers).toBeNull();
@@ -64,7 +64,7 @@ describe("useTreasury", () => {
         json: async () => ({ data: { treasuryTransfers: [] } }),
       });
 
-    const { result } = renderHook(() => useTreasury(TRUST_ID));
+    const { result } = renderHook(() => useTreasury(COMPANY_ID));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -72,7 +72,7 @@ describe("useTreasury", () => {
     expect(result.current.transfers).toEqual([]);
   });
 
-  it("returns [] when trustId is undefined", async () => {
+  it("returns [] when companyId is undefined", async () => {
     const fetchSpy = vi.spyOn(global, "fetch");
     const { result } = renderHook(() => useTreasury(undefined));
 
@@ -105,7 +105,7 @@ describe("useTreasury", () => {
         json: async () => ({ data: { treasuryTransfers: [] } }),
       });
 
-    const { result } = renderHook(() => useTreasury(TRUST_ID));
+    const { result } = renderHook(() => useTreasury(COMPANY_ID));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -135,7 +135,7 @@ describe("useTreasury", () => {
 
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    const { result } = renderHook(() => useTreasury(TRUST_ID));
+    const { result } = renderHook(() => useTreasury(COMPANY_ID));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -146,7 +146,7 @@ describe("useTreasury", () => {
   it("degrades gracefully when fetch fails", async () => {
     global.fetch = vi.fn().mockRejectedValue(new Error("network error"));
 
-    const { result } = renderHook(() => useTreasury(TRUST_ID));
+    const { result } = renderHook(() => useTreasury(COMPANY_ID));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -154,7 +154,7 @@ describe("useTreasury", () => {
     expect(result.current.transfers).toEqual([]);
   });
 
-  it("resets to loading when trustId changes", async () => {
+  it("resets to loading when companyId changes", async () => {
     global.fetch = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ data: { treasuryBalances: [] } }) })
@@ -162,7 +162,7 @@ describe("useTreasury", () => {
       .mockReturnValue(new Promise(() => {}));
 
     const { result, rerender } = renderHook(({ id }: { id: string }) => useTreasury(id), {
-      initialProps: { id: TRUST_ID },
+      initialProps: { id: COMPANY_ID },
     });
 
     await waitFor(() => expect(result.current.loading).toBe(false));

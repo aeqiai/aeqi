@@ -499,7 +499,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn credential_tools_resolve_trust_scope_for_streaming_execution() {
+    async fn credential_tools_resolve_company_scope_for_streaming_execution() {
         let conn = rusqlite::Connection::open_in_memory().unwrap();
         CredentialStore::initialize_schema(&conn).unwrap();
         let store = CredentialStore::new(
@@ -508,12 +508,12 @@ mod tests {
         );
         store
             .insert(CredentialInsert {
-                scope_kind: ScopeKind::Trust,
-                scope_id: "trust-1".to_string(),
+                scope_kind: ScopeKind::Company,
+                scope_id: "company-1".to_string(),
                 provider: "test_provider".to_string(),
                 name: "token".to_string(),
                 lifecycle_kind: "static_secret".to_string(),
-                plaintext_blob: b"secret-from-trust".to_vec(),
+                plaintext_blob: b"secret-from-company".to_vec(),
                 metadata: serde_json::json!({}),
                 expires_at: None,
             })
@@ -527,7 +527,7 @@ mod tests {
             credential_resolver: Some(resolver),
             credential_scope: ResolutionScope {
                 agent_id: Some("agent-1".to_string()),
-                trust_id: Some("trust-1".to_string()),
+                company_id: Some("company-1".to_string()),
                 ..Default::default()
             },
             ..Default::default()
@@ -542,7 +542,7 @@ mod tests {
         let results = executor.finish_all().await;
         assert_eq!(results.len(), 1);
         assert!(!results[0].result.is_error);
-        assert_eq!(results[0].result.output, "secret-from-trust");
+        assert_eq!(results[0].result.output, "secret-from-company");
     }
 
     #[tokio::test]

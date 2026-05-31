@@ -23,7 +23,7 @@ import { explorerAddressUrl, explorerClusterLabel } from "@/lib/solana-explorer"
  * The modal is a render of this struct.
  */
 export interface VoteReceipt {
-  trustAddress: string;
+  companyAddress: string;
   proposalIdHex: string;
   choice: 0 | 1 | 2;
   weight: string;
@@ -97,8 +97,8 @@ export function VoteReceiptModal({
             </span>
             <span className={styles.receiptGridLabel}>Weight</span>
             <span className={styles.receiptGridValue}>{receipt.weight}</span>
-            <span className={styles.receiptGridLabel}>TRUST</span>
-            <span className={styles.receiptGridValue}>{receipt.trustAddress}</span>
+            <span className={styles.receiptGridLabel}>COMPANY</span>
+            <span className={styles.receiptGridValue}>{receipt.companyAddress}</span>
             <span className={styles.receiptGridLabel}>Proposal ID</span>
             <span className={styles.receiptGridValue}>{receipt.proposalIdHex}</span>
             <span className={styles.receiptGridLabel}>Vote record</span>
@@ -141,10 +141,10 @@ export function VoteReceiptModal({
               <li>
                 Reconstruct the PDA from the seed tuple{" "}
                 <span className={styles.receiptVerifierSeed}>
-                  [b&quot;vote&quot;, trust, proposal_id, voter]
+                  [b&quot;vote&quot;, company, proposal_id, voter]
                 </span>{" "}
-                under <code>aeqi_governance</code>. The trust pubkey is{" "}
-                <span className={styles.receiptVerifierSeed}>{receipt.trustAddress}</span> and the
+                under <code>aeqi_governance</code>. The company pubkey is{" "}
+                <span className={styles.receiptVerifierSeed}>{receipt.companyAddress}</span> and the
                 proposal_id is the 32-byte payload above.
               </li>
               <li>

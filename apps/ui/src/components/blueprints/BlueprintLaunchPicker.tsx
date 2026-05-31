@@ -15,7 +15,7 @@ interface BlueprintLaunchPickerProps {
   mode: BlueprintLaunchMode;
   /** Required when `mode === "spawn-into-entity"`. The host entity that
    *  the picked template attaches under. */
-  trustId?: string;
+  companyId?: string;
   /** Optional `parts` filter for `spawn-into-entity`. When set, only the
    *  named seed blocks materialize on spawn (e.g. `["ideas"]` for the
    *  Ideas Import flow). Omit for full-company import. */
@@ -38,7 +38,7 @@ interface BlueprintLaunchPickerProps {
  *   3. Browse all → /templates — full catalog.
  *
  * Branches on `mode`:
- *   - spawn-company → navigate to /launch/<blueprintId> (TrustSetupPage)
+ *   - spawn-company → navigate to /launch/<blueprintId> (CompanySetupPage)
  *     so the operator confirms name + mission + plan before launch
  *   - spawn-into-entity → POST /api/blueprints/spawn-into
  *     (a "merge into existing company" flow — no naming or billing
@@ -49,7 +49,7 @@ interface BlueprintLaunchPickerProps {
  */
 export function BlueprintLaunchPicker({
   mode,
-  trustId,
+  companyId,
   parts,
   onSpawnedAgent,
   launchQuery,
@@ -119,10 +119,10 @@ export function BlueprintLaunchPicker({
       setSubmittingBlueprintId(id);
       setSubmitError(null);
       try {
-        if (!trustId) throw new Error("Missing entity id for spawn-into-entity.");
+        if (!companyId) throw new Error("Missing entity id for spawn-into-entity.");
         await api.spawnBlueprintIntoEntity({
           blueprint: blueprintId(tpl),
-          trust_id: trustId,
+          company_id: companyId,
           parts,
         });
         onSpawnedAgent?.(blueprintId(tpl));
@@ -132,7 +132,7 @@ export function BlueprintLaunchPicker({
         setSubmittingBlueprintId(null);
       }
     },
-    [byId, mode, trustId, parts, onSpawnedAgent, navigate, launchQuery],
+    [byId, mode, companyId, parts, onSpawnedAgent, navigate, launchQuery],
   );
 
   const isBusy = submittingBlueprintId !== null;

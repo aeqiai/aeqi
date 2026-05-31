@@ -2,7 +2,7 @@ import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { AeqiBudget } from "../target/types/aeqi_budget";
 import { AeqiFunding } from "../target/types/aeqi_funding";
-import { AeqiTrust } from "../target/types/aeqi_trust";
+import { AeqiCompany } from "../target/types/aeqi_company";
 import { AeqiUnifutures } from "../target/types/aeqi_unifutures";
 import { PublicKey, Keypair } from "@solana/web3.js";
 import {
@@ -14,7 +14,7 @@ import {
   mintTo,
 } from "@solana/spl-token";
 import { expect } from "chai";
-import { createTrust, expectTxFail, fundKeypair } from "./support";
+import { createCompany, expectTxFail, fundKeypair } from "./support";
 
 describe("aeqi_funding", () => {
   const provider = anchor.AnchorProvider.env();
@@ -22,28 +22,28 @@ describe("aeqi_funding", () => {
 
   const program = anchor.workspace.aeqiFunding as Program<AeqiFunding>;
   const budgetProgram = anchor.workspace.aeqiBudget as Program<AeqiBudget>;
-  const trustProgram = anchor.workspace.aeqiTrust as Program<AeqiTrust>;
+  const trustProgram = anchor.workspace.aeqiCompany as Program<AeqiCompany>;
 
-  let fakeTrust: PublicKey;
+  let fakeCompany: PublicKey;
   let modulePda: PublicKey;
   let budgetModulePda: PublicKey;
 
   before(async () => {
-    fakeTrust = await createTrust(provider, trustProgram, "aeqi-funding");
+    fakeCompany = await createCompany(provider, trustProgram, "aeqi-funding");
 
     [modulePda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("funding_module"), fakeTrust.toBuffer()],
+      [Buffer.from("funding_module"), fakeCompany.toBuffer()],
       program.programId,
     );
     [budgetModulePda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("budget_module"), fakeTrust.toBuffer()],
+      [Buffer.from("budget_module"), fakeCompany.toBuffer()],
       budgetProgram.programId,
     );
 
     await budgetProgram.methods
       .init()
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         moduleState: budgetModulePda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -56,7 +56,7 @@ describe("aeqi_funding", () => {
     amount = 2_000_000,
   ): Promise<PublicKey> {
     const [budgetPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("budget"), fakeTrust.toBuffer(), Buffer.from(budgetId)],
+      [Buffer.from("budget"), fakeCompany.toBuffer(), Buffer.from(budgetId)],
       budgetProgram.programId,
     );
     try {
@@ -77,7 +77,7 @@ describe("aeqi_funding", () => {
         null,
       )
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         moduleState: budgetModulePda,
         budget: budgetPda,
         grantor: provider.wallet.publicKey,
@@ -140,7 +140,7 @@ describe("aeqi_funding", () => {
     await program.methods
       .init()
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         moduleState: modulePda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -148,18 +148,18 @@ describe("aeqi_funding", () => {
       .rpc();
 
     const m = await program.account.fundingModuleState.fetch(modulePda);
-    expect(m.trust.toBase58()).to.eq(fakeTrust.toBase58());
+    expect(m.company.toBase58()).to.eq(fakeCompany.toBase58());
     expect(m.requestCount.toString()).to.eq("0");
   });
 
-  it("init rejects a payer that is not the trust authority", async () => {
-    const trust = await createTrust(
+  it("init rejects a payer that is not the company authority", async () => {
+    const company = await createCompany(
       provider,
       trustProgram,
       "aeqi-funding-unauthorized-init",
     );
     const [moduleStatePda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("funding_module"), trust.toBuffer()],
+      [Buffer.from("funding_module"), company.toBuffer()],
       program.programId,
     );
     const payer = await fundKeypair(provider);
@@ -169,7 +169,7 @@ describe("aeqi_funding", () => {
         program.methods
           .init()
           .accountsPartial({
-            trust,
+            company,
             moduleState: moduleStatePda,
             payer: payer.publicKey,
             systemProgram: anchor.web3.SystemProgram.programId,
@@ -191,7 +191,7 @@ describe("aeqi_funding", () => {
     const [requestPda] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("funding_request"),
-        fakeTrust.toBuffer(),
+        fakeCompany.toBuffer(),
         Buffer.from(requestId),
       ],
       program.programId,
@@ -206,7 +206,7 @@ describe("aeqi_funding", () => {
         new anchor.BN(50_000), // target_quote
       )
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         moduleState: modulePda,
         request: requestPda,
         budget: budgetPda,
@@ -243,7 +243,7 @@ describe("aeqi_funding", () => {
     const [requestPda] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("funding_request"),
-        fakeTrust.toBuffer(),
+        fakeCompany.toBuffer(),
         Buffer.from(requestId),
       ],
       program.programId,
@@ -260,7 +260,7 @@ describe("aeqi_funding", () => {
             new anchor.BN(1),
           )
           .accountsPartial({
-            trust: fakeTrust,
+            company: fakeCompany,
             moduleState: modulePda,
             request: requestPda,
             budget: budgetPda,
@@ -283,7 +283,7 @@ describe("aeqi_funding", () => {
     const [requestPda] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("funding_request"),
-        fakeTrust.toBuffer(),
+        fakeCompany.toBuffer(),
         Buffer.from(requestId),
       ],
       program.programId,
@@ -298,7 +298,7 @@ describe("aeqi_funding", () => {
         new anchor.BN(20_000),
       )
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         moduleState: modulePda,
         request: requestPda,
         budget: budgetPda,
@@ -323,15 +323,15 @@ describe("aeqi_funding", () => {
     const unifutures = anchor.workspace
       .aeqiUnifutures as Program<AeqiUnifutures>;
 
-    // Init the unifutures module on the same fakeTrust so CPI has a target
+    // Init the unifutures module on the same fakeCompany so CPI has a target
     const [unifModulePda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("unifutures_module"), fakeTrust.toBuffer()],
+      [Buffer.from("unifutures_module"), fakeCompany.toBuffer()],
       unifutures.programId,
     );
     await unifutures.methods
       .init()
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         moduleState: unifModulePda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -348,7 +348,7 @@ describe("aeqi_funding", () => {
     const [requestPda] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("funding_request"),
-        fakeTrust.toBuffer(),
+        fakeCompany.toBuffer(),
         Buffer.from(requestId),
       ],
       program.programId,
@@ -363,7 +363,7 @@ describe("aeqi_funding", () => {
         new anchor.BN(5000),
       )
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         moduleState: modulePda,
         request: requestPda,
         budget: budgetPda,
@@ -377,7 +377,7 @@ describe("aeqi_funding", () => {
     saleId[0] = 0xa0;
     saleId[1] = 0xa1;
     const [salePda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("sale"), fakeTrust.toBuffer(), Buffer.from(saleId)],
+      [Buffer.from("sale"), fakeCompany.toBuffer(), Buffer.from(saleId)],
       unifutures.programId,
     );
 
@@ -390,7 +390,7 @@ describe("aeqi_funding", () => {
       .accountsPartial({
         request: requestPda,
         budget: budgetPda,
-        trust: fakeTrust,
+        company: fakeCompany,
         unifuturesModuleState: unifModulePda,
         sale: salePda,
         creator: provider.wallet.publicKey,
@@ -418,11 +418,11 @@ describe("aeqi_funding", () => {
     const unifutures = anchor.workspace
       .aeqiUnifutures as Program<AeqiUnifutures>;
 
-    // Reuse same fakeTrust + module init from prior test (it's idempotent —
+    // Reuse same fakeCompany + module init from prior test (it's idempotent —
     // skip the init since it's already done above; the module_state PDA is
     // already initialized so a second init would fail).
     const [unifModulePda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("unifutures_module"), fakeTrust.toBuffer()],
+      [Buffer.from("unifutures_module"), fakeCompany.toBuffer()],
       unifutures.programId,
     );
 
@@ -435,7 +435,7 @@ describe("aeqi_funding", () => {
     const [requestPda] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("funding_request"),
-        fakeTrust.toBuffer(),
+        fakeCompany.toBuffer(),
         Buffer.from(requestId),
       ],
       program.programId,
@@ -450,7 +450,7 @@ describe("aeqi_funding", () => {
         new anchor.BN(0),
       )
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         moduleState: modulePda,
         request: requestPda,
         budget: budgetPda,
@@ -463,7 +463,7 @@ describe("aeqi_funding", () => {
     curveId[0] = 0xc0;
     curveId[1] = 0xff;
     const [curvePda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("curve"), fakeTrust.toBuffer(), Buffer.from(curveId)],
+      [Buffer.from("curve"), fakeCompany.toBuffer(), Buffer.from(curveId)],
       unifutures.programId,
     );
     const assetMint = await createMintWithSupply(0);
@@ -481,7 +481,7 @@ describe("aeqi_funding", () => {
       .accountsPartial({
         request: requestPda,
         budget: budgetPda,
-        trust: fakeTrust,
+        company: fakeCompany,
         unifuturesModuleState: unifModulePda,
         curve: curvePda,
         assetMint,
@@ -511,7 +511,7 @@ describe("aeqi_funding", () => {
       .aeqiUnifutures as Program<AeqiUnifutures>;
 
     const [unifModulePda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("unifutures_module"), fakeTrust.toBuffer()],
+      [Buffer.from("unifutures_module"), fakeCompany.toBuffer()],
       unifutures.programId,
     );
 
@@ -524,7 +524,7 @@ describe("aeqi_funding", () => {
     const [requestPda] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("funding_request"),
-        fakeTrust.toBuffer(),
+        fakeCompany.toBuffer(),
         Buffer.from(requestId),
       ],
       program.programId,
@@ -539,7 +539,7 @@ describe("aeqi_funding", () => {
         new anchor.BN(0),
       )
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         moduleState: modulePda,
         request: requestPda,
         budget: budgetPda,
@@ -552,7 +552,7 @@ describe("aeqi_funding", () => {
     exitId[0] = 0xe0;
     exitId[1] = 0x17;
     const [exitPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("exit"), fakeTrust.toBuffer(), Buffer.from(exitId)],
+      [Buffer.from("exit"), fakeCompany.toBuffer(), Buffer.from(exitId)],
       unifutures.programId,
     );
 
@@ -568,7 +568,7 @@ describe("aeqi_funding", () => {
       .accountsPartial({
         request: requestPda,
         budget: budgetPda,
-        trust: fakeTrust,
+        company: fakeCompany,
         unifuturesModuleState: unifModulePda,
         exit: exitPda,
         assetMint: exitAssetMint,
@@ -596,7 +596,7 @@ describe("aeqi_funding", () => {
       .aeqiUnifutures as Program<AeqiUnifutures>;
 
     const [unifModulePda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("unifutures_module"), fakeTrust.toBuffer()],
+      [Buffer.from("unifutures_module"), fakeCompany.toBuffer()],
       unifutures.programId,
     );
 
@@ -610,7 +610,7 @@ describe("aeqi_funding", () => {
     const [requestPda] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("funding_request"),
-        fakeTrust.toBuffer(),
+        fakeCompany.toBuffer(),
         Buffer.from(requestId),
       ],
       program.programId,
@@ -625,7 +625,7 @@ describe("aeqi_funding", () => {
         new anchor.BN(0),
       )
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         moduleState: modulePda,
         request: requestPda,
         budget: budgetPda,
@@ -638,7 +638,7 @@ describe("aeqi_funding", () => {
     exitId[0] = 0xe2;
     exitId[1] = 0x17;
     const [exitPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("exit"), fakeTrust.toBuffer(), Buffer.from(exitId)],
+      [Buffer.from("exit"), fakeCompany.toBuffer(), Buffer.from(exitId)],
       unifutures.programId,
     );
 
@@ -658,7 +658,7 @@ describe("aeqi_funding", () => {
           .accountsPartial({
             request: requestPda,
             budget: budgetPda,
-            trust: fakeTrust,
+            company: fakeCompany,
             unifuturesModuleState: unifModulePda,
             exit: exitPda,
             assetMint: placeholderMint,
@@ -685,7 +685,7 @@ describe("aeqi_funding", () => {
     const [requestPda] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("funding_request"),
-        fakeTrust.toBuffer(),
+        fakeCompany.toBuffer(),
         Buffer.from(requestId),
       ],
       program.programId,
@@ -700,7 +700,7 @@ describe("aeqi_funding", () => {
         new anchor.BN(1),
       )
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         moduleState: modulePda,
         request: requestPda,
         budget: budgetPda,
@@ -712,13 +712,13 @@ describe("aeqi_funding", () => {
     const unifutures = anchor.workspace
       .aeqiUnifutures as Program<AeqiUnifutures>;
     const [unifModulePda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("unifutures_module"), fakeTrust.toBuffer()],
+      [Buffer.from("unifutures_module"), fakeCompany.toBuffer()],
       unifutures.programId,
     );
     const curveId = new Uint8Array(32);
     curveId[0] = 0x77;
     const [curvePda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("curve"), fakeTrust.toBuffer(), Buffer.from(curveId)],
+      [Buffer.from("curve"), fakeCompany.toBuffer(), Buffer.from(curveId)],
       unifutures.programId,
     );
     const assetMint = await createMintWithSupply(0);
@@ -738,7 +738,7 @@ describe("aeqi_funding", () => {
         .accountsPartial({
           request: requestPda,
           budget: budgetPda,
-          trust: fakeTrust,
+          company: fakeCompany,
           unifuturesModuleState: unifModulePda,
           curve: curvePda,
           assetMint,
@@ -759,7 +759,7 @@ describe("aeqi_funding", () => {
     const unifutures = anchor.workspace
       .aeqiUnifutures as Program<AeqiUnifutures>;
     const [unifModulePda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("unifutures_module"), fakeTrust.toBuffer()],
+      [Buffer.from("unifutures_module"), fakeCompany.toBuffer()],
       unifutures.programId,
     );
 
@@ -773,7 +773,7 @@ describe("aeqi_funding", () => {
     const [requestPda] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("funding_request"),
-        fakeTrust.toBuffer(),
+        fakeCompany.toBuffer(),
         Buffer.from(requestId),
       ],
       program.programId,
@@ -788,7 +788,7 @@ describe("aeqi_funding", () => {
         new anchor.BN(0),
       )
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         moduleState: modulePda,
         request: requestPda,
         budget: budgetPda,
@@ -800,7 +800,7 @@ describe("aeqi_funding", () => {
     const exitId = new Uint8Array(32);
     exitId[0] = 0xf2;
     const [exitPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("exit"), fakeTrust.toBuffer(), Buffer.from(exitId)],
+      [Buffer.from("exit"), fakeCompany.toBuffer(), Buffer.from(exitId)],
       unifutures.programId,
     );
 
@@ -816,7 +816,7 @@ describe("aeqi_funding", () => {
       .accountsPartial({
         request: requestPda,
         budget: budgetPda,
-        trust: fakeTrust,
+        company: fakeCompany,
         unifuturesModuleState: unifModulePda,
         exit: exitPda,
         assetMint: finalizeAssetMint,
@@ -852,7 +852,7 @@ describe("aeqi_funding", () => {
     const [requestPda] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("funding_request"),
-        fakeTrust.toBuffer(),
+        fakeCompany.toBuffer(),
         Buffer.from(requestId),
       ],
       program.programId,
@@ -867,7 +867,7 @@ describe("aeqi_funding", () => {
         new anchor.BN(0),
       )
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         moduleState: modulePda,
         request: requestPda,
         budget: budgetPda,
@@ -903,7 +903,7 @@ describe("aeqi_funding", () => {
     const [requestPda] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("funding_request"),
-        fakeTrust.toBuffer(),
+        fakeCompany.toBuffer(),
         Buffer.from(requestId),
       ],
       program.programId,
@@ -920,7 +920,7 @@ describe("aeqi_funding", () => {
           new anchor.BN(100),
         )
         .accountsPartial({
-          trust: fakeTrust,
+          company: fakeCompany,
           moduleState: modulePda,
           request: requestPda,
           budget: budgetPda,

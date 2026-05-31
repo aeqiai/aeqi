@@ -28,13 +28,13 @@ import type { ResolvedTokenMeta } from "@/hooks/useTokenMetas";
 import type { VaultSignature } from "@/hooks/useVaultActivity";
 import type { BudgetAccountWithPda, VaultHolding, VestingPositionWithPda } from "@/solana/assets";
 import type { ModuleAccountWithPda, RoleAccountWithPda } from "@/solana";
-import type { Trust } from "@/lib/types";
+import type { Company } from "@/lib/types";
 
 import { bytesToHex, isStableSymbol, rawToFloat, toBigInt } from "./AssetsSections";
 
 export interface VaultSnapshotInput {
-  entity: Trust | undefined;
-  trustAddress: string;
+  entity: Company | undefined;
+  companyAddress: string;
   vault: {
     moduleStatePda: string;
     vaultAuthorityPda: string;
@@ -59,7 +59,7 @@ export interface VaultSnapshotInput {
 export function buildVaultSnapshot(input: VaultSnapshotInput): Record<string, unknown> {
   const {
     entity,
-    trustAddress,
+    companyAddress,
     vault,
     holdings,
     budgets,
@@ -91,11 +91,11 @@ export function buildVaultSnapshot(input: VaultSnapshotInput): Record<string, un
           id: entity.id,
           name: entity.name,
           type: entity.type,
-          trust_id: entity.trust_id ?? null,
+          company_id: entity.company_id ?? null,
         }
       : null,
-    trust: {
-      address: trustAddress,
+    company: {
+      address: companyAddress,
       module_state_pda: vault.moduleStatePda,
       vault_authority_pda: vault.vaultAuthorityPda,
       module_initialized: vault.moduleInitialized,
@@ -217,12 +217,12 @@ export function downloadVaultSnapshot(
     "-" +
     String(now.getHours()).padStart(2, "0") +
     String(now.getMinutes()).padStart(2, "0");
-  const slug = (filenameHint ?? "trust")
+  const slug = (filenameHint ?? "company")
     .toLowerCase()
     .replace(/[^a-z0-9-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 32);
-  const filename = `${slug || "trust"}-vault-snapshot-${stamp}.json`;
+  const filename = `${slug || "company"}-vault-snapshot-${stamp}.json`;
 
   const a = document.createElement("a");
   a.href = url;

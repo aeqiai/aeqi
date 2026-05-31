@@ -1,12 +1,12 @@
 /**
  * On-chain reads for the Quorum surface.
  *
- * The Quorum tab displays governance state for a TRUST — the registered
+ * The Quorum tab displays governance state for a COMPANY — the registered
  * voting configs (token-mode and/or per-role-mode) plus every proposal
- * that has ever been created against this TRUST. Both reads scan
+ * that has ever been created against this COMPANY. Both reads scan
  * `aeqi_governance` PDAs with a memcmp filter at offset 8 (past the
  * Anchor 8-byte discriminator), where the first struct field on both
- * `GovernanceConfig` and `Proposal` is `trust: pubkey`.
+ * `GovernanceConfig` and `Proposal` is `company: pubkey`.
  *
  * Status is derived client-side from the Proposal account's tallies +
  * lifecycle flags + the cluster clock. The chain itself does not store
@@ -17,17 +17,17 @@
  * For role-mode proposals (`governance_config_id != [0; 32]`) the
  * config_id IS the `role_type_id` of the role type allowed to vote.
  * We expose the raw id; the UI layer resolves it to a friendly label
- * by fetching `aeqi_role.RoleType` accounts off the same TRUST.
+ * by fetching `aeqi_role.RoleType` accounts off the same COMPANY.
  *
  * Source-of-truth references:
  *   - GovernanceConfig: `programs/aeqi-governance/src/lib.rs` (mirror at
  *     `apps/ui/src/solana/generated/types/aeqi_governance.ts`, type
- *     `governanceConfig`, PDA seeded `[b"gov_config", trust, governance_config_id]`).
+ *     `governanceConfig`, PDA seeded `[b"gov_config", company, governance_config_id]`).
  *   - Proposal: same crate, type `proposal`, PDA seeded
- *     `[b"proposal", trust, proposal_id]`. First field is `trust`,
- *     so memcmp at offset 8 scopes the list to one TRUST.
+ *     `[b"proposal", company, proposal_id]`. First field is `company`,
+ *     so memcmp at offset 8 scopes the list to one COMPANY.
  *   - RoleType: `programs/aeqi-role/src/lib.rs`, type `roleType`, also
- *     `trust`-first so the same offset 8 trick applies.
+ *     `company`-first so the same offset 8 trick applies.
  */
 import { PublicKey } from "@solana/web3.js";
 import type { IdlAccounts } from "@coral-xyz/anchor";
@@ -216,7 +216,7 @@ export function deriveProposalStatus(account: ProposalAccount, nowSeconds: numbe
  * Used by the Quorum surface to distinguish:
  *   - "program not yet provisioned on this cluster" (operator needs to
  *     deploy the governance program) from
- *   - "program deployed, this TRUST has no configs yet" (operator needs
+ *   - "program deployed, this COMPANY has no configs yet" (operator needs
  *     to register a voting config).
  *
  * Both empty states existed conceptually before this read; only the
@@ -231,13 +231,13 @@ export async function isGovernanceProgramDeployed(): Promise<boolean> {
 }
 
 /**
- * List every GovernanceConfig account registered against a Trust.
+ * List every GovernanceConfig account registered against a Company.
  *
  * Anchor's `account.governanceConfig.all([filter])` walks
  * `getProgramAccounts` on `aeqi_governance` with the supplied memcmp
  * filter. The GovernanceConfig struct lays out as
- * `[discriminator(8)][trust(32)][...]`, so filtering at offset 8 with
- * the TRUST PDA as the byte pattern scopes the result to one TRUST.
+ * `[discriminator(8)][company(32)][...]`, so filtering at offset 8 with
+ * the COMPANY PDA as the byte pattern scopes the result to one COMPANY.
  */
 export async function readGovernanceConfigs(
   trustPda: string | PublicKey,
@@ -259,10 +259,10 @@ export async function readGovernanceConfigs(
 }
 
 /**
- * List every Proposal account belonging to a Trust.
+ * List every Proposal account belonging to a Company.
  *
  * Same memcmp pattern as the configs: Proposal lays out as
- * `[discriminator(8)][trust(32)][...]`, so offset 8 scopes the scan.
+ * `[discriminator(8)][company(32)][...]`, so offset 8 scopes the scan.
  */
 export async function readProposals(trustPda: string | PublicKey): Promise<ProposalWithPda[]> {
   const program = getGovernanceProgram();
@@ -282,11 +282,11 @@ export async function readProposals(trustPda: string | PublicKey): Promise<Propo
 }
 
 /**
- * List every RoleType account belonging to a Trust.
+ * List every RoleType account belonging to a Company.
  *
  * Needed to resolve a proposal's `governance_config_id` (when it's
  * NOT the token-mode sentinel) into a human-readable role label. Same
- * trust-first layout, so the same offset-8 memcmp applies.
+ * company-first layout, so the same offset-8 memcmp applies.
  */
 export async function readRoleTypes(trustPda: string | PublicKey): Promise<RoleTypeWithPda[]> {
   const program = getRoleProgram();
@@ -308,9 +308,9 @@ export async function readRoleTypes(trustPda: string | PublicKey): Promise<RoleT
 /**
  * List every VoteRecord cast against a specific proposal.
  *
- * `VoteRecord` lays out as `[discriminator(8)][trust(32)][proposalId(32)]
+ * `VoteRecord` lays out as `[discriminator(8)][company(32)][proposalId(32)]
  * [voter(32)][choice(1)][weight(16)][bump(1)]`. We compose two memcmp
- * filters: trust at offset 8 (base58 PublicKey), proposalId at offset 40
+ * filters: company at offset 8 (base58 PublicKey), proposalId at offset 40
  * (base58-encoded raw 32 bytes). Anchor's `account.voteRecord.all` is the
  * same `getProgramAccounts` machinery used everywhere else on the page,
  * so RPC cost matches the other reads.
@@ -349,15 +349,15 @@ export async function readVoteRecords(
 }
 
 /**
- * List every VoteRecord ever cast against this TRUST — no proposalId
+ * List every VoteRecord ever cast against this COMPANY — no proposalId
  * filter. Used by the KPI strip's "voter turnout" tile to compute unique
  * voters across recent proposals without N round-trips. Same memcmp on
  * offset 8 as the proposal/config readers; one `getProgramAccounts` call.
  *
- * On a TRUST with thousands of historical votes this is heavier than the
+ * On a COMPANY with thousands of historical votes this is heavier than the
  * single-proposal reader, but the KPI strip is small and cached at the
  * same 30s staleness as the proposal list, so the page-load cost stays
- * bounded. For larger TRUSTs the platform indexer eventually owns this
+ * bounded. For larger Companies the platform indexer eventually owns this
  * aggregate; until then the direct RPC read keeps the surface honest.
  */
 export async function readAllVoteRecords(

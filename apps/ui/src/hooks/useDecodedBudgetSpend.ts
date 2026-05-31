@@ -59,7 +59,7 @@ const MEMO_V1_PROGRAM = "Memo1UhkJRfHyvLMcVucJwxXeuD728EqVDDwQDxFMNo";
  *
  * Stored as hex-encoded first 8 bytes of the instruction data, matching
  * the discriminator surfaced by `bs58.decode(ix.data).slice(0, 8)`.
- * `init` is the one-time per-trust BudgetModuleState allocation; it
+ * `init` is the one-time per-company BudgetModuleState allocation; it
  * doesn't touch any Budget PDA but is included so future expansion to a
  * module-state signature tail can reuse the table.
  */
@@ -216,7 +216,7 @@ function extractMemo(ixs: Array<ParsedInstruction | PartiallyDecodedInstruction>
  * Iter-9: extract the first 8 bytes (Anchor instruction discriminator)
  * from a partially-decoded `aeqi_budget` instruction. Returns null when
  * the data is too short or undecodable — matches the helper shape used by
- * `useDecodedModuleActivity` for `aeqi_trust` ix.
+ * `useDecodedModuleActivity` for `aeqi_company` ix.
  */
 function bytesToHex(bytes: Uint8Array): string {
   let out = "";

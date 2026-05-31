@@ -26,13 +26,13 @@ export default function AgentPage({
   itemId?: string | null;
 }) {
   const navigate = useNavigate();
-  const { base, trustId } = useNav();
+  const { base, companyId } = useNav();
   const entities = useDaemonStore((s) => s.entities);
   const agents = useDaemonStore((s) => s.agents);
   const agent = agents.find((a) => a.id === agentId);
 
   const agentName = agent?.name || agentId;
-  const backHref = trustId ? entityPathFromId(entities, trustId, "agents") : `${base}/agents`;
+  const backHref = companyId ? entityPathFromId(entities, companyId, "agents") : `${base}/agents`;
   const settingsHref = `${base}/agents/${encodeURIComponent(agentId)}/settings`;
   const sessionsHref = `${base}/sessions?agent=${encodeURIComponent(agentId)}`;
 

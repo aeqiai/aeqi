@@ -36,7 +36,7 @@ const REGISTRY: Record<number, Record<string, TokenInfo>> = {
     "0x036cbd53842c5426634e7929541ec2318f3dcf7e": { symbol: "USDC", decimals: 6 },
     "0x4200000000000000000000000000000000000006": { symbol: "WETH", decimals: 18 },
   },
-  // Mainnet (kept for completeness — mainnet TRUSTs are not deployed today)
+  // Mainnet (kept for completeness — mainnet Companies are not deployed today)
   1: {
     "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": { symbol: "USDC", decimals: 6 },
     "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2": { symbol: "WETH", decimals: 18 },

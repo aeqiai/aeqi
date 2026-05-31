@@ -16,8 +16,8 @@ export type AeqiFactory = {
     {
       "name": "createCompany",
       "docs": [
-        "Skeleton create flow — initializes a fresh TRUST PDA via CPI into",
-        "`aeqi_trust::initialize`. The caller becomes the trust authority.",
+        "Skeleton create flow — initializes a fresh COMPANY PDA via CPI into",
+        "`aeqi_company::initialize`. The caller becomes the company authority.",
         "Module registration and finalization follow in `instantiate_template`."
       ],
       "discriminator": [
@@ -32,9 +32,9 @@ export type AeqiFactory = {
       ],
       "accounts": [
         {
-          "name": "trust",
+          "name": "company",
           "docs": [
-            "the PDA from `[b\"trust\", trust_id]` under its own program ID."
+            "the PDA from `[b\"company\", company_id]` under its own program ID."
           ],
           "writable": true
         },
@@ -44,7 +44,7 @@ export type AeqiFactory = {
           "signer": true
         },
         {
-          "name": "aeqiTrustProgram",
+          "name": "aeqiCompanyProgram",
           "address": "CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV"
         },
         {
@@ -54,7 +54,7 @@ export type AeqiFactory = {
       ],
       "args": [
         {
-          "name": "trustId",
+          "name": "companyId",
           "type": {
             "array": [
               "u8",
@@ -70,11 +70,11 @@ export type AeqiFactory = {
         "Full atomic spawn — runs the canonical 3-module configuration",
         "(role + token + governance) in one tx:",
         "",
-        "1. CPI `aeqi_trust::initialize` (creates trust PDA, creation mode)",
-        "2. CPI `aeqi_trust::register_module` ×3 (one per module slot)",
+        "1. CPI `aeqi_company::initialize` (creates company PDA, creation mode)",
+        "2. CPI `aeqi_company::register_module` ×3 (one per module slot)",
         "3. CPI each module's `init` (creates its module-state PDA bound",
-        "to the trust)",
-        "4. CPI `aeqi_trust::finalize` (exits creation mode)",
+        "to the company)",
+        "4. CPI `aeqi_company::finalize` (exits creation mode)",
         "",
         "Module finalize CPIs (config-bytes decode) are NOT yet called here;",
         "that requires the BytesConfig dispatch flow which follows.",
@@ -92,7 +92,7 @@ export type AeqiFactory = {
       ],
       "accounts": [
         {
-          "name": "trust",
+          "name": "company",
           "writable": true
         },
         {
@@ -123,7 +123,7 @@ export type AeqiFactory = {
           "name": "tokenBytesConfig",
           "docs": [
             "BytesConfig PDA at the canonical TOKEN_CONFIG_KEY seed under",
-            "aeqi_trust's program id."
+            "aeqi_company's program id."
           ],
           "writable": true
         },
@@ -133,7 +133,7 @@ export type AeqiFactory = {
           "signer": true
         },
         {
-          "name": "aeqiTrustProgram",
+          "name": "aeqiCompanyProgram",
           "address": "CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV"
         },
         {
@@ -155,7 +155,7 @@ export type AeqiFactory = {
       ],
       "args": [
         {
-          "name": "trustId",
+          "name": "companyId",
           "type": {
             "array": [
               "u8",
@@ -215,8 +215,8 @@ export type AeqiFactory = {
     {
       "name": "createWithModules",
       "docs": [
-        "Partial spawn — initialize a fresh trust and register a module set,",
-        "**leaving the trust in creation mode** so the caller can run each",
+        "Partial spawn — initialize a fresh company and register a module set,",
+        "**leaving the company in creation mode** so the caller can run each",
         "module's `init` CPI before finalizing. Use this when the caller",
         "owns the module-init step (the canonical use case is an off-chain",
         "provisioner that submits init CPIs in follow-up transactions);",
@@ -226,23 +226,23 @@ export type AeqiFactory = {
         "",
         "Steps:",
         "",
-        "1. CPI `aeqi_trust::initialize` (creates Trust PDA in creation mode).",
-        "2. For each `ModuleSpec` in `modules`, CPI `aeqi_trust::register_module`.",
+        "1. CPI `aeqi_company::initialize` (creates Company PDA in creation mode).",
+        "2. For each `ModuleSpec` in `modules`, CPI `aeqi_company::register_module`.",
         "The matching module PDAs are passed in `remaining_accounts`.",
         "",
         "**Does NOT finalize.** Earlier versions of this function called",
-        "`aeqi_trust::finalize` at step 3, which locked out every",
-        "subsequent module init — `aeqi_*::init` requires the trust be in",
+        "`aeqi_company::finalize` at step 3, which locked out every",
+        "subsequent module init — `aeqi_*::init` requires the company be in",
         "creation mode. Callers that need register + per-module init +",
         "finalize MUST issue the finalize CPI themselves once the inits",
         "land. Cost of the prior shape (2026-05-17): every off-chain",
-        "trust-provisioning attempt failed with `TrustNotInCreationMode`",
+        "company-provisioning attempt failed with `CompanyNotInCreationMode`",
         "because the factory finalized before the inits could run.",
         "",
         "`remaining_accounts` layout: for each module spec, push the module PDA",
-        "(writable, will be initialized by `aeqi_trust`).",
+        "(writable, will be initialized by `aeqi_company`).",
         "",
-        "The caller (the `authority`) signs all CPIs as the trust authority."
+        "The caller (the `authority`) signs all CPIs as the company authority."
       ],
       "discriminator": [
         28,
@@ -256,9 +256,9 @@ export type AeqiFactory = {
       ],
       "accounts": [
         {
-          "name": "trust",
+          "name": "company",
           "docs": [
-            "`[b\"trust\", trust_id]` under its own program ID."
+            "`[b\"company\", company_id]` under its own program ID."
           ],
           "writable": true
         },
@@ -268,7 +268,7 @@ export type AeqiFactory = {
           "signer": true
         },
         {
-          "name": "aeqiTrustProgram",
+          "name": "aeqiCompanyProgram",
           "address": "CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV"
         },
         {
@@ -278,7 +278,7 @@ export type AeqiFactory = {
       ],
       "args": [
         {
-          "name": "trustId",
+          "name": "companyId",
           "type": {
             "array": [
               "u8",
@@ -302,7 +302,7 @@ export type AeqiFactory = {
       "name": "instantiateTemplate",
       "docs": [
         "Template-driven partial create flow: reads a registered Template PDA",
-        "and replays its module set against a fresh TRUST. **Leaves the trust",
+        "and replays its module set against a fresh COMPANY. **Leaves the company",
         "in creation mode** so the caller can run each module's `init` CPI",
         "before finalizing.",
         "",
@@ -313,15 +313,15 @@ export type AeqiFactory = {
         "3. one ModuleAclEdge PDA per ACL edge in template order",
         "",
         "Steps:",
-        "1. CPI aeqi_trust::initialize (creates trust, enters creation mode)",
+        "1. CPI aeqi_company::initialize (creates company, enters creation mode)",
         "2. Validate each ModuleSpec against its provider-published",
         "ModuleImplementation PDA",
         "3. For each ModuleSpec in template.modules: CPI register_module",
         "4. For each AclEdgeSpec in template.acl_edges: CPI set_module_acl",
         "",
-        "**Does NOT finalize.** Earlier versions called `aeqi_trust::finalize`",
+        "**Does NOT finalize.** Earlier versions called `aeqi_company::finalize`",
         "at step 5, which locked out every subsequent module init — modules",
-        "require the trust be in creation mode for their per-module `init`",
+        "require the company be in creation mode for their per-module `init`",
         "CPI to succeed. Callers that need register + per-module init +",
         "finalize MUST issue the finalize CPI themselves once all the inits",
         "have landed. Same bug class as the prior `create_with_modules`",
@@ -365,9 +365,9 @@ export type AeqiFactory = {
           }
         },
         {
-          "name": "trust",
+          "name": "company",
           "docs": [
-            "`[b\"trust\", trust_id]` under its own program ID."
+            "`[b\"company\", company_id]` under its own program ID."
           ],
           "writable": true
         },
@@ -377,7 +377,7 @@ export type AeqiFactory = {
           "signer": true
         },
         {
-          "name": "aeqiTrustProgram",
+          "name": "aeqiCompanyProgram",
           "address": "CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV"
         },
         {
@@ -387,7 +387,7 @@ export type AeqiFactory = {
       ],
       "args": [
         {
-          "name": "trustId",
+          "name": "companyId",
           "type": {
             "array": [
               "u8",
@@ -401,7 +401,7 @@ export type AeqiFactory = {
       "name": "registerTemplate",
       "docs": [
         "Register a template — stores the module set, ACL graph, and admin so",
-        "`instantiate_template` can later replay this against a fresh TRUST."
+        "`instantiate_template` can later replay this against a fresh COMPANY."
       ],
       "discriminator": [
         174,
@@ -621,7 +621,7 @@ export type AeqiFactory = {
       "name": "aclEdgeSpec",
       "docs": [
         "Inter-module ACL edge declaration. After all modules are deployed the",
-        "factory walks this list and CPIs `aeqi_trust::set_module_acl` per edge."
+        "factory walks this list and CPIs `aeqi_company::set_module_acl` per edge."
       ],
       "type": {
         "kind": "struct",
@@ -657,11 +657,11 @@ export type AeqiFactory = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
-            "name": "trustId",
+            "name": "companyId",
             "type": {
               "array": [
                 "u8",
@@ -682,11 +682,11 @@ export type AeqiFactory = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
-            "name": "trustId",
+            "name": "companyId",
             "type": {
               "array": [
                 "u8",
@@ -707,11 +707,11 @@ export type AeqiFactory = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
-            "name": "trustId",
+            "name": "companyId",
             "type": {
               "array": [
                 "u8",
@@ -736,7 +736,7 @@ export type AeqiFactory = {
         "Module declaration in a template. `program_id` points at the concrete",
         "executable selected for this template. `provider`, `implementation_version`,",
         "and `implementation_metadata_hash` record the provider-published version",
-        "that this TRUST starts from; future provider releases are adopted per TRUST."
+        "that this COMPANY starts from; future provider releases are adopted per COMPANY."
       ],
       "type": {
         "kind": "struct",
@@ -783,7 +783,7 @@ export type AeqiFactory = {
       "docs": [
         "Template registered on-chain. PDA seeded `[b\"template\", template_id]`.",
         "Declares the module set, ACL graph, and default value configs that",
-        "`instantiate_template` will replay against every fresh TRUST."
+        "`instantiate_template` will replay against every fresh COMPANY."
       ],
       "type": {
         "kind": "struct",
@@ -834,11 +834,11 @@ export type AeqiFactory = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
-            "name": "trustId",
+            "name": "companyId",
             "type": {
               "array": [
                 "u8",

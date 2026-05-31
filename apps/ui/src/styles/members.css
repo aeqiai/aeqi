@@ -1,7 +1,7 @@
-/* Members surface -- trust humans, not authority seats.
+/* Members surface -- company humans, not authority seats.
    The table is the directory; the top rail already carries the page count. */
 
-.trust-members {
+.company-members {
   --toolbar-control-h: 32px;
   --table-separator: color-mix(
     in srgb,
@@ -22,7 +22,7 @@
   padding: 0;
 }
 
-.trust-members > .trust-members-page-header {
+.company-members > .company-members-page-header {
   grid-area: header;
   align-items: center;
   min-height: var(--shell-top-rail-h, 40px);
@@ -31,16 +31,16 @@
   background: transparent;
 }
 
-.trust-members-toolbar {
+.company-members-toolbar {
   flex: 1;
   min-width: 0;
 }
 
-.trust-members-toolbar > .ideas-list-search-field {
+.company-members-toolbar > .ideas-list-search-field {
   min-width: 180px;
 }
 
-.trust-members-page-header .trust-top-rail-cta {
+.company-members-page-header .company-top-rail-cta {
   height: var(--toolbar-control-h);
   min-height: var(--toolbar-control-h);
   border-radius: var(--radius-full);
@@ -51,16 +51,16 @@
   box-shadow: none;
 }
 
-.trust-members-page-header .trust-top-rail-cta:hover {
+.company-members-page-header .company-top-rail-cta:hover {
   box-shadow: none;
 }
 
-.trust-members-page-header .trust-top-rail-cta svg {
+.company-members-page-header .company-top-rail-cta svg {
   width: 13px;
   height: 13px;
 }
 
-.trust-members-main {
+.company-members-main {
   grid-area: main;
   display: flex;
   flex-direction: column;
@@ -80,7 +80,7 @@
   overflow-y: auto;
 }
 
-.trust-members-register {
+.company-members-register {
   display: flex;
   flex: 0 0 auto;
   flex-direction: column;
@@ -91,7 +91,7 @@
   background: transparent;
 }
 
-.trust-members-table {
+.company-members-table {
   flex: 0 0 auto;
   min-width: 0;
   min-height: 0;
@@ -99,13 +99,13 @@
   overflow-y: visible;
 }
 
-.trust-members-table table thead {
+.company-members-table table thead {
   background: color-mix(in srgb, var(--color-card-elevated) 76%, transparent);
   box-shadow: none;
 }
 
-.trust-members-table table thead th,
-.trust-members-table [data-sticky-header="true"] table thead th {
+.company-members-table table thead th,
+.company-members-table [data-sticky-header="true"] table thead th {
   height: 48px;
   padding: 0 24px;
   border-bottom: 1px solid var(--table-separator);
@@ -117,22 +117,22 @@
   text-transform: none;
 }
 
-.trust-members-table table tbody td {
+.company-members-table table tbody td {
   height: 58px;
   padding: 11px 24px;
 }
 
-.trust-members-table table tbody tr {
+.company-members-table table tbody tr {
   transition:
     background 0.12s ease,
     color 0.12s ease;
 }
 
-.trust-members-table table tbody tr:hover {
+.company-members-table table tbody tr:hover {
   background: var(--bg-row);
 }
 
-.trust-members-status {
+.company-members-status {
   height: 24px;
   min-height: 24px;
   padding: 0 9px;
@@ -144,12 +144,12 @@
   text-transform: none;
 }
 
-.trust-members-status > span:first-child {
+.company-members-status > span:first-child {
   width: 7px;
   height: 7px;
 }
 
-.trust-members-role-count-cell {
+.company-members-role-count-cell {
   display: inline-flex;
   align-items: center;
   justify-content: flex-start;
@@ -161,7 +161,7 @@
   line-height: 1.25;
 }
 
-.trust-members-role-count {
+.company-members-role-count {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
@@ -178,38 +178,38 @@
   line-height: 1;
 }
 
-.trust-members-role-count.muted {
+.company-members-role-count.muted {
   min-width: 28px;
   background: transparent;
   color: var(--color-text-muted);
   font-weight: 500;
 }
 
-.trust-members-nav-action {
+.company-members-nav-action {
   color: var(--color-text-muted);
 }
 
-.trust-members-card-list {
+.company-members-card-list {
   display: none;
 }
 
-.trust-members-state {
+.company-members-state {
   padding: var(--space-6) var(--space-5);
   color: var(--color-text-muted);
 }
 
-.trust-members-state--error {
+.company-members-state--error {
   color: var(--color-error);
 }
 
-.trust-member-identity {
+.company-member-identity {
   display: flex;
   align-items: center;
   gap: var(--space-3);
   min-width: 0;
 }
 
-.trust-member-avatar {
+.company-member-avatar {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
@@ -220,14 +220,14 @@
   border-radius: 999px;
 }
 
-.trust-member-copy {
+.company-member-copy {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
 }
 
-.trust-member-name {
+.company-member-name {
   overflow: hidden;
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
@@ -237,9 +237,9 @@
   white-space: nowrap;
 }
 
-.trust-member-detail,
-.trust-members-muted,
-.trust-members-date {
+.company-member-detail,
+.company-members-muted,
+.company-members-date {
   overflow: hidden;
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
@@ -248,59 +248,59 @@
   white-space: nowrap;
 }
 
-.trust-members-date {
+.company-members-date {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 
 @media (max-width: 900px) {
-  .trust-members-toolbar {
+  .company-members-toolbar {
     flex-wrap: wrap;
     justify-content: flex-start;
   }
 
-  .trust-members-toolbar > .ideas-list-search-field {
+  .company-members-toolbar > .ideas-list-search-field {
     flex-basis: 100%;
   }
 }
 
 @media (max-width: 560px) {
-  .trust-members {
+  .company-members {
     overflow-y: auto;
     padding: 0 var(--space-3) var(--space-3);
     row-gap: var(--space-3);
   }
 
-  .trust-members > .trust-members-page-header {
+  .company-members > .company-members-page-header {
     min-height: auto;
   }
 
-  .trust-members-toolbar > .ideas-list-search-field {
+  .company-members-toolbar > .ideas-list-search-field {
     min-width: 0;
   }
 
-  .trust-members-main {
+  .company-members-main {
     min-height: auto;
     padding: var(--space-3);
     overflow: visible;
   }
 
-  .trust-members-register {
+  .company-members-register {
     flex: 0 0 auto;
     overflow: visible;
     background: transparent;
   }
 
-  .trust-members-table {
+  .company-members-table {
     display: none;
   }
 
-  .trust-members-card-list {
+  .company-members-card-list {
     display: grid;
     gap: var(--space-2);
   }
 
-  .trust-members-card {
+  .company-members-card {
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
@@ -310,7 +310,7 @@
     background: var(--bg-row);
   }
 
-  .trust-members-card-main {
+  .company-members-card-main {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
@@ -318,18 +318,18 @@
     min-width: 0;
   }
 
-  .trust-members-card-meta {
+  .company-members-card-meta {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: var(--space-2);
     margin: 0;
   }
 
-  .trust-members-card-meta div {
+  .company-members-card-meta div {
     min-width: 0;
   }
 
-  .trust-members-card-meta dt {
+  .company-members-card-meta dt {
     color: var(--color-text-muted);
     font-size: var(--font-size-2xs);
     font-weight: 600;
@@ -338,7 +338,7 @@
     text-transform: uppercase;
   }
 
-  .trust-members-card-meta dd {
+  .company-members-card-meta dd {
     margin: var(--space-1) 0 0;
     overflow: hidden;
     color: var(--color-text-secondary);

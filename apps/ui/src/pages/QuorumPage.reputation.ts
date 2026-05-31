@@ -22,7 +22,7 @@ export interface ProposerReputation {
 }
 
 /**
- * Aggregate stats for a proposer on a TRUST. Walks every proposal once
+ * Aggregate stats for a proposer on a COMPANY. Walks every proposal once
  * and counts settled outcomes only — active/pending proposals don't
  * shift the success rate because they haven't resolved yet.
  */

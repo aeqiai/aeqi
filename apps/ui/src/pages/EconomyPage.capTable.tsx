@@ -1,11 +1,11 @@
 import { EmptyState, PageSection, Table, type TableColumn } from "@/components/ui";
-import type { CapTableEntry, Trust } from "@/lib/types";
+import type { CapTableEntry, Company } from "@/lib/types";
 import { TableStatus } from "./EconomyPage.parts";
 import styles from "./EconomyPage.module.css";
 
 export interface CapTableSeedRow {
   id: string;
-  trust: Trust;
+  company: Company;
   entry: CapTableEntry;
 }
 
@@ -33,16 +33,18 @@ function formatBasisPoints(value: number): string {
 function makeCapTableSeedColumns(): Array<TableColumn<CapTableSeedRow>> {
   return [
     {
-      key: "trust",
-      header: "Trust",
+      key: "company",
+      header: "Company",
       cell: (row) => (
         <span className={styles.trustCellText}>
-          <span className={styles.trustName}>{row.trust.name}</span>
-          <span className={styles.trustMeta}>{row.trust.tagline || row.trust.plan || "TRUST"}</span>
+          <span className={styles.trustName}>{row.company.name}</span>
+          <span className={styles.trustMeta}>
+            {row.company.tagline || row.company.plan || "COMPANY"}
+          </span>
         </span>
       ),
       sortable: true,
-      sortAccessor: (row) => row.trust.name,
+      sortAccessor: (row) => row.company.name,
     },
     {
       key: "allocation",
@@ -131,8 +133,8 @@ export function CapTableSeedSection({
             title={hasSearch ? "No matching seed rows" : "No cap-table seed rows"}
             description={
               hasSearch
-                ? "Try a trust name, allocation key, holder type, security type, or vesting term."
-                : "New TRUSTs should expose creator or founder allocation rows once the orchestrator seed path runs."
+                ? "Try a company name, allocation key, holder type, security type, or vesting term."
+                : "New Companies should expose creator or founder allocation rows once the orchestrator seed path runs."
             }
           />
         }

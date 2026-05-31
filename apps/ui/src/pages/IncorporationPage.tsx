@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { useDaemonStore } from "@/store/daemon";
 import { useIncorporation } from "@/hooks/useIncorporation";
 import { getAeqiProgramName } from "@/solana";
-import type { ModuleAccountWithPda, TrustAccount } from "@/solana";
+import type { ModuleAccountWithPda, CompanyAccount } from "@/solana";
 import {
   Badge,
   DetailField,
@@ -21,43 +21,43 @@ import {
 /**
  * Incorporation — `i` in the AEQI grammar.
  *
- * The TRUST's constitutional surface — identity, authority, and the
- * module slots the TRUST has adopted on-chain. Replaces the prior
+ * The COMPANY's constitutional surface — identity, authority, and the
+ * module slots the COMPANY has adopted on-chain. Replaces the prior
  * placeholder (commit pre-ja-001.2) with a real surface that reads
  * through the platform Incorporation snapshot API.
  *
  * Sections:
- *   1. Identity — trust_id (hex), authority (base58), creation_mode,
+ *   1. Identity — company_id (hex), authority (base58), creation_mode,
  *      paused, module count. Both pubkey-ish fields support
  *      copy-on-click of the full value.
- *   2. Modules — table of every Module account hanging off this TRUST,
+ *   2. Modules — table of every Module account hanging off this COMPANY,
  *      labelled with the friendly AEQI program name when recognized.
  *   3. Founding template — placeholder pending the platform exposing
  *      `entity.template_id` on `/api/entities`.
  *   4. Founders — defers to the chain-canonical Roles rewrite
- *      (ja-001.9); v1 surfaces only Trust.authority.
+ *      (ja-001.9); v1 surfaces only Company.authority.
  *
  * Anti-scope: no write actions (pause toggle, adopt-implementation,
  * ACL editor), no founders roster beyond authority, no template
  * management UI. Those land in later quests once the read surface
  * is stable.
  */
-export default function IncorporationPage({ trustId }: { trustId: string }) {
+export default function IncorporationPage({ companyId }: { companyId: string }) {
   const entities = useDaemonStore((s) => s.entities);
-  const entity = useMemo(() => entities.find((e) => e.id === trustId), [entities, trustId]);
-  const trustAddress = entity?.trust_address ?? null;
+  const entity = useMemo(() => entities.find((e) => e.id === companyId), [entities, companyId]);
+  const companyAddress = entity?.company_address ?? null;
 
-  const { trust, modules, isLoading, error } = useIncorporation(trustAddress);
+  const { company, modules, isLoading, error } = useIncorporation(companyAddress);
 
   // ── Pre-bridge state: entity exists but has no on-chain mirror yet.
-  if (!trustAddress) {
+  if (!companyAddress) {
     return (
       <Page>
-        <PageHeader title="Incorporation" description="The TRUST's constitutional surface." />
+        <PageHeader title="Incorporation" description="The COMPANY's constitutional surface." />
         <PageBody>
           <EmptyState
             title="Not yet on-chain"
-            description="This entity does not have a TRUST proxy address yet. Once the click-to-DAO bridge fires, the on-chain Trust account and its adopted modules will render here."
+            description="This entity does not have a COMPANY proxy address yet. Once the click-to-DAO bridge fires, the on-chain Company account and its adopted modules will render here."
           />
         </PageBody>
       </Page>
@@ -67,9 +67,9 @@ export default function IncorporationPage({ trustId }: { trustId: string }) {
   if (isLoading) {
     return (
       <Page>
-        <PageHeader title="Incorporation" description="The TRUST's constitutional surface." />
+        <PageHeader title="Incorporation" description="The COMPANY's constitutional surface." />
         <PageBody>
-          <Loading variant="section" label="Loading Trust snapshot" />
+          <Loading variant="section" label="Loading Company snapshot" />
         </PageBody>
       </Page>
     );
@@ -78,25 +78,25 @@ export default function IncorporationPage({ trustId }: { trustId: string }) {
   if (error) {
     return (
       <Page>
-        <PageHeader title="Incorporation" description="The TRUST's constitutional surface." />
+        <PageHeader title="Incorporation" description="The COMPANY's constitutional surface." />
         <PageBody>
           <EmptyState
-            title="Couldn't read Trust state"
-            description={error.message || "The platform could not load the Trust snapshot."}
+            title="Couldn't read Company state"
+            description={error.message || "The platform could not load the Company snapshot."}
           />
         </PageBody>
       </Page>
     );
   }
 
-  if (!trust) {
+  if (!company) {
     return (
       <Page>
-        <PageHeader title="Incorporation" description="The TRUST's constitutional surface." />
+        <PageHeader title="Incorporation" description="The COMPANY's constitutional surface." />
         <PageBody>
           <EmptyState
-            title="Trust account not found"
-            description={`No Trust account at ${shortAddress(trustAddress)} on the configured cluster. Check that the platform is pointed at the cluster the TRUST was deployed to.`}
+            title="Company account not found"
+            description={`No Company account at ${shortAddress(companyAddress)} on the configured cluster. Check that the platform is pointed at the cluster the COMPANY was deployed to.`}
           />
         </PageBody>
       </Page>
@@ -105,12 +105,12 @@ export default function IncorporationPage({ trustId }: { trustId: string }) {
 
   return (
     <Page>
-      <PageHeader title="Incorporation" description="The TRUST's constitutional surface." />
+      <PageHeader title="Incorporation" description="The COMPANY's constitutional surface." />
       <PageBody>
-        <IdentitySection trust={trust} trustAddress={trustAddress} />
+        <IdentitySection company={company} companyAddress={companyAddress} />
         <ModulesSection modules={modules ?? []} />
         <TemplateSection />
-        <FoundersSection authority={trust.authority.toBase58()} />
+        <FoundersSection authority={company.authority.toBase58()} />
       </PageBody>
     </Page>
   );
@@ -120,31 +120,37 @@ export default function IncorporationPage({ trustId }: { trustId: string }) {
 /* Sections                                                            */
 /* ────────────────────────────────────────────────────────────────── */
 
-function IdentitySection({ trust, trustAddress }: { trust: TrustAccount; trustAddress: string }) {
-  const trustIdHex = useMemo(() => bytesToHex(trust.trustId), [trust.trustId]);
-  const authority = trust.authority.toBase58();
+function IdentitySection({
+  company,
+  companyAddress,
+}: {
+  company: CompanyAccount;
+  companyAddress: string;
+}) {
+  const companyIdHex = useMemo(() => bytesToHex(company.companyId), [company.companyId]);
+  const authority = company.authority.toBase58();
 
   return (
     <PageSection title="Identity">
-      <DetailField label="TRUST address">
-        <CopyableMono full={trustAddress} display={shortAddress(trustAddress)} />
+      <DetailField label="COMPANY address">
+        <CopyableMono full={companyAddress} display={shortAddress(companyAddress)} />
       </DetailField>
-      <DetailField label="trust_id (bytes32)">
-        <CopyableMono full={`0x${trustIdHex}`} display={`0x${shortHex(trustIdHex)}`} />
+      <DetailField label="company_id (bytes32)">
+        <CopyableMono full={`0x${companyIdHex}`} display={`0x${shortHex(companyIdHex)}`} />
       </DetailField>
       <DetailField label="Authority">
         <CopyableMono full={authority} display={shortAddress(authority)} />
       </DetailField>
       <DetailField label="Modules adopted">
-        <span style={{ fontVariantNumeric: "tabular-nums" }}>{trust.moduleCount}</span>
+        <span style={{ fontVariantNumeric: "tabular-nums" }}>{company.moduleCount}</span>
       </DetailField>
       <DetailField label="State">
         <span style={{ display: "inline-flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
-          <Badge variant={trust.paused ? "warning" : "success"} dot>
-            {trust.paused ? "Paused" : "Active"}
+          <Badge variant={company.paused ? "warning" : "success"} dot>
+            {company.paused ? "Paused" : "Active"}
           </Badge>
-          <Badge variant={trust.creationMode ? "info" : "muted"}>
-            {trust.creationMode ? "Creation mode" : "Finalized"}
+          <Badge variant={company.creationMode ? "info" : "muted"}>
+            {company.creationMode ? "Creation mode" : "Finalized"}
           </Badge>
         </span>
       </DetailField>
@@ -213,7 +219,7 @@ function ModulesSection({ modules }: { modules: ModuleAccountWithPda[] }) {
       header: "ACL",
       align: "end",
       cell: (row) => (
-        <Tooltip content="Module → TRUST permission bitmask. Symbolic flags land with the role-graph rewrite.">
+        <Tooltip content="Module → COMPANY permission bitmask. Symbolic flags land with the role-graph rewrite.">
           <span style={{ fontFamily: "var(--font-mono)", fontVariantNumeric: "tabular-nums" }}>
             {row.account.trustAcl.toString()}
           </span>
@@ -244,7 +250,7 @@ function ModulesSection({ modules }: { modules: ModuleAccountWithPda[] }) {
   return (
     <PageSection
       title="Modules"
-      description="Programs the TRUST has adopted to implement its protocol slots."
+      description="Programs the COMPANY has adopted to implement its protocol slots."
     >
       <Table
         columns={columns}
@@ -253,7 +259,7 @@ function ModulesSection({ modules }: { modules: ModuleAccountWithPda[] }) {
         empty={
           <EmptyState
             title="No modules adopted"
-            description="When this TRUST adopts a module implementation, it lands here."
+            description="When this COMPANY adopts a module implementation, it lands here."
           />
         }
         ariaLabel="Adopted modules"
@@ -271,7 +277,7 @@ function TemplateSection() {
     <PageSection title="Founding template">
       <EmptyState
         title="Template metadata not yet surfaced"
-        description="The blueprint this TRUST was founded from will render here once /api/entities exposes the entity's template_id."
+        description="The blueprint this COMPANY was founded from will render here once /api/entities exposes the entity's template_id."
       />
     </PageSection>
   );
@@ -279,7 +285,10 @@ function TemplateSection() {
 
 function FoundersSection({ authority }: { authority: string }) {
   return (
-    <PageSection title="Founders" description="The on-chain authority that registered this TRUST.">
+    <PageSection
+      title="Founders"
+      description="The on-chain authority that registered this COMPANY."
+    >
       <DetailField label="Authority signer">
         <CopyableMono full={authority} display={shortAddress(authority)} />
       </DetailField>

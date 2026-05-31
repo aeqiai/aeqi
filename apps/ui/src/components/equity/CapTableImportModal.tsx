@@ -5,10 +5,10 @@
  *
  * Two modes share the same parse + preview pipeline:
  *   - Mint:     each row hits `api.tokenMint` (creates new tokens).
- *               Trust-authority gated server-side; non-owners see a 403.
+ *               Company-authority gated server-side; non-owners see a 403.
  *   - Transfer: each row hits `api.tokenTransfer` (moves tokens from the
  *               caller's own ATA — implicit "treasury source" being the
- *               trust authority's holdings). The brief calls this
+ *               company authority's holdings). The brief calls this
  *               "Transfer from custody"; honest scope: the platform's
  *               token-transfer endpoint only knows about caller-owned
  *               ATAs, so the "source holder picker" is implicit. A
@@ -32,7 +32,7 @@
  * Execution is sequential (one ix at a time) — keeps the operator's
  * mental model simple ("row N succeeded / failed") and matches how the
  * existing platform endpoints serialize requests through the same
- * trust authority. Per-row status renders inline so the import progress
+ * company authority. Per-row status renders inline so the import progress
  * is visible row-by-row instead of as a single spinner.
  */
 import { useMemo, useState } from "react";
@@ -48,7 +48,7 @@ const TOKEN_DECIMAL_POW = 10 ** TOKEN_DECIMALS;
 export interface CapTableImportModalProps {
   open: boolean;
   onClose: () => void;
-  trustId: string;
+  companyId: string;
   /**
    * Fired after every row settles (success OR failure). The parent can
    * use this to refresh the cap-table reads via React Query
@@ -241,7 +241,7 @@ const importPreviewColumns: Array<TableColumn<PreviewRow>> = [
 export function CapTableImportModal({
   open,
   onClose,
-  trustId,
+  companyId,
   onSettled,
 }: CapTableImportModalProps) {
   const [mode, setMode] = useState<ImportMode>("mint");
@@ -288,12 +288,12 @@ export function CapTableImportModal({
         const res =
           mode === "mint"
             ? await api.tokenMint({
-                entity_id: trustId,
+                entity_id: companyId,
                 recipient_pubkey: row.recipient,
                 amount: row.amountBaseUnits,
               })
             : await api.tokenTransfer({
-                entity_id: trustId,
+                entity_id: companyId,
                 recipient_pubkey: row.recipient,
                 amount: row.amountBaseUnits,
               });
@@ -330,18 +330,18 @@ export function CapTableImportModal({
             options={[
               {
                 value: "mint",
-                label: "Mint — issue new shares from trust authority",
+                label: "Mint — issue new shares from company authority",
               },
               {
                 value: "transfer",
-                label: "Transfer from custody — redistribute from trust authority ATA",
+                label: "Transfer from custody — redistribute from company authority ATA",
               },
             ]}
           />
           <p className="cap-table-import__modeHelp">
             {mode === "mint"
-              ? "Each row mints fresh shares to the recipient. Supply grows; trust authority signs."
-              : "Each row moves existing shares from the trust authority's ATA to the recipient. Supply unchanged."}
+              ? "Each row mints fresh shares to the recipient. Supply grows; company authority signs."
+              : "Each row moves existing shares from the company authority's ATA to the recipient. Supply unchanged."}
           </p>
         </div>
         <div className="cap-table-import__csvRow">

@@ -2,7 +2,7 @@
  * Iter-6 — per-module click-through detail surface.
  *
  * `VaultIdentitySection` lists every Module slot registered on the
- * TRUST, but iter-5 capped at the row level — Program / Slot / Version
+ * COMPANY, but iter-5 capped at the row level — Program / Slot / Version
  * / Initialized. Operators couldn't see the ACL bit-flags (who this
  * module is allowed to talk to on the inter-module graph) or the
  * recent on-chain signature tail against the Module account, both of
@@ -20,9 +20,9 @@
  *      rather than fabricate labels.
  *   3. Recent module activity — signatures against the Module PDA
  *      with iter-7 IDL-decoded labels: every leading signature gets
- *      its `aeqi_trust` instruction name (adopt_module_implementation,
+ *      its `aeqi_company` instruction name (adopt_module_implementation,
  *      set_module_acl, register_module, …) decoded from the Anchor
- *      8-byte discriminator. Non-`aeqi_trust` calls (third-party CPI
+ *      8-byte discriminator. Non-`aeqi_company` calls (third-party CPI
  *      against the Module PDA) collapse to a quieter "On-chain call"
  *      badge with the calling program list surfaced honestly.
  *
@@ -136,7 +136,7 @@ export function ModuleDetailModal({ module, onClose }: ModuleDetailModalProps) {
         <DetailField label="Implementation metadata hash">
           <CopyableMono full={metadataHex} display={`${metadataHex.slice(0, 16)}…`} mode="short" />
         </DetailField>
-        <DetailField label={`Trust ACL · ${aclHex}`}>
+        <DetailField label={`Company ACL · ${aclHex}`}>
           {aclBits.length === 0 ? (
             <span className={styles.modalDetailNote}>
               No ACL bits set — this module has no granted capabilities yet.
@@ -170,7 +170,7 @@ export function ModuleDetailModal({ module, onClose }: ModuleDetailModalProps) {
  * readable; "Showing N of M" footer is honest about truncation.
  *
  * Iter-7: each row is paired with `useDecodedModuleActivity` so the
- * timestamp + signature tail surfaces the actual `aeqi_trust` IDL
+ * timestamp + signature tail surfaces the actual `aeqi_company` IDL
  * instruction (e.g. `set_module_acl`) instead of a flat hash. Rows that
  * called a non-AEQI program against the Module account collapse to
  * "On-chain call" with the calling program list surfaced honestly.
@@ -200,7 +200,7 @@ function ModuleSignatureTail({ moduleAddress }: { moduleAddress: string }) {
   }
   const visible = signatures.slice(0, VISIBLE);
   const hidden = signatures.length - visible.length;
-  const decodedCount = decodedRows.filter((d) => d.kind === "trust-ix" && d.instruction).length;
+  const decodedCount = decodedRows.filter((d) => d.kind === "company-ix" && d.instruction).length;
   return (
     <DetailField
       label={`Recent activity (${formatInteger(visible.length)}${
@@ -240,10 +240,10 @@ function ModuleSignatureTail({ moduleAddress }: { moduleAddress: string }) {
 }
 
 /**
- * Iter-7: per-row instruction badge. Renders the decoded `aeqi_trust`
+ * Iter-7: per-row instruction badge. Renders the decoded `aeqi_company`
  * instruction name when the Anchor discriminator matched, falling back
  * to "Decoding…" while the RPC is in flight and "On-chain call" when
- * the tx called a program other than `aeqi_trust`. Compound txs (e.g.
+ * the tx called a program other than `aeqi_company`. Compound txs (e.g.
  * factory register-then-adopt) surface the secondary count via "+N".
  */
 function ModuleInstructionBadge({
@@ -260,19 +260,19 @@ function ModuleInstructionBadge({
       </Badge>
     );
   }
-  if (decoded.kind === "trust-ix" && decoded.instruction) {
+  if (decoded.kind === "company-ix" && decoded.instruction) {
     return (
       <Inline gap="1" align="center">
         <Badge variant="accent" size="sm" dot>
           {decoded.instruction}
         </Badge>
-        {decoded.extraTrustCalls > 0 && (
-          <span className={styles.modalDetailNote}>+{decoded.extraTrustCalls}</span>
+        {decoded.extraCompanyCalls > 0 && (
+          <span className={styles.modalDetailNote}>+{decoded.extraCompanyCalls}</span>
         )}
       </Inline>
     );
   }
-  if (decoded.kind === "trust-ix" && decoded.unknownDiscHex) {
+  if (decoded.kind === "company-ix" && decoded.unknownDiscHex) {
     return (
       <Badge variant="muted" size="sm" dot>
         unknown · 0x{decoded.unknownDiscHex.slice(0, 8)}

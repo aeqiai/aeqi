@@ -51,7 +51,7 @@
               },
               {
                 "kind": "account",
-                "path": "request.trust",
+                "path": "request.company",
                 "account": "FundingRequest"
               },
               {
@@ -66,7 +66,7 @@
           "name": "budget"
         },
         {
-          "name": "trust"
+          "name": "company"
         },
         {
           "name": "unifutures_module_state",
@@ -175,7 +175,7 @@
               },
               {
                 "kind": "account",
-                "path": "request.trust",
+                "path": "request.company",
                 "account": "FundingRequest"
               },
               {
@@ -190,7 +190,7 @@
           "name": "budget"
         },
         {
-          "name": "trust"
+          "name": "company"
         },
         {
           "name": "unifutures_module_state",
@@ -278,7 +278,7 @@
               },
               {
                 "kind": "account",
-                "path": "request.trust",
+                "path": "request.company",
                 "account": "FundingRequest"
               },
               {
@@ -293,7 +293,7 @@
           "name": "budget"
         },
         {
-          "name": "trust"
+          "name": "company"
         },
         {
           "name": "unifutures_module_state",
@@ -390,7 +390,7 @@
               },
               {
                 "kind": "account",
-                "path": "request.trust",
+                "path": "request.company",
                 "account": "FundingRequest"
               },
               {
@@ -426,7 +426,7 @@
       ],
       "accounts": [
         {
-          "name": "trust"
+          "name": "company"
         },
         {
           "name": "module_state",
@@ -454,7 +454,7 @@
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -486,7 +486,7 @@
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               },
               {
                 "kind": "arg",
@@ -588,7 +588,7 @@
               },
               {
                 "kind": "account",
-                "path": "request.trust",
+                "path": "request.company",
                 "account": "FundingRequest"
               },
               {
@@ -609,7 +609,7 @@
     {
       "name": "init",
       "docs": [
-        "Module init — gated to the trust authority during creation mode so",
+        "Module init — gated to the company authority during creation mode so",
         "the module_state PDA cannot be squatted by an attacker."
       ],
       "discriminator": [
@@ -624,9 +624,9 @@
       ],
       "accounts": [
         {
-          "name": "trust",
+          "name": "company",
           "docs": [
-            "Trust PDA — must be a real Trust account owned by aeqi_trust."
+            "Company PDA — must be a real Company account owned by aeqi_company."
           ],
           "pda": {
             "seeds": [
@@ -642,8 +642,8 @@
               },
               {
                 "kind": "account",
-                "path": "trust.trust_id",
-                "account": "Trust"
+                "path": "company.company_id",
+                "account": "Company"
               }
             ],
             "program": {
@@ -711,7 +711,7 @@
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -770,7 +770,7 @@
       ]
     },
     {
-      "name": "Trust",
+      "name": "Company",
       "discriminator": [
         71,
         85,
@@ -860,8 +860,8 @@
     },
     {
       "code": 6004,
-      "name": "TrustMismatch",
-      "msg": "trust account does not match the funding request"
+      "name": "CompanyMismatch",
+      "msg": "company account does not match the funding request"
     },
     {
       "code": 6005,
@@ -900,8 +900,8 @@
     },
     {
       "code": 6012,
-      "name": "TrustNotInCreationMode",
-      "msg": "trust must be in creation mode to initialize the funding module"
+      "name": "CompanyNotInCreationMode",
+      "msg": "company must be in creation mode to initialize the funding module"
     }
   ],
   "types": [
@@ -911,7 +911,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -939,7 +939,7 @@
           {
             "name": "parent_budget_id",
             "docs": [
-              "Parent budget if hierarchical; [0u8; 32] if sourced from TRUST directly."
+              "Parent budget if hierarchical; [0u8; 32] if sourced from COMPANY directly."
             ],
             "type": {
               "array": [
@@ -977,7 +977,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -997,7 +997,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -1068,7 +1068,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -1102,7 +1102,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -1123,7 +1123,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -1169,7 +1169,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -1198,15 +1198,15 @@
       }
     },
     {
-      "name": "Trust",
+      "name": "Company",
       "docs": [
-        "Core TRUST account — one per AEQI company. PDA seeded `[b\"trust\", trust_id]`."
+        "Core COMPANY account — one per AEQI company. PDA seeded `[b\"company\", company_id]`."
       ],
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust_id",
+            "name": "company_id",
             "type": {
               "array": [
                 "u8",

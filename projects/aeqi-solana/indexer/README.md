@@ -15,7 +15,7 @@ Solana log indexer for the AEQI protocol. Replaces the EVM event indexer that pr
 - ✅ Decode Anchor `Program data:` lines
 - ✅ Persist decoded events to SQLite with idempotent replay protection
 - ✅ `getSignaturesForAddress` backfill
-- 🔴 Two-tier projection (finalized for trust mutations, confirmed for UI optimism)
+- 🔴 Two-tier projection (finalized for company mutations, confirmed for UI optimism)
 - ✅ Idempotent crash recovery keyed by `(signature, program, event_type)`
 - ✅ Discriminator → typed event registry (per-program decoders)
 
@@ -40,7 +40,7 @@ Production: **public RPC** (Helius / Triton / Solana Foundation public). Per `fe
 
 | Program | ID |
 |---|---|
-| aeqi_trust | `CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV` |
+| aeqi_company | `CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV` |
 | aeqi_factory | `3qRT5qTuv4wkqbLfZQUVcf94QRyG3JdCAbFZsiBNpgEv` |
 | aeqi_role | `4GSrvANBi1yrn3w4VgoxvVz7pH9BdR8MeyUpH4ZcGXpB` |
 | aeqi_governance | `5WHpPFf2mPYNFjr5p3ujeRcZNPoqWMBMkYnsWb2YtyNq` |

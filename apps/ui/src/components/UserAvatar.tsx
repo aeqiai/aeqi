@@ -6,7 +6,7 @@ import RoundAvatar from "./RoundAvatar";
  * Round, colorful (hash-driven hue, initials fallback). Mirrors the
  * canonical identity rule:
  *   round          → human or agent actor
- *   rounded-square → TRUST / institutional entity
+ *   rounded-square → COMPANY / institutional entity
  * Component code uses these wrappers, not the primitives directly.
  */
 export default function UserAvatar({

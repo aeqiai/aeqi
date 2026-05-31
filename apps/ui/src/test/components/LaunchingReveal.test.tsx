@@ -26,12 +26,12 @@ describe("LaunchingReveal", () => {
     useUIStore.setState({ activeEntity: "" } as never);
   });
 
-  it("shows the launched TRUST and live website handoff when the placement is ready", async () => {
+  it("shows the launched COMPANY and live website handoff when the placement is ready", async () => {
     getLaunchStatus.mockResolvedValue({
       placement_status: "ready",
-      display_name: "Janus TRUST",
-      email_address: "hello@janus-trust.aeqi.ai",
-      trust_address: "9AlphaTrust111111111111111111111111111111111",
+      display_name: "Janus COMPANY",
+      email_address: "hello@janus-company.aeqi.ai",
+      company_address: "9AlphaCompany111111111111111111111111111111111",
       milestones: {},
     });
 
@@ -40,38 +40,38 @@ describe("LaunchingReveal", () => {
         <Routes>
           <Route
             path="/launch"
-            element={<LaunchingReveal trustId="ent_123" fallbackDisplayName="Janus TRUST" />}
+            element={<LaunchingReveal companyId="ent_123" fallbackDisplayName="Janus COMPANY" />}
           />
         </Routes>
       </MemoryRouter>,
     );
 
     expect(
-      await screen.findByText("The TRUST exists and the public website shell is live."),
+      await screen.findByText("The COMPANY exists and the public website shell is live."),
     ).toBeInTheDocument();
     expect(screen.getByText("Website")).toBeInTheDocument();
     expect(screen.getByText("Email")).toBeInTheDocument();
-    expect(screen.getByText("hello@janus-trust.aeqi.ai")).toBeInTheDocument();
+    expect(screen.getByText("hello@janus-company.aeqi.ai")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open website" })).toHaveAttribute(
       "href",
-      "https://janus-trust.aeqi.ai/",
+      "https://janus-company.aeqi.ai/",
     );
-    expect(screen.getByRole("link", { name: "TRUST tools" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "COMPANY tools" })).toHaveAttribute(
       "href",
-      "/trust/9AlphaTrust111111111111111111111111111111111",
+      "/company/9AlphaCompany111111111111111111111111111111111",
     );
     await waitFor(() => expect(useUIStore.getState().activeEntity).toBe("ent_123"));
     expect(getLaunchStatus).toHaveBeenCalledWith("ent_123");
   });
 
-  it("does not claim website or Solana completion until the trust address exists", async () => {
+  it("does not claim website or Solana completion until the company address exists", async () => {
     getLaunchStatus.mockResolvedValue({
       placement_status: "ready",
-      display_name: "Janus TRUST",
+      display_name: "Janus COMPANY",
       email_address: null,
-      trust_address: null,
+      company_address: null,
       milestones: {
-        creating_trust: { reached: true },
+        creating_company: { reached: true },
         loading_roles: { reached: true },
         spawning_agent: { reached: true },
       },
@@ -82,15 +82,17 @@ describe("LaunchingReveal", () => {
         <Routes>
           <Route
             path="/launch"
-            element={<LaunchingReveal trustId="ent_123" fallbackDisplayName="Janus TRUST" />}
+            element={<LaunchingReveal companyId="ent_123" fallbackDisplayName="Janus COMPANY" />}
           />
         </Routes>
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText("Janus TRUST runtime is ready.")).toBeInTheDocument();
-    expect(screen.getByText(/On-chain TRUST identity is still confirming/i)).toBeInTheDocument();
-    expect(screen.queryByText("The TRUST exists and the public website shell is live.")).toBeNull();
+    expect(await screen.findByText("Janus COMPANY runtime is ready.")).toBeInTheDocument();
+    expect(screen.getByText(/On-chain COMPANY identity is still confirming/i)).toBeInTheDocument();
+    expect(
+      screen.queryByText("The COMPANY exists and the public website shell is live."),
+    ).toBeNull();
     expect(screen.queryByText("Website")).toBeNull();
     expect(screen.queryByRole("link", { name: "Open website" })).toBeNull();
     expect(useUIStore.getState().activeEntity).toBe("");

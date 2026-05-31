@@ -1,6 +1,6 @@
 /* ProvisionRuntimeUpsell — the gate shown in place of the 6 runtime-
    gated tabs (Agents/Quests/Ideas/Events/Inbox/Sessions) when the
-   TRUST hasn't been provisioned yet.
+   COMPANY hasn't been provisioned yet.
 
    Layout-only. Visual primitives (Card, Button, Banner) come from
    @/components/ui; the plan picker reuses the canonical
@@ -110,7 +110,7 @@
   line-height: 1.5;
 }
 
-/* ── TrustOverviewTab — runtime status banner ───────────────────────
+/* ── CompanyOverviewTab — runtime status banner ───────────────────────
    Renders inside the cockpit. Two states: a primary "Provision
    runtime" CTA when no runtime is attached, a quiet badge when one is.
    Lives here (next to the upsell) so the runtime-opt-in surface is

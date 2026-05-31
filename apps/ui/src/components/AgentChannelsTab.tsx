@@ -81,9 +81,9 @@ function gatewayTitle(kind: string): string {
 
 function GatewayHeaderTitle({ count }: { count: number }) {
   return (
-    <span className="trust-primitive-page-title">
-      <span className="trust-primitive-page-title-text">Gateways</span>
-      <span className="trust-primitive-page-count" aria-hidden="true">
+    <span className="company-primitive-page-title">
+      <span className="company-primitive-page-title-text">Gateways</span>
+      <span className="company-primitive-page-count" aria-hidden="true">
         {count}
       </span>
     </span>
@@ -113,7 +113,7 @@ function GatewayCreateModal({
 }) {
   return (
     <Modal open={open} onClose={onClose} title="New Gateway">
-      <div className="trust-apps-modal-form">
+      <div className="company-apps-modal-form">
         <div className="channel-type-picker gateway-type-picker">
           {CHANNEL_TYPES.map((channelType) => (
             <TabTrigger
@@ -149,7 +149,7 @@ function GatewayCreateModal({
         )}
         {error && <div className="channel-form-error gateway-form-error">{error}</div>}
 
-        <div className="trust-apps-modal-actions">
+        <div className="company-apps-modal-actions">
           <Button type="button" variant="secondary" size="md" onClick={onClose}>
             Cancel
           </Button>
@@ -174,18 +174,18 @@ function GatewayShell({
   summary: ReactNode;
 }) {
   return (
-    <div className="gateway-page trust-primitive-shell">
+    <div className="gateway-page company-primitive-shell">
       <PrimitivePageHeader
-        className="gateway-page-header trust-primitive-shell-header"
+        className="gateway-page-header company-primitive-shell-header"
         title={<GatewayHeaderTitle count={count} />}
         aria-label="Gateway controls"
         actions={actions}
         padding="none"
       />
 
-      <main className="gateway-main trust-primitive-shell-surface gateway-shell-surface">
-        <div className="trust-primitive-context-strip" role="status">
-          <span className="trust-primitive-context-text">{summary}</span>
+      <main className="gateway-main company-primitive-shell-surface gateway-shell-surface">
+        <div className="company-primitive-context-strip" role="status">
+          <span className="company-primitive-context-text">{summary}</span>
         </div>
         {children}
       </main>
@@ -194,7 +194,7 @@ function GatewayShell({
 }
 
 export default function AgentChannelsTab({ agentId }: { agentId: string }) {
-  const { goEntity, trustId } = useNav();
+  const { goEntity, companyId } = useNav();
   const { itemId } = useParams<{ itemId?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedId = itemId || null;
@@ -391,11 +391,11 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
           </Button>
         }
       >
-        <section className="trust-cockpit-card trust-cockpit-card--wide gateway-surface-card">
-          <header className="trust-cockpit-card-header gateway-card-header">
+        <section className="company-cockpit-card company-cockpit-card--wide gateway-surface-card">
+          <header className="company-cockpit-card-header gateway-card-header">
             <div>
-              <h2 className="trust-cockpit-card-title">Connected gateways</h2>
-              <p className="trust-cockpit-card-sub">
+              <h2 className="company-cockpit-card-title">Connected gateways</h2>
+              <p className="company-cockpit-card-sub">
                 Transport endpoints that create and deliver sessions.
               </p>
             </div>
@@ -426,7 +426,7 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
                   <CardTrigger
                     key={c.id}
                     className="gateway-list-row"
-                    onClick={() => goEntity(trustId, "gateways", c.id)}
+                    onClick={() => goEntity(companyId, "gateways", c.id)}
                     aria-label={`Open ${gatewayTitle(c.kind)} gateway`}
                   >
                     <span className="gateway-list-row-icon" aria-hidden>
@@ -472,7 +472,7 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
           <Button
             variant="secondary"
             size="md"
-            onClick={() => goEntity(trustId, "gateways", undefined, { replace: true })}
+            onClick={() => goEntity(companyId, "gateways", undefined, { replace: true })}
           >
             All Gateways
           </Button>
@@ -489,7 +489,7 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
               try {
                 await channelsApi.deleteAgentChannel(selected.id);
                 removeChannel(selected.id);
-                goEntity(trustId, "gateways", undefined, { replace: true });
+                goEntity(companyId, "gateways", undefined, { replace: true });
               } catch (e) {
                 setError(e instanceof Error ? e.message : "Failed to disconnect");
                 setDeleting(false);
@@ -513,11 +513,11 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
         </div>
       )}
 
-      <section className="trust-cockpit-card trust-cockpit-card--wide gateway-surface-card">
-        <header className="trust-cockpit-card-header gateway-card-header">
+      <section className="company-cockpit-card company-cockpit-card--wide gateway-surface-card">
+        <header className="company-cockpit-card-header gateway-card-header">
           <div>
-            <h2 className="trust-cockpit-card-title">{gatewayTitle(selected.kind)}</h2>
-            <p className="trust-cockpit-card-sub">gateway:{selected.kind}</p>
+            <h2 className="company-cockpit-card-title">{gatewayTitle(selected.kind)}</h2>
+            <p className="company-cockpit-card-sub">gateway:{selected.kind}</p>
           </div>
           <span className="gateway-list-row-status">
             <span className={`gateway-status-dot${selected.enabled ? " is-on" : ""}`} aria-hidden />
@@ -543,11 +543,11 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
         {selected.kind === "whatsapp-baileys" && <BaileysPairingPanel channelId={selected.id} />}
       </section>
 
-      <section className="trust-cockpit-card trust-cockpit-card--wide gateway-surface-card">
-        <header className="trust-cockpit-card-header gateway-card-header">
+      <section className="company-cockpit-card company-cockpit-card--wide gateway-surface-card">
+        <header className="company-cockpit-card-header gateway-card-header">
           <div>
-            <h2 className="trust-cockpit-card-title">Sessions</h2>
-            <p className="trust-cockpit-card-sub">External peers routed through this gateway.</p>
+            <h2 className="company-cockpit-card-title">Sessions</h2>
+            <p className="company-cockpit-card-sub">External peers routed through this gateway.</p>
           </div>
           <label className="gateway-whitelist-toggle">
             <input

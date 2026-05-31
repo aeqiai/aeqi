@@ -17,13 +17,13 @@ export {
   getRoleProgram,
   getTokenProgram,
   getTreasuryProgram,
-  getTrustProgram,
+  getCompanyProgram,
   getUnifuturesProgram,
   getVestingProgram,
 } from "./programs";
-export { readTrust, readModules, readRoles } from "./incorporation";
+export { readCompany, readModules, readRoles } from "./incorporation";
 export type {
-  TrustAccount,
+  CompanyAccount,
   ModuleAccount,
   ModuleAccountWithPda,
   RoleAccount,
@@ -101,7 +101,7 @@ export {
   AEQI_ROLE_PROGRAM_ID,
   AEQI_TOKEN_PROGRAM_ID,
   AEQI_TREASURY_PROGRAM_ID,
-  AEQI_TRUST_PROGRAM_ID,
+  AEQI_COMPANY_PROGRAM_ID,
   AEQI_UNIFUTURES_PROGRAM_ID,
   AEQI_VESTING_PROGRAM_ID,
   ROLE_MODULE_ID,
@@ -110,7 +110,7 @@ export {
   UNIFUTURES_MODULE_ID,
   GENESIS_CURVE_ID,
   TOKEN_CONFIG_KEY,
-  deriveTrustPda,
+  deriveCompanyPda,
   deriveModulePda,
   deriveRoleModuleStatePda,
   deriveTokenModuleStatePda,

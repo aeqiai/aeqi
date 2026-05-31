@@ -1,7 +1,7 @@
 import { type Dispatch, type FormEvent, type SetStateAction } from "react";
 import { Modal } from "@/components/ui";
 import { CAPABILITY_CATALOG } from "@/lib/grants";
-import type { Agent, OccupantKind, RoleType, Trust } from "@/lib/types";
+import type { Agent, OccupantKind, RoleType, Company } from "@/lib/types";
 import { AssignmentOption, ModalActions, ModalError } from "./RoleInspectorPrimitives";
 import { ROLE_TYPE_OPTIONS } from "./roleOptions";
 
@@ -62,7 +62,7 @@ export function RoleAssignmentModal({
   open,
   agents,
   entities,
-  trustId,
+  companyId,
   assignmentDraft,
   setAssignmentDraft,
   onSubmit,
@@ -72,8 +72,8 @@ export function RoleAssignmentModal({
 }: ModalBaseProps & {
   open: boolean;
   agents: Agent[];
-  entities: Trust[];
-  trustId: string;
+  entities: Company[];
+  companyId: string;
   assignmentDraft: { kind: OccupantKind; id: string };
   setAssignmentDraft: Dispatch<SetStateAction<{ kind: OccupantKind; id: string }>>;
   onSubmit: (event: FormEvent) => void;
@@ -103,15 +103,15 @@ export function RoleAssignmentModal({
             />
           ))}
           {entityOptions
-            .filter((entity) => entity.id !== trustId)
+            .filter((entity) => entity.id !== companyId)
             .map((entity) => (
               <AssignmentOption
                 name="role-inspector-assignment"
                 key={entity.id}
                 label={entity.name}
-                detail="TRUST"
-                checked={assignmentDraft.kind === "trust" && assignmentDraft.id === entity.id}
-                onChange={() => setAssignmentDraft({ kind: "trust", id: entity.id })}
+                detail="COMPANY"
+                checked={assignmentDraft.kind === "company" && assignmentDraft.id === entity.id}
+                onChange={() => setAssignmentDraft({ kind: "company", id: entity.id })}
               />
             ))}
         </div>

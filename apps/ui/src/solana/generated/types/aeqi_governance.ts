@@ -51,7 +51,7 @@ export type AeqiGovernance = {
               },
               {
                 "kind": "account",
-                "path": "proposal.trust",
+                "path": "proposal.company",
                 "account": "proposal"
               },
               {
@@ -78,7 +78,7 @@ export type AeqiGovernance = {
               },
               {
                 "kind": "account",
-                "path": "proposal.trust",
+                "path": "proposal.company",
                 "account": "proposal"
               },
               {
@@ -153,7 +153,7 @@ export type AeqiGovernance = {
               },
               {
                 "kind": "account",
-                "path": "proposal.trust",
+                "path": "proposal.company",
                 "account": "proposal"
               },
               {
@@ -180,7 +180,7 @@ export type AeqiGovernance = {
               },
               {
                 "kind": "account",
-                "path": "proposal.trust",
+                "path": "proposal.company",
                 "account": "proposal"
               },
               {
@@ -219,7 +219,7 @@ export type AeqiGovernance = {
               },
               {
                 "kind": "account",
-                "path": "proposal.trust",
+                "path": "proposal.company",
                 "account": "proposal"
               },
               {
@@ -333,7 +333,7 @@ export type AeqiGovernance = {
               },
               {
                 "kind": "account",
-                "path": "proposal.trust",
+                "path": "proposal.company",
                 "account": "proposal"
               },
               {
@@ -365,7 +365,7 @@ export type AeqiGovernance = {
               },
               {
                 "kind": "account",
-                "path": "proposal.trust",
+                "path": "proposal.company",
                 "account": "proposal"
               },
               {
@@ -460,7 +460,7 @@ export type AeqiGovernance = {
               },
               {
                 "kind": "account",
-                "path": "proposal.trust",
+                "path": "proposal.company",
                 "account": "proposal"
               },
               {
@@ -545,7 +545,7 @@ export type AeqiGovernance = {
               },
               {
                 "kind": "account",
-                "path": "proposal.trust",
+                "path": "proposal.company",
                 "account": "proposal"
               },
               {
@@ -577,7 +577,7 @@ export type AeqiGovernance = {
       ],
       "accounts": [
         {
-          "name": "trust"
+          "name": "company"
         }
       ],
       "args": []
@@ -585,8 +585,8 @@ export type AeqiGovernance = {
     {
       "name": "init",
       "docs": [
-        "Module init — creates GovernanceModuleState PDA bound to a trust.",
-        "Gated to the trust authority during creation mode so the",
+        "Module init — creates GovernanceModuleState PDA bound to a company.",
+        "Gated to the company authority during creation mode so the",
         "module_state PDA cannot be squatted by an attacker."
       ],
       "discriminator": [
@@ -601,9 +601,9 @@ export type AeqiGovernance = {
       ],
       "accounts": [
         {
-          "name": "trust",
+          "name": "company",
           "docs": [
-            "Trust PDA — must be a real Trust account owned by aeqi_trust."
+            "Company PDA — must be a real Company account owned by aeqi_company."
           ],
           "pda": {
             "seeds": [
@@ -619,8 +619,8 @@ export type AeqiGovernance = {
               },
               {
                 "kind": "account",
-                "path": "trust.trust_id",
-                "account": "trust"
+                "path": "company.company_id",
+                "account": "company"
               }
             ],
             "program": {
@@ -684,7 +684,7 @@ export type AeqiGovernance = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -719,7 +719,7 @@ export type AeqiGovernance = {
       ],
       "accounts": [
         {
-          "name": "trust"
+          "name": "company"
         },
         {
           "name": "moduleState",
@@ -743,7 +743,7 @@ export type AeqiGovernance = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -768,7 +768,7 @@ export type AeqiGovernance = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               },
               {
                 "kind": "arg",
@@ -820,8 +820,8 @@ export type AeqiGovernance = {
     {
       "name": "registerConfig",
       "docs": [
-        "Register a governance config (one per voting mode the trust supports).",
-        "Authority gate: only the trust authority can register configs in this",
+        "Register a governance config (one per voting mode the company supports).",
+        "Authority gate: only the company authority can register configs in this",
         "iteration. Once live-mode governance lands, ratified config changes",
         "will flow through `execute_proposal`."
       ],
@@ -837,9 +837,9 @@ export type AeqiGovernance = {
       ],
       "accounts": [
         {
-          "name": "trust",
+          "name": "company",
           "docs": [
-            "Trust PDA — must be a real Trust account owned by aeqi_trust."
+            "Company PDA — must be a real Company account owned by aeqi_company."
           ],
           "pda": {
             "seeds": [
@@ -855,8 +855,8 @@ export type AeqiGovernance = {
               },
               {
                 "kind": "account",
-                "path": "trust.trust_id",
-                "account": "trust"
+                "path": "company.company_id",
+                "account": "company"
               }
             ],
             "program": {
@@ -920,7 +920,7 @@ export type AeqiGovernance = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -947,7 +947,7 @@ export type AeqiGovernance = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               },
               {
                 "kind": "arg",
@@ -1028,7 +1028,7 @@ export type AeqiGovernance = {
       ]
     },
     {
-      "name": "trust",
+      "name": "company",
       "discriminator": [
         71,
         85,
@@ -1240,12 +1240,12 @@ export type AeqiGovernance = {
     {
       "code": 6023,
       "name": "unauthorized",
-      "msg": "caller is not authorized for this trust"
+      "msg": "caller is not authorized for this company"
     },
     {
       "code": 6024,
       "name": "trustNotInCreationMode",
-      "msg": "trust must be in creation mode to initialize the governance module"
+      "msg": "company must be in creation mode to initialize the governance module"
     },
     {
       "code": 6025,
@@ -1275,7 +1275,7 @@ export type AeqiGovernance = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -1307,7 +1307,7 @@ export type AeqiGovernance = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -1388,7 +1388,7 @@ export type AeqiGovernance = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -1412,7 +1412,7 @@ export type AeqiGovernance = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -1532,7 +1532,7 @@ export type AeqiGovernance = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -1574,7 +1574,7 @@ export type AeqiGovernance = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -1611,7 +1611,7 @@ export type AeqiGovernance = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -1644,15 +1644,15 @@ export type AeqiGovernance = {
       }
     },
     {
-      "name": "trust",
+      "name": "company",
       "docs": [
-        "Core TRUST account — one per AEQI company. PDA seeded `[b\"trust\", trust_id]`."
+        "Core COMPANY account — one per AEQI company. PDA seeded `[b\"company\", company_id]`."
       ],
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "trustId",
+            "name": "companyId",
             "type": {
               "array": [
                 "u8",
@@ -1689,7 +1689,7 @@ export type AeqiGovernance = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -1725,7 +1725,7 @@ export type AeqiGovernance = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {

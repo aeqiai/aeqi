@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import MarketsPage from "@/pages/EconomyPage";
 import { api } from "@/lib/api";
 import { useEntitiesQuery } from "@/queries/entities";
-import type { Role, Trust } from "@/lib/types";
+import type { Role, Company } from "@/lib/types";
 
 vi.mock("@/queries/entities", () => ({
   useEntitiesQuery: vi.fn(),
@@ -19,22 +19,22 @@ vi.mock("@/lib/api", () => ({
   },
 }));
 
-const TRUSTS: Trust[] = [
+const COMPANIES: Company[] = [
   {
     id: "alpha",
-    name: "Alpha Trust",
-    type: "trust",
+    name: "Alpha Company",
+    type: "company",
     status: "active",
     created_at: "2026-05-01T00:00:00Z",
     tagline: "Public operating company",
     public: true,
-    trust_address: "9AlphaTrust111111111111111111111111111111111",
+    company_address: "9AlphaCompany111111111111111111111111111111111",
     plan: "growth",
   },
   {
     id: "beta",
-    name: "Beta Trust",
-    type: "trust",
+    name: "Beta Company",
+    type: "company",
     status: "active",
     created_at: "2026-05-03T00:00:00Z",
     tagline: "Private lab",
@@ -44,7 +44,7 @@ const TRUSTS: Trust[] = [
 
 const OPEN_ROLE: Role = {
   id: "role-cfo",
-  trust_id: "alpha",
+  company_id: "alpha",
   title: "CFO",
   occupant_kind: "vacant",
   occupant_id: null,
@@ -56,7 +56,7 @@ const OPEN_ROLE: Role = {
 
 const FILLED_ROLE: Role = {
   id: "role-director",
-  trust_id: "alpha",
+  company_id: "alpha",
   title: "Director",
   occupant_kind: "human",
   occupant_id: "user-1",
@@ -69,7 +69,7 @@ const FILLED_ROLE: Role = {
 const ALPHA_CAP_TABLE = [
   {
     id: "cap-founder",
-    trust_id: "alpha",
+    company_id: "alpha",
     allocation_key: "founder_vesting_common",
     holder_kind: "creator",
     holder_id: "user-founder",
@@ -81,7 +81,7 @@ const ALPHA_CAP_TABLE = [
   },
   {
     id: "cap-option-pool",
-    trust_id: "alpha",
+    company_id: "alpha",
     allocation_key: "option_pool",
     holder_kind: "unassigned",
     holder_id: null,
@@ -109,38 +109,38 @@ function renderMarkets(entry = "/markets") {
 describe("MarketsPage", () => {
   beforeEach(() => {
     vi.mocked(useEntitiesQuery).mockReturnValue({
-      data: TRUSTS,
+      data: COMPANIES,
       isLoading: false,
     } as never);
-    vi.mocked(api.getRoles).mockImplementation(async (trustId: string) => ({
+    vi.mocked(api.getRoles).mockImplementation(async (companyId: string) => ({
       ok: true,
-      roles: trustId === "alpha" ? [OPEN_ROLE, FILLED_ROLE] : [],
+      roles: companyId === "alpha" ? [OPEN_ROLE, FILLED_ROLE] : [],
       edges: [],
     }));
-    vi.mocked(api.getCapTable).mockImplementation(async (trustId: string) => ({
+    vi.mocked(api.getCapTable).mockImplementation(async (companyId: string) => ({
       ok: true,
-      trust_id: trustId,
-      entries: trustId === "alpha" ? ALPHA_CAP_TABLE : [],
+      company_id: companyId,
+      entries: companyId === "alpha" ? ALPHA_CAP_TABLE : [],
     }));
-    vi.mocked(api.getLaunchStatus).mockImplementation(async (trustId: string) => ({
+    vi.mocked(api.getLaunchStatus).mockImplementation(async (companyId: string) => ({
       ok: true,
-      trust_id: trustId,
-      display_name: trustId,
-      email_address: `hello@${trustId}.aeqi.ai`,
+      company_id: companyId,
+      display_name: companyId,
+      email_address: `hello@${companyId}.aeqi.ai`,
       placement_status: "active",
-      trust_status: "active",
-      trust_address: trustId === "alpha" ? (TRUSTS[0].trust_address ?? null) : null,
-      trust_error: null,
+      company_status: "active",
+      company_address: companyId === "alpha" ? (COMPANIES[0].company_address ?? null) : null,
+      company_error: null,
       runtime_error: null,
       org_lifecycle: "active",
       milestones: {
-        creating_trust: { reached: true, at: null },
+        creating_company: { reached: true, at: null },
         signing_on_solana: { reached: true, at: null },
         loading_roles: { reached: true, at: null },
         spawning_agent: { reached: true, at: null },
       },
       unifutures:
-        trustId === "alpha"
+        companyId === "alpha"
           ? {
               asset_mint: "asset111111111111111111111111111111111111",
               quote_mint: "quote111111111111111111111111111111111111",
@@ -159,7 +159,7 @@ describe("MarketsPage", () => {
     vi.clearAllMocks();
   });
 
-  it("renders the trust registry overview with public profile affordance", async () => {
+  it("renders the company registry overview with public profile affordance", async () => {
     renderMarkets();
 
     expect(screen.getByRole("heading", { level: 1, name: "Markets" })).toBeInTheDocument();
@@ -167,7 +167,7 @@ describe("MarketsPage", () => {
     expect(screen.getByRole("heading", { name: "Cap-table seed rows" })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Browse Templates" }).length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: "Start from a Template" })).toBeInTheDocument();
-    expect(screen.getByText("Alpha Trust")).toBeInTheDocument();
+    expect(screen.getByText("Alpha Company")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Profile" })).toHaveAttribute("href", "/alpha");
 
     await waitFor(() => {
@@ -182,13 +182,13 @@ describe("MarketsPage", () => {
     expect(api.getLaunchStatus).toHaveBeenCalledWith("alpha");
   });
 
-  it("flags on-chain trusts when launch status has no liquidity seed surface", async () => {
+  it("flags on-chain companies when launch status has no liquidity seed surface", async () => {
     vi.mocked(useEntitiesQuery).mockReturnValue({
       data: [
-        TRUSTS[0],
+        COMPANIES[0],
         {
-          ...TRUSTS[1],
-          trust_address: "9BetaTrust111111111111111111111111111111111",
+          ...COMPANIES[1],
+          company_address: "9BetaCompany111111111111111111111111111111111",
         },
       ],
       isLoading: false,
@@ -198,7 +198,7 @@ describe("MarketsPage", () => {
 
     expect(await screen.findByText("Liquidity seed not confirmed")).toBeInTheDocument();
     expect(
-      screen.getByText(/1 on-chain TRUST has no Unifutures seed surface/i),
+      screen.getByText(/1 on-chain COMPANY has no Unifutures seed surface/i),
     ).toBeInTheDocument();
     expect(
       screen.getByText(/must stay quiet about live liquidity and funding/i),
@@ -210,22 +210,22 @@ describe("MarketsPage", () => {
 
     expect(screen.getByRole("heading", { name: "Liquidity pools" })).toBeInTheDocument();
     expect(await screen.findByText("Genesis curve")).toBeInTheDocument();
-    expect(screen.getByText("Alpha Trust")).toBeInTheDocument();
+    expect(screen.getByText("Alpha Company")).toBeInTheDocument();
   });
 
-  it("filters indexed pools by pool and trust fields", async () => {
+  it("filters indexed pools by pool and company fields", async () => {
     renderMarkets("/markets/pools");
 
     expect(await screen.findByText("Genesis curve")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByRole("textbox", { name: "Search trusts" }), {
+    fireEvent.change(screen.getByRole("textbox", { name: "Search companies" }), {
       target: { value: "quote111" },
     });
 
     expect(screen.getByText("Genesis curve")).toBeInTheDocument();
-    expect(screen.getByText("0 trusts / 1 pools / 0 allocations / 0 roles")).toBeInTheDocument();
+    expect(screen.getByText("0 companies / 1 pools / 0 allocations / 0 roles")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByRole("textbox", { name: "Search trusts" }), {
+    fireEvent.change(screen.getByRole("textbox", { name: "Search companies" }), {
       target: { value: "Beta" },
     });
 
@@ -237,16 +237,16 @@ describe("MarketsPage", () => {
 
     expect(await screen.findByText("Founder vesting")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByRole("textbox", { name: "Search trusts" }), {
+    fireEvent.change(screen.getByRole("textbox", { name: "Search companies" }), {
       target: { value: "option_pool" },
     });
 
     expect(screen.getAllByText("Option pool").length).toBeGreaterThan(0);
     expect(screen.queryByText("Founder vesting")).not.toBeInTheDocument();
-    expect(screen.getByText("0 trusts / 0 pools / 1 allocations / 0 roles")).toBeInTheDocument();
+    expect(screen.getByText("0 companies / 0 pools / 1 allocations / 0 roles")).toBeInTheDocument();
   });
 
-  it("shows vacant trust roles on the roles tab", async () => {
+  it("shows vacant company roles on the roles tab", async () => {
     renderMarkets("/markets/roles");
 
     expect(screen.getByRole("heading", { name: "Open roles" })).toBeInTheDocument();
@@ -255,19 +255,19 @@ describe("MarketsPage", () => {
     expect(screen.getByRole("button", { name: "Apply" })).toBeInTheDocument();
   });
 
-  it("filters open roles by role and trust fields", async () => {
+  it("filters open roles by role and company fields", async () => {
     renderMarkets("/markets/roles");
 
     expect(await screen.findByText("CFO")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByRole("textbox", { name: "Search trusts" }), {
+    fireEvent.change(screen.getByRole("textbox", { name: "Search companies" }), {
       target: { value: "operational" },
     });
 
     expect(screen.getByText("CFO")).toBeInTheDocument();
-    expect(screen.getByText("0 trusts / 0 pools / 0 allocations / 1 roles")).toBeInTheDocument();
+    expect(screen.getByText("0 companies / 0 pools / 0 allocations / 1 roles")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByRole("textbox", { name: "Search trusts" }), {
+    fireEvent.change(screen.getByRole("textbox", { name: "Search companies" }), {
       target: { value: "Beta" },
     });
 

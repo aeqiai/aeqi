@@ -30,7 +30,7 @@ function NotFound({ id }: { id: string }) {
 }
 
 export function PrimitivePreview({ kind, id }: { kind: PrimitiveKind | null; id: string }) {
-  const { goEntity, trustId } = useNav();
+  const { goEntity, companyId } = useNav();
   const { data, loading, error } = usePrimitiveResolver(kind, id);
 
   if (loading) return <Skeleton />;
@@ -47,7 +47,7 @@ export function PrimitivePreview({ kind, id }: { kind: PrimitiveKind | null; id:
       return;
     }
 
-    const targetEntityId = trustId || data.agent_id || "";
+    const targetEntityId = companyId || data.agent_id || "";
     if (!targetEntityId) {
       return;
     }

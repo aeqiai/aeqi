@@ -41,15 +41,15 @@ import BlueprintsFilterPopover from "./blueprints/BlueprintsFilterPopover";
 
 const KIND_DESCRIPTIONS: Record<Kind, string> = {
   companies:
-    "Canonical company templates launch a new TRUST. v1 ships the first company package; draft Foundation and Fund packages stay hidden until audited.",
+    "Canonical company templates launch a new COMPANY. v1 ships the first company package; draft Foundation and Fund packages stay hidden until audited.",
   agents:
-    "Primitive bundles import into an existing TRUST. Agent bundles are reusable operating roles, not standalone launch packages.",
+    "Primitive bundles import into an existing COMPANY. Agent bundles are reusable operating roles, not standalone launch packages.",
   events:
-    "Event bundles are importable runtime triggers for an existing TRUST. Standalone event bundles are not shipped in v1.",
+    "Event bundles are importable runtime triggers for an existing COMPANY. Standalone event bundles are not shipped in v1.",
   quests:
-    "Quest bundles import work into an existing TRUST. Standalone quest bundles are not shipped in v1.",
+    "Quest bundles import work into an existing COMPANY. Standalone quest bundles are not shipped in v1.",
   ideas:
-    "Idea bundles import reusable memory into an existing TRUST. Standalone idea bundles are not shipped in v1.",
+    "Idea bundles import reusable memory into an existing COMPANY. Standalone idea bundles are not shipped in v1.",
 };
 
 /**
@@ -387,7 +387,7 @@ export default function BlueprintsPage() {
                   onClick={() => navigate("/launch")}
                   leadingIcon={<Plus size={14} strokeWidth={1.5} />}
                 >
-                  Launch TRUST
+                  Launch COMPANY
                 </Button>
               ) : undefined
             }
@@ -440,7 +440,7 @@ export default function BlueprintsPage() {
             filteredAgentTemplates.length === 0 ? (
               <EmptyState
                 title={query ? `No match for "${query}".` : "No agent bundles yet."}
-                description="Agent bundles import roles and seed context into an existing TRUST. v1 exposes the bundled Steward template as part of the shipped company package."
+                description="Agent bundles import roles and seed context into an existing COMPANY. v1 exposes the bundled Steward template as part of the shipped company package."
               />
             ) : view === "list" ? (
               <ul className="bp-list" role="list">
@@ -460,7 +460,7 @@ export default function BlueprintsPage() {
           ) : activeKind !== "companies" ? (
             <EmptyState
               title={`No importable ${KIND_TABS.find((t) => t.id === activeKind)?.label.toLowerCase()} bundles yet.`}
-              description="v1 ships the first company package for launch. Standalone primitive bundles import into existing TRUSTs once they are audited and exposed."
+              description="v1 ships the first company package for launch. Standalone primitive bundles import into existing Companies once they are audited and exposed."
               action={<Link to="/templates/companies">Open Companies</Link>}
             />
           ) : totalFiltered === 0 && filtersActive ? (

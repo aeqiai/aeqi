@@ -491,7 +491,9 @@ export function HoldingReceiveCard({
   return (
     <div className={styles.receiveCard}>
       <div className={styles.receiveHead}>
-        <span className={styles.holdingDetailTitle}>Receive {symbol ?? "SPL"} into the TRUST</span>
+        <span className={styles.holdingDetailTitle}>
+          Receive {symbol ?? "SPL"} into the COMPANY
+        </span>
         <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close receive card">
           Close
         </Button>
@@ -503,8 +505,8 @@ export function HoldingReceiveCard({
             <CopyableMono full={vaultAuthority} display={vaultAuthority} mode="full" withExplorer />
           </DetailField>
           <span className={styles.capitalizeNote}>
-            Send {symbol ?? "any SPL token"} to this address from any Solana wallet — the TRUST owns
-            the balance the moment the deposit confirms.
+            Send {symbol ?? "any SPL token"} to this address from any Solana wallet — the COMPANY
+            owns the balance the moment the deposit confirms.
           </span>
           <a
             href={explorerAddressUrl(vaultAuthority)}
@@ -585,7 +587,7 @@ export function HoldingDetailPanel({
               variant="secondary"
               size="sm"
               onClick={() => onReceive(row)}
-              aria-label={`Receive more ${row.symbol ?? "SPL"} into the TRUST`}
+              aria-label={`Receive more ${row.symbol ?? "SPL"} into the COMPANY`}
             >
               Receive
             </Button>
@@ -595,7 +597,7 @@ export function HoldingDetailPanel({
               variant="secondary"
               size="sm"
               onClick={() => onSend(row)}
-              aria-label={`Send ${row.symbol ?? "SPL"} from the TRUST`}
+              aria-label={`Send ${row.symbol ?? "SPL"} from the COMPANY`}
             >
               Send
             </Button>

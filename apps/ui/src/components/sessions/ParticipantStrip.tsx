@@ -46,11 +46,11 @@ function normalize(raw: RawParticipant): Participant {
 
 function ParticipantAvatar({
   p,
-  trustId,
+  companyId,
   active,
 }: {
   p: Participant;
-  trustId?: string;
+  companyId?: string;
   active: boolean;
 }) {
   // Resolve a navigation target so clicking the avatar jumps to that
@@ -59,10 +59,10 @@ function ParticipantAvatar({
   // surface today).
   const entitiesList = useDaemonStore((s) => s.entities);
   const href =
-    trustId && p.id && p.kind === "agent"
-      ? entityPathFromId(entitiesList, trustId, "agents", encodeURIComponent(p.id))
-      : trustId && p.id && p.kind === "position"
-        ? entityPathFromId(entitiesList, trustId, "roles", encodeURIComponent(p.id))
+    companyId && p.id && p.kind === "agent"
+      ? entityPathFromId(entitiesList, companyId, "agents", encodeURIComponent(p.id))
+      : companyId && p.id && p.kind === "position"
+        ? entityPathFromId(entitiesList, companyId, "roles", encodeURIComponent(p.id))
         : undefined;
 
   // Avatar shape is determined by KIND, not by whether a photo URL exists.
@@ -124,14 +124,14 @@ function ParticipantAvatar({
 
 export default function ParticipantStrip({
   sessionId,
-  trustId,
+  companyId,
   activeParticipantIds = [],
 }: {
   sessionId: string | null;
   /** Optional entity scope override — needed when the host route doesn't
    *  resolve an entity via `useNav` (e.g. when the inbox surface is
-   *  mounted in a context without a matching :trustId/:trustAddress). */
-  trustId?: string;
+   *  mounted in a context without a matching :companyId/:companyAddress). */
+  companyId?: string;
   activeParticipantIds?: string[];
 }) {
   const [participants, setParticipants] = useState<Participant[] | null>(null);
@@ -212,7 +212,7 @@ export default function ParticipantStrip({
             <ParticipantAvatar
               key={`${p.kind}:${p.id}`}
               p={p}
-              trustId={trustId}
+              companyId={companyId}
               active={activeSet.has(p.id)}
             />
           ))}
@@ -240,7 +240,7 @@ export default function ParticipantStrip({
       <AddParticipantModal
         open={showModal}
         sessionId={sessionId}
-        trustId={trustId}
+        companyId={companyId}
         onClose={() => setShowModal(false)}
         onAdded={() => {
           setShowModal(false);

@@ -12,20 +12,20 @@ export const IDEA_FILTER_VALUES: IdeasFilter[] = ["all", "self", "children", "gl
 export const SCOPE_LABEL: Record<IdeasFilter, string> = {
   all: "All",
   self: "Role",
-  siblings: "TRUST",
+  siblings: "COMPANY",
   children: "Team",
-  branch: "TRUST",
-  global: "TRUST",
+  branch: "COMPANY",
+  global: "COMPANY",
   inherited: "Inherited",
 };
 
 export const SCOPE_HINT: Record<IdeasFilter, string> = {
   all: "Everything visible here",
   self: "Visible to this role and supervising roles",
-  siblings: "Existing peer visibility, now shown as TRUST",
+  siblings: "Existing peer visibility, now shown as COMPANY",
   children: "Visible to this role's downstream team",
-  branch: "Existing broad visibility, now shown as TRUST",
-  global: "Visible across this TRUST",
+  branch: "Existing broad visibility, now shown as COMPANY",
+  global: "Visible across this COMPANY",
   inherited: "Visible here, anchored elsewhere",
 };
 

@@ -4,7 +4,7 @@
   "template": "fund",
   "name": "Index Fund",
   "tagline": "Index fund with on-chain LP cap table.",
-  "description": "A tokenized index fund entity with an on-chain LP cap table. The Portfolio Manager tracks position weights, rebalances on schedule, and maintains transparent NAV accounting. LP issuance and redemption run through the TRUST treasury. Start here when you want a passive, rules-based allocation vehicle with full on-chain auditability.",
+  "description": "A tokenized index fund entity with an on-chain LP cap table. The Portfolio Manager tracks position weights, rebalances on schedule, and maintains transparent NAV accounting. LP issuance and redemption run through the COMPANY treasury. Start here when you want a passive, rules-based allocation vehicle with full on-chain auditability.",
   "root": {
     "name": "Portfolio Manager",
     "model": "deepseek/deepseek-v4-flash",

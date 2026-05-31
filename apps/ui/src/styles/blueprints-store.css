@@ -108,7 +108,7 @@
 
 /* ── Card inclusion lists ─────────────────────────────
    Two-row inclusion panel at the bottom of each card.
-   On-chain (TRUST modules) + Runtime (seed counts). */
+   On-chain (COMPANY modules) + Runtime (seed counts). */
 
 .bp-card-inclusions {
   display: flex;

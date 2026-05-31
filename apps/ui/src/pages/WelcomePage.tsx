@@ -95,7 +95,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
     const token = hashParams.get("oauth_token");
     if (!token) return;
     const account = hashParams.get("account") ?? "";
-    const wallet = hashParams.get("wallet") ?? hashParams.get("trust") ?? "";
+    const wallet = hashParams.get("wallet") ?? hashParams.get("company") ?? "";
     const isNew = hashParams.get("new") === "1";
     // Strip the fragment so refreshing doesn't replay.
     window.history.replaceState({}, "", window.location.pathname + window.location.search);
@@ -109,12 +109,12 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
       user_id: account,
       wallet_pubkey_b58: wallet,
       company_id: null,
-      trust_pubkey_b58: "",
+      company_pubkey_b58: "",
       authority_pubkey_b58: wallet,
       already_existed: !isNew,
       session_jwt: token,
       session_expires_at: "",
-      trust_id_hex: "",
+      company_id_hex: "",
       create_signature_b58: null,
       role_init_signature_b58: null,
       token_init_signature_b58: null,

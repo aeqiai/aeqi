@@ -536,7 +536,7 @@ mod tests {
         .await
         .unwrap();
 
-        let message = b"register-trust-tx-bytes";
+        let message = b"register-company-tx-bytes";
         let sig = sign_solana_custodial(&db, &kek, &provisioned.id, message)
             .await
             .unwrap();

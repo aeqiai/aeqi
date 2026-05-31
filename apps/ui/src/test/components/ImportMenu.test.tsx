@@ -11,7 +11,7 @@ describe("ImportMenu", () => {
     render(
       <MemoryRouter>
         <ImportMenu
-          trustId="trust-1"
+          companyId="company-1"
           parts={["ideas"]}
           blueprintTitle="Import ideas from a template"
           onMarkdownPicked={onMarkdownPicked}

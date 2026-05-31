@@ -5,14 +5,14 @@
 //!   (signature, program, event_type, log_index) so replays + reorgs
 //!   don't double-count, while still allowing multiple events of the
 //!   same type within a single transaction (e.g. several
-//!   `ModuleRegistered` during a TRUST genesis that wires Role +
+//!   `ModuleRegistered` during a COMPANY genesis that wires Role +
 //!   Token + Governance modules). Always written — typed decode is
 //!   best-effort and additive.
-//! - `trust_events` / `module_events` / `acl_events` /
+//! - `company_events` / `module_events` / `acl_events` /
 //!   `governance_events` / `capital_events` / `feed_events` — Graph-era
 //!   typed projections per the brief in quest 67-162.7. Anchor's
 //!   `#[event]` Borsh payload is decoded into family-level rows so
-//!   downstream consumers can read TRUST creation, module installs,
+//!   downstream consumers can read COMPANY creation, module installs,
 //!   ACL changes, proposal lifecycle, capital flows and oracle/NAV
 //!   updates as structured columns instead of opaque base64 blobs.
 //!   Same (signature, log_index) idempotency as the raw `events` table.
@@ -40,7 +40,7 @@ use std::path::Path;
 use std::sync::Mutex;
 
 use crate::events::{
-    self, AclEvent, CapitalEvent, CurveEvent, FeedEvent, GovernanceEvent, ModuleEvent, TrustEvent,
+    self, AclEvent, CapitalEvent, CurveEvent, FeedEvent, GovernanceEvent, ModuleEvent, CompanyEvent,
     TypedEvent,
 };
 
@@ -79,10 +79,10 @@ CREATE TABLE IF NOT EXISTS cursor (
 -- bounded by total supply). If we ever need full u128 fidelity we'll
 -- migrate the column to TEXT.
 
-CREATE TABLE IF NOT EXISTS trust_events (
+CREATE TABLE IF NOT EXISTS company_events (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    trust         TEXT NOT NULL,
-    trust_id      TEXT NOT NULL,
+    company         TEXT NOT NULL,
+    company_id      TEXT NOT NULL,
     authority     TEXT NOT NULL,
     kind          TEXT NOT NULL,
     slot          INTEGER NOT NULL,
@@ -91,17 +91,17 @@ CREATE TABLE IF NOT EXISTS trust_events (
     created_at    INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
     UNIQUE(signature, log_index)
 );
-CREATE INDEX IF NOT EXISTS trust_events_trust_slot_idx ON trust_events(trust, slot);
+CREATE INDEX IF NOT EXISTS company_events_company_slot_idx ON company_events(company, slot);
 
 CREATE TABLE IF NOT EXISTS module_events (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    trust         TEXT NOT NULL,
+    company         TEXT NOT NULL,
     module_id     TEXT NOT NULL,
     program_id    TEXT NOT NULL,
     provider      TEXT NOT NULL,
     implementation_version INTEGER NOT NULL,
     implementation_metadata_hash TEXT NOT NULL,
-    trust_acl     INTEGER NOT NULL,
+    company_acl     INTEGER NOT NULL,
     kind          TEXT NOT NULL,
     slot          INTEGER NOT NULL,
     signature     TEXT NOT NULL,
@@ -109,11 +109,11 @@ CREATE TABLE IF NOT EXISTS module_events (
     created_at    INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
     UNIQUE(signature, log_index)
 );
-CREATE INDEX IF NOT EXISTS module_events_trust_module_idx ON module_events(trust, module_id);
+CREATE INDEX IF NOT EXISTS module_events_company_module_idx ON module_events(company, module_id);
 
 CREATE TABLE IF NOT EXISTS acl_events (
     id                 INTEGER PRIMARY KEY AUTOINCREMENT,
-    trust              TEXT NOT NULL,
+    company              TEXT NOT NULL,
     source_module_id   TEXT NOT NULL,
     target_module_id   TEXT NOT NULL,
     flags              INTEGER NOT NULL,
@@ -124,11 +124,11 @@ CREATE TABLE IF NOT EXISTS acl_events (
     created_at         INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
     UNIQUE(signature, log_index)
 );
-CREATE INDEX IF NOT EXISTS acl_events_trust_idx ON acl_events(trust);
+CREATE INDEX IF NOT EXISTS acl_events_company_idx ON acl_events(company);
 
 CREATE TABLE IF NOT EXISTS governance_events (
     id                   INTEGER PRIMARY KEY AUTOINCREMENT,
-    trust                TEXT NOT NULL,
+    company                TEXT NOT NULL,
     proposal_id          TEXT NOT NULL,
     governance_config_id TEXT NOT NULL,
     proposer             TEXT NOT NULL,
@@ -145,7 +145,7 @@ CREATE INDEX IF NOT EXISTS governance_events_proposal_idx ON governance_events(p
 
 CREATE TABLE IF NOT EXISTS capital_events (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    trust         TEXT NOT NULL,
+    company         TEXT NOT NULL,
     -- Counterparty token account (depositor for deposits,
     -- recipient for withdraws). Same column for both flows so the
     -- table stays normalized.
@@ -158,11 +158,11 @@ CREATE TABLE IF NOT EXISTS capital_events (
     created_at    INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
     UNIQUE(signature, log_index)
 );
-CREATE INDEX IF NOT EXISTS capital_events_trust_kind_idx ON capital_events(trust, kind);
+CREATE INDEX IF NOT EXISTS capital_events_company_kind_idx ON capital_events(company, kind);
 
 CREATE TABLE IF NOT EXISTS feed_events (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    trust           TEXT NOT NULL,
+    company           TEXT NOT NULL,
     -- The subject of the feed — a fund_id today, a Pyth feed_pda later.
     feed_subject    TEXT NOT NULL,
     -- Primary value the feed publishes (gross NAV today; price-times-expo
@@ -186,11 +186,11 @@ CREATE INDEX IF NOT EXISTS feed_events_subject_slot_idx ON feed_events(feed_subj
 -- and trade history projected from aeqi_unifutures events. u128 prices stored
 -- as decimal TEXT to preserve full precision (the rest of the platform
 -- serialises them the same way; JSON numbers cap at 2^53 and curve prices
--- live in the ~1e18 range). Natural-keyed on (trust, curve_id) so INSERT OR
+-- live in the ~1e18 range). Natural-keyed on (company, curve_id) so INSERT OR
 -- IGNORE handles CurveCreated replay deterministically.
 
 CREATE TABLE IF NOT EXISTS curves (
-    trust              TEXT NOT NULL,            -- base58 (Pubkey)
+    company              TEXT NOT NULL,            -- base58 (Pubkey)
     curve_id           TEXT NOT NULL,            -- base58 of [u8;32]
     curve_type         INTEGER NOT NULL,         -- u8
     start_price        TEXT NOT NULL,            -- u128 decimal
@@ -203,13 +203,13 @@ CREATE TABLE IF NOT EXISTS curves (
     created_signature  TEXT NOT NULL,
     created_log_index  INTEGER NOT NULL,
     created_at         INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-    PRIMARY KEY (trust, curve_id)
+    PRIMARY KEY (company, curve_id)
 );
-CREATE INDEX IF NOT EXISTS curves_trust_idx ON curves(trust);
+CREATE INDEX IF NOT EXISTS curves_company_idx ON curves(company);
 
 CREATE TABLE IF NOT EXISTS curve_trades (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    trust         TEXT NOT NULL,
+    company         TEXT NOT NULL,
     curve_id      TEXT NOT NULL,
     kind          TEXT NOT NULL CHECK (kind IN ('buy', 'sell')),
     counterparty  TEXT NOT NULL,            -- buyer (buy) or seller (sell), base58
@@ -221,7 +221,7 @@ CREATE TABLE IF NOT EXISTS curve_trades (
     created_at    INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
     UNIQUE(signature, log_index)
 );
-CREATE INDEX IF NOT EXISTS curve_trades_trust_curve_idx ON curve_trades(trust, curve_id);
+CREATE INDEX IF NOT EXISTS curve_trades_company_curve_idx ON curve_trades(company, curve_id);
 CREATE INDEX IF NOT EXISTS curve_trades_slot_idx ON curve_trades(slot DESC);
 "#;
 
@@ -315,13 +315,13 @@ impl Sink {
         let log_i = log_index as i64;
 
         let changed = match event {
-            TypedEvent::Trust(TrustEvent::Initialized(e)) => conn.execute(
-                r#"INSERT OR IGNORE INTO trust_events
-                     (trust, trust_id, authority, kind, slot, signature, log_index)
+            TypedEvent::Company(CompanyEvent::Initialized(e)) => conn.execute(
+                r#"INSERT OR IGNORE INTO company_events
+                     (company, company_id, authority, kind, slot, signature, log_index)
                    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)"#,
                 params![
-                    events::b58(&e.trust),
-                    events::b58(&e.trust_id),
+                    events::b58(&e.company),
+                    events::b58(&e.company_id),
                     events::b58(&e.authority),
                     kind,
                     slot_i,
@@ -331,18 +331,18 @@ impl Sink {
             )?,
             TypedEvent::Module(ModuleEvent::Registered(e)) => conn.execute(
                 r#"INSERT OR IGNORE INTO module_events
-                     (trust, module_id, program_id, provider,
+                     (company, module_id, program_id, provider,
                       implementation_version, implementation_metadata_hash,
-                      trust_acl, kind, slot, signature, log_index)
+                      company_acl, kind, slot, signature, log_index)
                    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)"#,
                 params![
-                    events::b58(&e.trust),
+                    events::b58(&e.company),
                     events::b58(&e.module_id),
                     events::b58(&e.program_id),
                     events::b58(&e.provider),
                     e.implementation_version as i64,
                     events::b58(&e.implementation_metadata_hash),
-                    e.trust_acl as i64,
+                    e.company_acl as i64,
                     kind,
                     slot_i,
                     signature,
@@ -351,11 +351,11 @@ impl Sink {
             )?,
             TypedEvent::Acl(AclEvent::Set(e)) => conn.execute(
                 r#"INSERT OR IGNORE INTO acl_events
-                     (trust, source_module_id, target_module_id, flags,
+                     (company, source_module_id, target_module_id, flags,
                       kind, slot, signature, log_index)
                    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)"#,
                 params![
-                    events::b58(&e.trust),
+                    events::b58(&e.company),
                     events::b58(&e.source_module_id),
                     events::b58(&e.target_module_id),
                     e.flags as i64,
@@ -367,11 +367,11 @@ impl Sink {
             )?,
             TypedEvent::Governance(GovernanceEvent::ProposalCreated(e)) => conn.execute(
                 r#"INSERT OR IGNORE INTO governance_events
-                     (trust, proposal_id, governance_config_id, proposer,
+                     (company, proposal_id, governance_config_id, proposer,
                       vote_start, vote_duration, kind, slot, signature, log_index)
                    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)"#,
                 params![
-                    events::b58(&e.trust),
+                    events::b58(&e.company),
                     events::b58(&e.proposal_id),
                     events::b58(&e.governance_config_id),
                     events::b58(&e.proposer),
@@ -385,10 +385,10 @@ impl Sink {
             )?,
             TypedEvent::Capital(CapitalEvent::Deposit(e)) => conn.execute(
                 r#"INSERT OR IGNORE INTO capital_events
-                     (trust, counterparty, amount, kind, slot, signature, log_index)
+                     (company, counterparty, amount, kind, slot, signature, log_index)
                    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)"#,
                 params![
-                    events::b58(&e.trust),
+                    events::b58(&e.company),
                     events::b58(&e.depositor_ta),
                     e.amount as i64,
                     kind,
@@ -399,11 +399,11 @@ impl Sink {
             )?,
             TypedEvent::Feed(FeedEvent::NavUpdated(e)) => conn.execute(
                 r#"INSERT OR IGNORE INTO feed_events
-                     (trust, feed_subject, value, aux_a, aux_b,
+                     (company, feed_subject, value, aux_a, aux_b,
                       kind, slot, signature, log_index)
                    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)"#,
                 params![
-                    events::b58(&e.trust),
+                    events::b58(&e.company),
                     events::b58(&e.fund_id),
                     e.gross_nav as i64,
                     e.high_water_mark as i64,
@@ -416,12 +416,12 @@ impl Sink {
             )?,
             TypedEvent::Curve(CurveEvent::Created(e)) => conn.execute(
                 r#"INSERT OR IGNORE INTO curves
-                     (trust, curve_id, curve_type, start_price, end_price,
+                     (company, curve_id, curve_type, start_price, end_price,
                       max_supply, creator, asset_mint, quote_mint,
                       created_slot, created_signature, created_log_index)
                    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)"#,
                 params![
-                    events::b58(&e.trust),
+                    events::b58(&e.company),
                     events::b58(&e.curve_id),
                     e.curve_type as i64,
                     e.start_price.to_string(),
@@ -437,11 +437,11 @@ impl Sink {
             )?,
             TypedEvent::Curve(CurveEvent::Buy(e)) => conn.execute(
                 r#"INSERT OR IGNORE INTO curve_trades
-                     (trust, curve_id, kind, counterparty,
+                     (company, curve_id, kind, counterparty,
                       token_amount, quote_amount, slot, signature, log_index)
                    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)"#,
                 params![
-                    events::b58(&e.trust),
+                    events::b58(&e.company),
                     events::b58(&e.curve_id),
                     kind,
                     events::b58(&e.buyer),
@@ -454,11 +454,11 @@ impl Sink {
             )?,
             TypedEvent::Curve(CurveEvent::Sell(e)) => conn.execute(
                 r#"INSERT OR IGNORE INTO curve_trades
-                     (trust, curve_id, kind, counterparty,
+                     (company, curve_id, kind, counterparty,
                       token_amount, quote_amount, slot, signature, log_index)
                    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)"#,
                 params![
-                    events::b58(&e.trust),
+                    events::b58(&e.company),
                     events::b58(&e.curve_id),
                     kind,
                     events::b58(&e.seller),
@@ -533,12 +533,12 @@ impl Sink {
             let changed = match &typed {
                 TypedEvent::Curve(CurveEvent::Created(e)) => conn.execute(
                     r#"INSERT OR IGNORE INTO curves
-                         (trust, curve_id, curve_type, start_price, end_price,
+                         (company, curve_id, curve_type, start_price, end_price,
                           max_supply, creator, asset_mint, quote_mint,
                           created_slot, created_signature, created_log_index)
                        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)"#,
                     params![
-                        events::b58(&e.trust),
+                        events::b58(&e.company),
                         events::b58(&e.curve_id),
                         e.curve_type as i64,
                         e.start_price.to_string(),
@@ -554,11 +554,11 @@ impl Sink {
                 )?,
                 TypedEvent::Curve(CurveEvent::Buy(e)) => conn.execute(
                     r#"INSERT OR IGNORE INTO curve_trades
-                         (trust, curve_id, kind, counterparty,
+                         (company, curve_id, kind, counterparty,
                           token_amount, quote_amount, slot, signature, log_index)
                        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)"#,
                     params![
-                        events::b58(&e.trust),
+                        events::b58(&e.company),
                         events::b58(&e.curve_id),
                         kind,
                         events::b58(&e.buyer),
@@ -571,11 +571,11 @@ impl Sink {
                 )?,
                 TypedEvent::Curve(CurveEvent::Sell(e)) => conn.execute(
                     r#"INSERT OR IGNORE INTO curve_trades
-                         (trust, curve_id, kind, counterparty,
+                         (company, curve_id, kind, counterparty,
                           token_amount, quote_amount, slot, signature, log_index)
                        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)"#,
                     params![
-                        events::b58(&e.trust),
+                        events::b58(&e.company),
                         events::b58(&e.curve_id),
                         kind,
                         events::b58(&e.seller),
@@ -608,7 +608,7 @@ impl Sink {
             Ok(conn.query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| r.get(0))?)
         };
         Ok(TypedCounts {
-            trust: q("trust_events")?,
+            company: q("company_events")?,
             module: q("module_events")?,
             acl: q("acl_events")?,
             governance: q("governance_events")?,
@@ -623,7 +623,7 @@ impl Sink {
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TypedCounts {
-    pub trust: i64,
+    pub company: i64,
     pub module: i64,
     pub acl: i64,
     pub governance: i64,
@@ -713,18 +713,18 @@ mod tests {
         let sink = Sink::open(&path).unwrap();
 
         let inserted =
-            sink.record_event("aeqi_trust", "TrustInitialized", 100, "sigA", 0, "b64A").unwrap();
+            sink.record_event("aeqi_company", "CompanyInitialized", 100, "sigA", 0, "b64A").unwrap();
         assert!(inserted);
 
         // Replay — same tuple (including log_index) should be a no-op.
         let inserted_again =
-            sink.record_event("aeqi_trust", "TrustInitialized", 100, "sigA", 0, "b64A").unwrap();
+            sink.record_event("aeqi_company", "CompanyInitialized", 100, "sigA", 0, "b64A").unwrap();
         assert!(!inserted_again);
 
         // Different event_type with same sig is allowed (one tx can emit
         // multiple events).
         let other =
-            sink.record_event("aeqi_trust", "ModuleRegistered", 100, "sigA", 0, "b64B").unwrap();
+            sink.record_event("aeqi_company", "ModuleRegistered", 100, "sigA", 0, "b64B").unwrap();
         assert!(other);
 
         assert_eq!(sink.event_count().unwrap(), 2);
@@ -732,7 +732,7 @@ mod tests {
 
     #[test]
     fn same_type_multiple_logs_in_one_tx() {
-        // Quest 67-162.6 regression: a TRUST genesis tx that wires
+        // Quest 67-162.6 regression: a COMPANY genesis tx that wires
         // multiple modules emits several `ModuleRegistered` events.
         // v1's UNIQUE(signature, program, event_type) collapsed them
         // into one row; v2's log_index lets each land.
@@ -798,7 +798,7 @@ mod tests {
                     updated_at    INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
                 );
                 INSERT INTO events(program, event_type, slot, signature, payload_b64)
-                  VALUES ('aeqi_trust','TrustInitialized',100,'sigA','b64A'),
+                  VALUES ('aeqi_company','CompanyInitialized',100,'sigA','b64A'),
                          ('aeqi_factory','CompanySpawned',101,'sigA','b64B');
                 "#,
             )
@@ -812,11 +812,11 @@ mod tests {
         // Existing rows got log_index=0; same-type now requires a
         // distinct log_index.
         let dup =
-            sink.record_event("aeqi_trust", "TrustInitialized", 100, "sigA", 0, "b64A").unwrap();
+            sink.record_event("aeqi_company", "CompanyInitialized", 100, "sigA", 0, "b64A").unwrap();
         assert!(!dup, "migrated row deduplicates on (..., log_index=0)");
 
         let new_log = sink
-            .record_event("aeqi_trust", "TrustInitialized", 100, "sigA", 1, "b64Aprime")
+            .record_event("aeqi_company", "CompanyInitialized", 100, "sigA", 1, "b64Aprime")
             .unwrap();
         assert!(new_log, "new log_index for same type lands");
         assert_eq!(sink.event_count().unwrap(), 3);
@@ -840,7 +840,7 @@ mod tests {
 
         // Typed projection.
         let event = TypedEvent::Capital(CapitalEvent::Deposit(TreasuryDeposited {
-            trust: [99u8; 32],
+            company: [99u8; 32],
             depositor_ta: [88u8; 32],
             amount: 250_000,
         }));
@@ -850,7 +850,7 @@ mod tests {
         // Counts: raw events = 1, capital_events = 1, others = 0.
         let counts = sink.typed_counts().unwrap();
         assert_eq!(counts.capital, 1);
-        assert_eq!(counts.trust, 0);
+        assert_eq!(counts.company, 0);
         assert_eq!(counts.module, 0);
         assert_eq!(counts.acl, 0);
         assert_eq!(counts.governance, 0);
@@ -870,33 +870,33 @@ mod tests {
         // projection" coverage in the brief.
         use crate::events::{
             AclEvent, CapitalEvent, FeedEvent, GovernanceEvent, ModuleAclSet, ModuleEvent,
-            ModuleRegistered, NavUpdated, ProposalCreated, TreasuryDeposited, TrustEvent,
-            TrustInitialized, TypedEvent,
+            ModuleRegistered, NavUpdated, ProposalCreated, TreasuryDeposited, CompanyEvent,
+            CompanyInitialized, TypedEvent,
         };
 
         let dir = tempfile::tempdir().unwrap();
         let sink = Sink::open(dir.path().join("families.db")).unwrap();
 
         sink.record_typed(
-            &TypedEvent::Trust(TrustEvent::Initialized(TrustInitialized {
-                trust: [1; 32],
-                trust_id: [2; 32],
+            &TypedEvent::Company(CompanyEvent::Initialized(CompanyInitialized {
+                company: [1; 32],
+                company_id: [2; 32],
                 authority: [3; 32],
             })),
             10,
-            "sigTrust",
+            "sigCompany",
             0,
         )
         .unwrap();
         sink.record_typed(
             &TypedEvent::Module(ModuleEvent::Registered(ModuleRegistered {
-                trust: [1; 32],
+                company: [1; 32],
                 module_id: [4; 32],
                 program_id: [5; 32],
                 provider: [6; 32],
                 implementation_version: 1,
                 implementation_metadata_hash: [7; 32],
-                trust_acl: 0xff,
+                company_acl: 0xff,
             })),
             11,
             "sigMod",
@@ -905,7 +905,7 @@ mod tests {
         .unwrap();
         sink.record_typed(
             &TypedEvent::Acl(AclEvent::Set(ModuleAclSet {
-                trust: [1; 32],
+                company: [1; 32],
                 source_module_id: [4; 32],
                 target_module_id: [8; 32],
                 flags: 0b101,
@@ -917,7 +917,7 @@ mod tests {
         .unwrap();
         sink.record_typed(
             &TypedEvent::Governance(GovernanceEvent::ProposalCreated(ProposalCreated {
-                trust: [1; 32],
+                company: [1; 32],
                 proposal_id: [9; 32],
                 governance_config_id: [10; 32],
                 proposer: [11; 32],
@@ -931,7 +931,7 @@ mod tests {
         .unwrap();
         sink.record_typed(
             &TypedEvent::Capital(CapitalEvent::Deposit(TreasuryDeposited {
-                trust: [1; 32],
+                company: [1; 32],
                 depositor_ta: [12; 32],
                 amount: 1_000,
             })),
@@ -942,7 +942,7 @@ mod tests {
         .unwrap();
         sink.record_typed(
             &TypedEvent::Feed(FeedEvent::NavUpdated(NavUpdated {
-                trust: [1; 32],
+                company: [1; 32],
                 fund_id: [13; 32],
                 gross_nav: 500,
                 high_water_mark: 600,
@@ -955,7 +955,7 @@ mod tests {
         .unwrap();
 
         let counts = sink.typed_counts().unwrap();
-        assert_eq!(counts.trust, 1);
+        assert_eq!(counts.company, 1);
         assert_eq!(counts.module, 1);
         assert_eq!(counts.acl, 1);
         assert_eq!(counts.governance, 1);
@@ -975,7 +975,7 @@ mod tests {
         // adds tables). Populate raw events.
         {
             let sink = Sink::open(&path).unwrap();
-            sink.record_event("aeqi_trust", "TrustInitialized", 100, "sigA", 0, "b64A").unwrap();
+            sink.record_event("aeqi_company", "CompanyInitialized", 100, "sigA", 0, "b64A").unwrap();
             assert_eq!(sink.event_count().unwrap(), 1);
         }
 
@@ -984,7 +984,7 @@ mod tests {
         let sink2 = Sink::open(&path).unwrap();
         assert_eq!(sink2.event_count().unwrap(), 1);
         let counts = sink2.typed_counts().unwrap();
-        assert_eq!(counts.trust, 0);
+        assert_eq!(counts.company, 0);
         assert_eq!(counts.module, 0);
     }
 
@@ -998,7 +998,7 @@ mod tests {
         let sink = Sink::open(dir.path().join("curves.db")).unwrap();
 
         let created = TypedEvent::Curve(CurveEvent::Created(CurveCreated {
-            trust: [1u8; 32],
+            company: [1u8; 32],
             curve_id: [2u8; 32],
             creator: [3u8; 32],
             asset_mint: [4u8; 32],
@@ -1009,11 +1009,11 @@ mod tests {
             max_supply: 1_000_000_000_000u64,
         }));
         assert!(sink.record_typed(&created, 100, "sigCreate", 0).unwrap());
-        // Replay no-ops on (trust, curve_id) primary key.
+        // Replay no-ops on (company, curve_id) primary key.
         assert!(!sink.record_typed(&created, 100, "sigCreate", 0).unwrap());
 
         let buy = TypedEvent::Curve(CurveEvent::Buy(CurveBuy {
-            trust: [1u8; 32],
+            company: [1u8; 32],
             curve_id: [2u8; 32],
             buyer: [6u8; 32],
             token_amount: 1_000_000,
@@ -1022,7 +1022,7 @@ mod tests {
         assert!(sink.record_typed(&buy, 101, "sigBuy", 0).unwrap());
 
         let sell = TypedEvent::Curve(CurveEvent::Sell(CurveSell {
-            trust: [1u8; 32],
+            company: [1u8; 32],
             curve_id: [2u8; 32],
             seller: [7u8; 32],
             token_amount: 500_000,
@@ -1084,7 +1084,7 @@ mod tests {
         let sink = Sink::open(dir.path().join("replay.db")).unwrap();
 
         let created = CurveCreated {
-            trust: [11u8; 32],
+            company: [11u8; 32],
             curve_id: [12u8; 32],
             creator: [13u8; 32],
             asset_mint: [14u8; 32],
@@ -1107,7 +1107,7 @@ mod tests {
         .unwrap();
 
         let buy = CurveBuy {
-            trust: [11u8; 32],
+            company: [11u8; 32],
             curve_id: [12u8; 32],
             buyer: [16u8; 32],
             token_amount: 2_000_000,
@@ -1119,7 +1119,7 @@ mod tests {
             .unwrap();
 
         let sell = CurveSell {
-            trust: [11u8; 32],
+            company: [11u8; 32],
             curve_id: [12u8; 32],
             seller: [17u8; 32],
             token_amount: 1_000_000,
@@ -1163,16 +1163,16 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("test.db");
         let sink = Sink::open(&path).unwrap();
-        assert_eq!(sink.cursor("aeqi_trust").unwrap(), None);
+        assert_eq!(sink.cursor("aeqi_company").unwrap(), None);
 
-        sink.bump_cursor("aeqi_trust", 100).unwrap();
-        assert_eq!(sink.cursor("aeqi_trust").unwrap(), Some(100));
+        sink.bump_cursor("aeqi_company", 100).unwrap();
+        assert_eq!(sink.cursor("aeqi_company").unwrap(), Some(100));
 
         // Cursor only moves forward
-        sink.bump_cursor("aeqi_trust", 50).unwrap();
-        assert_eq!(sink.cursor("aeqi_trust").unwrap(), Some(100));
+        sink.bump_cursor("aeqi_company", 50).unwrap();
+        assert_eq!(sink.cursor("aeqi_company").unwrap(), Some(100));
 
-        sink.bump_cursor("aeqi_trust", 200).unwrap();
-        assert_eq!(sink.cursor("aeqi_trust").unwrap(), Some(200));
+        sink.bump_cursor("aeqi_company", 200).unwrap();
+        assert_eq!(sink.cursor("aeqi_company").unwrap(), Some(200));
     }
 }

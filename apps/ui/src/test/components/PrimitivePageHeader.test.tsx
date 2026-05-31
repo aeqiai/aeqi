@@ -51,7 +51,7 @@ describe("PrimitivePageHeader", () => {
   });
 
   it("saves the current route as a pinned view", () => {
-    window.history.pushState({}, "", "/trust/root-1/quests?status=open");
+    window.history.pushState({}, "", "/company/root-1/quests?status=open");
     render(<PrimitivePageHeader title="Quests" aria-label="Quest controls" />);
 
     fireEvent.click(screen.getByRole("button", { name: "Pin current view" }));
@@ -63,9 +63,9 @@ describe("PrimitivePageHeader", () => {
 
     expect(useUIStore.getState().pinnedViews[0]).toMatchObject({
       label: "Open quests",
-      path: "/trust/root-1/quests",
+      path: "/company/root-1/quests",
       search: "?status=open",
-      trustId: "root-1",
+      companyId: "root-1",
     });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });

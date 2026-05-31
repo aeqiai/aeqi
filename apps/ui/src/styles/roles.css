@@ -91,7 +91,7 @@
 
 /* Avatar slot — sized container that DOESN'T impose its own shape on
    the inner avatar. The avatar primitive owns its own radius: humans
-   and agents render as identity circles; TRUSTs keep institutional
+   and agents render as identity circles; Companies keep institutional
    rounded-square marks. */
 .role-node-avatar {
   flex-shrink: 0;
@@ -123,11 +123,11 @@
   background: var(--accent);
   color: var(--btn-primary-text);
 }
-/* TRUST-occupant card avatar — outlined rounded-square + Landmark
+/* COMPANY-occupant card avatar — outlined rounded-square + Landmark
    glyph for a board / director seat. Outlined vs filled keeps board-
    tier authority visually distinct from execution-tier (.role-node-
    avatar-agent is filled). */
-.role-node-avatar-trust {
+.role-node-avatar-company {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -377,7 +377,7 @@
 
 /* Ghost-add affordance below the operational subtree. Turns dead
    whitespace into an "expand here" callout — the canvas now reads
-   as "this TRUST has 2 roles AND room to add more" instead of "the
+   as "this COMPANY has 2 roles AND room to add more" instead of "the
    chart ran out of data". Dashed shell mirrors the vacant-role
    treatment; the verb here is creation, not occupancy. */
 .roles-chart-suggest {
@@ -439,7 +439,7 @@
 /* ------------------------------------------------------------------
    List view — canonical table surface.
    ------------------------------------------------------------------ */
-.trust-roles-table {
+.company-roles-table {
   flex: 0 0 auto;
   min-width: 0;
   min-height: 0;
@@ -447,13 +447,13 @@
   overflow-y: visible;
 }
 
-.trust-roles-table table thead {
+.company-roles-table table thead {
   background: color-mix(in srgb, var(--color-card-elevated) 76%, transparent);
   box-shadow: none;
 }
 
-.trust-roles-table table thead th,
-.trust-roles-table [data-sticky-header="true"] table thead th {
+.company-roles-table table thead th,
+.company-roles-table [data-sticky-header="true"] table thead th {
   height: 48px;
   padding: 0 24px;
   background: color-mix(in srgb, var(--color-card-elevated) 76%, transparent);
@@ -464,18 +464,18 @@
   text-transform: none;
 }
 
-.trust-roles-table table tbody td {
+.company-roles-table table tbody td {
   height: 58px;
   padding: 11px 24px;
 }
 
-.trust-roles-table table tbody tr {
+.company-roles-table table tbody tr {
   transition:
     background 0.12s ease,
     color 0.12s ease;
 }
 
-.trust-roles-table table tbody tr:hover {
+.company-roles-table table tbody tr:hover {
   background: var(--bg-row);
 }
 
@@ -882,8 +882,8 @@
 /* Shell — shared between Roles and Agents pages. Roles now treats the
    elevated content card as the workspace itself: one canvas, internal
    dividers only, no separate inspector card floating beside it. */
-.trust-roles,
-.trust-agents {
+.company-roles,
+.company-agents {
   --toolbar-control-h: 32px;
   --detail-control-h: var(--toolbar-control-h);
   --detail-chip-h: 24px;
@@ -893,7 +893,7 @@
   overflow: hidden;
   row-gap: var(--shell-footer-h, 10px);
 }
-.trust-roles {
+.company-roles {
   --roles-section-inset: 12px;
   grid-template-columns: minmax(0, 1fr);
   column-gap: 0;
@@ -903,7 +903,7 @@
     "main";
   padding: 0;
 }
-.trust-agents {
+.company-agents {
   grid-template-columns: minmax(0, 1fr);
   column-gap: 0;
   grid-template-rows: auto minmax(0, 1fr);
@@ -912,8 +912,8 @@
     "main";
   padding: 0;
 }
-.trust-roles > .trust-roles-page-header,
-.trust-agents > .trust-roles-page-header {
+.company-roles > .company-roles-page-header,
+.company-agents > .company-roles-page-header {
   grid-area: header;
   align-items: center;
   min-height: var(--shell-top-rail-h, 40px);
@@ -921,16 +921,16 @@
   background: transparent;
   gap: var(--space-3);
 }
-.trust-roles-toolbar,
-.trust-agents-toolbar {
+.company-roles-toolbar,
+.company-agents-toolbar {
   min-width: 0;
 }
-.trust-roles-toolbar,
-.trust-agents-toolbar {
+.company-roles-toolbar,
+.company-agents-toolbar {
   flex: 1;
 }
-.trust-roles-toolbar .ideas-toolbar-btn,
-.trust-agents-toolbar .ideas-toolbar-btn {
+.company-roles-toolbar .ideas-toolbar-btn,
+.company-agents-toolbar .ideas-toolbar-btn {
   width: var(--toolbar-control-h);
   height: var(--toolbar-control-h);
   min-width: var(--toolbar-control-h);
@@ -941,13 +941,13 @@
   aspect-ratio: 1 / 1;
   border-radius: var(--radius-full);
 }
-.trust-roles-toolbar > .ideas-list-search-field {
+.company-roles-toolbar > .ideas-list-search-field {
   min-width: 180px;
 }
-.trust-agents-toolbar > .ideas-list-search-field {
+.company-agents-toolbar > .ideas-list-search-field {
   min-width: 180px;
 }
-.trust-roles-page-header .trust-top-rail-cta {
+.company-roles-page-header .company-top-rail-cta {
   height: var(--toolbar-control-h);
   min-height: var(--toolbar-control-h);
   border-radius: var(--radius-full);
@@ -957,20 +957,20 @@
   letter-spacing: 0;
   box-shadow: none;
 }
-.trust-roles-page-header .trust-top-rail-cta:hover {
+.company-roles-page-header .company-top-rail-cta:hover {
   box-shadow: none;
 }
-.trust-roles-page-header .trust-top-rail-cta svg {
+.company-roles-page-header .company-top-rail-cta svg {
   width: 13px;
   height: 13px;
 }
-.trust-roles-header-actions {
+.company-roles-header-actions {
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-2);
 }
-.trust-roles-header-icon {
+.company-roles-header-icon {
   width: var(--toolbar-control-h);
   min-width: var(--toolbar-control-h);
   height: var(--toolbar-control-h);
@@ -982,13 +982,13 @@
   background: var(--input-bg, var(--bg-base));
   border-color: var(--input-border, var(--border));
 }
-.trust-roles-header-icon:hover,
-.trust-roles-header-icon:focus-visible {
+.company-roles-header-icon:hover,
+.company-roles-header-icon:focus-visible {
   color: var(--color-text-title);
   background: var(--bg-row);
   border-color: var(--input-border-focus, var(--border-hover));
 }
-.trust-roles-main {
+.company-roles-main {
   grid-area: main;
   display: flex;
   flex-direction: column;
@@ -1000,14 +1000,14 @@
   box-shadow: var(--card-elevation);
   overflow: hidden;
 }
-.trust-roles-workspace {
+.company-roles-workspace {
   position: relative;
   display: flex;
   flex: 1;
   min-width: 0;
   min-height: 0;
 }
-.trust-roles-content {
+.company-roles-content {
   display: flex;
   flex: 1;
   box-sizing: border-box;
@@ -1018,7 +1018,7 @@
 /* Roles snapshot — one slab in the same family as the Quests scope
    band. The row is a single component/surface; the four metrics are
    cells inside it rather than four independent cards. */
-.trust-roles-snapshot {
+.company-roles-snapshot {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -1027,14 +1027,14 @@
   background: transparent;
   overflow: hidden;
 }
-.trust-roles-snapshot-header {
+.company-roles-snapshot-header {
   display: none;
   align-items: center;
   gap: 10px;
   min-height: 44px;
   padding: 10px 14px;
 }
-.trust-roles-snapshot-header-label {
+.company-roles-snapshot-header-label {
   flex: 1;
   min-width: 0;
   font-family: var(--font-sans);
@@ -1043,7 +1043,7 @@
   letter-spacing: -0.01em;
   color: var(--color-text-primary);
 }
-.trust-roles-snapshot-header-count {
+.company-roles-snapshot-header-count {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1060,7 +1060,7 @@
   line-height: 1;
   white-space: nowrap;
 }
-.trust-roles-snapshot-grid {
+.company-roles-snapshot-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0;
@@ -1069,7 +1069,7 @@
   border-radius: 0;
   overflow: hidden;
 }
-.trust-roles-snapshot-cell {
+.company-roles-snapshot-cell {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -1078,19 +1078,19 @@
   border-right: 1px solid var(--border);
   min-width: 0;
 }
-.trust-roles-snapshot-cell:last-child {
+.company-roles-snapshot-cell:last-child {
   border-right: 0;
 }
-.trust-roles-snapshot-cell--warmth {
+.company-roles-snapshot-cell--warmth {
   background: color-mix(in srgb, var(--color-warmth-bg) 42%, transparent);
 }
-.trust-roles-snapshot-head {
+.company-roles-snapshot-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
 }
-.trust-roles-snapshot-label {
+.company-roles-snapshot-label {
   font-family: var(--font-sans);
   font-size: 12px;
   color: var(--color-text-primary);
@@ -1098,7 +1098,7 @@
   line-height: 1.1;
   letter-spacing: 0;
 }
-.trust-roles-snapshot-value {
+.company-roles-snapshot-value {
   font-family: var(--font-display);
   font-size: 22px;
   font-weight: 500;
@@ -1107,7 +1107,7 @@
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
-.trust-roles-snapshot-value--warmth {
+.company-roles-snapshot-value--warmth {
   color: var(--color-warmth);
 }
 /* Mono variant — currency / amount headlines. Switches the headline to
@@ -1117,13 +1117,13 @@
    neighbouring count cards. Slight size pull-back so the mono face,
    which carries more visual weight per character, doesn't crowd the
    tighter 12-char "Lifetime spend" eyebrow above it. */
-.trust-roles-snapshot-value--mono {
+.company-roles-snapshot-value--mono {
   font-family: var(--font-mono);
   font-size: 26px;
   font-weight: 500;
   letter-spacing: -0.01em;
 }
-.trust-roles-snapshot-sublabel {
+.company-roles-snapshot-sublabel {
   display: none;
   margin: 0;
   font-family: var(--font-sans);
@@ -1132,7 +1132,7 @@
   font-weight: 400;
   line-height: 1.3;
 }
-.trust-roles-snapshot-breakdown {
+.company-roles-snapshot-breakdown {
   margin: 0;
   font-family: var(--font-sans);
   font-size: 11px;
@@ -1144,7 +1144,7 @@
 
 /* Content row — graph canvas. The card itself is the workspace; the
    chart sits directly on it rather than inside another recessed slab. */
-.trust-roles-canvas {
+.company-roles-canvas {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -1154,25 +1154,25 @@
   border-radius: 0;
   overflow: hidden;
 }
-.trust-roles-scroll {
+.company-roles-scroll {
   flex: 1;
   overflow: auto;
 }
-.trust-roles-scroll--list {
+.company-roles-scroll--list {
   padding: var(--roles-section-inset);
 }
-.trust-roles-state {
+.company-roles-state {
   padding: var(--space-6) var(--space-5);
   color: var(--color-text-muted);
 }
-.trust-roles-state--error {
+.company-roles-state--error {
   color: var(--color-error);
 }
 
 /* Suggested roles — recessed floor under the live role workspace. The
    org chart/list is current structure; this band contains real
    template-backed structures the operator can inspect next. */
-.trust-roles-suggest {
+.company-roles-suggest {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -1188,7 +1188,7 @@
     inset 0 -1px 0 color-mix(in srgb, var(--color-border-faint) 84%, transparent);
   overflow: hidden;
 }
-.trust-roles-suggest-head {
+.company-roles-suggest-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1196,18 +1196,18 @@
   min-height: 0;
   padding: 0;
 }
-.trust-roles-suggest-titles {
+.company-roles-suggest-titles {
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
-.trust-roles-suggest-title-row {
+.company-roles-suggest-title-row {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
 }
-.trust-roles-suggest-title {
+.company-roles-suggest-title {
   margin: 0;
   overflow: hidden;
   color: var(--color-text-primary);
@@ -1218,7 +1218,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.trust-roles-suggest-count {
+.company-roles-suggest-count {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1236,18 +1236,18 @@
   line-height: 1;
   flex-shrink: 0;
 }
-.trust-roles-suggest-all {
+.company-roles-suggest-all {
   flex-shrink: 0;
   background: var(--color-card-elevated);
 }
-.trust-roles-suggest-grid {
+.company-roles-suggest-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 360px));
   justify-content: start;
   gap: var(--space-2);
   margin: 0;
 }
-.trust-roles-suggest-state {
+.company-roles-suggest-state {
   display: flex;
   align-items: center;
   min-height: 88px;
@@ -1259,7 +1259,7 @@
   line-height: 1.35;
   box-shadow: inset 0 0 0 1px var(--border);
 }
-.trust-roles-suggest-card {
+.company-roles-suggest-card {
   appearance: none;
   display: flex;
   flex-direction: column;
@@ -1280,37 +1280,37 @@
     background 0.12s ease,
     box-shadow 0.12s ease;
 }
-.trust-roles-suggest-card:hover {
+.company-roles-suggest-card:hover {
   background: var(--color-card-elevated);
   box-shadow:
     inset 0 0 0 1px var(--border-hover),
     var(--shadow-sm);
 }
-.trust-roles-suggest-card:hover .trust-roles-suggest-card-cta {
+.company-roles-suggest-card:hover .company-roles-suggest-card-cta {
   color: var(--color-text-primary);
   transform: translateX(1px);
 }
-.trust-roles-suggest-card:focus-visible {
+.company-roles-suggest-card:focus-visible {
   position: relative;
   z-index: 1;
   outline: none;
   box-shadow: inset 0 0 0 2px var(--color-accent);
 }
-.trust-roles-suggest-card-title {
+.company-roles-suggest-card-title {
   margin: 0;
   color: var(--color-text-primary);
   font-family: var(--font-sans);
   font-size: var(--font-size-sm);
   font-weight: 600;
 }
-.trust-roles-suggest-card-desc {
+.company-roles-suggest-card-desc {
   margin: 0;
   color: var(--color-text-muted);
   font-family: var(--font-sans);
   font-size: 12px;
   line-height: 1.35;
 }
-.trust-roles-suggest-card-meta {
+.company-roles-suggest-card-meta {
   flex: 1;
   margin: 0;
   color: var(--color-text-secondary);
@@ -1318,7 +1318,7 @@
   font-size: 11px;
   line-height: 1.35;
 }
-.trust-roles-suggest-card-cta {
+.company-roles-suggest-card-cta {
   display: inline-flex;
   align-items: center;
   align-self: flex-start;
@@ -1342,7 +1342,7 @@
   min-width: 0;
 }
 
-.trust-roles-detail .role-inspector {
+.company-roles-detail .role-inspector {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -1356,18 +1356,18 @@
   min-width: 0;
 }
 
-.trust-role-detail-back {
+.company-role-detail-back {
   flex: 0 0 auto;
   background: var(--color-card-elevated);
   border-color: var(--border);
   box-shadow: var(--shadow-sm);
 }
 
-.trust-role-detail-workspace {
+.company-role-detail-workspace {
   grid-template-columns: minmax(0, 1fr);
 }
 
-.trust-role-detail-canvas {
+.company-role-detail-canvas {
   display: grid;
   grid-template-columns: 236px minmax(0, 1fr) 320px;
   gap: 0;
@@ -1378,11 +1378,11 @@
   padding: 0;
 }
 
-.trust-role-detail-page--details-collapsed .trust-role-detail-canvas {
+.company-role-detail-page--details-collapsed .company-role-detail-canvas {
   grid-template-columns: 236px minmax(0, 1fr);
 }
 
-.trust-role-detail-explorer .ideas-workspace-tree-head {
+.company-role-detail-explorer .ideas-workspace-tree-head {
   min-height: calc(var(--detail-title-top-inset) + var(--detail-control-h, 32px));
   margin: 0 0 8px;
 }
@@ -1436,7 +1436,7 @@
   background: var(--color-text-secondary);
 }
 
-.trust-role-detail-surface-header {
+.company-role-detail-surface-header {
   --detail-title-top-inset: calc(var(--roles-section-inset) - 4px);
 
   display: flex;
@@ -1448,7 +1448,7 @@
   padding: var(--detail-title-top-inset) var(--roles-section-inset) 0;
 }
 
-.trust-role-detail-surface-title {
+.company-role-detail-surface-title {
   min-width: 0;
   overflow: hidden;
   color: var(--color-text-primary);
@@ -1460,7 +1460,7 @@
   white-space: nowrap;
 }
 
-.trust-role-detail-surface-action {
+.company-role-detail-surface-action {
   width: 28px;
   min-width: 28px;
   height: 28px;
@@ -1472,14 +1472,14 @@
   background: var(--input-bg, var(--bg-base));
   border-color: var(--input-border, var(--border));
 }
-.trust-role-detail-surface-action:hover,
-.trust-role-detail-surface-action:focus-visible {
+.company-role-detail-surface-action:hover,
+.company-role-detail-surface-action:focus-visible {
   color: var(--color-text-title);
   background: var(--bg-row);
   border-color: var(--input-border-focus, var(--border-hover));
 }
 
-.trust-role-detail-document {
+.company-role-detail-document {
   display: flex;
   min-width: 0;
   min-height: 0;
@@ -1487,12 +1487,12 @@
   background: transparent;
 }
 
-.trust-role-detail-document > .ideas-canvas {
+.company-role-detail-document > .ideas-canvas {
   flex: 1;
   min-height: 0;
 }
 
-.trust-role-detail-document .ideas-canvas-frame {
+.company-role-detail-document .ideas-canvas-frame {
   gap: 12px;
   justify-content: space-between;
   margin: 0;
@@ -1500,7 +1500,7 @@
   padding-bottom: 16px;
 }
 
-.trust-role-detail-document .ideas-canvas-paper {
+.company-role-detail-document .ideas-canvas-paper {
   flex: 0 0 auto;
   min-height: auto;
   border: 0;
@@ -1509,7 +1509,7 @@
   box-shadow: none;
 }
 
-.trust-role-detail-document .ideas-canvas-content {
+.company-role-detail-document .ideas-canvas-content {
   --ideas-canvas-editor-gutter: 36px;
   --ideas-canvas-editor-gutter-end: 6px;
   flex: 0 0 auto;
@@ -1519,30 +1519,30 @@
   padding: 0 0 16px;
 }
 
-.trust-role-detail-document .ideas-canvas-title,
-.trust-role-detail-document .ideas-canvas-content > .ideas-canvas-body,
-.trust-role-detail-document .ideas-canvas-content > .ideas-canvas-body-rendered {
+.company-role-detail-document .ideas-canvas-title,
+.company-role-detail-document .ideas-canvas-content > .ideas-canvas-body,
+.company-role-detail-document .ideas-canvas-content > .ideas-canvas-body-rendered {
   width: min(calc(100% - 48px), 868px);
   margin-left: auto;
   margin-right: auto;
 }
 
-.trust-role-detail-document .ideas-canvas-content > .ideas-canvas-body,
-.trust-role-detail-document .ideas-canvas-content > .ideas-canvas-body-rendered {
+.company-role-detail-document .ideas-canvas-content > .ideas-canvas-body,
+.company-role-detail-document .ideas-canvas-content > .ideas-canvas-body-rendered {
   flex: 0 0 auto;
   min-height: 150px;
 }
 
-.trust-role-detail-document .ideas-canvas-title {
+.company-role-detail-document .ideas-canvas-title {
   margin-top: -10px;
   font-size: clamp(26px, 2vw, 31px);
 }
 
-.trust-role-detail-document .idea-convo-root {
+.company-role-detail-document .idea-convo-root {
   padding: 0 24px 12px;
 }
 
-.trust-role-detail-document .idea-convo-card {
+.company-role-detail-document .idea-convo-card {
   width: min(100%, 760px);
   max-width: 760px;
   margin: 0 auto;
@@ -1554,17 +1554,17 @@
   box-shadow: none;
 }
 
-.trust-role-detail-document .idea-convo-card--activity-combined {
+.company-role-detail-document .idea-convo-card--activity-combined {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.trust-role-detail-document .idea-convo-card--activity-combined > .idea-convo-panel {
+.company-role-detail-document .idea-convo-card--activity-combined > .idea-convo-panel {
   width: 100%;
 }
 
-.trust-role-detail-document .idea-convo-title {
+.company-role-detail-document .idea-convo-title {
   color: var(--color-text-primary);
   font-size: 13px;
   font-weight: 650;
@@ -1573,7 +1573,7 @@
   text-transform: none;
 }
 
-.trust-role-detail-document .idea-convo-subscribe-btn {
+.company-role-detail-document .idea-convo-subscribe-btn {
   height: var(--detail-control-h);
   min-height: var(--detail-control-h);
   padding: 0 12px;
@@ -1581,21 +1581,21 @@
 }
 
 @media (min-width: 1101px) {
-  .trust-role-detail-page--details-collapsed .trust-role-detail-document .ideas-canvas-title,
-  .trust-role-detail-page--details-collapsed
-    .trust-role-detail-document
+  .company-role-detail-page--details-collapsed .company-role-detail-document .ideas-canvas-title,
+  .company-role-detail-page--details-collapsed
+    .company-role-detail-document
     .ideas-canvas-content
     > .ideas-canvas-body,
-  .trust-role-detail-page--details-collapsed
-    .trust-role-detail-document
+  .company-role-detail-page--details-collapsed
+    .company-role-detail-document
     .ideas-canvas-content
     > .ideas-canvas-body-rendered,
-  .trust-role-detail-page--details-collapsed .trust-role-detail-document .idea-convo-card {
+  .company-role-detail-page--details-collapsed .company-role-detail-document .idea-convo-card {
     transform: none;
   }
 }
 
-.trust-role-detail-inspector {
+.company-role-detail-inspector {
   box-sizing: border-box;
   display: flex;
   min-width: 0;
@@ -2153,24 +2153,24 @@
 }
 
 @media (max-width: 1100px) {
-  .trust-roles {
+  .company-roles {
     grid-template-columns: 1fr;
     grid-template-areas:
       "header"
       "main";
     grid-template-rows: auto minmax(0, 1fr);
   }
-  .trust-agents {
+  .company-agents {
     grid-template-columns: 1fr;
     grid-template-areas:
       "header"
       "main";
     grid-template-rows: auto minmax(0, 1fr);
   }
-  .trust-roles-workspace {
+  .company-roles-workspace {
     flex-direction: column;
   }
-  .trust-roles-detail {
+  .company-roles-detail {
     flex: 0 0 auto;
     width: auto;
     max-width: none;
@@ -2178,17 +2178,17 @@
     border-left: 0;
     border-top: 1px solid var(--border);
   }
-  .trust-role-detail-canvas {
+  .company-role-detail-canvas {
     grid-template-columns: minmax(0, 1fr);
     overflow-y: auto;
   }
-  .trust-role-detail-document {
+  .company-role-detail-document {
     min-height: 520px;
     border-right: 0;
     border-bottom: 1px solid var(--border-subtle, var(--border-faint));
     border-radius: var(--radius-md) var(--radius-md) 0 0;
   }
-  .trust-role-detail-inspector {
+  .company-role-detail-inspector {
     overflow: visible;
     padding-top: 12px;
     padding-left: 0;
@@ -2197,48 +2197,48 @@
 }
 
 @media (max-width: 720px) {
-  .trust-roles-toolbar,
-  .trust-agents-toolbar {
+  .company-roles-toolbar,
+  .company-agents-toolbar {
     flex-wrap: wrap;
   }
-  .trust-roles-toolbar > .ideas-list-search-field,
-  .trust-agents-toolbar > .ideas-list-search-field {
+  .company-roles-toolbar > .ideas-list-search-field,
+  .company-agents-toolbar > .ideas-list-search-field {
     flex-basis: 100%;
   }
-  .trust-roles-main {
+  .company-roles-main {
     overflow-y: auto;
   }
-  .trust-roles-workspace {
+  .company-roles-workspace {
     overflow: visible;
   }
-  .trust-roles .roles-chart-controls {
+  .company-roles .roles-chart-controls {
     right: 12px;
   }
-  .trust-roles-content {
+  .company-roles-content {
     flex: 0 0 360px;
     min-height: 360px;
   }
-  .trust-roles-detail {
+  .company-roles-detail {
     max-height: none;
     overflow: visible;
   }
-  .trust-roles-detail .role-inspector {
+  .company-roles-detail .role-inspector {
     overflow: visible;
   }
-  .trust-roles-snapshot {
+  .company-roles-snapshot {
     display: flex;
   }
-  .trust-roles-snapshot-grid {
+  .company-roles-snapshot-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .trust-roles-suggest-head {
+  .company-roles-suggest-head {
     align-items: stretch;
     flex-direction: column;
   }
-  .trust-roles-suggest-all {
+  .company-roles-suggest-all {
     width: 100%;
   }
-  .trust-roles-suggest-grid {
+  .company-roles-suggest-grid {
     grid-template-columns: minmax(0, 1fr);
   }
   .agents-list [data-scroll-width="sm"] {

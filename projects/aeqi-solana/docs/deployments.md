@@ -45,6 +45,6 @@ programs:
 | `aeqi_role` | `8KgcKNqW94Xonj5H3s64Cgf3NmDPMjhpL3PfxeFnDV1r` |
 | `aeqi_token` | `28vYmAxQVZkqGwrH28gXDYNdWBPY7dW5odeUvoAHkw8r` |
 | `aeqi_treasury` | `CQ7TGZFmkoZh61xgKnbjcj9Uomht38LqeihMNsY4p9KC` |
-| `aeqi_trust` | `4CtmLZSLR3t1nKa3A2XD7F2awU5WajiNMxvHCiEDoBnD` |
+| `aeqi_company` | `4CtmLZSLR3t1nKa3A2XD7F2awU5WajiNMxvHCiEDoBnD` |
 | `aeqi_unifutures` | `2AqvqotDRhQj67YGn3MaZPUoYFBUEbnEbvbLD8Q2mF4s` |
 | `aeqi_vesting` | `24mJEeCHs492NGCJADvfb9zWDcqoDWNCpCYC2xAE2VBs` |

@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { buildAgentDirectory } from "@/api/agents";
-import { normalizeTrustRoots } from "@/api/trusts";
+import { normalizeCompanyRoots } from "@/api/companies";
 import { publicWebsitePath, publicWebsiteUrl, publicWebsiteSlug } from "@/lib/publicWebsite";
-import { trustEmailAddress } from "@/lib/trustEmail";
+import { companyEmailAddress } from "@/lib/companyEmail";
 
-describe("trust API normalization", () => {
-  it("maps trust roots into UI trusts and drops invalid rows", () => {
+describe("company API normalization", () => {
+  it("maps company roots into UI companies and drops invalid rows", () => {
     expect(
-      normalizeTrustRoots({
-        trusts: [
+      normalizeCompanyRoots({
+        companies: [
           {
-            id: "trust_1",
+            id: "company_1",
             display_name: "Acme",
             running: true,
             created_at: "2026-01-01T00:00:00Z",
@@ -21,17 +21,17 @@ describe("trust API normalization", () => {
       }),
     ).toEqual([
       {
-        id: "trust_1",
+        id: "company_1",
         name: "Acme",
-        type: "trust",
+        type: "company",
         status: "active",
         avatar: undefined,
         color: undefined,
         budget_usd: 100,
         created_at: "2026-01-01T00:00:00Z",
         last_active: undefined,
-        trust_id: undefined,
-        trust_address: undefined,
+        company_id: undefined,
+        company_address: undefined,
         slug: undefined,
         creator_address: undefined,
         email_address: undefined,
@@ -52,37 +52,37 @@ describe("public website identity", () => {
   it("uses the persisted slug when present", () => {
     expect(
       publicWebsiteUrl({
-        id: "trust_1",
+        id: "company_1",
         name: "Launch Name",
         slug: "launch-name",
       }),
     ).toBe("https://launch-name.aeqi.ai/");
   });
 
-  it("derives the launch slug from the trust name before falling back to address", () => {
+  it("derives the launch slug from the company name before falling back to address", () => {
     expect(
       publicWebsiteSlug({
-        id: "trust_1",
+        id: "company_1",
         name: "Horizon Labs",
-        trust_address: "0xabc123",
+        company_address: "0xabc123",
       }),
     ).toBe("horizon-labs");
   });
 
   it("keeps the legacy slash path separate from the public subdomain URL", () => {
-    expect(publicWebsitePath({ id: "trust_1", name: "Horizon Labs" })).toBe("/horizon-labs");
+    expect(publicWebsitePath({ id: "company_1", name: "Horizon Labs" })).toBe("/horizon-labs");
   });
 
-  it("derives the trust email from the website slug", () => {
-    expect(trustEmailAddress({ id: "trust_1", name: "Horizon Labs" })).toBe(
+  it("derives the company email from the website slug", () => {
+    expect(companyEmailAddress({ id: "company_1", name: "Horizon Labs" })).toBe(
       "hello@horizon-labs.aeqi.ai",
     );
   });
 
-  it("uses backend-provided trust email when present", () => {
+  it("uses backend-provided company email when present", () => {
     expect(
-      trustEmailAddress({
-        id: "trust_1",
+      companyEmailAddress({
+        id: "company_1",
         name: "Horizon Labs",
         email_address: "founders@horizon-labs.aeqi.ai",
       }),
@@ -108,14 +108,14 @@ describe("agent API normalization", () => {
           agents: [
             {
               id: "agent_root",
-              trust_id: "ent_1",
+              company_id: "ent_1",
               name: "Acme Runtime",
               status: "running",
               budget_usd: 42,
             },
             {
               id: "agent_child",
-              trust_id: "ent_1",
+              company_id: "ent_1",
               name: "Ops",
               status: "idle",
             },
@@ -125,14 +125,14 @@ describe("agent API normalization", () => {
     ).toEqual([
       {
         id: "agent_root",
-        trust_id: "ent_1",
+        company_id: "ent_1",
         name: "Acme Runtime",
         status: "running",
         budget_usd: 42,
       },
       {
         id: "agent_child",
-        trust_id: "ent_1",
+        company_id: "ent_1",
         name: "Ops",
         status: "idle",
       },

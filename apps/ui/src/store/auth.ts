@@ -16,7 +16,7 @@ function defaultAnalyticsConsentOnAuth() {
 }
 
 /** Set the active entity from a server response into both localStorage and Zustand.
- * After login, the router reads from localStorage to redirect to /:trustId. */
+ * After login, the router reads from localStorage to redirect to /:companyId. */
 function applyRoot(roots?: string[], explicit?: string) {
   const name = explicit || (roots && roots.length > 0 ? roots[0] : null);
   if (name) {

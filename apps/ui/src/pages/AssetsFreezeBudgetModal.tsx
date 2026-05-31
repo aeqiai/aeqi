@@ -36,8 +36,8 @@ interface FreezeBudgetModalProps {
   /** Budget to freeze or unfreeze. Modal is open whenever non-null;
    *  closing the modal nulls the target. */
   budget: BudgetAccountWithPda | null;
-  /** Entity ID of the host TRUST — required for the platform route. */
-  trustId: string;
+  /** Entity ID of the host COMPANY — required for the platform route. */
+  companyId: string;
   onClose: () => void;
   /** Called after a successful flip — host re-fetches the budgets list
    *  so the row's Active/Frozen Badge updates. */
@@ -49,7 +49,12 @@ interface SubmitResult {
   message: string;
 }
 
-export function FreezeBudgetModal({ budget, trustId, onClose, onFlipped }: FreezeBudgetModalProps) {
+export function FreezeBudgetModal({
+  budget,
+  companyId,
+  onClose,
+  onFlipped,
+}: FreezeBudgetModalProps) {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<SubmitResult | null>(null);
 
@@ -79,7 +84,7 @@ export function FreezeBudgetModal({ budget, trustId, onClose, onFlipped }: Freez
     setSubmitting(true);
     try {
       const call = isFrozen ? api.budgetUnfreeze : api.budgetFreeze;
-      const res = await call({ entity_id: trustId, budget_id: budgetIdHex });
+      const res = await call({ entity_id: companyId, budget_id: budgetIdHex });
       if (res.ok) {
         setResult({
           ok: true,
@@ -113,7 +118,7 @@ export function FreezeBudgetModal({ budget, trustId, onClose, onFlipped }: Freez
               <>
                 Re-enable on-chain spend + allocate calls against this budget. The on-chain{" "}
                 <span className={styles.monoCell}>aeqi_budget::unfreeze</span> ix flips{" "}
-                <span className={styles.monoCell}>frozen = false</span>. Grantor (trust authority)
+                <span className={styles.monoCell}>frozen = false</span>. Grantor (company authority)
                 signs.
               </>
             ) : (

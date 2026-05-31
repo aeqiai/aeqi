@@ -1,6 +1,6 @@
 # Operate Console
 
-The Operate Console is the TRUST-scoped control plane for inspecting live work.
+The Operate Console is the COMPANY-scoped control plane for inspecting live work.
 It should make AEQI feel like a runtime you can operate, not a set of disconnected
 agent screens.
 
@@ -24,7 +24,7 @@ Give an operator one place to answer:
   queue pressure, credential failure, or runtime health
 
 The iii lesson to copy is the always-live operations view. The AEQI version must
-be TRUST-first and evidence-first: every row should connect back to the work,
+be COMPANY-first and evidence-first: every row should connect back to the work,
 authority, memory, and tool surface that caused it.
 
 ## Current Substrate
@@ -66,7 +66,7 @@ pub struct OperateRecord {
 }
 
 pub struct OperateIds {
-    pub trust_id: Option<String>,
+    pub company_id: Option<String>,
     pub session_id: Option<String>,
     pub quest_id: Option<String>,
     pub agent_id: Option<String>,
@@ -127,7 +127,7 @@ undo/recovery semantics before they are enabled.
 All list endpoints should accept the same filter vocabulary:
 
 ```text
-trust_id
+company_id
 session_id
 quest_id
 agent_id
@@ -153,7 +153,7 @@ permission-gated.
 Primary route:
 
 ```text
-/trust/:trustId/operate
+/company/:companyId/operate
 ```
 
 Initial tabs:
@@ -170,7 +170,7 @@ Initial tabs:
 
 The first UI slice can be smaller:
 
-1. Add an Operate entry point from the TRUST home/runtime card.
+1. Add an Operate entry point from the COMPANY home/runtime card.
 2. Show read-only Overview plus Timeline.
 3. Link event rows to the existing Event Fires/StepDetail affordance.
 4. Link session rows to the existing SessionDetail surface.
@@ -194,8 +194,8 @@ Default policy:
 - Show previews only when the source row already stores a preview or summary.
 - Payload expansion requires an explicit permission check and writes an audit
   row.
-- Cross-TRUST reads are denied by default, including capability metadata.
-- Operators can see operational metadata for their TRUST; agents only see rows
+- Cross-COMPANY reads are denied by default, including capability metadata.
+- Operators can see operational metadata for their COMPANY; agents only see rows
   scoped to their session, quest, role, or delegated authority.
 - Mutating operations such as redrive, cancel, kill, requeue, credential test,
   or capability disable require role permission and activity/audit evidence.
@@ -213,7 +213,7 @@ Ship this in the smallest useful order:
    existing sessions, quests, activity, event invocations, and pending queues.
 3. Add HTTP `GET /api/operate/summary` and `GET /api/operate/timeline` as thin
    proxies over the same backend.
-4. Add `/trust/:trustId/operate` with Overview and Timeline tabs.
+4. Add `/company/:companyId/operate` with Overview and Timeline tabs.
 5. Deep-link each row to existing session, quest, event, and tool trace screens.
 6. Add redaction tests before exposing `include_payload=true`.
 7. Add stale-queue detection as read-only evidence; do not add redrive yet.
@@ -229,12 +229,12 @@ Minimum checks for the first slice:
   invocation, invocation step, and pending-message rows
 - redaction tests for nested JSON, headers, env-like keys, and mixed-case secret
   keys
-- TRUST-scope tests proving rows from another TRUST are absent
+- COMPANY-scope tests proving rows from another COMPANY are absent
 - role/agent permission tests for timeline and payload expansion
 - API tests for filters, cursor pagination, and default payload omission
 - MCP tests for `operate.summary` and `operate.timeline`
 - UI tests for empty, loading, active, failed, and filtered timeline states
-- Playwright check for `/trust/:trustId/operate` on desktop and mobile
+- Playwright check for `/company/:companyId/operate` on desktop and mobile
 - restart test proving stale running queue rows are reported before recovery or
   reported as recovered after startup cleanup
 

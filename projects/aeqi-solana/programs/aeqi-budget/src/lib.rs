@@ -15,29 +15,29 @@
 #![allow(deprecated, unexpected_cfgs)]
 
 use aeqi_role::{Role, RoleStatus};
-use aeqi_trust::state::Trust;
+use aeqi_company::state::Company;
 use anchor_lang::prelude::*;
 
 declare_id!("5PbDxvaYD9shSGxE2pQyUTqCqe6FXUMDciXSEGevFE5G");
 
-/// aeqi_trust program id — used for cross-program PDA derivation so module
-/// setup paths cannot accept arbitrary trust pubkeys.
-pub const AEQI_TRUST_ID: Pubkey =
+/// aeqi_company program id — used for cross-program PDA derivation so module
+/// setup paths cannot accept arbitrary company pubkeys.
+pub const AEQI_COMPANY_ID: Pubkey =
     anchor_lang::pubkey!("CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV");
 
 #[program]
 pub mod aeqi_budget {
     use super::*;
 
-    /// Module init — gated to the trust authority during creation mode so
+    /// Module init — gated to the company authority during creation mode so
     /// the module_state PDA cannot be squatted by an attacker.
     pub fn init(ctx: Context<InitBudget>) -> Result<()> {
-        let trust = &ctx.accounts.trust;
-        require!(trust.creation_mode, BudgetError::TrustNotInCreationMode);
-        require_keys_eq!(ctx.accounts.payer.key(), trust.authority, BudgetError::Unauthorized);
+        let company = &ctx.accounts.company;
+        require!(company.creation_mode, BudgetError::CompanyNotInCreationMode);
+        require_keys_eq!(ctx.accounts.payer.key(), company.authority, BudgetError::Unauthorized);
 
         let m = &mut ctx.accounts.module_state;
-        m.trust = ctx.accounts.trust.key();
+        m.company = ctx.accounts.company.key();
         m.budget_count = 0;
         m.bump = ctx.bumps.module_state;
         Ok(())
@@ -45,11 +45,11 @@ pub mod aeqi_budget {
 
     /// Create a budget allocation for a role. The grantor (typically a
     /// treasury authority or governance signer) signs to lock the
-    /// allocation. A budget can be sourced from TRUST (no parent) or from
+    /// allocation. A budget can be sourced from COMPANY (no parent) or from
     /// a parent budget (which the grantor must control).
     ///
-    /// Authority gate: in this iteration, only the trust authority can
-    /// originate budgets (i.e. budgets sourced directly from TRUST). Once
+    /// Authority gate: in this iteration, only the company authority can
+    /// originate budgets (i.e. budgets sourced directly from COMPANY). Once
     /// governance + role-walk capability lands, child budgets sourced from
     /// a parent budget will be gated on the parent budget's grantor / role
     /// instead.
@@ -65,14 +65,14 @@ pub mod aeqi_budget {
         let now = Clock::get()?.unix_timestamp;
         require!(expiry == 0 || expiry > now, BudgetError::InvalidExpiry);
 
-        // Module-setup authority: budgets sourced from TRUST require the
-        // trust authority to sign. Parent-budget-sourced delegation is
+        // Module-setup authority: budgets sourced from COMPANY require the
+        // company authority to sign. Parent-budget-sourced delegation is
         // out of scope until the role-walk + governance plumbing lands.
-        let trust = &ctx.accounts.trust;
-        require_keys_eq!(ctx.accounts.grantor.key(), trust.authority, BudgetError::Unauthorized);
+        let company = &ctx.accounts.company;
+        require_keys_eq!(ctx.accounts.grantor.key(), company.authority, BudgetError::Unauthorized);
 
         let b = &mut ctx.accounts.budget;
-        b.trust = ctx.accounts.trust.key();
+        b.company = ctx.accounts.company.key();
         b.budget_id = budget_id;
         b.grantor = ctx.accounts.grantor.key();
         b.target_role_id = target_role_id;
@@ -87,7 +87,7 @@ pub mod aeqi_budget {
         m.budget_count = m.budget_count.checked_add(1).ok_or(error!(BudgetError::MathOverflow))?;
 
         emit!(BudgetCreated {
-            trust: b.trust,
+            company: b.company,
             budget_id,
             grantor: b.grantor,
             target_role_id,
@@ -104,7 +104,7 @@ pub mod aeqi_budget {
         require!(amount > 0, BudgetError::ZeroAmount);
         let b = &mut ctx.accounts.budget;
         let spender_role = &ctx.accounts.spender_role;
-        require!(spender_role.trust == b.trust, BudgetError::Unauthorized);
+        require!(spender_role.company == b.company, BudgetError::Unauthorized);
         require!(spender_role.role_id == b.target_role_id, BudgetError::Unauthorized);
         require!(spender_role.status == RoleStatus::Occupied as u8, BudgetError::Unauthorized);
         require_keys_eq!(
@@ -121,7 +121,7 @@ pub mod aeqi_budget {
         require!(new_spent <= b.amount, BudgetError::ExceedsAllocation);
         b.spent = new_spent;
 
-        emit!(BudgetSpent { trust: b.trust, budget_id: b.budget_id, amount, total_spent: b.spent });
+        emit!(BudgetSpent { company: b.company, budget_id: b.budget_id, amount, total_spent: b.spent });
         Ok(())
     }
 
@@ -130,7 +130,7 @@ pub mod aeqi_budget {
         let b = &mut ctx.accounts.budget;
         require_keys_eq!(ctx.accounts.grantor.key(), b.grantor, BudgetError::Unauthorized);
         b.frozen = true;
-        emit!(BudgetFrozen { trust: b.trust, budget_id: b.budget_id });
+        emit!(BudgetFrozen { company: b.company, budget_id: b.budget_id });
         Ok(())
     }
 
@@ -139,7 +139,7 @@ pub mod aeqi_budget {
         let b = &mut ctx.accounts.budget;
         require_keys_eq!(ctx.accounts.grantor.key(), b.grantor, BudgetError::Unauthorized);
         b.frozen = false;
-        emit!(BudgetUnfrozen { trust: b.trust, budget_id: b.budget_id });
+        emit!(BudgetUnfrozen { company: b.company, budget_id: b.budget_id });
         Ok(())
     }
 }
@@ -147,7 +147,7 @@ pub mod aeqi_budget {
 #[account]
 #[derive(InitSpace)]
 pub struct BudgetModuleState {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub budget_count: u64,
     pub bump: u8,
 }
@@ -155,11 +155,11 @@ pub struct BudgetModuleState {
 #[account]
 #[derive(InitSpace)]
 pub struct Budget {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub budget_id: [u8; 32],
     pub grantor: Pubkey,
     pub target_role_id: [u8; 32],
-    /// Parent budget if hierarchical; [0u8; 32] if sourced from TRUST directly.
+    /// Parent budget if hierarchical; [0u8; 32] if sourced from COMPANY directly.
     pub parent_budget_id: [u8; 32],
     pub amount: u64,
     pub spent: u64,
@@ -170,18 +170,18 @@ pub struct Budget {
 
 #[derive(Accounts)]
 pub struct InitBudget<'info> {
-    /// Trust PDA — must be a real Trust account owned by aeqi_trust.
+    /// Company PDA — must be a real Company account owned by aeqi_company.
     #[account(
-        seeds = [b"trust", trust.trust_id.as_ref()],
-        bump = trust.bump,
-        seeds::program = AEQI_TRUST_ID,
+        seeds = [b"company", company.company_id.as_ref()],
+        bump = company.bump,
+        seeds::program = AEQI_COMPANY_ID,
     )]
-    pub trust: Account<'info, Trust>,
+    pub company: Account<'info, Company>,
     #[account(
         init,
         payer = payer,
         space = 8 + BudgetModuleState::INIT_SPACE,
-        seeds = [b"budget_module", trust.key().as_ref()],
+        seeds = [b"budget_module", company.key().as_ref()],
         bump,
     )]
     pub module_state: Account<'info, BudgetModuleState>,
@@ -193,16 +193,16 @@ pub struct InitBudget<'info> {
 #[derive(Accounts)]
 #[instruction(budget_id: [u8; 32])]
 pub struct CreateBudget<'info> {
-    /// Trust PDA — must be a real Trust account owned by aeqi_trust.
+    /// Company PDA — must be a real Company account owned by aeqi_company.
     #[account(
-        seeds = [b"trust", trust.trust_id.as_ref()],
-        bump = trust.bump,
-        seeds::program = AEQI_TRUST_ID,
+        seeds = [b"company", company.company_id.as_ref()],
+        bump = company.bump,
+        seeds::program = AEQI_COMPANY_ID,
     )]
-    pub trust: Account<'info, Trust>,
+    pub company: Account<'info, Company>,
     #[account(
         mut,
-        seeds = [b"budget_module", trust.key().as_ref()],
+        seeds = [b"budget_module", company.key().as_ref()],
         bump = module_state.bump,
     )]
     pub module_state: Account<'info, BudgetModuleState>,
@@ -210,7 +210,7 @@ pub struct CreateBudget<'info> {
         init,
         payer = grantor,
         space = 8 + Budget::INIT_SPACE,
-        seeds = [b"budget", trust.key().as_ref(), budget_id.as_ref()],
+        seeds = [b"budget", company.key().as_ref(), budget_id.as_ref()],
         bump,
     )]
     pub budget: Account<'info, Budget>,
@@ -223,7 +223,7 @@ pub struct CreateBudget<'info> {
 pub struct RecordSpend<'info> {
     #[account(
         mut,
-        seeds = [b"budget", budget.trust.as_ref(), budget.budget_id.as_ref()],
+        seeds = [b"budget", budget.company.as_ref(), budget.budget_id.as_ref()],
         bump = budget.bump,
     )]
     pub budget: Account<'info, Budget>,
@@ -235,7 +235,7 @@ pub struct RecordSpend<'info> {
 pub struct Freeze<'info> {
     #[account(
         mut,
-        seeds = [b"budget", budget.trust.as_ref(), budget.budget_id.as_ref()],
+        seeds = [b"budget", budget.company.as_ref(), budget.budget_id.as_ref()],
         bump = budget.bump,
     )]
     pub budget: Account<'info, Budget>,
@@ -244,7 +244,7 @@ pub struct Freeze<'info> {
 
 #[event]
 pub struct BudgetCreated {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub budget_id: [u8; 32],
     pub grantor: Pubkey,
     pub target_role_id: [u8; 32],
@@ -254,7 +254,7 @@ pub struct BudgetCreated {
 
 #[event]
 pub struct BudgetSpent {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub budget_id: [u8; 32],
     pub amount: u64,
     pub total_spent: u64,
@@ -262,13 +262,13 @@ pub struct BudgetSpent {
 
 #[event]
 pub struct BudgetFrozen {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub budget_id: [u8; 32],
 }
 
 #[event]
 pub struct BudgetUnfrozen {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub budget_id: [u8; 32],
 }
 
@@ -288,6 +288,6 @@ pub enum BudgetError {
     MathOverflow,
     #[msg("caller is not authorized for this budget")]
     Unauthorized,
-    #[msg("trust must be in creation mode to initialize the budget module")]
-    TrustNotInCreationMode,
+    #[msg("company must be in creation mode to initialize the budget module")]
+    CompanyNotInCreationMode,
 }

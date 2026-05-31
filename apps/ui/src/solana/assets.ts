@@ -1,24 +1,24 @@
 /**
  * On-chain reads for the Assets surface.
  *
- * Assets is the TRUST's wealth surface — "what does this TRUST hold?" —
- * and the user-facing answer to the "TRUST capitalizes self → buys
- * runtime" model: deposit USDC at the vault address, and the TRUST owns
+ * Assets is the COMPANY's wealth surface — "what does this COMPANY hold?" —
+ * and the user-facing answer to the "COMPANY capitalizes self → buys
+ * runtime" model: deposit USDC at the vault address, and the COMPANY owns
  * the balance going forward. The hero affordance on the page is the
  * vault deposit address; everything else is supporting context.
  *
  * Source-of-truth references:
  *   - `TreasuryModuleState`: `programs/aeqi-treasury/src/lib.rs:38-52`;
- *     PDA `[b"treasury_module", trust]`.
+ *     PDA `[b"treasury_module", company]`.
  *   - Vault authority PDA: `programs/aeqi-treasury/src/lib.rs:86,155,176`;
- *     PDA `[b"treasury_vault_authority", trust]`. Token accounts owned by
- *     this PDA ARE the TRUST's holdings.
+ *     PDA `[b"treasury_vault_authority", company]`. Token accounts owned by
+ *     this PDA ARE the COMPANY's holdings.
  *   - `Budget`: `programs/aeqi-budget/src/state.rs`; PDA
- *     `[b"budget", trust, budget_id]`. First field after the 8-byte
- *     discriminator is `trust: Pubkey`, so a memcmp at offset 8 scopes
- *     the list to one TRUST.
+ *     `[b"budget", company, budget_id]`. First field after the 8-byte
+ *     discriminator is `company: Pubkey`, so a memcmp at offset 8 scopes
+ *     the list to one COMPANY.
  *   - `VestingPosition`: `programs/aeqi-vesting/src/state.rs`; same
- *     `trust: Pubkey` layout at offset 8.
+ *     `company: Pubkey` layout at offset 8.
  *
  * Holdings enumeration goes direct to RPC via
  * `getTokenAccountsByOwner(vault_authority_pda, ...)` for both the
@@ -73,9 +73,9 @@ export interface VaultHolding {
 }
 
 export interface TreasuryVault {
-  /** `[b"treasury_module", trust]` PDA. */
+  /** `[b"treasury_module", company]` PDA. */
   moduleStatePda: PublicKey;
-  /** `[b"treasury_vault_authority", trust]` PDA — the deposit destination. */
+  /** `[b"treasury_vault_authority", company]` PDA — the deposit destination. */
   vaultAuthorityPda: PublicKey;
   /** Fetched module-state account if registered; null if treasury module not adopted. */
   moduleState: TreasuryModuleStateAccount | null;
@@ -117,7 +117,7 @@ export function lookupTokenMeta(mint: PublicKey | string): {
 /* ------------------------------------------------------------------ */
 
 /**
- * Fetch the TRUST's treasury vault descriptor — both PDAs (always
+ * Fetch the COMPANY's treasury vault descriptor — both PDAs (always
  * derivable from `trustPda`) plus the on-chain `TreasuryModuleState`
  * account if the treasury module has been initialized.
  *
@@ -144,13 +144,13 @@ export async function readTreasuryModuleState(
 }
 
 /**
- * Enumerate every SPL token account owned by the TRUST's vault
+ * Enumerate every SPL token account owned by the COMPANY's vault
  * authority PDA across both token programs. Two parallel
  * `getTokenAccountsByOwner` calls — Token-2022 for AEQI-issued mints,
  * legacy SPL Token for USDC and most external assets.
  *
  * Empty balances are kept in the result on purpose: a zero balance on a
- * mint the TRUST has historically held is still meaningful context.
+ * mint the COMPANY has historically held is still meaningful context.
  * Filtering happens at the UI layer.
  */
 export async function readVaultHoldings(vaultAuthorityPda: PublicKey): Promise<VaultHolding[]> {
@@ -186,13 +186,13 @@ export async function readVaultHoldings(vaultAuthorityPda: PublicKey): Promise<V
 }
 
 /**
- * List every Budget account scoped to one TRUST. Wrapped in a try by
- * the caller: a Foundation-shaped TRUST may not have `aeqi_budget`
+ * List every Budget account scoped to one COMPANY. Wrapped in a try by
+ * the caller: a Foundation-shaped COMPANY may not have `aeqi_budget`
  * adopted, in which case the call returns `[]` (no accounts match the
  * filter — not an error).
  *
- * Layout: `[discriminator(8)][trust(32)][budget_id(32)][grantor(32)]…`
- * — memcmp at offset 8 with the trust pubkey scopes the scan.
+ * Layout: `[discriminator(8)][company(32)][budget_id(32)][grantor(32)]…`
+ * — memcmp at offset 8 with the company pubkey scopes the scan.
  */
 export async function readBudgets(trustPda: string | PublicKey): Promise<BudgetAccountWithPda[]> {
   const program = getBudgetProgram();
@@ -213,9 +213,9 @@ export async function readBudgets(trustPda: string | PublicKey): Promise<BudgetA
 
 /**
  * COUNT only — return the number of `VestingPosition` accounts for the
- * TRUST. The Assets tile per task #14 surfaces just the headline ("N
+ * COMPANY. The Assets tile per task #14 surfaces just the headline ("N
  * positions outstanding"); per-position detail is deferred. Same memcmp
- * pattern: trust pubkey at offset 8.
+ * pattern: company pubkey at offset 8.
  */
 export async function readVestingCount(trustPda: string | PublicKey): Promise<number> {
   const program = getVestingProgram();
@@ -232,12 +232,12 @@ export async function readVestingCount(trustPda: string | PublicKey): Promise<nu
 }
 
 /**
- * List every VestingPosition scoped to one TRUST, across ALL mints.
+ * List every VestingPosition scoped to one COMPANY, across ALL mints.
  * Same memcmp pattern as `readVestingCount` but returns the decoded
  * account data so the Assets surface can render per-recipient detail
  * (claimed vs total, status, FDV milestone, contribution gate).
  *
- * Note: this returns positions across every mint the TRUST has granted
+ * Note: this returns positions across every mint the COMPANY has granted
  * against. The equity-side `readVestingPositions` in `./equity.ts`
  * filters to the cap-table mint only — keep both: Assets is treasury-wide,
  * Equity is share-only.

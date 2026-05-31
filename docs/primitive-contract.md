@@ -6,31 +6,31 @@ or operator language.
 
 The contract exists to prevent ontology drift. AEQI should not describe itself
 as four primitives in one file, five primitives in another, and a company tool
-somewhere else. In user-facing language, start by explaining the TRUST in plain
+somewhere else. In user-facing language, start by explaining the COMPANY in plain
 terms, then describe the surfaces inside it.
 
 Plain-English definition:
 
-> A TRUST is the shared AI workspace and runtime for one mission. It keeps the
+> A COMPANY is the shared AI workspace and runtime for one mission. It keeps the
 > people, agents, roles, quests, memory, tools, decisions, authority, and
 > evidence in one place so work can run and be audited.
 
-What it is not: a legal trust by default, a chat room, or only a wallet. A
-TRUST can map to a company, fund, DAO, project, or legal wrapper, but in AEQI
+What it is not: a legal company by default, a chat room, or only a wallet. A
+COMPANY can map to a company, fund, DAO, project, or legal wrapper, but in AEQI
 the word means the operating home for a mission.
 
 ## Top-Level Term
 
 | Term        | Meaning                                                                                                                                                    | Rule                                                                                                                                         |
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| **TRUST**   | The shared AI workspace and runtime for one mission: people, agents, roles, quests, memory, tools, decisions, authority, and evidence in one place.        | Use as the top-level product term in public and operator-facing language, but explain it in plain words on first mention.                    |
-| **Company** | A familiar explanation for a TRUST-shaped operating organization, and an API-adjacent entity type where older contracts still use company/entity language. | Use when explaining a business wrapper or preserving existing API semantics. Do not let it compete with TRUST as the top-level product term. |
-| **Entity**  | The internal/runtime identity record that can represent a TRUST, human, agent, fund, or other institution.                                                 | Use in data-model and API docs when precision matters.                                                                                       |
+| **COMPANY**   | The shared AI workspace and runtime for one mission: people, agents, roles, quests, memory, tools, decisions, authority, and evidence in one place.        | Use as the top-level product term in public and operator-facing language, but explain it in plain words on first mention.                    |
+| **Company** | A familiar explanation for a COMPANY-shaped operating organization, and an API-adjacent entity type where older contracts still use company/entity language. | Use when explaining a business wrapper or preserving existing API semantics. Do not let it compete with COMPANY as the top-level product term. |
+| **Entity**  | The internal/runtime identity record that can represent a COMPANY, human, agent, fund, or other institution.                                                 | Use in data-model and API docs when precision matters.                                                                                       |
 
 Canonical user gesture:
 
 ```text
-Start a TRUST.
+Start a COMPANY.
 Give it a mission.
 AEQI turns it into a live workspace where agents can work, remember, use tools,
 and leave evidence.
@@ -38,7 +38,7 @@ and leave evidence.
 
 ## Operating Surfaces
 
-These are first-class user and runtime surfaces inside a TRUST.
+These are first-class user and runtime surfaces inside a COMPANY.
 
 | Surface          | Meaning                                                                                                                                           | Owner of truth                                                    |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
@@ -48,7 +48,7 @@ These are first-class user and runtime surfaces inside a TRUST.
 | **Ideas**        | Durable knowledge, directives, memories, decisions, procedures, skill records, and retrievable context.                                           | Idea store, idea graph, and search index.                         |
 | **Events**       | Pattern, schedule, webhook, and lifecycle rules that wake the runtime and fire tool calls.                                                        | Event registry and dispatcher.                                    |
 | **Sessions**     | Persistent execution and conversation traces. A session records chat, handoffs, tool calls, activity, and runtime context.                        | Session store and activity journal.                               |
-| **Apps / Tools** | Capabilities a TRUST can connect, install, call, or authorize: MCP tools, integration packs, role apps, platform apps, and future plugin workers. | Tool registry, integration credentials, and app/plugin manifests. |
+| **Apps / Tools** | Capabilities a COMPANY can connect, install, call, or authorize: MCP tools, integration packs, role apps, platform apps, and future plugin workers. | Tool registry, integration credentials, and app/plugin manifests. |
 
 The implementation contract for discovering, authorizing, invoking, and
 removing Apps/Tools is [extension-plane.md](extension-plane.md).
@@ -65,16 +65,16 @@ These terms are important, but they are not top-level product terms.
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
 | **Execution**    | A live run inside a session.                                                                                              | Use for runtime internals and observability.                |
 | **Step**         | An internal loop boundary inside an execution.                                                                            | Use for agent loop, trace, and evidence contracts.          |
-| **Activity**     | Audit log, costs, session journal, tool call records, and evidence metadata.                                              | Treat as infrastructure that supports trust and inspection. |
+| **Activity**     | Audit log, costs, session journal, tool call records, and evidence metadata.                                              | Treat as infrastructure that supports company and inspection. |
 | **Project**      | A mission container linking people, agents, repositories, library items, quests, and outcomes.                            | Use for scoped work, not as the top-level institution.      |
-| **Repository**   | A durable versioned code asset owned by a TRUST/entity.                                                                   | Use for code graph and software delivery surfaces.          |
-| **Library Item** | A typed TRUST artifact or knowledge object: folder, file, note, link, idea, decision, spec, contract, image, or evidence. | Use for entity-scoped knowledge/assets.                     |
+| **Repository**   | A durable versioned code asset owned by a COMPANY/entity.                                                                   | Use for code graph and software delivery surfaces.          |
+| **Library Item** | A typed COMPANY artifact or knowledge object: folder, file, note, link, idea, decision, spec, contract, image, or evidence. | Use for entity-scoped knowledge/assets.                     |
 
 ## Boundary Rules
 
-- TRUST is the top-level product term.
+- COMPANY is the top-level product term.
 - Roles, Agents, Quests, Ideas, Events, Sessions, and Apps/Tools are the
-  first-class surfaces inside a TRUST.
+  first-class surfaces inside a COMPANY.
 - Activity, executions, steps, projects, repositories, and library items are
   supporting infrastructure.
 - Do not introduce new public primitives without updating this contract first.
@@ -105,7 +105,7 @@ does not require a schema rewrite before docs can be coherent.
 When docs, UI, API, or strategy language disagree, use this hierarchy:
 
 ```text
-TRUST
+COMPANY
   Roles
   Agents
   Quests

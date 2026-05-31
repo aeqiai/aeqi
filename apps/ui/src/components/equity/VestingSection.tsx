@@ -48,7 +48,7 @@ import { VestingScheduleChart } from "./VestingScheduleChart";
 import "./VestingSection.css";
 
 export interface VestingSectionProps {
-  trustId: string;
+  companyId: string;
   positions: VestingPositionWithPda[];
   decimals: number;
   /**
@@ -144,7 +144,7 @@ interface RowState {
 }
 
 export function VestingSection({
-  trustId,
+  companyId,
   positions,
   decimals,
   refreshTick = 0,
@@ -250,7 +250,7 @@ export function VestingSection({
     setTransferResult(null);
     try {
       const res = await api.vestingTransfer({
-        entity_id: trustId,
+        entity_id: companyId,
         position_id: positionIdHex(transferRow.account.positionId),
         new_recipient_pubkey: transferRecipient.trim(),
       });
@@ -275,7 +275,7 @@ export function VestingSection({
     setRowStates((s) => ({ ...s, [key]: { result: null, pending: true } }));
     try {
       const res = await api.vestingClaim({
-        entity_id: trustId,
+        entity_id: companyId,
         position_id: positionIdHex(row.account.positionId),
       });
       setRowStates((s) => ({
@@ -499,7 +499,7 @@ export function VestingSection({
            supply" column rhythm — tabular-nums, label-on-top, value-
            below. Five tiles: granted · vested · claimed · claimable now ·
            locked remaining. Helps the operator answer "how much
-           obligation does this TRUST currently carry?" without summing
+           obligation does this COMPANY currently carry?" without summing
            rows by eye. */
         <div className="vesting-totals" role="group" aria-label="Vesting roll-up totals">
           <div className="vesting-totals__tile">
@@ -549,7 +549,7 @@ export function VestingSection({
             <p className="vesting-transfer__hint">
               Rotate this vesting position to a new recipient. The schedule, total amount, and
               already-claimed balance stay the same — only the wallet that can claim future vested
-              tokens changes. Trust authority signs.
+              tokens changes. Company authority signs.
             </p>
             <div className="vesting-transfer__meta">
               <div>

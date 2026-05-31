@@ -44,15 +44,15 @@ function sessionSecondaryLabel(s: SessionInfo): string {
  * Filter: status — all / active / archived. Matches `s.status === "active"`.
  *
  * Row shape is single-line h=32 across both adopters — visual parity
- * with the trust Sessions view through the compact card rail variant.
+ * with the company Sessions view through the compact card rail variant.
  */
 export default function SessionsRail({ onSelectSession }: SessionsRailProps = {}) {
   // Legacy adapter for the retired drilled-agent session rail. Kept for
   // mobile/session primitives that still render it directly; clicks now
-  // resolve to the trust-level Sessions URL.
-  const { trustId, trustAddress, agentId, itemId } = useParams<{
-    trustId?: string;
-    trustAddress?: string;
+  // resolve to the company-level Sessions URL.
+  const { companyId, companyAddress, agentId, itemId } = useParams<{
+    companyId?: string;
+    companyAddress?: string;
     agentId?: string;
     itemId?: string;
   }>();
@@ -104,12 +104,12 @@ export default function SessionsRail({ onSelectSession }: SessionsRailProps = {}
 
   const navigate = useNavigate();
   const entities = useDaemonStore((s) => s.entities);
-  // Resolve a concrete trustId from the /trust/<addr> lookup against the
+  // Resolve a concrete companyId from the /company/<addr> lookup against the
   // daemon entities array. `sessionDeepUrlFromId` then re-derives the
-  // canonical /trust/<addr> base for the session URL.
+  // canonical /company/<addr> base for the session URL.
   const resolvedEntityId =
-    trustId ||
-    (trustAddress ? entities.find((e) => e.trust_address === trustAddress)?.id : undefined);
+    companyId ||
+    (companyAddress ? entities.find((e) => e.company_address === companyAddress)?.id : undefined);
   const handleSelect = useCallback(
     (id: string) => {
       if (!resolvedEntityId || !agentId) return;

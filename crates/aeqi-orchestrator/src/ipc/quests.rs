@@ -94,8 +94,8 @@ fn quest_summary_json(
 /// assignee validation.
 ///
 /// Resolution order:
-///   1. Explicit `trust_id` field on the request (canonical wire shape).
-///   2. The calling agent's `trust_id`, if `caller_agent_id` is present.
+///   1. Explicit `company_id` field on the request (canonical wire shape).
+///   2. The calling agent's `company_id`, if `caller_agent_id` is present.
 ///   3. The single allowed-root, if the proxy gated this call to exactly
 ///      one root via `x-aeqi-allowed-roots`.
 ///
@@ -107,7 +107,7 @@ async fn resolve_caller_entity_id(
     allowed: &Option<Vec<String>>,
 ) -> Option<String> {
     if let Some(s) = request
-        .get("trust_id")
+        .get("company_id")
         .and_then(|v| v.as_str())
         .filter(|s| !s.trim().is_empty())
     {
@@ -118,7 +118,7 @@ async fn resolve_caller_entity_id(
         .and_then(|v| v.as_str())
         .filter(|s| !s.trim().is_empty())
         && let Ok(Some(agent)) = ctx.agent_registry.get(agent_id.trim()).await
-        && let Some(t) = agent.trust_id
+        && let Some(t) = agent.company_id
     {
         return Some(t);
     }
@@ -171,12 +171,12 @@ pub async fn handle_quests(
                     .await
                     .unwrap_or_default();
                 // Tenancy maps to entity, not parent_id. An agent is in
-                // scope iff its trust_id (or own name/id) hits the allowed list.
+                // scope iff its company_id (or own name/id) hits the allowed list.
                 Some(
                     all_agents
                         .iter()
                         .filter(|a| {
-                            a.trust_id
+                            a.company_id
                                 .as_deref()
                                 .map(|eid| is_allowed(allowed, eid))
                                 .unwrap_or(false)

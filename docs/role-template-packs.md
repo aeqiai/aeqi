@@ -1,18 +1,18 @@
 # Role Template Packs
 
-Role templates are native installable role structures for an existing TRUST.
-They are not whole-TRUST blueprints filtered down in the UI.
+Role templates are native installable role structures for an existing COMPANY.
+They are not whole-COMPANY blueprints filtered down in the UI.
 
 ## Product Contract
 
-- A role template installs one role into the current TRUST.
+- A role template installs one role into the current COMPANY.
 - A role template pack installs a small authority structure, such as Director,
   Operator, and Advisor roles with their reporting edges.
-- Installing a role template must never replace or delete the current trust's
+- Installing a role template must never replace or delete the current company's
   existing roles.
 - The install flow may optionally attach a default agent, leave the role
   vacant, or prepare the role for a human invite.
-- Anyone attached to a TRUST but outside the org chart should resolve to at
+- Anyone attached to a COMPANY but outside the org chart should resolve to at
   least an Advisor role.
 
 ## Suggested API Shape
@@ -47,7 +47,7 @@ interface RoleTemplatePack {
 
 ```ts
 interface InstallRoleTemplateRequest {
-  trust_id: string;
+  company_id: string;
   parent_role_id?: string;
   occupant?: "agent" | "human" | "vacant";
 }

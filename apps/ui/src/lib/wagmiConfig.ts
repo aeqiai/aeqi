@@ -17,7 +17,7 @@ import { mainnet, sepolia, anvil } from "wagmi/chains";
 // no external relay needed. That covers the majority of users with zero
 // third-party dependencies.
 //
-// To enable mobile-wallet support (Phantom, Rainbow, Trust, Argent, etc.,
+// To enable mobile-wallet support (Phantom, Rainbow, Company, Argent, etc.,
 // connecting via QR / deeplink), the operator sets
 // `VITE_WALLETCONNECT_PROJECT_ID` to a free projectId from cloud.reown.com.
 // We add the WalletConnect connector only when that's set, so a fresh

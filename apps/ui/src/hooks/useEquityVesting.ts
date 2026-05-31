@@ -26,7 +26,7 @@
  * the page-level HolderDrawer mounted by CapTableSection). Forcing one
  * to "lift a callback" through prop drilling would re-spread the same
  * problem the hook was added to solve. A single hook keyed on
- * `trustAddress` makes both consumers read from the same cache.
+ * `companyAddress` makes both consumers read from the same cache.
  *
  * Mirrors the `useCurveTrades` shape so the two share a mental model:
  *  - `positions`/`trades` is the canonical list
@@ -44,12 +44,12 @@ export interface UseEquityVestingResult {
   positions: VestingPositionWithPda[];
   /** Monotonic tick that increments after every successful refresh. */
   tick: number;
-  /** Force a re-fetch of vesting positions for the configured TRUST. */
+  /** Force a re-fetch of vesting positions for the configured COMPANY. */
   refresh(): void;
 }
 
 /**
- * Subscribe to the vesting list for a TRUST and expose a refresh lever.
+ * Subscribe to the vesting list for a COMPANY and expose a refresh lever.
  *
  * The hook does NOT re-fetch on mount — the page already has the
  * positions loaded via `useEquity`. It exists to:
@@ -61,7 +61,7 @@ export interface UseEquityVestingResult {
  *      revalidate cache hits).
  */
 export function useEquityVesting(
-  trustAddress: string | null | undefined,
+  companyAddress: string | null | undefined,
   positions: VestingPositionWithPda[],
 ): UseEquityVestingResult {
   const queryClient = useQueryClient();
@@ -69,12 +69,12 @@ export function useEquityVesting(
 
   const refresh = useCallback(() => {
     // The vesting query in `useEquity` is keyed on
-    //   ["equity", "vesting", trustAddress, mintAddress]
+    //   ["equity", "vesting", companyAddress, mintAddress]
     // Invalidating the partial prefix forces RQ to re-fetch every
-    // vesting fetcher for this TRUST regardless of which mint address
+    // vesting fetcher for this COMPANY regardless of which mint address
     // the page has resolved.
     void queryClient.invalidateQueries({
-      queryKey: ["equity", "vesting", trustAddress ?? null],
+      queryKey: ["equity", "vesting", companyAddress ?? null],
     });
     // The cap-table mint reads claimed_amount via the holders query
     // (claimed tokens land in the recipient's ATA); refresh that too so
@@ -84,7 +84,7 @@ export function useEquityVesting(
       queryKey: ["equity", "holders"],
     });
     setTick((t) => t + 1);
-  }, [queryClient, trustAddress]);
+  }, [queryClient, companyAddress]);
 
   return { positions, tick, refresh };
 }

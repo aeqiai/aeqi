@@ -1,4 +1,4 @@
-.trust-agents-main {
+.company-agents-main {
   grid-area: main;
   display: flex;
   flex-direction: column;
@@ -7,7 +7,7 @@
   min-height: 0;
   overflow: hidden;
 }
-.trust-agents-main {
+.company-agents-main {
   grid-area: main;
   display: flex;
   flex-direction: column;
@@ -20,18 +20,18 @@
   box-shadow: var(--card-elevation);
   overflow-y: auto;
 }
-.trust-roles-main {
+.company-roles-main {
   border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--color-card) 84%, var(--color-card-elevated) 16%);
 }
-.trust-roles-workspace {
+.company-roles-workspace {
   position: relative;
   display: flex;
   flex: 1;
   min-width: 0;
   min-height: 0;
 }
-.trust-roles-detail-toggle {
+.company-roles-detail-toggle {
   position: absolute;
   top: 12px;
   right: 12px;
@@ -47,12 +47,12 @@
   color: var(--color-text-secondary);
   box-shadow: 0 1px 2px color-mix(in srgb, var(--color-text-primary) 3.5%, transparent);
 }
-.trust-roles-detail-toggle:hover {
+.company-roles-detail-toggle:hover {
   background: var(--color-card);
   border-color: var(--input-border-hover);
   color: var(--color-text-primary);
 }
-.trust-roles-content {
+.company-roles-content {
   display: flex;
   flex: 1;
   box-sizing: border-box;
@@ -60,7 +60,7 @@
   min-height: 0;
   overflow: hidden;
 }
-.trust-roles-detail {
+.company-roles-detail {
   display: flex;
   flex: 0 0 320px;
   min-width: 280px;
@@ -70,21 +70,21 @@
   background: transparent;
   overflow: hidden;
 }
-.trust-roles-main--detail-collapsed .roles-chart-controls {
+.company-roles-main--detail-collapsed .roles-chart-controls {
   right: 12px;
 }
-.trust-agents-main--list {
+.company-agents-main--list {
   align-self: start;
   max-height: 100%;
 }
-.trust-agents-main--chart {
+.company-agents-main--chart {
   align-self: stretch;
 }
 
 /* Agents register — flat table section on the elevated workspace.
    The list remains the default view because agents are operational
    records first: scan identity, model, status, recency, and spend. */
-.trust-agents-register {
+.company-agents-register {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
@@ -92,16 +92,16 @@
   min-height: 0;
   overflow: hidden;
 }
-.trust-agents-register.trust-primitive-shell-surface {
+.company-agents-register.company-primitive-shell-surface {
   grid-area: auto;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
 }
-.trust-agents-main--list .trust-agents-register {
+.company-agents-main--list .company-agents-register {
   flex: 0 0 auto;
 }
-.trust-agents-register-body {
+.company-agents-register-body {
   margin: 0;
   flex: 1 1 auto;
   min-height: 320px;
@@ -111,11 +111,11 @@
   overflow-x: auto;
   overflow-y: visible;
 }
-.trust-agents-main--list .trust-agents-register-body {
+.company-agents-main--list .company-agents-register-body {
   flex: 0 0 auto;
   min-height: 0;
 }
-.trust-agents-register-body .ideas-list-body {
+.company-agents-register-body .ideas-list-body {
   min-height: 260px;
   background: transparent;
 }
@@ -123,7 +123,7 @@
 /* Suggested agents — the recessed floor of the agents workspace. The
    register owns primary/live data; this band holds secondary capacity
    from real templates without becoming a separate floating slab. */
-.trust-agents-suggest {
+.company-agents-suggest {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -139,7 +139,7 @@
     inset 0 -1px 0 color-mix(in srgb, var(--color-border-faint) 84%, transparent);
   overflow: hidden;
 }
-.trust-agents-suggest-head {
+.company-agents-suggest-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -147,7 +147,7 @@
   min-height: 0;
   padding: 0;
 }
-.trust-agents-suggest-titles {
+.company-agents-suggest-titles {
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -157,13 +157,13 @@
    not a marketing block. Quantifier badge uses the same tabular-nums
    monospace pill as `.quest-col-count` so the visual register matches
    the boards above. */
-.trust-agents-suggest-title-row {
+.company-agents-suggest-title-row {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
 }
-.trust-agents-suggest-title {
+.company-agents-suggest-title {
   margin: 0;
   font-family: var(--font-sans);
   font-size: 13.5px;
@@ -174,7 +174,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.trust-agents-suggest-count {
+.company-agents-suggest-count {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -192,18 +192,18 @@
   line-height: 1;
   flex-shrink: 0;
 }
-.trust-agents-suggest-all {
+.company-agents-suggest-all {
   flex-shrink: 0;
   background: var(--color-card-elevated);
 }
-.trust-agents-suggest-grid {
+.company-agents-suggest-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 360px));
   justify-content: start;
   gap: var(--space-2);
   margin: 0;
 }
-.trust-agents-suggest-state {
+.company-agents-suggest-state {
   display: flex;
   align-items: center;
   min-height: 96px;
@@ -215,7 +215,7 @@
   line-height: 1.35;
   box-shadow: inset 0 0 0 1px var(--border);
 }
-.trust-agents-suggest-card {
+.company-agents-suggest-card {
   appearance: none;
   border: 0;
   text-align: left;
@@ -237,37 +237,37 @@
     box-shadow 0.12s ease;
 }
 /* Hover uses a quiet tier shift; the workspace owns the elevation. */
-.trust-agents-suggest-card:hover {
+.company-agents-suggest-card:hover {
   background: var(--color-card-elevated);
   box-shadow:
     inset 0 0 0 1px var(--border-hover),
     var(--shadow-sm);
 }
-.trust-agents-suggest-card:hover .trust-agents-suggest-card-cta {
+.company-agents-suggest-card:hover .company-agents-suggest-card-cta {
   color: var(--color-text-primary);
   transform: translateX(1px);
 }
-.trust-agents-suggest-card:focus-visible {
+.company-agents-suggest-card:focus-visible {
   outline: none;
   box-shadow: inset 0 0 0 2px var(--color-accent);
   position: relative;
   z-index: 1;
 }
-.trust-agents-suggest-card-title {
+.company-agents-suggest-card-title {
   margin: 0;
   font-family: var(--font-sans);
   font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--color-text-primary);
 }
-.trust-agents-suggest-card-desc {
+.company-agents-suggest-card-desc {
   margin: 0;
   font-family: var(--font-sans);
   font-size: 12px;
   color: var(--color-text-muted);
   line-height: 1.35;
 }
-.trust-agents-suggest-card-meta {
+.company-agents-suggest-card-meta {
   margin: 0;
   font-family: var(--font-sans);
   font-size: 11px;
@@ -277,7 +277,7 @@
 }
 /* Quiet inline action — no dashed-border hairline. The card itself is the
    surface that lights up; the CTA is just a labeled affordance. */
-.trust-agents-suggest-card-cta {
+.company-agents-suggest-card-cta {
   align-self: flex-start;
   display: inline-flex;
   align-items: center;
@@ -293,7 +293,7 @@
 }
 
 @media (max-width: 900px) {
-  .trust-agents-suggest-grid {
+  .company-agents-suggest-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }

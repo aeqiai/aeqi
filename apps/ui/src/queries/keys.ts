@@ -20,7 +20,7 @@ export const channelKeys = {
 };
 
 export const trustKeys = {
-  all: ["trusts"] as const,
+  all: ["companies"] as const,
 };
 
 export const entityKeys = trustKeys;

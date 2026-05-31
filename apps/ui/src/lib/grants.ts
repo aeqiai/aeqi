@@ -29,7 +29,7 @@ export const GRANT_CATALOG = [
   {
     id: "settings.modify",
     label: "Modify settings",
-    desc: "Change TRUST name, billing, integrations",
+    desc: "Change COMPANY name, billing, integrations",
   },
 ] as const;
 

@@ -32,7 +32,7 @@ The runtime must not require:
 - platform user/session tables
 - platform-owned OAuth or payment products
 
-Per [primitive-contract.md](primitive-contract.md), TRUST is the top-level
+Per [primitive-contract.md](primitive-contract.md), COMPANY is the top-level
 product term for the mission workspace and runtime. Company remains a
 runtime/API-adjacent term for business-shaped entities; it is not a hosted-only
 concept.

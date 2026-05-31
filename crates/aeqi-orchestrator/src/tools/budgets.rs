@@ -8,7 +8,7 @@
 //! ## Auth model
 //!
 //! - **Reads** (`list`, `tree`, `show`, `history`) — any agent in the
-//!   trust.
+//!   company.
 //! - **Mutations** (`create`, `allocate`, `spend_treasury`, `set_policy`,
 //!   `hire`, `dissolve`) — caller's role must occupy the budget's
 //!   owner role. `BudgetRegistry` enforces this on every write; the tool
@@ -19,8 +19,8 @@
 //!
 //! Authority is anchored on the **calling agent**: `agent_id` is
 //! closure-captured at registration time so the LLM cannot forge identity
-//! via args. The trust the agent acts in is read from the agent's
-//! `trust_id`.
+//! via args. The company the agent acts in is read from the agent's
+//! `company_id`.
 
 use aeqi_core::traits::{Tool, ToolResult, ToolSpec};
 use anyhow::Result;
@@ -58,29 +58,29 @@ impl BudgetsTool {
         BudgetRegistry::open(self.agent_registry.db())
     }
 
-    /// Resolve the trust the calling agent acts in.
-    async fn resolve_trust(&self) -> Result<String> {
+    /// Resolve the company the calling agent acts in.
+    async fn resolve_company(&self) -> Result<String> {
         let agent = self
             .agent_registry
             .resolve_by_hint(&self.agent_id)
             .await?
             .ok_or_else(|| anyhow::anyhow!("calling agent not found: {}", self.agent_id))?;
         agent
-            .trust_id
-            .ok_or_else(|| anyhow::anyhow!("agent has no entity (cannot act in any trust)"))
+            .company_id
+            .ok_or_else(|| anyhow::anyhow!("agent has no entity (cannot act in any company)"))
     }
 
-    /// Find the role the agent occupies in the trust. Multi-role agents
+    /// Find the role the agent occupies in the company. Multi-role agents
     /// pass `as_role_id`. Returns the role id or an error response the
     /// caller should bubble back.
     async fn caller_role(
         &self,
-        trust_id: &str,
+        company_id: &str,
         explicit: Option<&str>,
     ) -> Result<String, ToolResult> {
         let (roles, _edges) = self
             .role_registry
-            .list_for_entity_with_grants(trust_id)
+            .list_for_entity_with_grants(company_id)
             .await
             .map_err(|e| ToolResult::error(format!("list roles: {e}")))?;
         let occupied: Vec<String> = roles
@@ -99,7 +99,7 @@ impl BudgetsTool {
         }
         match occupied.len() {
             0 => Err(ToolResult::error(
-                "agent occupies no role in this trust — no authority to spend",
+                "agent occupies no role in this company — no authority to spend",
             )),
             1 => Ok(occupied.into_iter().next().unwrap()),
             _ => Err(ToolResult::error(format!(
@@ -147,8 +147,8 @@ impl BudgetsTool {
     // ── Read actions ─────────────────────────────────────────────────────
 
     async fn action_list(&self, args: &serde_json::Value) -> Result<ToolResult> {
-        let trust_id = self
-            .resolve_trust()
+        let company_id = self
+            .resolve_company()
             .await
             .map_err(|e| anyhow::anyhow!("{e}"))?;
         let owner = args
@@ -163,12 +163,12 @@ impl BudgetsTool {
 
         let budgets = self
             .registry()
-            .list_budgets(&trust_id, owner, parent, only_primary)
+            .list_budgets(&company_id, owner, parent, only_primary)
             .await?;
         Ok(
             ToolResult::success(format!("{} budget(s)", budgets.len())).with_data(
                 serde_json::json!({
-                    "trust_id": trust_id,
+                    "company_id": company_id,
                     "budgets": budgets,
                 }),
             ),
@@ -176,11 +176,11 @@ impl BudgetsTool {
     }
 
     async fn action_tree(&self) -> Result<ToolResult> {
-        let trust_id = self
-            .resolve_trust()
+        let company_id = self
+            .resolve_company()
             .await
             .map_err(|e| anyhow::anyhow!("{e}"))?;
-        let tree = self.registry().budget_tree(&trust_id).await?;
+        let tree = self.registry().budget_tree(&company_id).await?;
         Ok(ToolResult::success(format!(
             "Budget DAG: {} nodes, {} edges",
             tree.nodes.len(),
@@ -250,12 +250,12 @@ impl BudgetsTool {
     // ── Write actions ────────────────────────────────────────────────────
 
     async fn action_create(&self, args: &serde_json::Value) -> Result<ToolResult> {
-        let trust_id = self
-            .resolve_trust()
+        let company_id = self
+            .resolve_company()
             .await
             .map_err(|e| anyhow::anyhow!("{e}"))?;
         let caller_role = match self
-            .caller_role(&trust_id, Self::explicit_role(args).as_deref())
+            .caller_role(&company_id, Self::explicit_role(args).as_deref())
             .await
         {
             Ok(r) => r,
@@ -282,7 +282,7 @@ impl BudgetsTool {
         match self
             .registry()
             .create_budget(
-                &trust_id,
+                &company_id,
                 parent,
                 &owner_role_id,
                 &name,
@@ -297,7 +297,7 @@ impl BudgetsTool {
                 ToolResult::success(format!("Created budget {name} ({id})")).with_data(
                     serde_json::json!({
                         "budget_id": id,
-                        "trust_id": trust_id,
+                        "company_id": company_id,
                     }),
                 ),
             ),
@@ -306,12 +306,12 @@ impl BudgetsTool {
     }
 
     async fn action_allocate(&self, args: &serde_json::Value) -> Result<ToolResult> {
-        let trust_id = self
-            .resolve_trust()
+        let company_id = self
+            .resolve_company()
             .await
             .map_err(|e| anyhow::anyhow!("{e}"))?;
         let caller_role = match self
-            .caller_role(&trust_id, Self::explicit_role(args).as_deref())
+            .caller_role(&company_id, Self::explicit_role(args).as_deref())
             .await
         {
             Ok(r) => r,
@@ -347,12 +347,12 @@ impl BudgetsTool {
     }
 
     async fn action_spend_treasury(&self, args: &serde_json::Value) -> Result<ToolResult> {
-        let trust_id = self
-            .resolve_trust()
+        let company_id = self
+            .resolve_company()
             .await
             .map_err(|e| anyhow::anyhow!("{e}"))?;
         let caller_role = match self
-            .caller_role(&trust_id, Self::explicit_role(args).as_deref())
+            .caller_role(&company_id, Self::explicit_role(args).as_deref())
             .await
         {
             Ok(r) => r,
@@ -396,12 +396,12 @@ impl BudgetsTool {
     }
 
     async fn action_set_policy(&self, args: &serde_json::Value) -> Result<ToolResult> {
-        let trust_id = self
-            .resolve_trust()
+        let company_id = self
+            .resolve_company()
             .await
             .map_err(|e| anyhow::anyhow!("{e}"))?;
         let caller_role = match self
-            .caller_role(&trust_id, Self::explicit_role(args).as_deref())
+            .caller_role(&company_id, Self::explicit_role(args).as_deref())
             .await
         {
             Ok(r) => r,
@@ -466,12 +466,12 @@ impl BudgetsTool {
     }
 
     async fn action_hire(&self, args: &serde_json::Value) -> Result<ToolResult> {
-        let trust_id = self
-            .resolve_trust()
+        let company_id = self
+            .resolve_company()
             .await
             .map_err(|e| anyhow::anyhow!("{e}"))?;
         let caller_role = match self
-            .caller_role(&trust_id, Self::explicit_role(args).as_deref())
+            .caller_role(&company_id, Self::explicit_role(args).as_deref())
             .await
         {
             Ok(r) => r,
@@ -538,12 +538,12 @@ impl BudgetsTool {
     }
 
     async fn action_dissolve(&self, args: &serde_json::Value) -> Result<ToolResult> {
-        let trust_id = self
-            .resolve_trust()
+        let company_id = self
+            .resolve_company()
             .await
             .map_err(|e| anyhow::anyhow!("{e}"))?;
         let caller_role = match self
-            .caller_role(&trust_id, Self::explicit_role(args).as_deref())
+            .caller_role(&company_id, Self::explicit_role(args).as_deref())
             .await
         {
             Ok(r) => r,
@@ -594,7 +594,7 @@ impl Tool for BudgetsTool {
         ToolSpec {
             name: "budgets".to_string(),
             description:
-                "Read or modify budgets in the calling agent's trust (company). \
+                "Read or modify budgets in the calling agent's company (company). \
                  Budgets are the cost-center primitive — each owned by exactly one role; \
                  the occupant of that role spends from it. \
                  Reads: `list`, `tree` (DAG), `show` (one budget + current allowance), `history` (events). \

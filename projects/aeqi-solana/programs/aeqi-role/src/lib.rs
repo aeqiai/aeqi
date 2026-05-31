@@ -16,7 +16,7 @@
 // lints. Keep this crate's warning output focused on protocol code.
 #![allow(deprecated, unexpected_cfgs)]
 
-use aeqi_trust::state::Trust;
+use aeqi_company::state::Company;
 use anchor_lang::prelude::*;
 
 declare_id!("4GSrvANBi1yrn3w4VgoxvVz7pH9BdR8MeyUpH4ZcGXpB");
@@ -29,9 +29,9 @@ pub use state::*;
 
 pub const MAX_AUTHORITY_WALK: usize = 8;
 
-/// aeqi_trust program id — used for cross-program PDA derivation so module
-/// setup paths cannot accept arbitrary trust pubkeys.
-pub const AEQI_TRUST_ID: Pubkey =
+/// aeqi_company program id — used for cross-program PDA derivation so module
+/// setup paths cannot accept arbitrary company pubkeys.
+pub const AEQI_COMPANY_ID: Pubkey =
     anchor_lang::pubkey!("CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV");
 
 #[program]
@@ -39,26 +39,26 @@ pub mod aeqi_role {
     use super::*;
 
     /// Module init — called by `aeqi_factory` during template instantiation.
-    /// Stores the parent TRUST and initializes the module state PDA.
-    /// Gated to the trust authority during creation mode so the
+    /// Stores the parent COMPANY and initializes the module state PDA.
+    /// Gated to the company authority during creation mode so the
     /// module_state PDA cannot be squatted by an attacker.
     pub fn init(ctx: Context<InitModule>) -> Result<()> {
-        let trust = &ctx.accounts.trust;
-        require!(trust.creation_mode, AeqiRoleError::TrustNotInCreationMode);
-        require_keys_eq!(ctx.accounts.payer.key(), trust.authority, AeqiRoleError::Unauthorized);
+        let company = &ctx.accounts.company;
+        require!(company.creation_mode, AeqiRoleError::CompanyNotInCreationMode);
+        require_keys_eq!(ctx.accounts.payer.key(), company.authority, AeqiRoleError::Unauthorized);
 
         let module = &mut ctx.accounts.module_state;
-        module.trust = ctx.accounts.trust.key();
+        module.company = ctx.accounts.company.key();
         module.initialized = true;
         module.bump = ctx.bumps.module_state;
         Ok(())
     }
 
     /// Module finalize — borsh-deserializes the role-module config from the
-    /// TRUST `BytesConfig` slot under `ROLE_CONFIG_KEY` and pre-creates any
+    /// COMPANY `BytesConfig` slot under `ROLE_CONFIG_KEY` and pre-creates any
     /// role types declared at template time.
     pub fn finalize(_ctx: Context<FinalizeModule>) -> Result<()> {
-        // Real impl: read trust BytesConfig at ROLE_CONFIG_KEY, borsh-decode
+        // Real impl: read company BytesConfig at ROLE_CONFIG_KEY, borsh-decode
         // into Vec<RoleTypeInit>, create the RoleType PDAs declared at
         // template time. Skeleton.
         Ok(())
@@ -73,18 +73,18 @@ pub mod aeqi_role {
         config: RoleTypeConfig,
     ) -> Result<()> {
         let rt = &mut ctx.accounts.role_type;
-        rt.trust = ctx.accounts.trust.key();
+        rt.company = ctx.accounts.company.key();
         rt.role_type_id = role_type_id;
         rt.hierarchy = hierarchy;
         rt.config = config;
         rt.role_count = 0;
         rt.bump = ctx.bumps.role_type;
-        emit!(RoleTypeCreated { trust: rt.trust, role_type_id, hierarchy });
+        emit!(RoleTypeCreated { company: rt.company, role_type_id, hierarchy });
         Ok(())
     }
 
     /// Create a new role under a parent role. Authority: caller must hold a
-    /// role that is an ancestor of `parent_role_id` (or be the TRUST authority
+    /// role that is an ancestor of `parent_role_id` (or be the COMPANY authority
     /// during creation mode). The off-chain client supplies the ancestor walk
     /// in `remaining_accounts`.
     pub fn create_role<'info>(
@@ -95,7 +95,7 @@ pub mod aeqi_role {
         ipfs_cid: [u8; 64],
     ) -> Result<()> {
         gate_role_creation(
-            ctx.accounts.trust.key(),
+            ctx.accounts.company.key(),
             &ctx.accounts.role_type,
             ctx.accounts.caller_role.as_ref(),
             ctx.accounts.payer.key(),
@@ -104,7 +104,7 @@ pub mod aeqi_role {
         )?;
 
         let role = &mut ctx.accounts.role;
-        role.trust = ctx.accounts.trust.key();
+        role.company = ctx.accounts.company.key();
         role.role_id = role_id;
         role.role_type_id = role_type_id;
         role.account = Pubkey::default();
@@ -118,7 +118,7 @@ pub mod aeqi_role {
         bump_role_count(rt)?;
 
         emit!(RoleCreated {
-            trust: role.trust,
+            company: role.company,
             role_id,
             role_type_id,
             parent_role_id: role.parent_role_id,
@@ -156,7 +156,7 @@ pub mod aeqi_role {
             1,
         )?;
 
-        emit!(RoleAssigned { trust: role.trust, role_id: role.role_id, account });
+        emit!(RoleAssigned { company: role.company, role_id: role.role_id, account });
         Ok(())
     }
 
@@ -181,7 +181,7 @@ pub mod aeqi_role {
             -1,
         )?;
 
-        emit!(RoleResigned { trust: role.trust, role_id: role.role_id, from: prev_account });
+        emit!(RoleResigned { company: role.company, role_id: role.role_id, from: prev_account });
         Ok(())
     }
 
@@ -218,7 +218,7 @@ pub mod aeqi_role {
         )?;
 
         emit!(RoleTransferred {
-            trust: role.trust,
+            company: role.company,
             role_id: role.role_id,
             from: prev_account,
             to: new_account,
@@ -244,19 +244,19 @@ pub mod aeqi_role {
         let prev =
             if deleg.delegatee == Pubkey::default() { role.account } else { deleg.delegatee };
         if prev == delegatee {
-            deleg.trust = role.trust;
+            deleg.company = role.company;
             deleg.role_id = role.role_id;
             deleg.delegatee = delegatee;
             deleg.bump = ctx.bumps.delegation;
             emit!(RoleDelegated {
-                trust: role.trust,
+                company: role.company,
                 role_id: role.role_id,
                 from: prev,
                 to: delegatee,
             });
             return Ok(());
         }
-        deleg.trust = role.trust;
+        deleg.company = role.company;
         deleg.role_id = role.role_id;
         deleg.delegatee = delegatee;
         deleg.bump = ctx.bumps.delegation;
@@ -272,7 +272,7 @@ pub mod aeqi_role {
         )?;
 
         emit!(RoleDelegated {
-            trust: role.trust,
+            company: role.company,
             role_id: role.role_id,
             from: prev,
             to: delegatee,
@@ -310,7 +310,7 @@ fn check_authority_walk<'info>(
     for (i, acc) in remaining.iter().take(MAX_AUTHORITY_WALK).enumerate() {
         let role: Account<Role> =
             Account::try_from(acc).map_err(|_| AeqiRoleError::InvalidAuthorityWalk)?;
-        require!(role.trust == caller_role.trust, AeqiRoleError::InvalidAuthorityWalk);
+        require!(role.company == caller_role.company, AeqiRoleError::InvalidAuthorityWalk);
         require!(role.role_id == expected_id, AeqiRoleError::InvalidAuthorityWalk);
         // Hit the caller in the target's ancestor chain → authorized.
         if role.role_id == caller_role.role_id {
@@ -328,7 +328,7 @@ fn check_authority_walk<'info>(
 }
 
 fn gate_role_creation<'info>(
-    trust: Pubkey,
+    company: Pubkey,
     role_type: &Account<'info, RoleType>,
     caller_role: Option<&Account<'info, Role>>,
     payer: Pubkey,
@@ -337,7 +337,7 @@ fn gate_role_creation<'info>(
 ) -> Result<()> {
     match caller_role {
         Some(caller_role) => {
-            require!(caller_role.trust == trust, AeqiRoleError::Unauthorized);
+            require!(caller_role.company == company, AeqiRoleError::Unauthorized);
             require!(caller_role.status == RoleStatus::Occupied as u8, AeqiRoleError::Unauthorized);
             require_keys_eq!(caller_role.account, payer, AeqiRoleError::Unauthorized);
             if let Some(parent) = parent_role_id {
@@ -361,12 +361,12 @@ fn gate_role_assignment<'info>(
     assignee: Pubkey,
     remaining: &'info [AccountInfo<'info>],
 ) -> Result<()> {
-    require!(role_type.trust == role.trust, AeqiRoleError::Unauthorized);
+    require!(role_type.company == role.company, AeqiRoleError::Unauthorized);
     require!(role.role_type_id == role_type.role_type_id, AeqiRoleError::Unauthorized);
 
     match caller_role {
         Some(caller_role) => {
-            require!(caller_role.trust == role.trust, AeqiRoleError::Unauthorized);
+            require!(caller_role.company == role.company, AeqiRoleError::Unauthorized);
             require!(caller_role.status == RoleStatus::Occupied as u8, AeqiRoleError::Unauthorized);
             require_keys_eq!(caller_role.account, payer, AeqiRoleError::Unauthorized);
             if role.parent_role_id != [0u8; 32] {
@@ -403,7 +403,7 @@ fn bump_checkpoint(
 }
 
 fn require_role_type_matches(role: &Role, role_type: &RoleType) -> Result<()> {
-    require_keys_eq!(role_type.trust, role.trust, AeqiRoleError::RoleTypeMismatch);
+    require_keys_eq!(role_type.company, role.company, AeqiRoleError::RoleTypeMismatch);
     require!(role_type.role_type_id == role.role_type_id, AeqiRoleError::RoleTypeMismatch);
     Ok(())
 }
@@ -420,21 +420,21 @@ fn bump_role_count(role_type: &mut Account<RoleType>) -> Result<()> {
 
 #[derive(Accounts)]
 pub struct InitModule<'info> {
-    /// Trust PDA — must be a real Trust account owned by aeqi_trust.
-    /// `seeds::program` binds derivation to the aeqi_trust program ID and
-    /// the `Account<Trust>` typing forces deserialization, preventing PDA
-    /// squatting / fake-trust attacks on the module_state slot.
+    /// Company PDA — must be a real Company account owned by aeqi_company.
+    /// `seeds::program` binds derivation to the aeqi_company program ID and
+    /// the `Account<Company>` typing forces deserialization, preventing PDA
+    /// squatting / fake-company attacks on the module_state slot.
     #[account(
-        seeds = [b"trust", trust.trust_id.as_ref()],
-        bump = trust.bump,
-        seeds::program = AEQI_TRUST_ID,
+        seeds = [b"company", company.company_id.as_ref()],
+        bump = company.bump,
+        seeds::program = AEQI_COMPANY_ID,
     )]
-    pub trust: Account<'info, Trust>,
+    pub company: Account<'info, Company>,
     #[account(
         init,
         payer = payer,
         space = 8 + RoleModuleState::INIT_SPACE,
-        seeds = [b"role_module", trust.key().as_ref()],
+        seeds = [b"role_module", company.key().as_ref()],
         bump,
     )]
     pub module_state: Account<'info, RoleModuleState>,
@@ -445,9 +445,9 @@ pub struct InitModule<'info> {
 
 #[derive(Accounts)]
 pub struct FinalizeModule<'info> {
-    /// CHECK: cross-program TRUST account.
-    pub trust: AccountInfo<'info>,
-    #[account(seeds = [b"role_module", trust.key().as_ref()], bump = module_state.bump)]
+    /// CHECK: cross-program COMPANY account.
+    pub company: AccountInfo<'info>,
+    #[account(seeds = [b"role_module", company.key().as_ref()], bump = module_state.bump)]
     pub module_state: Account<'info, RoleModuleState>,
 }
 
@@ -455,12 +455,12 @@ pub struct FinalizeModule<'info> {
 #[instruction(role_type_id: [u8; 32])]
 pub struct CreateRoleType<'info> {
     /// CHECK: validated by seeds.
-    pub trust: AccountInfo<'info>,
+    pub company: AccountInfo<'info>,
     #[account(
         init,
         payer = payer,
         space = 8 + RoleType::INIT_SPACE,
-        seeds = [b"role_type", trust.key().as_ref(), role_type_id.as_ref()],
+        seeds = [b"role_type", company.key().as_ref(), role_type_id.as_ref()],
         bump,
     )]
     pub role_type: Account<'info, RoleType>,
@@ -472,12 +472,12 @@ pub struct CreateRoleType<'info> {
 #[derive(Accounts)]
 #[instruction(role_id: [u8; 32], role_type_id: [u8; 32])]
 pub struct CreateRole<'info> {
-    /// CHECK: trust pda — used only as the seed namespace for the role +
+    /// CHECK: company pda — used only as the seed namespace for the role +
     /// role_type PDAs. Authority gating is handled via the caller_role walk.
-    pub trust: UncheckedAccount<'info>,
+    pub company: UncheckedAccount<'info>,
     #[account(
         mut,
-        seeds = [b"role_type", trust.key().as_ref(), role_type_id.as_ref()],
+        seeds = [b"role_type", company.key().as_ref(), role_type_id.as_ref()],
         bump = role_type.bump,
     )]
     pub role_type: Account<'info, RoleType>,
@@ -485,7 +485,7 @@ pub struct CreateRole<'info> {
         init,
         payer = payer,
         space = 8 + Role::INIT_SPACE,
-        seeds = [b"role", trust.key().as_ref(), role_id.as_ref()],
+        seeds = [b"role", company.key().as_ref(), role_id.as_ref()],
         bump,
     )]
     pub role: Account<'info, Role>,
@@ -499,11 +499,11 @@ pub struct CreateRole<'info> {
 #[derive(Accounts)]
 #[instruction(account: Pubkey)]
 pub struct AssignRole<'info> {
-    #[account(mut, has_one = trust)]
+    #[account(mut, has_one = company)]
     pub role: Account<'info, Role>,
     pub role_type: Account<'info, RoleType>,
     /// CHECK: structural.
-    pub trust: AccountInfo<'info>,
+    pub company: AccountInfo<'info>,
     /// The role held by the caller. Omitted only for first root-role
     /// self-assignment bootstrap.
     pub caller_role: Option<Account<'info, Role>>,
@@ -516,7 +516,7 @@ pub struct AssignRole<'info> {
         init_if_needed,
         payer = payer,
         space = 8 + RoleVoteCheckpoint::INIT_SPACE,
-        seeds = [b"role_ckpt", trust.key().as_ref(), role_type.role_type_id.as_ref(), account.as_ref()],
+        seeds = [b"role_ckpt", company.key().as_ref(), role_type.role_type_id.as_ref(), account.as_ref()],
         bump,
     )]
     pub checkpoint: Account<'info, RoleVoteCheckpoint>,
@@ -527,14 +527,14 @@ pub struct AssignRole<'info> {
 
 #[derive(Accounts)]
 pub struct ResignRole<'info> {
-    #[account(mut, has_one = trust)]
+    #[account(mut, has_one = company)]
     pub role: Account<'info, Role>,
     pub role_type: Account<'info, RoleType>,
-    /// CHECK: trust pda — used as seed for the checkpoint.
-    pub trust: UncheckedAccount<'info>,
+    /// CHECK: company pda — used as seed for the checkpoint.
+    pub company: UncheckedAccount<'info>,
     #[account(
         mut,
-        seeds = [b"role_ckpt", trust.key().as_ref(), role_type.role_type_id.as_ref(), role.account.as_ref()],
+        seeds = [b"role_ckpt", company.key().as_ref(), role_type.role_type_id.as_ref(), role.account.as_ref()],
         bump,
     )]
     pub checkpoint: Account<'info, RoleVoteCheckpoint>,
@@ -544,14 +544,14 @@ pub struct ResignRole<'info> {
 
 #[derive(Accounts)]
 pub struct TransferRole<'info> {
-    #[account(mut, has_one = trust)]
+    #[account(mut, has_one = company)]
     pub role: Account<'info, Role>,
     pub role_type: Account<'info, RoleType>,
-    /// CHECK: trust pda — used as seed for checkpoints.
-    pub trust: UncheckedAccount<'info>,
+    /// CHECK: company pda — used as seed for checkpoints.
+    pub company: UncheckedAccount<'info>,
     #[account(
         mut,
-        seeds = [b"role_ckpt", trust.key().as_ref(), role_type.role_type_id.as_ref(), role.account.as_ref()],
+        seeds = [b"role_ckpt", company.key().as_ref(), role_type.role_type_id.as_ref(), role.account.as_ref()],
         bump,
     )]
     pub prev_checkpoint: Account<'info, RoleVoteCheckpoint>,
@@ -559,7 +559,7 @@ pub struct TransferRole<'info> {
         init_if_needed,
         payer = payer,
         space = 8 + RoleVoteCheckpoint::INIT_SPACE,
-        seeds = [b"role_ckpt", trust.key().as_ref(), role_type.role_type_id.as_ref(), new_account.key().as_ref()],
+        seeds = [b"role_ckpt", company.key().as_ref(), role_type.role_type_id.as_ref(), new_account.key().as_ref()],
         bump,
     )]
     pub new_checkpoint: Account<'info, RoleVoteCheckpoint>,
@@ -578,7 +578,7 @@ pub struct DelegateRole<'info> {
         init_if_needed,
         payer = payer,
         space = 8 + RoleDelegation::INIT_SPACE,
-        seeds = [b"role_deleg", role.trust.as_ref(), role.role_id.as_ref()],
+        seeds = [b"role_deleg", role.company.as_ref(), role.role_id.as_ref()],
         bump,
     )]
     pub delegation: Account<'info, RoleDelegation>,
@@ -590,7 +590,7 @@ pub struct DelegateRole<'info> {
         init_if_needed,
         payer = payer,
         space = 8 + RoleVoteCheckpoint::INIT_SPACE,
-        seeds = [b"role_ckpt", role.trust.as_ref(), role_type.role_type_id.as_ref(), new_delegatee.key().as_ref()],
+        seeds = [b"role_ckpt", role.company.as_ref(), role_type.role_type_id.as_ref(), new_delegatee.key().as_ref()],
         bump,
     )]
     pub new_checkpoint: Account<'info, RoleVoteCheckpoint>,
@@ -613,14 +613,14 @@ pub struct GetPastRoleVotes<'info> {
 
 #[event]
 pub struct RoleTypeCreated {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub role_type_id: [u8; 32],
     pub hierarchy: u32,
 }
 
 #[event]
 pub struct RoleCreated {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub role_id: [u8; 32],
     pub role_type_id: [u8; 32],
     pub parent_role_id: [u8; 32],
@@ -628,14 +628,14 @@ pub struct RoleCreated {
 
 #[event]
 pub struct RoleAssigned {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub role_id: [u8; 32],
     pub account: Pubkey,
 }
 
 #[event]
 pub struct RoleTransferred {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub role_id: [u8; 32],
     pub from: Pubkey,
     pub to: Pubkey,
@@ -643,14 +643,14 @@ pub struct RoleTransferred {
 
 #[event]
 pub struct RoleResigned {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub role_id: [u8; 32],
     pub from: Pubkey,
 }
 
 #[event]
 pub struct RoleDelegated {
-    pub trust: Pubkey,
+    pub company: Pubkey,
     pub role_id: [u8; 32],
     pub from: Pubkey,
     pub to: Pubkey,

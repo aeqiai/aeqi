@@ -71,13 +71,13 @@ export function buildMemberRows({
   roles,
   invitations,
   roleTitleById,
-  trustId,
+  companyId,
   user,
 }: {
   roles: Role[];
   invitations: RoleInvitation[];
   roleTitleById: Map<string, string>;
-  trustId: string;
+  companyId: string;
   user: {
     id?: string;
     email?: string;
@@ -117,7 +117,7 @@ export function buildMemberRows({
 
   const rows = [...byHumanId.values()];
 
-  if (user?.id && hasTrustAccess(user, trustId) && !byHumanId.has(user.id)) {
+  if (user?.id && hasCompanyAccess(user, companyId) && !byHumanId.has(user.id)) {
     rows.push({
       id: `human:${user.id}:self`,
       name: user.name || user.email || "You",
@@ -230,8 +230,13 @@ function latestTimestamp(a: string | null, b: string | null): string | null {
   return tb > ta ? b : a;
 }
 
-function hasTrustAccess(user: { roots?: string[]; entities?: string[] }, trustId: string): boolean {
-  return !!trustId && (user.roots?.includes(trustId) || user.entities?.includes(trustId) || false);
+function hasCompanyAccess(
+  user: { roots?: string[]; entities?: string[] },
+  companyId: string,
+): boolean {
+  return (
+    !!companyId && (user.roots?.includes(companyId) || user.entities?.includes(companyId) || false)
+  );
 }
 
 function invitationTarget(invitation: RoleInvitation): string {

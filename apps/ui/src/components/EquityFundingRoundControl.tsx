@@ -6,8 +6,8 @@ import type { FundingRequestWithPda } from "@/solana";
 import "./EquityFundingRoundControl.css";
 
 interface EquityFundingRoundControlProps {
-  trustId: string;
-  /** Declared funding rounds for this TRUST (on-chain reads). */
+  companyId: string;
+  /** Declared funding rounds for this COMPANY (on-chain reads). */
   declaredRounds?: FundingRequestWithPda[];
 }
 
@@ -35,7 +35,7 @@ const KIND_OPTIONS: { value: FundingKind; label: string; help: string }[] = [
 ];
 
 /**
- * Declare a funding round against the TRUST. Activation (start a sale /
+ * Declare a funding round against the COMPANY. Activation (start a sale /
  * curve / exit) is a separate ix and lands in a follow-up ship. The
  * platform handler keccak256-hashes free-text budget labels into the
  * 32-byte on-chain budget identifier.
@@ -45,7 +45,7 @@ const KIND_OPTIONS: { value: FundingKind; label: string; help: string }[] = [
  * retries. Operators don't have to think about the one-time init step.
  */
 export default function EquityFundingRoundControl({
-  trustId,
+  companyId,
   declaredRounds = [],
 }: EquityFundingRoundControlProps) {
   const [kind, setKind] = useState<FundingKind>(0);
@@ -80,7 +80,7 @@ export default function EquityFundingRoundControl({
     try {
       const callCreate = () =>
         api.fundingRequestCreate({
-          entity_id: trustId,
+          entity_id: companyId,
           kind,
           budget_id: budgetIdInput.trim(),
           asset_amount: assetBase,
@@ -97,7 +97,7 @@ export default function EquityFundingRoundControl({
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         if (/funding_module|module_state|account.*not.*found|AccountNotInitialized/i.test(msg)) {
-          await api.fundingModuleInit({ entity_id: trustId });
+          await api.fundingModuleInit({ entity_id: companyId });
           const res = await callCreate();
           setResult({
             ok: true,
@@ -138,7 +138,7 @@ export default function EquityFundingRoundControl({
       title="Funding round"
       description="Declare an on-chain capital raise sourced from a Budget. Activation lands separately."
     >
-      <DeclaredRoundsList rounds={sortedRounds} trustId={trustId} />
+      <DeclaredRoundsList rounds={sortedRounds} companyId={companyId} />
       <form className="equity-funding-form" onSubmit={handleSubmit}>
         <div className="equity-funding-row">
           <label className="equity-funding-label" htmlFor="equity-funding-kind">
@@ -300,13 +300,13 @@ const ACTIVATION_KIND_COPY: Record<number, { headline: string; explainer: string
 function ActivateRoundModal({
   open,
   onClose,
-  trustId,
+  companyId,
   round,
   onActivated,
 }: {
   open: boolean;
   onClose: () => void;
-  trustId: string;
+  companyId: string;
   round: FundingRequestWithPda | null;
   /**
    * Iter-7: fire after a successful activation so the parent
@@ -340,7 +340,7 @@ function ActivateRoundModal({
     setResult(null);
     try {
       const res = await api.fundingActivate({
-        entity_id: trustId,
+        entity_id: companyId,
         request_id: requestIdHex,
       });
       setResult({
@@ -410,10 +410,10 @@ function ActivateRoundModal({
 
 function DeclaredRoundsList({
   rounds,
-  trustId,
+  companyId,
 }: {
   rounds: FundingRequestWithPda[];
-  trustId: string;
+  companyId: string;
 }) {
   const [activating, setActivating] = useState<FundingRequestWithPda | null>(null);
 
@@ -433,7 +433,7 @@ function DeclaredRoundsList({
   const [activatedLocal, setActivatedLocal] = useState<Record<string, string>>({});
 
   /**
-   * Iter-8: hide-history toggle. Once a TRUST has been operating for a
+   * Iter-8: hide-history toggle. Once a COMPANY has been operating for a
    * while the declared-rounds list grows past the visible top —
    * cancelled and finalized rounds are historical record, not active
    * work. Default ON so the operator opens the section to "what's live
@@ -658,7 +658,7 @@ function DeclaredRoundsList({
                      summary; the primitive's full ledger lives on
                      explorer for now (sigs-for-address paging is a
                      follow-up). */
-                  <ActivatedRoundLedger trustId={trustId} round={r} />
+                  <ActivatedRoundLedger companyId={companyId} round={r} />
                 )}
               </li>
             );
@@ -668,7 +668,7 @@ function DeclaredRoundsList({
       <ActivateRoundModal
         open={activating !== null}
         onClose={() => setActivating(null)}
-        trustId={trustId}
+        companyId={companyId}
         round={activating}
         onActivated={({ requestIdHex, signatureB58 }) =>
           setActivatedLocal((m) => ({ ...m, [requestIdHex]: signatureB58 }))

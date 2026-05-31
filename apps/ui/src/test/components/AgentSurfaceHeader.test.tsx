@@ -11,10 +11,10 @@ describe("AgentSurfaceHeader", () => {
         {
           id: "root-1",
           name: "Root",
-          type: "trust",
+          type: "company",
           status: "active",
           created_at: "2026-05-23T00:00:00Z",
-          trust_address: "root-1",
+          company_address: "root-1",
         },
       ],
       agents: [
@@ -22,7 +22,7 @@ describe("AgentSurfaceHeader", () => {
           id: "agent-1",
           name: "Research Agent",
           status: "active",
-          trust_id: "root-1",
+          company_id: "root-1",
         },
       ] as never,
       quests: [],
@@ -34,10 +34,10 @@ describe("AgentSurfaceHeader", () => {
 
   function renderHeader(variant: "default" | "settings" = "default") {
     render(
-      <MemoryRouter initialEntries={["/trust/root-1/agents/agent-1"]}>
+      <MemoryRouter initialEntries={["/company/root-1/agents/agent-1"]}>
         <Routes>
           <Route
-            path="/trust/:trustAddress/agents/:agentId"
+            path="/company/:companyAddress/agents/:agentId"
             element={<AgentSurfaceHeader agentId="agent-1" variant={variant} />}
           />
         </Routes>
@@ -50,7 +50,7 @@ describe("AgentSurfaceHeader", () => {
 
     expect(screen.getByRole("link", { name: "Agents" })).toHaveAttribute(
       "href",
-      "/trust/root-1/agents",
+      "/company/root-1/agents",
     );
     expect(screen.getByText("Research Agent")).toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Agent views" })).not.toBeInTheDocument();
@@ -64,7 +64,7 @@ describe("AgentSurfaceHeader", () => {
 
     expect(screen.getByRole("link", { name: "Agents" })).toHaveAttribute(
       "href",
-      "/trust/root-1/agents",
+      "/company/root-1/agents",
     );
     expect(screen.getByText("Research Agent")).toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Agent views" })).not.toBeInTheDocument();

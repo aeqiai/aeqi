@@ -88,12 +88,12 @@ function todayPlusDays(offset: number): string {
 const TOKEN_DECIMALS = 6;
 
 interface EquityVestingControlsProps {
-  trustId: string;
+  companyId: string;
   /** Cap-table holders for recipient autocomplete. */
   holders?: TokenHolder[];
 }
 
-export function EquityVestingControls({ trustId, holders = [] }: EquityVestingControlsProps) {
+export function EquityVestingControls({ companyId, holders = [] }: EquityVestingControlsProps) {
   const [recipient, setRecipient] = useState("");
   const [amount, setAmount] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -191,7 +191,7 @@ export function EquityVestingControls({ trustId, holders = [] }: EquityVestingCo
     setPositionId(null);
     try {
       const result = await api.vestingCreate({
-        entity_id: trustId,
+        entity_id: companyId,
         recipient_pubkey: recipient.trim(),
         total_amount: Number(amountBaseUnits),
         start_time: startUnix!,

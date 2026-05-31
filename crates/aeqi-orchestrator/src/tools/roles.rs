@@ -8,15 +8,15 @@
 //!
 //! ## Auth model
 //!
-//! - Reads (`list`, `org_chart`, `get`) — any agent in the trust.
+//! - Reads (`list`, `org_chart`, `get`) — any agent in the company.
 //! - Writes (`create`, `assign_occupant`, `grant`, `dissolve`) — caller's
 //!   role must hold `roles.manage` and (for `dissolve` / `assign_occupant`)
 //!   be an ancestor in the role DAG.
 //!
 //! Authority is anchored on the **calling agent** — `agent_id` is
 //! closure-captured by the tool instance at registration time so the LLM
-//! cannot forge identity via args. The trust the agent acts in is read
-//! from the agent's `trust_id`.
+//! cannot forge identity via args. The company the agent acts in is read
+//! from the agent's `company_id`.
 
 use aeqi_core::traits::{Tool, ToolResult, ToolSpec};
 use anyhow::Result;
@@ -50,25 +50,25 @@ impl RolesTool {
         }
     }
 
-    /// Resolve the trust (trust_id) the calling agent acts in.
-    async fn resolve_trust(&self) -> Result<String> {
+    /// Resolve the company (company_id) the calling agent acts in.
+    async fn resolve_company(&self) -> Result<String> {
         let agent = self
             .agent_registry
             .resolve_by_hint(&self.agent_id)
             .await?
             .ok_or_else(|| anyhow::anyhow!("calling agent not found: {}", self.agent_id))?;
         agent
-            .trust_id
-            .ok_or_else(|| anyhow::anyhow!("agent has no entity (cannot act in any trust)"))
+            .company_id
+            .ok_or_else(|| anyhow::anyhow!("agent has no entity (cannot act in any company)"))
     }
 
-    async fn ensure_grant(&self, trust_id: &str, grant: &str) -> Result<(), ToolResult> {
+    async fn ensure_grant(&self, company_id: &str, grant: &str) -> Result<(), ToolResult> {
         // We require the calling AGENT (occupant_id) to hold the grant via
         // some occupied role. role_registry.user_grants_for_entity treats
         // occupant_kind='human' only; for agents we walk roles directly.
         let (roles, _edges) = self
             .role_registry
-            .list_for_entity_with_grants(trust_id)
+            .list_for_entity_with_grants(company_id)
             .await
             .map_err(|e| ToolResult::error(format!("list roles: {e}")))?;
         let has = roles
@@ -89,34 +89,34 @@ impl RolesTool {
     }
 
     async fn action_list(&self) -> Result<ToolResult> {
-        let trust_id = self
-            .resolve_trust()
+        let company_id = self
+            .resolve_company()
             .await
             .map_err(|e| anyhow::anyhow!("{e}"))?;
         let (roles, edges) = self
             .role_registry
-            .list_for_entity_with_grants(&trust_id)
+            .list_for_entity_with_grants(&company_id)
             .await?;
         let summary = format!(
-            "{} role(s), {} edge(s) in trust {trust_id}",
+            "{} role(s), {} edge(s) in company {company_id}",
             roles.len(),
             edges.len()
         );
         Ok(ToolResult::success(summary).with_data(serde_json::json!({
-            "trust_id": trust_id,
+            "company_id": company_id,
             "roles": roles,
             "edges": edges,
         })))
     }
 
     async fn action_org_chart(&self) -> Result<ToolResult> {
-        let trust_id = self
-            .resolve_trust()
+        let company_id = self
+            .resolve_company()
             .await
             .map_err(|e| anyhow::anyhow!("{e}"))?;
         let (roles, edges) = self
             .role_registry
-            .list_for_entity_with_grants(&trust_id)
+            .list_for_entity_with_grants(&company_id)
             .await?;
         let nodes: Vec<serde_json::Value> = roles
             .iter()
@@ -163,11 +163,11 @@ impl RolesTool {
     }
 
     async fn action_create(&self, args: &serde_json::Value) -> Result<ToolResult> {
-        let trust_id = self
-            .resolve_trust()
+        let company_id = self
+            .resolve_company()
             .await
             .map_err(|e| anyhow::anyhow!("{e}"))?;
-        if let Err(t) = self.ensure_grant(&trust_id, GRANT_ROLES_MANAGE).await {
+        if let Err(t) = self.ensure_grant(&company_id, GRANT_ROLES_MANAGE).await {
             return Ok(t);
         }
         let title = match args.get("title").and_then(|v| v.as_str()) {
@@ -203,7 +203,7 @@ impl RolesTool {
         let role = self
             .role_registry
             .create_with_type(
-                &trust_id,
+                &company_id,
                 &title,
                 occupant_kind,
                 occupant_id.as_deref(),
@@ -219,18 +219,18 @@ impl RolesTool {
             ToolResult::success(format!("Created role {} ({})", role.title, role.id)).with_data(
                 serde_json::json!({
                     "role_id": role.id,
-                    "trust_id": trust_id,
+                    "company_id": company_id,
                 }),
             ),
         )
     }
 
     async fn action_assign_occupant(&self, args: &serde_json::Value) -> Result<ToolResult> {
-        let trust_id = self
-            .resolve_trust()
+        let company_id = self
+            .resolve_company()
             .await
             .map_err(|e| anyhow::anyhow!("{e}"))?;
-        if let Err(t) = self.ensure_grant(&trust_id, GRANT_ROLES_MANAGE).await {
+        if let Err(t) = self.ensure_grant(&company_id, GRANT_ROLES_MANAGE).await {
             return Ok(t);
         }
         let role_id = match args.get("role_id").and_then(|v| v.as_str()) {
@@ -252,11 +252,11 @@ impl RolesTool {
             .map(str::to_string);
         if matches!(
             kind,
-            OccupantKind::Human | OccupantKind::Agent | OccupantKind::Trust
+            OccupantKind::Human | OccupantKind::Agent | OccupantKind::Company
         ) && occupant_id.is_none()
         {
             return Ok(ToolResult::error(
-                "occupant_id is required when occupant_kind is human, agent, or trust",
+                "occupant_id is required when occupant_kind is human, agent, or company",
             ));
         }
         self.role_registry
@@ -268,11 +268,11 @@ impl RolesTool {
     }
 
     async fn action_grant(&self, args: &serde_json::Value) -> Result<ToolResult> {
-        let trust_id = self
-            .resolve_trust()
+        let company_id = self
+            .resolve_company()
             .await
             .map_err(|e| anyhow::anyhow!("{e}"))?;
-        if let Err(t) = self.ensure_grant(&trust_id, GRANT_ROLES_MANAGE).await {
+        if let Err(t) = self.ensure_grant(&company_id, GRANT_ROLES_MANAGE).await {
             return Ok(t);
         }
         let role_id = match args.get("role_id").and_then(|v| v.as_str()) {
@@ -291,11 +291,11 @@ impl RolesTool {
     }
 
     async fn action_dissolve(&self, args: &serde_json::Value) -> Result<ToolResult> {
-        let trust_id = self
-            .resolve_trust()
+        let company_id = self
+            .resolve_company()
             .await
             .map_err(|e| anyhow::anyhow!("{e}"))?;
-        if let Err(t) = self.ensure_grant(&trust_id, GRANT_ROLES_MANAGE).await {
+        if let Err(t) = self.ensure_grant(&company_id, GRANT_ROLES_MANAGE).await {
             return Ok(t);
         }
         let role_id = match args.get("role_id").and_then(|v| v.as_str()) {
@@ -331,7 +331,7 @@ impl Tool for RolesTool {
     fn spec(&self) -> ToolSpec {
         ToolSpec {
             name: "roles".to_string(),
-            description: "Read or modify the org chart of the calling agent's trust (company). \
+            description: "Read or modify the org chart of the calling agent's company (company). \
                  Roles are the WHO primitive — chairs an agent or human occupies. \
                  `list` and `org_chart` return all roles + reporting edges. \
                  `get` returns one role with its grants. \

@@ -30,10 +30,10 @@ describe("AgentSettingsPage", () => {
         {
           id: "root-1",
           name: "Root",
-          type: "trust",
+          type: "company",
           status: "active",
           created_at: "2026-05-23T00:00:00Z",
-          trust_address: "root-1",
+          company_address: "root-1",
         },
       ],
       agents: [
@@ -41,7 +41,7 @@ describe("AgentSettingsPage", () => {
           id: "agent-1",
           name: "Research Agent",
           status: "active",
-          trust_id: "root-1",
+          company_id: "root-1",
           model: "anthropic/claude-sonnet-4.6",
           tool_deny: ["shell"],
           can_ask_director: true,
@@ -56,10 +56,10 @@ describe("AgentSettingsPage", () => {
 
   it("renders only model and tools settings for the agent", async () => {
     render(
-      <MemoryRouter initialEntries={["/trust/root-1/agents/agent-1/settings"]}>
+      <MemoryRouter initialEntries={["/company/root-1/agents/agent-1/settings"]}>
         <Routes>
           <Route
-            path="/trust/:trustAddress/agents/:agentId/settings"
+            path="/company/:companyAddress/agents/:agentId/settings"
             element={<AgentSettingsPage agentId="agent-1" />}
           />
         </Routes>

@@ -1,7 +1,7 @@
 export {
-  getTrustsRaw as getEntitiesRaw,
-  listTrustRoots as listEntityRoots,
-  normalizeTrustRoots as normalizeEntityRoots,
-} from "@/api/trusts";
+  getCompaniesRaw as getEntitiesRaw,
+  listCompanyRoots as listEntityRoots,
+  normalizeCompanyRoots as normalizeEntityRoots,
+} from "@/api/companies";
 
-export type { TrustsResponse as EntitiesResponse } from "@/api/trusts";
+export type { CompaniesResponse as EntitiesResponse } from "@/api/companies";

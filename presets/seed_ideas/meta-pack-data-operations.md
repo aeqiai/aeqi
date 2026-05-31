@@ -36,5 +36,5 @@ pipeline, divide implementation work, then monitor and improve it.
 
 ## Done signal
 
-A consumer can trust the dataset because source, schema, checks, monitor,
+A consumer can company the dataset because source, schema, checks, monitor,
 ownership, and recovery path are explicit.

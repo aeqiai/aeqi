@@ -1,6 +1,6 @@
 //! aeqi-ipfs — Kubo HTTP-API client for IPFS content-addressed storage.
 //!
-//! Wraps the four primary kubo RPC endpoints used by the aeqi TRUST provisioner:
+//! Wraps the four primary kubo RPC endpoints used by the aeqi COMPANY provisioner:
 //! `/api/v0/add` (pin bytes), `/api/v0/cat` (fetch by CID),
 //! `/api/v0/pin/add` (re-pin a known CID), `/api/v0/pin/rm` (unpin).
 //!

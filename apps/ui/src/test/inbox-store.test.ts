@@ -16,7 +16,7 @@ function makeItem(
     session_id: sessionId,
     agent_id: `agent-${sessionId}`,
     agent_name: `Agent ${sessionId}`,
-    trust_id: `entity-${sessionId}`,
+    company_id: `entity-${sessionId}`,
     session_name: `session ${sessionId}`,
     awaiting_subject: "subject",
     awaiting_at: awaitingAt,
@@ -45,7 +45,7 @@ describe("inbox store", () => {
       const fetchMock = vi.fn();
       vi.stubGlobal("fetch", fetchMock);
       localStorage.setItem("aeqi_token", "token");
-      localStorage.setItem("aeqi_entity", "trust-1");
+      localStorage.setItem("aeqi_entity", "company-1");
 
       await expect(probeDismissEndpoint()).resolves.toBe(true);
       expect(fetchMock).not.toHaveBeenCalled();

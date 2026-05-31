@@ -17,7 +17,7 @@ Examples:
   AEQI_REPO=<repo> npm run ui:wt -- doctor <repo-ui-worktree> --repair
   npm run ui:wt -- doctor <repo-ui-worktree> --repair
   npm run ui:wt -- dev <repo-ui-worktree> --port auto --api prod
-  npm run ui:wt -- visual <repo-ui-worktree> --url /trust/<entity_id>/roles --require-auth
+  npm run ui:wt -- visual <repo-ui-worktree> --url /company/<entity_id>/roles --require-auth
 EOF
 }
 

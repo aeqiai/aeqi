@@ -251,7 +251,7 @@ Prefer UI work that improves:
 
 - operator comprehension
 - intervention speed
-- trust
+- company
 - context visibility
 - work-to-outcome flow
 

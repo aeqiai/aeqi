@@ -113,7 +113,7 @@ describe("reduceStreamEvent", () => {
         type: "EntityRef",
         kind: "idea",
         entity_id: "idea-1",
-        trust_id: "trust-1",
+        company_id: "company-1",
         label: "Runtime guide",
         status: "active",
       },
@@ -124,7 +124,7 @@ describe("reduceStreamEvent", () => {
         ref: {
           kind: "idea",
           id: "idea-1",
-          trustId: "trust-1",
+          companyId: "company-1",
           label: "Runtime guide",
           status: "active",
           source: "model",

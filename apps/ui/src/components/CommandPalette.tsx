@@ -21,10 +21,10 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const appMode = useAuthStore((s) => s.appMode);
-  const { trustId } = useParams<{ trustId?: string }>();
+  const { companyId } = useParams<{ companyId?: string }>();
   const activeEntity = useUIStore((s) => s.activeEntity);
   const entities = useDaemonStore((s) => s.entities);
-  const scopeId = activeEntity || trustId || "";
+  const scopeId = activeEntity || companyId || "";
 
   const go = useCallback(
     (path: string) => {
@@ -116,7 +116,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
         const rawAgents = (agentsData.agents || []) as Array<Record<string, unknown>>;
         const agentItems: PaletteItem[] = rawAgents.map((a) => {
           const aid = (a.id as string) ?? "";
-          const eid = (a.trust_id as string) || aid;
+          const eid = (a.company_id as string) || aid;
           return {
             id: `agent-${aid}`,
             label: a.name as string,
@@ -153,7 +153,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
       }
     };
     buildItems();
-  }, [open, go, appMode, trustId, scopeId, entities]);
+  }, [open, go, appMode, companyId, scopeId, entities]);
 
   const filtered = query
     ? items.filter(

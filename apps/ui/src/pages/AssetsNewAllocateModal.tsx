@@ -42,8 +42,8 @@ interface NewAllocateModalProps {
   /** Parent budget to allocate from. Modal is open whenever non-null;
    *  closing the modal nulls the parent. */
   parent: BudgetAccountWithPda | null;
-  /** Entity ID of the host TRUST — required for the platform route. */
-  trustId: string;
+  /** Entity ID of the host COMPANY — required for the platform route. */
+  companyId: string;
   onClose: () => void;
   /** Called after a successful allocate — host re-fetches the budgets
    *  list so the hierarchy view picks up the new sub-budget. */
@@ -55,7 +55,12 @@ interface SubmitResult {
   message: string;
 }
 
-export function NewAllocateModal({ parent, trustId, onClose, onAllocated }: NewAllocateModalProps) {
+export function NewAllocateModal({
+  parent,
+  companyId,
+  onClose,
+  onAllocated,
+}: NewAllocateModalProps) {
   const [roleLabel, setRoleLabel] = useState("");
   const [amountStr, setAmountStr] = useState("");
   const [budgetLabel, setBudgetLabel] = useState("");
@@ -114,7 +119,7 @@ export function NewAllocateModal({ parent, trustId, onClose, onAllocated }: NewA
     try {
       const trimmedBudgetLabel = budgetLabel.trim();
       const res = await api.allocateChildBudget({
-        entity_id: trustId,
+        entity_id: companyId,
         parent_budget_id: parentIdHex,
         target_role_id: roleLabel.trim(),
         amount: baseAmount,

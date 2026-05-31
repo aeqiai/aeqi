@@ -8,7 +8,7 @@
 //! same SQLite store the daemon's pack tools read at runtime.
 //!
 //! Tenancy is enforced by scope: agent rows verify the agent's owning
-//! entity against the caller's allowed roots; trust rows verify the scope id
+//! entity against the caller's allowed roots; company rows verify the scope id
 //! itself is in those roots.
 
 use aeqi_core::credentials::{CredentialInsert, CredentialKey, CredentialUpdate, ScopeKind};
@@ -59,7 +59,7 @@ pub async fn handle_credentials_ingest(
                 return serde_json::json!({"ok": false, "error": "forbidden"});
             }
         }
-        ScopeKind::Trust => {
+        ScopeKind::Company => {
             if !is_allowed(allowed, scope_id) {
                 return serde_json::json!({"ok": false, "error": "forbidden"});
             }
@@ -67,7 +67,7 @@ pub async fn handle_credentials_ingest(
         _ => {
             return serde_json::json!({
                 "ok": false,
-                "error": "only scope_kind=agent or trust supported"
+                "error": "only scope_kind=agent or company supported"
             });
         }
     }

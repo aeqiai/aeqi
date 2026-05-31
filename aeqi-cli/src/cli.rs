@@ -18,12 +18,12 @@ pub enum Commands {
         /// Override web server bind address (default: from config or 127.0.0.1:8400).
         #[arg(long)]
         bind: Option<String>,
-        /// Canonical trust_id (UUID) for the entity this runtime hosts.
+        /// Canonical company_id (UUID) for the entity this runtime hosts.
         /// Supplied by the platform on first boot so the runtime adopts
         /// the platform-minted UUID instead of generating its own. Stored
         /// in `AEQI_ENTITY_ID` env var for downstream pickup.
         #[arg(long = "entity-id")]
-        trust_id: Option<String>,
+        company_id: Option<String>,
     },
     /// Initialize AEQI in the current directory.
     Init,
@@ -227,10 +227,10 @@ pub enum Commands {
         action: WebAction,
     },
 
-    /// Trust kernel utilities.
-    Trust {
+    /// Company kernel utilities.
+    Company {
         #[command(subcommand)]
-        action: TrustAction,
+        action: CompanyAction,
     },
 
     /// Code intelligence graph — index, query, and analyze code structure.
@@ -547,12 +547,12 @@ pub enum WebAction {
 }
 
 #[derive(Subcommand)]
-pub enum TrustAction {
-    /// Derive the canonical trust identity for a company/entity id.
+pub enum CompanyAction {
+    /// Derive the canonical company identity for a company/entity id.
     Derive {
         /// Runtime company or platform entity id.
         #[arg(long = "entity-id")]
-        trust_id: String,
+        company_id: String,
         /// Emit JSON instead of key/value lines.
         #[arg(long)]
         json: bool,

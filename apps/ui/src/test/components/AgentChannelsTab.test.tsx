@@ -42,10 +42,10 @@ describe("AgentChannelsTab", () => {
         {
           id: "root-1",
           name: "Root",
-          type: "trust",
+          type: "company",
           status: "active",
           created_at: "2026-05-28T00:00:00Z",
-          trust_address: "root",
+          company_address: "root",
           agent_id: "agent-1",
         },
       ],
@@ -62,13 +62,13 @@ describe("AgentChannelsTab", () => {
     queryClient.clear();
   });
 
-  function renderGateways(path = "/trust/root/gateways") {
+  function renderGateways(path = "/company/root/gateways") {
     render(
       <MemoryRouter initialEntries={[path]}>
         <QueryClientProvider client={queryClient}>
           <Routes>
             <Route
-              path="/trust/:trustAddress/gateways/:itemId?"
+              path="/company/:companyAddress/gateways/:itemId?"
               element={<AgentChannelsTab agentId="agent-1" />}
             />
           </Routes>
@@ -92,7 +92,7 @@ describe("AgentChannelsTab", () => {
   });
 
   it("labels gateway detail bindings as sessions", async () => {
-    renderGateways("/trust/root/gateways/channel-1");
+    renderGateways("/company/root/gateways/channel-1");
 
     expect(await screen.findByRole("heading", { name: "Sessions" })).toBeInTheDocument();
     expect(

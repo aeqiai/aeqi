@@ -10,7 +10,7 @@
  *   3. Budgets per role (scoped scan of `aeqi_budget`).
  *   4. Vesting position count (scoped scan of `aeqi_vesting`).
  *
- * Modules (3) and (4) are optional: a Foundation-shaped TRUST adopts
+ * Modules (3) and (4) are optional: a Foundation-shaped COMPANY adopts
  * only role/governance/treasury, so budget/vesting scans return `[]`/0
  * cleanly. The hook never errors when those modules are absent.
  *
@@ -51,10 +51,10 @@ export interface UseAssetsResult {
 }
 
 /**
- * Resolve a TRUST's on-chain Assets state.
+ * Resolve a COMPANY's on-chain Assets state.
  *
- * Pass the base58-encoded Trust PDA (matches `entity.trust_address` on
- * the platform-side Trust record). When `trustAddress` is null/empty
+ * Pass the base58-encoded Company PDA (matches `entity.company_address` on
+ * the platform-side Company record). When `companyAddress` is null/empty
  * every query stays disabled — useful for the pre-bridge state where
  * the entity has no on-chain mirror yet.
  *
@@ -64,13 +64,13 @@ export interface UseAssetsResult {
  * scans run in parallel with the vault descriptor — neither needs
  * vault data to start.
  */
-export function useAssets(trustAddress: string | null | undefined): UseAssetsResult {
-  const enabled = !!trustAddress;
+export function useAssets(companyAddress: string | null | undefined): UseAssetsResult {
+  const enabled = !!companyAddress;
 
   const snapshotQuery = useQuery({
-    queryKey: ["assets", "snapshot", trustAddress ?? null],
+    queryKey: ["assets", "snapshot", companyAddress ?? null],
     queryFn: async () =>
-      decodeAssetsSnapshot(await api.getTrustAssetsByAddress(trustAddress as string)),
+      decodeAssetsSnapshot(await api.getCompanyAssetsByAddress(companyAddress as string)),
     enabled,
     staleTime: STALE_TIME_MS,
   });
@@ -92,7 +92,7 @@ export function useAssets(trustAddress: string | null | undefined): UseAssetsRes
   };
 }
 
-type RawAssetsSnapshot = Awaited<ReturnType<typeof api.getTrustAssetsByAddress>>;
+type RawAssetsSnapshot = Awaited<ReturnType<typeof api.getCompanyAssetsByAddress>>;
 
 function decodeAssetsSnapshot(raw: RawAssetsSnapshot): {
   vault: TreasuryVault;
@@ -106,7 +106,7 @@ function decodeAssetsSnapshot(raw: RawAssetsSnapshot): {
       vaultAuthorityPda: new PublicKey(raw.vault.vault_authority_pda),
       moduleState: raw.vault.module_state
         ? ({
-            trust: new PublicKey(raw.vault.module_state.trust),
+            company: new PublicKey(raw.vault.module_state.company),
             treasuryAuthority: new PublicKey(raw.vault.module_state.treasury_authority),
             bump: raw.vault.module_state.bump,
           } as TreasuryVault["moduleState"])
@@ -121,7 +121,7 @@ function decodeAssetsSnapshot(raw: RawAssetsSnapshot): {
     budgets: raw.budgets.map((b) => ({
       publicKey: new PublicKey(b.public_key),
       account: {
-        trust: new PublicKey(b.account.trust),
+        company: new PublicKey(b.account.company),
         budgetId: b.account.budget_id,
         grantor: new PublicKey(b.account.grantor),
         targetRoleId: b.account.target_role_id,
@@ -136,7 +136,7 @@ function decodeAssetsSnapshot(raw: RawAssetsSnapshot): {
     vestingPositions: raw.vesting_positions.map((p) => ({
       publicKey: new PublicKey(p.public_key),
       account: {
-        trust: new PublicKey(p.account.trust),
+        company: new PublicKey(p.account.company),
         positionId: p.account.position_id,
         recipient: new PublicKey(p.account.recipient),
         mint: new PublicKey(p.account.mint),

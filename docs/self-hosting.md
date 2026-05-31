@@ -98,6 +98,6 @@ For most users, `aeqi setup && aeqi start` is still simpler and more transparent
 - This repo does not include hosted billing, hosted account management, or fleet
   provisioning.
 - Docker Compose here does not create a multi-tenant SaaS platform.
-- The Solana trust workspace is active protocol work, but it is not required to
+- The Solana company workspace is active protocol work, but it is not required to
   start the local runtime.
 - The BSL license is source-available; it is not OSI-approved.

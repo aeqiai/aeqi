@@ -54,10 +54,10 @@ describe("AgentOrgChart smoke", () => {
   it("renders without loop errors when given a known root agent", () => {
     useDaemonStore.setState({
       agents: [
-        { id: "root", name: "Root", status: "active", trust_id: "root-1" },
-        { id: "ceo", name: "CEO", status: "active", trust_id: "root-1" },
-        { id: "cto", name: "CTO", status: "active", trust_id: "root-1" },
-        { id: "eng", name: "Engineer", status: "idle", trust_id: "root-1" },
+        { id: "root", name: "Root", status: "active", company_id: "root-1" },
+        { id: "ceo", name: "CEO", status: "active", company_id: "root-1" },
+        { id: "cto", name: "CTO", status: "active", company_id: "root-1" },
+        { id: "eng", name: "Engineer", status: "idle", company_id: "root-1" },
       ] as never,
     });
     const errors = captureRenderErrors(
@@ -73,8 +73,8 @@ describe("AgentOrgChart smoke", () => {
   it("renders the chart shell when the entity has at least one agent", () => {
     useDaemonStore.setState({
       agents: [
-        { id: "root", name: "Root", status: "active", trust_id: "root-1" },
-        { id: "only", name: "Only", status: "active", trust_id: "root-1" },
+        { id: "root", name: "Root", status: "active", company_id: "root-1" },
+        { id: "only", name: "Only", status: "active", company_id: "root-1" },
       ] as never,
     });
     const { container } = render(

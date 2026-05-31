@@ -17,25 +17,26 @@ export function isUserSessionsPinnedViewForPath(view: PinnedView, path: string):
 }
 
 export function useSeedUserSessionsPinnedView({
-  trustId,
+  companyId,
   userSessionsPinnedPath,
   pinnedViews,
   savePinnedView,
 }: {
-  trustId: string | null;
+  companyId: string | null;
   userSessionsPinnedPath: string;
   pinnedViews: PinnedView[];
   savePinnedView: (input: SavePinnedViewInput) => PinnedView;
 }) {
   const hasPinnedUserSessionsView =
-    !!trustId &&
+    !!companyId &&
     pinnedViews.some(
       (view) =>
-        view.trustId === trustId && isUserSessionsPinnedViewForPath(view, userSessionsPinnedPath),
+        view.companyId === companyId &&
+        isUserSessionsPinnedViewForPath(view, userSessionsPinnedPath),
     );
 
   useEffect(() => {
-    if (!trustId || !userSessionsPinnedPath) return;
+    if (!companyId || !userSessionsPinnedPath) return;
     if (
       typeof window !== "undefined" &&
       window.localStorage.getItem(PINNED_USER_SESSIONS_STORAGE_KEY) === "false"
@@ -48,7 +49,7 @@ export function useSeedUserSessionsPinnedView({
       label: USER_SESSIONS_VIEW_LABEL,
       path: userSessionsPinnedPath,
       search: USER_SESSIONS_PINNED_SEARCH,
-      trustId,
+      companyId,
     });
-  }, [trustId, userSessionsPinnedPath, hasPinnedUserSessionsView, savePinnedView]);
+  }, [companyId, userSessionsPinnedPath, hasPinnedUserSessionsView, savePinnedView]);
 }

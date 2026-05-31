@@ -82,30 +82,30 @@ export function ProposalsSection({
   roleTypes,
   roles,
   voteRecords,
-  trustId,
-  trustAddress,
+  companyId,
+  companyAddress,
   viewerCreatorAddress,
 }: {
   proposals: ProposalWithPda[];
   configs: GovernanceConfigWithPda[];
   roleTypes: RoleTypeWithPda[];
   /**
-   * Occupied role accounts on this TRUST. Forwarded down to the proposal
-   * action bar so the cancel CTA can extend beyond the TRUST creator EOA
-   * to anyone holding a role on the TRUST. Empty array when no roles
-   * are registered (Foundation-shaped TRUSTs).
+   * Occupied role accounts on this COMPANY. Forwarded down to the proposal
+   * action bar so the cancel CTA can extend beyond the COMPANY creator EOA
+   * to anyone holding a role on the COMPANY. Empty array when no roles
+   * are registered (Foundation-shaped Companies).
    */
   roles: RoleAccountWithPda[];
   /**
-   * Every VoteRecord PDA on this TRUST (already cached by `useQuorum`).
+   * Every VoteRecord PDA on this COMPANY (already cached by `useQuorum`).
    * iter-10 threads it through to the detail modal so the "Top voters"
    * subsection can aggregate per-voter participation across every
    * proposal without firing a fresh RPC round-trip.
    */
   voteRecords?: VoteRecordWithPda[];
-  trustId: string;
-  trustAddress: string;
-  /** EOA that owns this TRUST. Used to gate the Cancel proposal CTA. */
+  companyId: string;
+  companyAddress: string;
+  /** EOA that owns this COMPANY. Used to gate the Cancel proposal CTA. */
   viewerCreatorAddress: string | null;
 }) {
   // URL-persisted view state. We read params on every render (cheap;
@@ -474,8 +474,8 @@ export function ProposalsSection({
                 </Button>
                 {row.status === "active" ? (
                   <InlineVoteActions
-                    trustId={trustId}
-                    trustAddress={trustAddress}
+                    companyId={companyId}
+                    companyAddress={companyAddress}
                     proposalIdHex={proposalIdHex}
                     proposalIdBytes={row.proposal.account.proposalId}
                   />
@@ -565,7 +565,7 @@ export function ProposalsSection({
   return (
     <PageSection
       title="Proposals"
-      description="Every proposal opened against this TRUST. Status derives from tallies + the cluster clock."
+      description="Every proposal opened against this COMPANY. Status derives from tallies + the cluster clock."
     >
       <Stack gap="3">
         {configs.length > 1 ? (
@@ -690,8 +690,8 @@ export function ProposalsSection({
         roles={roles}
         proposals={proposals}
         voteRecords={voteRecords}
-        trustId={trustId}
-        trustAddress={trustAddress}
+        companyId={companyId}
+        companyAddress={companyAddress}
         nowSeconds={nowSeconds}
         viewerCreatorAddress={viewerCreatorAddress}
         onClose={() => setDetail(null)}

@@ -21,14 +21,14 @@ export default function IdeasCanvasView({
   onBack,
   onNew,
 }: IdeasCanvasViewProps) {
-  const { goEntity, trustId } = useNav();
+  const { goEntity, companyId } = useNav();
   const [trackIdea, setTrackIdea] = useState<Idea | null>(null);
   const handleTrackedQuestCreated = useCallback(
     async (quest: { id: string }) => {
       setTrackIdea(null);
-      goEntity(trustId, "quests", quest.id);
+      goEntity(companyId, "quests", quest.id);
     },
-    [goEntity, trustId],
+    [goEntity, companyId],
   );
 
   return (
@@ -51,7 +51,7 @@ export default function IdeasCanvasView({
         open={Boolean(trackIdea)}
         idea={trackIdea}
         agentId={agentId}
-        trustId={trustId}
+        companyId={companyId}
         onClose={() => setTrackIdea(null)}
         onCreated={handleTrackedQuestCreated}
       />

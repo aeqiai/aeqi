@@ -10,7 +10,7 @@
  * PDA derivation needs no DOM APIs anyway.
  *
  * Strategy: parity with the Rust side's property tests
- * (`trust_pda_is_deterministic`, `trust_pda_is_unique_per_trust_id`) rather
+ * (`company_pda_is_deterministic`, `company_pda_is_unique_per_company_id`) rather
  * than hardcoded base58 values. Hardcoded values would have to be
  * regenerated whenever a seed convention changes; the property tests catch
  * the same regressions (PDA stability across runs, distinct inputs producing
@@ -24,7 +24,7 @@ import {
   AEQI_ROLE_PROGRAM_ID,
   AEQI_TOKEN_PROGRAM_ID,
   AEQI_TREASURY_PROGRAM_ID,
-  AEQI_TRUST_PROGRAM_ID,
+  AEQI_COMPANY_PROGRAM_ID,
   AEQI_UNIFUTURES_PROGRAM_ID,
   GENESIS_CURVE_ID,
   ROLE_MODULE_ID,
@@ -37,7 +37,7 @@ import {
   deriveTokenModuleStatePda,
   deriveTreasuryModuleStatePda,
   deriveTreasuryVaultAuthorityPda,
-  deriveTrustPda,
+  deriveCompanyPda,
 } from "..";
 
 const utf8 = (s: string): Uint8Array => new TextEncoder().encode(s);
@@ -78,38 +78,38 @@ describe("solana/pdas", () => {
     });
   });
 
-  describe("deriveTrustPda", () => {
-    it("is deterministic for the same trust id", () => {
-      const trustId = filledBytes(42);
-      const a = deriveTrustPda(trustId);
-      const b = deriveTrustPda(trustId);
+  describe("deriveCompanyPda", () => {
+    it("is deterministic for the same company id", () => {
+      const companyId = filledBytes(42);
+      const a = deriveCompanyPda(companyId);
+      const b = deriveCompanyPda(companyId);
       expect(a.equals(b)).toBe(true);
     });
 
-    it("is unique per trust id", () => {
-      const a = deriveTrustPda(filledBytes(1));
-      const b = deriveTrustPda(filledBytes(2));
+    it("is unique per company id", () => {
+      const a = deriveCompanyPda(filledBytes(1));
+      const b = deriveCompanyPda(filledBytes(2));
       expect(a.equals(b)).toBe(false);
     });
 
-    it("rejects trust ids that are not exactly 32 bytes", () => {
-      expect(() => deriveTrustPda(new Uint8Array(31))).toThrow(/exactly 32 bytes/);
-      expect(() => deriveTrustPda(new Uint8Array(33))).toThrow(/exactly 32 bytes/);
+    it("rejects company ids that are not exactly 32 bytes", () => {
+      expect(() => deriveCompanyPda(new Uint8Array(31))).toThrow(/exactly 32 bytes/);
+      expect(() => deriveCompanyPda(new Uint8Array(33))).toThrow(/exactly 32 bytes/);
     });
 
-    it("derives off AEQI_TRUST_PROGRAM_ID against the canonical 'trust' seed", () => {
-      const trustId = filledBytes(7);
-      const pda = deriveTrustPda(trustId);
+    it("derives off AEQI_COMPANY_PROGRAM_ID against the canonical 'company' seed", () => {
+      const companyId = filledBytes(7);
+      const pda = deriveCompanyPda(companyId);
       const [expected] = PublicKey.findProgramAddressSync(
-        [utf8("trust"), trustId],
-        AEQI_TRUST_PROGRAM_ID,
+        [utf8("company"), companyId],
+        AEQI_COMPANY_PROGRAM_ID,
       );
       expect(pda.equals(expected)).toBe(true);
     });
   });
 
-  describe("module-state PDAs are stable per trust + program", () => {
-    const trustPda = deriveTrustPda(filledBytes(11));
+  describe("module-state PDAs are stable per company + program", () => {
+    const trustPda = deriveCompanyPda(filledBytes(11));
 
     it.each([
       ["role", deriveRoleModuleStatePda, "role_module", AEQI_ROLE_PROGRAM_ID],
@@ -135,7 +135,7 @@ describe("solana/pdas", () => {
   });
 
   describe("token + curve PDAs", () => {
-    const trustPda = deriveTrustPda(filledBytes(13));
+    const trustPda = deriveCompanyPda(filledBytes(13));
 
     it("token mint uses the 'mint' seed on the token program", () => {
       const mint = deriveTokenMintPda(trustPda);
@@ -155,29 +155,29 @@ describe("solana/pdas", () => {
       expect(curve.equals(expected)).toBe(true);
     });
 
-    it("token bytes-config PDA is owned by trust program (cfg_bytes + TOKEN_CONFIG_KEY)", () => {
+    it("token bytes-config PDA is owned by company program (cfg_bytes + TOKEN_CONFIG_KEY)", () => {
       const cfg = deriveTokenBytesConfigPda(trustPda);
       const [expected] = PublicKey.findProgramAddressSync(
         [utf8("cfg_bytes"), trustPda.toBytes(), TOKEN_CONFIG_KEY],
-        AEQI_TRUST_PROGRAM_ID,
+        AEQI_COMPANY_PROGRAM_ID,
       );
       expect(cfg.equals(expected)).toBe(true);
     });
   });
 
   describe("deriveModulePda", () => {
-    it("matches the canonical [module, trust, module_id] seeds", () => {
-      const trustPda = deriveTrustPda(filledBytes(99));
+    it("matches the canonical [module, company, module_id] seeds", () => {
+      const trustPda = deriveCompanyPda(filledBytes(99));
       const pda = deriveModulePda(trustPda, ROLE_MODULE_ID);
       const [expected] = PublicKey.findProgramAddressSync(
         [utf8("module"), trustPda.toBytes(), ROLE_MODULE_ID],
-        AEQI_TRUST_PROGRAM_ID,
+        AEQI_COMPANY_PROGRAM_ID,
       );
       expect(pda.equals(expected)).toBe(true);
     });
 
     it("rejects module ids that are not 32 bytes", () => {
-      const trustPda = deriveTrustPda(filledBytes(1));
+      const trustPda = deriveCompanyPda(filledBytes(1));
       expect(() => deriveModulePda(trustPda, new Uint8Array(8))).toThrow(/exactly 32 bytes/);
     });
   });

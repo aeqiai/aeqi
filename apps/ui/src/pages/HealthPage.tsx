@@ -3,14 +3,14 @@
  *
  * Four substrate-compound metrics over the trailing 7d window with a
  * one-sentence interpretation each, plus 30d sparklines below. Folded
- * into `TrustOverviewTab` (the bare `/trust/<addr>/` cockpit) so the
+ * into `CompanyOverviewTab` (the bare `/company/<addr>/` cockpit) so the
  * "what's happening now" cockpit and the "is the loop turning over"
  * health read live on one surface.
  *
- * The legacy `/trust/<addr>/health` route 308-redirects to the bare
+ * The legacy `/company/<addr>/health` route 308-redirects to the bare
  * overview — this file no longer renders its own Page chrome.
  *
- * Data flow is client-side aggregation — `useTrustHealthMetrics`
+ * Data flow is client-side aggregation — `useCompanyHealthMetrics`
  * subscribes to the daemon store's quests/events/agents, pulls a
  * deeper activity tail + entity-scoped ideas on mount, and returns
  * the four metrics with their trend deltas.
@@ -18,12 +18,12 @@
 import { useMemo } from "react";
 import { Banner, EmptyState, MetricCard, MetricGrid, PageSection, Loading } from "@/components/ui";
 import { formatInteger } from "@/lib/i18n";
-import { useCurrentTrust } from "@/hooks/useCurrentTrust";
+import { useCurrentCompany } from "@/hooks/useCurrentCompany";
 import {
-  useTrustHealthMetrics,
+  useCompanyHealthMetrics,
   DEFAULT_HEALTH_WINDOW_DAYS,
   type HealthMetrics,
-} from "@/hooks/useTrustHealthMetrics";
+} from "@/hooks/useCompanyHealthMetrics";
 import {
   interpretAgentActions,
   interpretDecisionLog,
@@ -37,14 +37,14 @@ import styles from "./HealthPage.module.css";
 /** Minimum signal age before we treat trend deltas as meaningful. */
 const COMPOUNDING_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
 
-export default function HealthBlock({ trustId }: { trustId: string }) {
-  const { entity } = useCurrentTrust();
-  // Prefer trust_address (canonical /trust/<addr>) when present; fall
-  // back to the entity id for entities that haven't registered TRUST yet.
-  const addr = entity?.trust_address ?? trustId;
-  const { metrics, isLoading, error } = useTrustHealthMetrics(addr);
+export default function HealthBlock({ companyId }: { companyId: string }) {
+  const { entity } = useCurrentCompany();
+  // Prefer company_address (canonical /company/<addr>) when present; fall
+  // back to the entity id for entities that haven't registered COMPANY yet.
+  const addr = entity?.company_address ?? companyId;
+  const { metrics, isLoading, error } = useCompanyHealthMetrics(addr);
 
-  // Fresh-TRUST gate: when the earliest known activity is less than a
+  // Fresh-COMPANY gate: when the earliest known activity is less than a
   // week old, the trend math has no previous-week to compare against.
   // Show the metrics anyway (operator still wants to see the numbers)
   // but lead with an empty-state nudge so they know why the trends are
@@ -62,8 +62,8 @@ export default function HealthBlock({ trustId }: { trustId: string }) {
   if (!metrics) {
     return (
       <EmptyState
-        title="No TRUST in scope."
-        description="Pick a TRUST from the sidebar to read its health."
+        title="No COMPANY in scope."
+        description="Pick a COMPANY from the sidebar to read its health."
       />
     );
   }

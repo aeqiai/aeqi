@@ -1,6 +1,6 @@
 # Blueprint Packages
 
-A Blueprint Package is a static, reviewable bundle of TRUST surfaces.
+A Blueprint Package is a static, reviewable bundle of COMPANY surfaces.
 The MVP only needs one package: the built-in default used by `/launch`. It
 should be shaped like the future public store item, but the product should not
 ship public uploads, remixing, or an open catalog until install preview,
@@ -12,7 +12,7 @@ embedded into the binary at build time.
 
 ## Asset Model
 
-- Company Blueprint: launchable TRUST recipe. Defines the root agent, TRUST
+- Company Blueprint: launchable COMPANY recipe. Defines the root agent, COMPANY
   template, role structure, starter ideas, events, and quests.
 - Agent Template: hireable persona plus default ideas, events, quests, model,
   visual identity, and optional spawn messages.
@@ -36,7 +36,7 @@ Company**. It is both:
 - the only MVP store item worth polishing before public onboarding
 
 That package must be excellent before the catalog broadens. It should install a
-neutral TRUST with the Director as the human authority, the default agent in
+neutral COMPANY with the Director as the human authority, the default agent in
 the Chief of Staff role, and one Founder Associate for synthesis support. It
 should not assume a startup, studio, fund, DAO, or personal operating system.
 Its job is to help the user turn their first input into an operating snapshot,
@@ -91,7 +91,7 @@ For repo-backed packages, acceptance means:
   explicit approval
 - no fake capability claims: package copy must only promise what the runtime can
   actually do
-- restrained starter scope: small enough for a new user to trust and understand
+- restrained starter scope: small enough for a new user to company and understand
 - schema-valid, UI-renderable, and covered by focused spawn/import tests
 - versionable metadata before public contribution: id, version, author,
   description, compatibility, and license

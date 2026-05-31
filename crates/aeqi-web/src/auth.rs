@@ -29,7 +29,7 @@ const PROXY_SCOPE_TOKEN_HEADER: &str = "x-aeqi-scope-token";
 /// Forwarded by the platform proxy when a JWT-resolved user is on the
 /// inbound request. The runtime needs this to gate participant-only
 /// surfaces (inbox awaiting sessions) by the calling user, since
-/// `AuthMode::None` runtimes don't see the JWT directly. Trust is
+/// `AuthMode::None` runtimes don't see the JWT directly. Company is
 /// transitive through `PROXY_SCOPE_TOKEN_HEADER`.
 const PROXY_SCOPE_USER_HEADER: &str = "x-aeqi-caller-user-id";
 

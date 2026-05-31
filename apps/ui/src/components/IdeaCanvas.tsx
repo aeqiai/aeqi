@@ -143,10 +143,13 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
   },
   ref,
 ) {
-  const { goEntity, trustId } = useNav();
+  const { goEntity, companyId } = useNav();
   const track = useTrack();
-  const { data: ideas } = useAgentIdeas(agentId, true, trustId);
-  const { patchIdea, removeIdea, addIdea, invalidateIdeas } = useAgentIdeasCache(agentId, trustId);
+  const { data: ideas } = useAgentIdeas(agentId, true, companyId);
+  const { patchIdea, removeIdea, addIdea, invalidateIdeas } = useAgentIdeasCache(
+    agentId,
+    companyId,
+  );
   // All tags the agent has used elsewhere — ranked by frequency — power the
   // tag-autocomplete dropdown. Self-tags are excluded in TagsEditor.
   const tagSuggestions = useMemo(() => {
@@ -267,7 +270,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
           content: snapshot.content,
           tags,
         },
-        trustId,
+        companyId,
       );
       patchIdea(idea.id, {
         name: effectiveName,
@@ -287,7 +290,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
     } finally {
       inflightRef.current = false;
     }
-  }, [idea, patchIdea, trustId]);
+  }, [idea, patchIdea, companyId]);
 
   // Flush on unmount / idea switch so accidental navigation doesn't lose work.
   // No debounced autosave while typing — the Save button / Cmd+Enter is the
@@ -326,7 +329,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
           scope: composeScope,
           parent_idea_id: parentIdeaId ?? undefined,
         },
-        trustId,
+        companyId,
       );
       const created: Idea = {
         id: res.id,
@@ -352,7 +355,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
         void Promise.all(
           pendingRefs.map((r) =>
             ideasApi
-              .addIdeaEdge(res.id, r.target_id, "adjacent", trustId)
+              .addIdeaEdge(res.id, r.target_id, "adjacent", companyId)
               .catch((e) => logError("idea-canvas.add-adjacent-edge", e)),
           ),
         );
@@ -364,7 +367,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
       if (onPersisted) {
         onPersisted(res.id);
       } else {
-        goEntity(trustId, "ideas", res.id, { replace: true });
+        goEntity(companyId, "ideas", res.id, { replace: true });
       }
       return res.id;
     } catch (e) {
@@ -376,7 +379,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
     isEdit,
     agentId,
     parentIdeaId,
-    trustId,
+    companyId,
     addIdea,
     goEntity,
     composeScope,
@@ -455,7 +458,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
   const handleDelete = async () => {
     if (!idea) return;
     try {
-      const res = await ideasApi.deleteIdea(idea.id, trustId);
+      const res = await ideasApi.deleteIdea(idea.id, companyId);
       // FK pre-flight: backend reports `in_use` + the offending quest ids.
       // Surface them inline so the user can click through and detach.
       if (!res.ok && res.error === "in_use" && res.quest_ids?.length) {
@@ -474,7 +477,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
         return;
       }
       removeIdea(idea.id);
-      goEntity(trustId, "ideas", undefined, { replace: true });
+      goEntity(companyId, "ideas", undefined, { replace: true });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Delete failed");
     }
@@ -486,7 +489,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
     setDecisionError(null);
     const nextTags = [...(idea.tags ?? []).filter((t) => t !== "candidate"), "promoted"];
     try {
-      await ideasApi.updateIdea(idea.id, { tags: nextTags }, trustId);
+      await ideasApi.updateIdea(idea.id, { tags: nextTags }, companyId);
       patchIdea(idea.id, { tags: nextTags });
       setTypedTags(nextTags);
       setActivityRefreshSeq((n) => n + 1);
@@ -495,7 +498,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
       setDecisionState("idle");
       setDecisionError(e instanceof Error ? e.message : "Promote failed");
     }
-  }, [idea, patchIdea, trustId]);
+  }, [idea, patchIdea, companyId]);
 
   const handleReject = useCallback(async () => {
     if (!idea || !rejectRationale.trim()) return;
@@ -509,7 +512,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
     const flat = blockTreeToPlainText(content).trimEnd();
     const nextContent = flat + "\n\n## Rejection rationale\n" + rejectRationale.trim();
     try {
-      await ideasApi.updateIdea(idea.id, { tags: nextTags, content: nextContent }, trustId);
+      await ideasApi.updateIdea(idea.id, { tags: nextTags, content: nextContent }, companyId);
       patchIdea(idea.id, { tags: nextTags, content: nextContent });
       setTypedTags(nextTags);
       setContent(nextContent);
@@ -520,7 +523,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
       setDecisionState("idle");
       setDecisionError(e instanceof Error ? e.message : "Reject failed");
     }
-  }, [idea, patchIdea, content, rejectRationale, trustId]);
+  }, [idea, patchIdea, content, rejectRationale, companyId]);
 
   const inlineTags = mergeTags(blockTreeToPlainText(content), typedTags);
   // Resolved scope for display in the header popover. In compose mode the
@@ -588,7 +591,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
                 scope: idea.scope ?? headerScope,
                 parent_idea_id: idea.id,
               },
-              trustId,
+              companyId,
             );
           } else {
             const upload = await ideasApi.uploadFileToIdea(
@@ -598,7 +601,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
                 scope: idea.scope ?? headerScope,
                 parentIdeaId: idea.id,
               },
-              trustId,
+              companyId,
             );
             if (!upload.ok) throw new Error(upload.error || "upload failed");
           }
@@ -610,7 +613,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
       setActivityRefreshSeq((n) => n + 1);
       if (failures.length > 0) setError(failures.join("; "));
     },
-    [agentId, headerScope, idea, invalidateIdeas, trustId],
+    [agentId, headerScope, idea, invalidateIdeas, companyId],
   );
   const handleDropFiles = (event: DragEvent) => {
     if (!idea || event.dataTransfer.files.length === 0) return;
@@ -650,7 +653,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
                 onTrackAsQuest(idea);
                 return;
               }
-              goEntity(trustId, "quests", "new", {
+              goEntity(companyId, "quests", "new", {
                 replace: false,
                 search: { fromIdea: idea.id },
               });
@@ -660,7 +663,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
             onSave={isEdit ? flushSave : handleCreate}
             importMenu={
               <ImportMenu
-                trustId={trustId}
+                companyId={companyId}
                 parts={["ideas"]}
                 blueprintTitle="Import child ideas from a template"
                 accept="*/*"
@@ -753,7 +756,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
             {isEdit && idea && !hideMetaStrip ? (
               <IdeaPropertyChips
                 ideaId={idea.id}
-                scopedEntity={trustId}
+                scopedEntity={companyId}
                 properties={idea.properties}
               />
             ) : null}

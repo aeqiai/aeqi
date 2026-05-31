@@ -93,7 +93,7 @@
      Live/active/streaming → indigo. Pending/awaiting/vacant →
      warmth. Verified/settled/completed → jade. Promoted from the
      `#7c6cd6` literal in quest column/dot CSS so every primitive
-     surface (quests, trust hero, agents, events) reads from the
+     surface (quests, company hero, agents, events) reads from the
      same vocabulary. */
   --state-progress: #7c6cd6;
   --state-progress-bg: rgba(124, 108, 214, 0.14);
@@ -131,10 +131,10 @@
      enough vertical space for a 22px avatar, still dense enough
      to fit a long agent tree without scrolling. */
   --sidebar-row-h: 32px;
-  /* Trust subnav row rhythm. The trust rail contains pinned views plus
+  /* Company subnav row rhythm. The company rail contains pinned views plus
      Operations/Ownership/Infrastructure, so it uses the existing small
      input row height instead of inventing an off-scale number. */
-  --sidebar-trust-row-h: var(--input-h-sm);
+  --sidebar-company-row-h: var(--input-h-sm);
 
   /* Width of the second-rail panel that sits between the primary
      LeftSidebar and the content card — used by .sessions-rail-col and

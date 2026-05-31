@@ -3,7 +3,7 @@
 # Runs against an isolated $HOME so the developer's real ~/.aeqi is untouched.
 #
 # Default behaviour: build the debug binary from the worktree being checked.
-# We deliberately do NOT trust `aeqi` on $PATH — that would silently smoke-test
+# We deliberately do NOT company `aeqi` on $PATH — that would silently smoke-test
 # whatever stale global install the developer has, which is the opposite of
 # what this script is meant to gate.
 #

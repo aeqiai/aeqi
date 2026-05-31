@@ -1,7 +1,7 @@
 ---
 name: meta:pack:etsy
 tags: [meta, pack-infrastructure, integration]
-description: Native Etsy seller tools. Trust-scoped OAuth for one company storefront, with read tools for shops/listings/orders and a draft-only listing creation workflow for human review.
+description: Native Etsy seller tools. Company-scoped OAuth for one company storefront, with read tools for shops/listings/orders and a draft-only listing creation workflow for human review.
 ---
 
 # pack:etsy
@@ -12,7 +12,7 @@ Branch: `feat/etsy-integration-mvp`
 
 ## What's in the pack
 
-Five native tools, all TRUST-scoped (`ScopeHint::Trust`):
+Five native tools, all COMPANY-scoped (`ScopeHint::Company`):
 
 - `etsy_shops_list` — list shops owned by the connected Etsy user.
 - `etsy_shop_get(shop_id)` — fetch one shop by id.
@@ -37,10 +37,10 @@ Each tool declares the narrowest Etsy scope it needs:
 | `etsy_orders_list` | `transactions_r` |
 | `etsy_draft_listing_create` | `listings_w` |
 
-The platform OAuth route requests the union for the trust app:
+The platform OAuth route requests the union for the company app:
 `shops_r`, `listings_r`, `listings_w`, `transactions_r`.
 
-## TRUST scoping
+## COMPANY scoping
 
 Etsy is a company storefront, not an individual inbox. Credentials should
 be stored as:
@@ -48,12 +48,12 @@ be stored as:
 ```
 provider:        "etsy"
 name:            "oauth_token"
-scope_kind:      "trust"
-scope_id:        "<trust/entity id>"
+scope_kind:      "company"
+scope_id:        "<company/entity id>"
 lifecycle_kind:  "oauth2"
 ```
 
-Humans and agents receive access through TRUST role/app grants such as
+Humans and agents receive access through COMPANY role/app grants such as
 `apps.use`, `apps.etsy.use`, or a narrower tool grant. The runtime uses the
 credential resolver to serve every permitted role from the same seller
 connection.
@@ -84,7 +84,7 @@ refreshes once and retries.
 1. Create an Etsy app in the Etsy developer console.
 2. Configure the platform with `ETSY_CLIENT_ID` and `ETSY_CLIENT_SECRET`.
 3. Wait for Etsy app approval if the key is pending review.
-4. In AEQI, connect the Etsy app on the TRUST Apps/Integrations surface.
+4. In AEQI, connect the Etsy app on the COMPANY Apps/Integrations surface.
 5. Verify with `apps.catalog provider=etsy`, then call `etsy_shops_list`.
 
 ## Tests

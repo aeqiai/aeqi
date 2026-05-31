@@ -33,7 +33,7 @@ export type AeqiToken = {
       ],
       "accounts": [
         {
-          "name": "trust"
+          "name": "company"
         },
         {
           "name": "moduleState",
@@ -58,7 +58,7 @@ export type AeqiToken = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -79,7 +79,7 @@ export type AeqiToken = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -106,10 +106,10 @@ export type AeqiToken = {
     {
       "name": "createMint",
       "docs": [
-        "Create the SPL Token-2022 mint for this TRUST. Mint address is a PDA",
-        "seeded `[b\"mint\", trust]` so callers can derive it deterministically.",
+        "Create the SPL Token-2022 mint for this COMPANY. Mint address is a PDA",
+        "seeded `[b\"mint\", company]` so callers can derive it deterministically.",
         "Authority for the mint is another PDA seeded",
-        "`[b\"token_authority\", trust]`, owned by this program — only this",
+        "`[b\"token_authority\", company]`, owned by this program — only this",
         "program can mint or freeze."
       ],
       "discriminator": [
@@ -124,7 +124,7 @@ export type AeqiToken = {
       ],
       "accounts": [
         {
-          "name": "trust"
+          "name": "company"
         },
         {
           "name": "moduleState",
@@ -150,7 +150,7 @@ export type AeqiToken = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -184,7 +184,7 @@ export type AeqiToken = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -205,7 +205,7 @@ export type AeqiToken = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -234,9 +234,9 @@ export type AeqiToken = {
       "name": "finalize",
       "docs": [
         "Module finalize — decodes the config bytes the factory wrote into the",
-        "trust's BytesConfig slot under `TOKEN_CONFIG_KEY`. Cross-program",
+        "company's BytesConfig slot under `TOKEN_CONFIG_KEY`. Cross-program",
         "account read — the BytesConfig PDA's owner is validated against",
-        "AEQI_TRUST_ID, then the 8-byte discriminator is skipped and the bytes",
+        "AEQI_COMPANY_ID, then the 8-byte discriminator is skipped and the bytes",
         "are borsh-deserialized into the mirror struct."
       ],
       "discriminator": [
@@ -251,7 +251,7 @@ export type AeqiToken = {
       ],
       "accounts": [
         {
-          "name": "trust"
+          "name": "company"
         },
         {
           "name": "moduleState",
@@ -277,7 +277,7 @@ export type AeqiToken = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -306,7 +306,7 @@ export type AeqiToken = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               },
               {
                 "kind": "const",
@@ -393,8 +393,8 @@ export type AeqiToken = {
       "docs": [
         "Module init — called by the factory (or directly by the user during",
         "company spawn). Creates the TokenModuleState PDA that anchors all",
-        "subsequent token operations to this trust.",
-        "Gated to the trust authority during creation mode so the",
+        "subsequent token operations to this company.",
+        "Gated to the company authority during creation mode so the",
         "module_state PDA cannot be squatted by an attacker."
       ],
       "discriminator": [
@@ -409,9 +409,9 @@ export type AeqiToken = {
       ],
       "accounts": [
         {
-          "name": "trust",
+          "name": "company",
           "docs": [
-            "Trust PDA — must be a real Trust account owned by aeqi_trust."
+            "Company PDA — must be a real Company account owned by aeqi_company."
           ],
           "pda": {
             "seeds": [
@@ -427,8 +427,8 @@ export type AeqiToken = {
               },
               {
                 "kind": "account",
-                "path": "trust.trust_id",
-                "account": "trust"
+                "path": "company.company_id",
+                "account": "company"
               }
             ],
             "program": {
@@ -494,7 +494,7 @@ export type AeqiToken = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -534,7 +534,7 @@ export type AeqiToken = {
       ],
       "accounts": [
         {
-          "name": "trust",
+          "name": "company",
           "pda": {
             "seeds": [
               {
@@ -549,8 +549,8 @@ export type AeqiToken = {
               },
               {
                 "kind": "account",
-                "path": "trust.trust_id",
-                "account": "trust"
+                "path": "company.company_id",
+                "account": "company"
               }
             ],
             "program": {
@@ -615,7 +615,7 @@ export type AeqiToken = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -646,7 +646,7 @@ export type AeqiToken = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -667,7 +667,7 @@ export type AeqiToken = {
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -707,7 +707,7 @@ export type AeqiToken = {
       ]
     },
     {
-      "name": "trust",
+      "name": "company",
       "discriminator": [
         71,
         85,
@@ -788,7 +788,7 @@ export type AeqiToken = {
     {
       "code": 6002,
       "name": "mintAlreadyCreated",
-      "msg": "mint already created for this trust"
+      "msg": "mint already created for this company"
     },
     {
       "code": 6003,
@@ -813,12 +813,12 @@ export type AeqiToken = {
     {
       "code": 6007,
       "name": "trustMismatch",
-      "msg": "token module is not bound to the supplied trust"
+      "msg": "token module is not bound to the supplied company"
     },
     {
       "code": 6008,
       "name": "unauthorizedMintAuthority",
-      "msg": "caller is not the trust authority for minting"
+      "msg": "caller is not the company authority for minting"
     },
     {
       "code": 6009,
@@ -833,12 +833,12 @@ export type AeqiToken = {
     {
       "code": 6011,
       "name": "unauthorized",
-      "msg": "caller is not authorized for this trust"
+      "msg": "caller is not authorized for this company"
     },
     {
       "code": 6012,
       "name": "trustNotInCreationMode",
-      "msg": "trust must be in creation mode to initialize the token module"
+      "msg": "company must be in creation mode to initialize the token module"
     }
   ],
   "types": [
@@ -848,7 +848,7 @@ export type AeqiToken = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -868,7 +868,7 @@ export type AeqiToken = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -884,7 +884,7 @@ export type AeqiToken = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -923,7 +923,7 @@ export type AeqiToken = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -947,7 +947,7 @@ export type AeqiToken = {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -966,15 +966,15 @@ export type AeqiToken = {
       }
     },
     {
-      "name": "trust",
+      "name": "company",
       "docs": [
-        "Core TRUST account — one per AEQI company. PDA seeded `[b\"trust\", trust_id]`."
+        "Core COMPANY account — one per AEQI company. PDA seeded `[b\"company\", company_id]`."
       ],
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "trustId",
+            "name": "companyId",
             "type": {
               "array": [
                 "u8",

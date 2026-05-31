@@ -47,7 +47,7 @@ export type EntityPrimitive = "agent" | "quest" | "idea" | "event";
 export interface EntityRef {
   kind: EntityPrimitive;
   id: string;
-  trustId?: string;
+  companyId?: string;
   label?: string;
   slug?: string;
   status?: string;

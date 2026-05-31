@@ -463,7 +463,7 @@ const VALID_ROLE_TYPES: &[&str] = &["director", "operational", "advisor"];
 ///
 /// Snapping order in [`snap_template`]: known-broken / unknown →
 /// `entity` (the smallest viable fully-wired template).
-const VALID_TEMPLATES: &[&str] = &["trust", "venture"];
+const VALID_TEMPLATES: &[&str] = &["company", "venture"];
 
 /// Snap an arbitrary LLM-emitted role_type string to the nearest canonical
 /// variant. Returns the canonical value and whether the input needed snapping.
@@ -512,7 +512,7 @@ fn snap_template(raw: &str) -> (&'static str, bool) {
         // along here on purpose — they're broken / unwalked on-chain.
         // See module doc on [`VALID_TEMPLATES`] for the chain-side
         // rationale.
-        _ => "trust",
+        _ => "company",
     };
     (snapped, true)
 }
@@ -957,14 +957,14 @@ mod tests {
   "blueprint": {
     "slug": "test-co",
     "name": "Test Co",
-    "template": "trust",
+    "template": "company",
     "root": { "name": "founder", "system_prompt": "test" }
   }
 }"#;
         let out = parse_llm_response(raw, "irrelevant").unwrap();
         assert_eq!(out.kind, "single");
         assert_eq!(out.rationale, "Test rationale.");
-        assert_eq!(out.blueprint["template"], "trust");
+        assert_eq!(out.blueprint["template"], "company");
         assert_eq!(out.blueprint["slug"], "test-co");
         assert_eq!(out.generator.kind, "llm");
     }
@@ -984,7 +984,7 @@ mod tests {
     fn parse_response_truncates_overlong_name() {
         let long_name = "A".repeat(100);
         let raw = format!(
-            r#"{{"blueprint":{{"slug":"x","name":"{long_name}","template":"trust","root":{{"name":"founder"}}}}}}"#
+            r#"{{"blueprint":{{"slug":"x","name":"{long_name}","template":"company","root":{{"name":"founder"}}}}}}"#
         );
         let out = parse_llm_response(&raw, "irrelevant").unwrap();
         assert_eq!(out.blueprint["name"].as_str().unwrap().chars().count(), 32);
@@ -1016,7 +1016,7 @@ mod tests {
     "tagline": "Senior engineers, sharp deliverables.",
     "description": "A three-engineer consulting firm.",
     "category": "company",
-    "template": "trust",
+    "template": "company",
     "root": {
       "name": "founder",
       "system_prompt": "You lead a 3-person AI consulting firm.",
@@ -1047,7 +1047,7 @@ mod tests {
             .await
             .expect("generate succeeds");
         assert_eq!(out.kind, "single");
-        assert_eq!(out.blueprint["template"], "trust");
+        assert_eq!(out.blueprint["template"], "company");
         assert_eq!(out.blueprint["name"], "AI Consulting");
         assert_eq!(llm.calls.load(Ordering::SeqCst), 1);
     }
@@ -1093,7 +1093,7 @@ mod tests {
   "blueprint": {
     "slug": "legal-ai-consulting",
     "name": "Legal AI Co",
-    "template": "trust",
+    "template": "company",
     "root": { "name": "founder", "system_prompt": "Lead a legal-AI consulting firm." },
     "seed_agents": [{ "owner": "root", "name": "reviewer", "system_prompt": "Review contracts." }],
     "seed_ideas": [],
@@ -1106,7 +1106,7 @@ mod tests {
         let llm = MockLlm::new(response);
         let opts = LlmGenerationOptions::default();
         let prior_briefs = vec!["AI consulting firm with 3 engineers".to_string()];
-        let prior_drafts = vec![fake_draft("AI Consulting", "trust")];
+        let prior_drafts = vec![fake_draft("AI Consulting", "company")];
 
         let out = refine_via_llm(
             &prior_briefs,
@@ -1118,7 +1118,7 @@ mod tests {
         .await
         .expect("refine succeeds");
         assert_eq!(out.blueprint["name"], "Legal AI Co");
-        assert_eq!(out.blueprint["template"], "trust");
+        assert_eq!(out.blueprint["template"], "company");
         assert_eq!(out.generator.kind, "llm");
         assert_eq!(llm.calls.load(Ordering::SeqCst), 1);
     }
@@ -1128,7 +1128,7 @@ mod tests {
         let llm = MockLlm::new("{}");
         let opts = LlmGenerationOptions::default();
         let prior_briefs = vec!["whatever".to_string()];
-        let prior_drafts = vec![fake_draft("X", "trust")];
+        let prior_drafts = vec![fake_draft("X", "company")];
         let err = refine_via_llm(&prior_briefs, &prior_drafts, "   ", &llm, &opts)
             .await
             .unwrap_err();
@@ -1141,7 +1141,7 @@ mod tests {
         let llm = MockLlm::new("{}");
         let opts = LlmGenerationOptions::default();
         let prior_briefs = vec!["a".to_string(), "b".to_string()];
-        let prior_drafts = vec![fake_draft("X", "trust")];
+        let prior_drafts = vec![fake_draft("X", "company")];
         let err = refine_via_llm(&prior_briefs, &prior_drafts, "fix it", &llm, &opts)
             .await
             .unwrap_err();
@@ -1159,7 +1159,7 @@ mod tests {
   "blueprint": {
     "slug": "writers-co",
     "name": "Writers Co",
-    "template": "trust",
+    "template": "company",
     "root": { "name": "founder" },
     "seed_roles": [
       { "key": "founder", "title": "Founder", "role_type": "director" },
@@ -1180,7 +1180,7 @@ mod tests {
     fn schema_gate_maps_advisor_synonyms() {
         let raw = r#"{
   "blueprint": {
-    "slug": "x", "name": "X", "template": "trust",
+    "slug": "x", "name": "X", "template": "company",
     "root": { "name": "founder" },
     "seed_roles": [
       { "key": "a", "title": "A", "role_type": "board" },
@@ -1200,7 +1200,7 @@ mod tests {
     fn schema_gate_maps_director_synonyms() {
         let raw = r#"{
   "blueprint": {
-    "slug": "x", "name": "X", "template": "trust",
+    "slug": "x", "name": "X", "template": "company",
     "root": { "name": "founder" },
     "seed_roles": [
       { "key": "a", "title": "A", "role_type": "ceo" },
@@ -1220,7 +1220,7 @@ mod tests {
     fn schema_gate_unknown_role_type_defaults_to_operational() {
         let raw = r#"{
   "blueprint": {
-    "slug": "x", "name": "X", "template": "trust",
+    "slug": "x", "name": "X", "template": "company",
     "root": { "name": "founder" },
     "seed_roles": [
       { "key": "a", "title": "A", "role_type": "warlock" }
@@ -1236,7 +1236,7 @@ mod tests {
     fn schema_gate_drops_null_or_non_string_role_type() {
         let raw = r#"{
   "blueprint": {
-    "slug": "x", "name": "X", "template": "trust",
+    "slug": "x", "name": "X", "template": "company",
     "root": { "name": "founder" },
     "seed_roles": [
       { "key": "a", "title": "A", "role_type": null },
@@ -1254,7 +1254,7 @@ mod tests {
     fn schema_gate_passes_canonical_role_types_unchanged() {
         let raw = r#"{
   "blueprint": {
-    "slug": "x", "name": "X", "template": "trust",
+    "slug": "x", "name": "X", "template": "company",
     "root": { "name": "founder" },
     "seed_roles": [
       { "key": "a", "title": "A", "role_type": "director" },
@@ -1282,7 +1282,7 @@ mod tests {
   }
 }"#;
         let out = parse_llm_response(raw, "irrelevant").unwrap();
-        assert_eq!(out.blueprint["template"], "trust");
+        assert_eq!(out.blueprint["template"], "company");
     }
 
     #[test]
@@ -1303,7 +1303,7 @@ mod tests {
   }
 }"#;
         let out = parse_llm_response(raw, "irrelevant").unwrap();
-        assert_eq!(out.blueprint["template"], "trust");
+        assert_eq!(out.blueprint["template"], "company");
     }
 
     #[test]
@@ -1318,12 +1318,12 @@ mod tests {
   }
 }"#;
         let out = parse_llm_response(raw, "irrelevant").unwrap();
-        assert_eq!(out.blueprint["template"], "trust");
+        assert_eq!(out.blueprint["template"], "company");
     }
 
     #[test]
     fn schema_gate_passes_canonical_template_unchanged() {
-        for tpl in ["trust", "venture"] {
+        for tpl in ["company", "venture"] {
             let raw = format!(
                 r#"{{"blueprint":{{"slug":"x","name":"X","template":"{tpl}","root":{{"name":"founder"}}}}}}"#
             );

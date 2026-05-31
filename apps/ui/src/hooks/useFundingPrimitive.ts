@@ -10,7 +10,7 @@
  * activated primitive on page-load would inflate the cold-load fan-out
  * for surfaces the operator never opens.
  *
- * RQ key: `["equity", "fundingPrimitive", trust, kind, primitiveIdHex]`.
+ * RQ key: `["equity", "fundingPrimitive", company, kind, primitiveIdHex]`.
  * `enabled` only flips on when the FundingRequest is activated
  * (status === 1) and `primitive_id` is non-zero — both signals that the
  * platform-side activation has settled and the on-chain account exists.
@@ -30,7 +30,7 @@ export interface UseFundingPrimitiveResult {
 }
 
 export function useFundingPrimitive(
-  trustAddress: string | null | undefined,
+  companyAddress: string | null | undefined,
   kind: number | null | undefined,
   primitiveIdHex: string | null | undefined,
   enabled = true,
@@ -41,13 +41,13 @@ export function useFundingPrimitive(
     /^0+$/.test(primitiveIdHex.replace(/^0x/, ""));
 
   const queryEnabled =
-    enabled && !!trustAddress && (kind === 0 || kind === 1 || kind === 2) && !idIsZero;
+    enabled && !!companyAddress && (kind === 0 || kind === 1 || kind === 2) && !idIsZero;
 
   const query = useQuery({
     queryKey: [
       "equity",
       "fundingPrimitive",
-      trustAddress ?? null,
+      companyAddress ?? null,
       kind ?? null,
       primitiveIdHex ?? null,
     ],
@@ -59,7 +59,7 @@ export function useFundingPrimitive(
         const slice = idHex.slice(i * 2, i * 2 + 2);
         bytes[i] = slice.length === 2 ? parseInt(slice, 16) : 0;
       }
-      return readFundingPrimitive(trustAddress as string, kind as number, bytes);
+      return readFundingPrimitive(companyAddress as string, kind as number, bytes);
     },
     enabled: queryEnabled,
     // Keep the read warm but not noisy. Operator-scale "did the commit

@@ -10,7 +10,7 @@ Ship a demo that proves AEQI can create an auditable Solana-native company works
 
 Core, demo-critical:
 
-- `aeqi_trust`: company identity, module registry, config authority.
+- `aeqi_company`: company identity, module registry, config authority.
 - `aeqi_factory`: one-click company spawn.
 - `aeqi_role`: founder/director/operator roles and authority walk.
 - `aeqi_token`: Token-2022 cap-table mint with max supply.
@@ -23,14 +23,14 @@ Capital-formation proof point:
 
 ## Security Position
 
-The current MVP-safe rule is conservative: after creation, trust config, pause, and ACL writes require the trust authority. Live module-driven trust mutation is intentionally closed until a complete module signer model exists and has regression tests.
+The current MVP-safe rule is conservative: after creation, company config, pause, and ACL writes require the company authority. Live module-driven company mutation is intentionally closed until a complete module signer model exists and has regression tests.
 
-The regression test `aeqi_trust rejects post-finalize config writes from non-authority even with a high-ACL module account` protects this boundary.
+The regression test `aeqi_company rejects post-finalize config writes from non-authority even with a high-ACL module account` protects this boundary.
 
 ## Demo Script
 
 1. Create a company with `aeqi_factory.create_company_full`.
-2. Show the trust PDA, module PDAs, and finalized module state.
+2. Show the company PDA, module PDAs, and finalized module state.
 3. Register role types: founder/director/operator.
 4. Assign one role and show the vote checkpoint.
 5. Create the cap-table mint with a hard max supply.
@@ -47,7 +47,7 @@ anchor build
 anchor test --skip-build
 ```
 
-Current baseline after the trust hardening patch:
+Current baseline after the company hardening patch:
 
 - `anchor build`: passes.
 - `anchor test --skip-build`: 81 passing.

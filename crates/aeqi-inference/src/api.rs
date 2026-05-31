@@ -51,7 +51,7 @@ use crate::{
 pub struct AppState {
     /// Model → provider dispatch table.
     pub router: Arc<InferenceRouter>,
-    /// Subscription balance store. Phase 1: in-memory keyed by trust_id.
+    /// Subscription balance store. Phase 1: in-memory keyed by company_id.
     pub balances: BalanceStore,
     /// Role-budget gate. Defaults to [`NoOpBudgetGate`] which makes
     /// pre-flight a no-op and settle a no-op. aeqi-platform plugs in a
@@ -108,17 +108,17 @@ pub fn create_router(state: AppState) -> Router {
 /// after the response is received (non-streaming) or estimated pre-call
 /// (streaming, to be reconciled post-stream in Phase 2).
 ///
-/// Entity ID is read from the `X-Trust` request header, set by the
+/// Entity ID is read from the `X-Company` request header, set by the
 /// subscription middleware after JWT validation.
 async fn chat_completions_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
     Json(req): Json<ChatCompletionRequest>,
 ) -> Response {
-    // Extract trust_id for cost accounting. Falls back to "unknown" when
+    // Extract company_id for cost accounting. Falls back to "unknown" when
     // the middleware has not injected the header (e.g. in tests that bypass
     // the middleware layer).
-    let trust_id = headers
+    let company_id = headers
         .get("x-entity")
         .and_then(|v| v.to_str().ok())
         .unwrap_or("unknown")
@@ -128,7 +128,8 @@ async fn chat_completions_handler(
     // them, the IPC-backed gate enforces).
     let role_id = header_string(&headers, "x-role-id");
     let budget_id_hint = header_string(&headers, "x-budget-id");
-    let actor_agent = header_string(&headers, "x-actor-agent").unwrap_or_else(|| trust_id.clone());
+    let actor_agent =
+        header_string(&headers, "x-actor-agent").unwrap_or_else(|| company_id.clone());
 
     // Pre-flight cap check. Estimate is cheap and conservative — actual
     // settle reconciles after upstream returns. We use 1 cent (100
@@ -139,7 +140,7 @@ async fn chat_completions_handler(
     let pre = state
         .budget_gate
         .pre_flight(
-            &trust_id,
+            &company_id,
             role_id.as_deref(),
             budget_id_hint.as_deref(),
             estimate_micro_usd,
@@ -190,9 +191,9 @@ async fn chat_completions_handler(
     };
 
     if req.stream {
-        handle_streaming(state, trust_id, req).await
+        handle_streaming(state, company_id, req).await
     } else {
-        handle_non_streaming(state, trust_id, req, resolved_budget_id, actor_agent).await
+        handle_non_streaming(state, company_id, req, resolved_budget_id, actor_agent).await
     }
 }
 
@@ -207,7 +208,7 @@ fn header_string(headers: &HeaderMap, name: &str) -> Option<String> {
 /// Non-streaming path: call upstream, debit cost, return JSON.
 async fn handle_non_streaming(
     state: AppState,
-    trust_id: String,
+    company_id: String,
     req: ChatCompletionRequest,
     resolved_budget_id: Option<String>,
     actor_agent: String,
@@ -223,12 +224,12 @@ async fn handle_non_streaming(
                 // cost is in micro-dollars; store uses cents; convert (100 cents = $1 = 1e8 microdollars).
                 let cost_cents = (cost / 1_000_000) as i64; // truncate to cents
                 if cost_cents > 0 {
-                    let current = state.balances.get(&trust_id).unwrap_or(0);
+                    let current = state.balances.get(&company_id).unwrap_or(0);
                     state
                         .balances
-                        .set(&trust_id, current.saturating_sub(cost_cents));
+                        .set(&company_id, current.saturating_sub(cost_cents));
                     tracing::debug!(
-                        trust_id,
+                        company_id,
                         model,
                         prompt_tokens = usage.prompt_tokens,
                         completion_tokens = usage.completion_tokens,
@@ -245,7 +246,7 @@ async fn handle_non_streaming(
                 // (the user already incurred the upstream cost).
                 if let Some(budget_id) = resolved_budget_id {
                     let req_hash = compute_request_hash(
-                        &trust_id,
+                        &company_id,
                         &resp.id,
                         &model,
                         usage.prompt_tokens,
@@ -253,11 +254,17 @@ async fn handle_non_streaming(
                     );
                     if let Err(e) = state
                         .budget_gate
-                        .settle(&trust_id, &budget_id, cost as i64, &req_hash, &actor_agent)
+                        .settle(
+                            &company_id,
+                            &budget_id,
+                            cost as i64,
+                            &req_hash,
+                            &actor_agent,
+                        )
                         .await
                     {
                         warn!(
-                            trust_id,
+                            company_id,
                             budget_id,
                             cost_microdollars = cost,
                             error = %e,

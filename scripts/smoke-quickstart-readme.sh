@@ -100,7 +100,7 @@ assert_help "assign"
 assert_help "events"
 assert_help "monitor"
 assert_help "graph"
-assert_help "trust"
+assert_help "company"
 assert_help "mcp"
 
 # `aeqi events install-defaults` is in the README; assert the action exists.

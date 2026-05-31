@@ -12,11 +12,11 @@
       "docs": [
         "Create a budget allocation for a role. The grantor (typically a",
         "treasury authority or governance signer) signs to lock the",
-        "allocation. A budget can be sourced from TRUST (no parent) or from",
+        "allocation. A budget can be sourced from COMPANY (no parent) or from",
         "a parent budget (which the grantor must control).",
         "",
-        "Authority gate: in this iteration, only the trust authority can",
-        "originate budgets (i.e. budgets sourced directly from TRUST). Once",
+        "Authority gate: in this iteration, only the company authority can",
+        "originate budgets (i.e. budgets sourced directly from COMPANY). Once",
         "governance + role-walk capability lands, child budgets sourced from",
         "a parent budget will be gated on the parent budget's grantor / role",
         "instead."
@@ -33,9 +33,9 @@
       ],
       "accounts": [
         {
-          "name": "trust",
+          "name": "company",
           "docs": [
-            "Trust PDA — must be a real Trust account owned by aeqi_trust."
+            "Company PDA — must be a real Company account owned by aeqi_company."
           ],
           "pda": {
             "seeds": [
@@ -51,8 +51,8 @@
               },
               {
                 "kind": "account",
-                "path": "trust.trust_id",
-                "account": "Trust"
+                "path": "company.company_id",
+                "account": "Company"
               }
             ],
             "program": {
@@ -119,7 +119,7 @@
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -142,7 +142,7 @@
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               },
               {
                 "kind": "arg",
@@ -235,7 +235,7 @@
               },
               {
                 "kind": "account",
-                "path": "budget.trust",
+                "path": "budget.company",
                 "account": "Budget"
               },
               {
@@ -256,7 +256,7 @@
     {
       "name": "init",
       "docs": [
-        "Module init — gated to the trust authority during creation mode so",
+        "Module init — gated to the company authority during creation mode so",
         "the module_state PDA cannot be squatted by an attacker."
       ],
       "discriminator": [
@@ -271,9 +271,9 @@
       ],
       "accounts": [
         {
-          "name": "trust",
+          "name": "company",
           "docs": [
-            "Trust PDA — must be a real Trust account owned by aeqi_trust."
+            "Company PDA — must be a real Company account owned by aeqi_company."
           ],
           "pda": {
             "seeds": [
@@ -289,8 +289,8 @@
               },
               {
                 "kind": "account",
-                "path": "trust.trust_id",
-                "account": "Trust"
+                "path": "company.company_id",
+                "account": "Company"
               }
             ],
             "program": {
@@ -357,7 +357,7 @@
               },
               {
                 "kind": "account",
-                "path": "trust"
+                "path": "company"
               }
             ]
           }
@@ -410,7 +410,7 @@
               },
               {
                 "kind": "account",
-                "path": "budget.trust",
+                "path": "budget.company",
                 "account": "Budget"
               },
               {
@@ -470,7 +470,7 @@
               },
               {
                 "kind": "account",
-                "path": "budget.trust",
+                "path": "budget.company",
                 "account": "Budget"
               },
               {
@@ -530,7 +530,7 @@
       ]
     },
     {
-      "name": "Trust",
+      "name": "Company",
       "discriminator": [
         71,
         85,
@@ -635,8 +635,8 @@
     },
     {
       "code": 6007,
-      "name": "TrustNotInCreationMode",
-      "msg": "trust must be in creation mode to initialize the budget module"
+      "name": "CompanyNotInCreationMode",
+      "msg": "company must be in creation mode to initialize the budget module"
     }
   ],
   "types": [
@@ -646,7 +646,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -674,7 +674,7 @@
           {
             "name": "parent_budget_id",
             "docs": [
-              "Parent budget if hierarchical; [0u8; 32] if sourced from TRUST directly."
+              "Parent budget if hierarchical; [0u8; 32] if sourced from COMPANY directly."
             ],
             "type": {
               "array": [
@@ -712,7 +712,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -754,7 +754,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -775,7 +775,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -795,7 +795,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -824,7 +824,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -845,7 +845,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "trust",
+            "name": "company",
             "type": "pubkey"
           },
           {
@@ -904,15 +904,15 @@
       }
     },
     {
-      "name": "Trust",
+      "name": "Company",
       "docs": [
-        "Core TRUST account — one per AEQI company. PDA seeded `[b\"trust\", trust_id]`."
+        "Core COMPANY account — one per AEQI company. PDA seeded `[b\"company\", company_id]`."
       ],
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "trust_id",
+            "name": "company_id",
             "type": {
               "array": [
                 "u8",

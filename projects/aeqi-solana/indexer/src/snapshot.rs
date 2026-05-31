@@ -7,7 +7,7 @@
 //!      (`SLOT_FINALIZATION_MARGIN` slots of headroom — Solana finality
 //!      is ~32 slots, but we only need the snapshotted balances to no
 //!      longer be re-orgable for our purposes).
-//!   2. Pulls every Token-2022 account that holds the trust's canonical
+//!   2. Pulls every Token-2022 account that holds the company's canonical
 //!      cap-table mint via `getProgramAccounts` + a memcmp filter on the
 //!      `mint` field at offset 0 of the SPL Token-2022 Account layout.
 //!   3. Builds a sorted-pair Merkle tree (leaves sorted by holder
@@ -195,7 +195,7 @@ async fn already_committed(rpc: &RpcClient, proposal: &Pubkey) -> Result<Option<
 ///
 /// ```text
 /// [8  discriminator]
-/// [32 trust]
+/// [32 company]
 /// [32 proposal_id]
 /// [32 governance_config_id]
 /// [32 proposer]
@@ -248,7 +248,7 @@ pub async fn snapshot_proposal(rpc: &RpcClient, mint: &Pubkey) -> Result<MerkleS
             RpcFilterType::Memcmp(Memcmp::new(0, MemcmpEncodedBytes::Base58(mint_b58))),
             // Belt-and-braces: only base accounts (length 165), not
             // Token-2022 with extensions. We accept either since
-            // governance is one TRUST one mint and extensions are
+            // governance is one COMPANY one mint and extensions are
             // protocol-additive; but a length filter speeds the scan
             // up on busy mints. Omit if it ever filters out a valid
             // holder.

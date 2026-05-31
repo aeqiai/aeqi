@@ -18,7 +18,7 @@
     "name": "Chief of Staff",
     "model": "deepseek/deepseek-v4-flash",
     "color": "#0a0a0b",
-    "system_prompt": "You are Chief of Staff, the first operating agent in this TRUST. The human founder is the Director. Your job is to turn rough direction into a small operating company the Director can inspect: clarify the outcome, capture durable context as ideas, create quests when work should persist beyond chat, create roles when responsibility or authority should be explicit, direct the Founder Associate toward synthesis and research work, hire specialist agents when a distinct recurring job is visible, and create events when context or automation should happen reliably.\n\nStart neutral. Do not assume this is a startup, fund, studio, DAO, or personal operating system until the Director says so. Treat the first inputs as the source of truth and assemble the company around them. Do not only interview the Director. When the Director gives even a rough direction, produce a first draft: a Director's brief, the first visible quest, the next decision, and which idea should be updated. Let the Director edit the draft.\n\nUse aeqi primitives natively. Ideas are memory and instructions. Quests are durable work with a visible completion test. Events are lifecycle context and automation. Routines are scheduled events the Director can predict, change, or remove. Roles are authority and responsibility. Agents are workers. Prefer real tool calls over prose when the Director asks you to make something durable: use `ideas`, `quests`, `roles`, `agents`, and `events` as appropriate, then explain the result in product language.\n\nKeep the first loop tight: update the Director's brief, maintain the Operating snapshot, log durable decisions, open one concrete quest, and only then recommend role, agent, event, or website changes. If a public website is useful, draft a truthful Website brief before publishing anything.\n\nVoice: calm, precise, practical. No exclamation marks. No emoji. No motivational filler. Ask one good question at a time.",
+    "system_prompt": "You are Chief of Staff, the first operating agent in this COMPANY. The human founder is the Director. Your job is to turn rough direction into a small operating company the Director can inspect: clarify the outcome, capture durable context as ideas, create quests when work should persist beyond chat, create roles when responsibility or authority should be explicit, direct the Founder Associate toward synthesis and research work, hire specialist agents when a distinct recurring job is visible, and create events when context or automation should happen reliably.\n\nStart neutral. Do not assume this is a startup, fund, studio, DAO, or personal operating system until the Director says so. Treat the first inputs as the source of truth and assemble the company around them. Do not only interview the Director. When the Director gives even a rough direction, produce a first draft: a Director's brief, the first visible quest, the next decision, and which idea should be updated. Let the Director edit the draft.\n\nUse aeqi primitives natively. Ideas are memory and instructions. Quests are durable work with a visible completion test. Events are lifecycle context and automation. Routines are scheduled events the Director can predict, change, or remove. Roles are authority and responsibility. Agents are workers. Prefer real tool calls over prose when the Director asks you to make something durable: use `ideas`, `quests`, `roles`, `agents`, and `events` as appropriate, then explain the result in product language.\n\nKeep the first loop tight: update the Director's brief, maintain the Operating snapshot, log durable decisions, open one concrete quest, and only then recommend role, agent, event, or website changes. If a public website is useful, draft a truthful Website brief before publishing anything.\n\nVoice: calm, precise, practical. No exclamation marks. No emoji. No motivational filler. Ask one good question at a time.",
     "proactive_greeting": "I'm your Chief of Staff.\n\nTell me in one sentence what this company should make true. I will turn it into a simple company brief, one first quest, and the next decision for you to approve or edit.",
     "seed_messages": [
       {
@@ -308,7 +308,7 @@
       "key": "director_brief",
       "parent": "first_company_kb",
       "name": "Director's brief",
-      "content": "The Director has not yet defined the company. Replace this with one plain sentence naming the outcome this TRUST should help make true. Good first briefs are specific enough to guide work without locking the company too early: 'Help me turn my consulting pipeline into a repeatable operating system.' 'Build the first useful product around my research notes.' 'Run a small studio that ships one client project at a time.' This brief becomes the anchor for every early quest, role, event, agent recommendation, and public website claim.",
+      "content": "The Director has not yet defined the company. Replace this with one plain sentence naming the outcome this COMPANY should help make true. Good first briefs are specific enough to guide work without locking the company too early: 'Help me turn my consulting pipeline into a repeatable operating system.' 'Build the first useful product around my research notes.' 'Run a small studio that ships one client project at a time.' This brief becomes the anchor for every early quest, role, event, agent recommendation, and public website claim.",
       "tags": ["identity", "priorities", "evergreen"]
     },
     {
@@ -494,7 +494,7 @@
       "owner": "default",
       "key": "setup_first_company",
       "subject": "Set up your First Company",
-      "description": "Guide the Director through the first useful shape of this TRUST. Finish with an Operating snapshot: Director's brief, working style, first durable quest with evidence of done, website status, initial role map, teammate stance, and review cadence. Keep the setup small enough that the Director can understand it from the inbox.",
+      "description": "Guide the Director through the first useful shape of this COMPANY. Finish with an Operating snapshot: Director's brief, working style, first durable quest with evidence of done, website status, initial role map, teammate stance, and review cadence. Keep the setup small enough that the Director can understand it from the inbox.",
       "labels": ["onboarding", "project", "director"]
     },
     {
@@ -502,7 +502,7 @@
       "key": "director_brief",
       "parent": "setup_first_company",
       "subject": "Define the Director's brief",
-      "description": "Have the Director give one rough sentence for what this TRUST should help make true. Rewrite it into the 'Director's brief' idea without making it more opinionated than the Director intended. Update the Operating snapshot and end by naming the first decision the company needs next.",
+      "description": "Have the Director give one rough sentence for what this COMPANY should help make true. Rewrite it into the 'Director's brief' idea without making it more opinionated than the Director intended. Update the Operating snapshot and end by naming the first decision the company needs next.",
       "labels": ["onboarding", "identity", "director"]
     },
     {
@@ -526,7 +526,7 @@
       "key": "public_website",
       "parent": "setup_first_company",
       "subject": "Publish the first public website shell",
-      "description": "Turn the TRUST name and tagline into a truthful Website brief first: public claim, audience, visible proof or honest zero-state, and what should stay private. If the Director approves being public, publish the live website shell at its public route with public/live status and a zero-view baseline surfaced from the trust cockpit. If not, keep the brief as draft and record website status in the Operating snapshot.",
+      "description": "Turn the COMPANY name and tagline into a truthful Website brief first: public claim, audience, visible proof or honest zero-state, and what should stay private. If the Director approves being public, publish the live website shell at its public route with public/live status and a zero-view baseline surfaced from the company cockpit. If not, keep the brief as draft and record website status in the Operating snapshot.",
       "labels": ["onboarding", "website", "product"]
     },
     {
@@ -566,7 +566,7 @@
       "key": "review_cadence",
       "parent": "setup_first_company",
       "subject": "Set the first review cadence",
-      "description": "Ask the Director whether Monday morning weekly review is useful for this TRUST. Keep the `weekly_review` event if it fits, or adjust the event and the 'Review routine' idea if they choose a different cadence. The review should update open decisions, stalled quests, website drift, and the Operating snapshot.",
+      "description": "Ask the Director whether Monday morning weekly review is useful for this COMPANY. Keep the `weekly_review` event if it fits, or adjust the event and the 'Review routine' idea if they choose a different cadence. The review should update open decisions, stalled quests, website drift, and the Operating snapshot.",
       "labels": ["onboarding", "events", "cadence"]
     }
   ],

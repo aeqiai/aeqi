@@ -5,10 +5,10 @@ import * as indexer from "@/lib/indexer";
 
 // ── Fixtures ──────────────────────────────────────────────────────────────
 
-const TRUST = "0xtrustdeadbeef";
+const COMPANY = "0xtrustdeadbeef";
 
 const GOV_MODULE = {
-  trustAddress: TRUST,
+  companyAddress: COMPANY,
   moduleId: indexer.MODULE_ID.governance,
   moduleAddress: "0xgovmodule",
   moduleAcl: "0x",
@@ -40,7 +40,7 @@ describe("useGovernance", () => {
     vi.spyOn(indexer, "indexerEnabled").mockReturnValue(true);
   });
 
-  it("returns empty state immediately when trustAddress is undefined", async () => {
+  it("returns empty state immediately when companyAddress is undefined", async () => {
     const { result } = renderHook(() => useGovernance(undefined));
     await waitFor(() => {
       expect(result.current.proposals).toEqual([]);
@@ -51,7 +51,7 @@ describe("useGovernance", () => {
 
   it("returns empty state when indexer is disabled", async () => {
     vi.spyOn(indexer, "indexerEnabled").mockReturnValue(false);
-    const { result } = renderHook(() => useGovernance(TRUST));
+    const { result } = renderHook(() => useGovernance(COMPANY));
     await waitFor(() => {
       expect(result.current.proposals).toEqual([]);
       expect(result.current.hasModule).toBe(false);
@@ -59,11 +59,11 @@ describe("useGovernance", () => {
   });
 
   it("returns proposals when governance module exists", async () => {
-    vi.spyOn(indexer, "fetchTrustModules").mockResolvedValue([GOV_MODULE]);
+    vi.spyOn(indexer, "fetchCompanyModules").mockResolvedValue([GOV_MODULE]);
     vi.spyOn(indexer, "fetchProposalsForModule").mockResolvedValue([PROPOSAL]);
     vi.spyOn(indexer, "fetchVotingPower").mockResolvedValue(null);
 
-    const { result } = renderHook(() => useGovernance(TRUST));
+    const { result } = renderHook(() => useGovernance(COMPANY));
 
     // Initially loading
     expect(result.current.proposals).toBeNull();
@@ -76,8 +76,8 @@ describe("useGovernance", () => {
   });
 
   it("returns empty proposals and hasModule=false when no governance module", async () => {
-    vi.spyOn(indexer, "fetchTrustModules").mockResolvedValue([]); // no modules
-    const { result } = renderHook(() => useGovernance(TRUST));
+    vi.spyOn(indexer, "fetchCompanyModules").mockResolvedValue([]); // no modules
+    const { result } = renderHook(() => useGovernance(COMPANY));
 
     await waitFor(() => {
       expect(result.current.proposals).toEqual([]);
@@ -87,11 +87,11 @@ describe("useGovernance", () => {
 
   it("surfaces voting power when accountAddress is provided", async () => {
     const VP = { moduleAddress: "0xgovmodule", accountAddress: "0xuser", votingPower: "1000" };
-    vi.spyOn(indexer, "fetchTrustModules").mockResolvedValue([GOV_MODULE]);
+    vi.spyOn(indexer, "fetchCompanyModules").mockResolvedValue([GOV_MODULE]);
     vi.spyOn(indexer, "fetchProposalsForModule").mockResolvedValue([]);
     vi.spyOn(indexer, "fetchVotingPower").mockResolvedValue(VP);
 
-    const { result } = renderHook(() => useGovernance(TRUST, "0xuser"));
+    const { result } = renderHook(() => useGovernance(COMPANY, "0xuser"));
 
     await waitFor(() => {
       expect(result.current.votingPower).toEqual(VP);
@@ -99,12 +99,12 @@ describe("useGovernance", () => {
   });
 
   it("gracefully degrades to null votingPower when indexer throws", async () => {
-    vi.spyOn(indexer, "fetchTrustModules").mockResolvedValue([GOV_MODULE]);
+    vi.spyOn(indexer, "fetchCompanyModules").mockResolvedValue([GOV_MODULE]);
     vi.spyOn(indexer, "fetchProposalsForModule").mockResolvedValue([]);
     // fetchVotingPower itself catches and returns null (schema-missing case).
     vi.spyOn(indexer, "fetchVotingPower").mockResolvedValue(null);
 
-    const { result } = renderHook(() => useGovernance(TRUST, "0xuser"));
+    const { result } = renderHook(() => useGovernance(COMPANY, "0xuser"));
 
     await waitFor(() => {
       expect(result.current.votingPower).toBeNull();
@@ -113,9 +113,9 @@ describe("useGovernance", () => {
   });
 
   it("sets error state on network failure", async () => {
-    vi.spyOn(indexer, "fetchTrustModules").mockRejectedValue(new Error("network failure"));
+    vi.spyOn(indexer, "fetchCompanyModules").mockRejectedValue(new Error("network failure"));
 
-    const { result } = renderHook(() => useGovernance(TRUST));
+    const { result } = renderHook(() => useGovernance(COMPANY));
 
     await waitFor(() => {
       expect(result.current.error).toBe("network failure");
@@ -124,11 +124,11 @@ describe("useGovernance", () => {
     });
   });
 
-  it("re-fetches when trustAddress changes", async () => {
-    vi.spyOn(indexer, "fetchTrustModules").mockResolvedValue([]);
+  it("re-fetches when companyAddress changes", async () => {
+    vi.spyOn(indexer, "fetchCompanyModules").mockResolvedValue([]);
 
     const { result, rerender } = renderHook(({ addr }) => useGovernance(addr), {
-      initialProps: { addr: TRUST as string | undefined },
+      initialProps: { addr: COMPANY as string | undefined },
     });
 
     await waitFor(() => expect(result.current.proposals).toEqual([]));

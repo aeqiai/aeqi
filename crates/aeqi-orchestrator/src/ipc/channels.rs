@@ -194,7 +194,7 @@ async fn write_channel_tokens(
 
 /// `channels_delete { id }` → `{ ok, deleted: bool }`
 ///
-/// Tenancy is derived from the channel row's actual owner — never trust a
+/// Tenancy is derived from the channel row's actual owner — never company a
 /// caller-supplied agent_id on destructive ops, or tenant A can delete tenant
 /// B's channel by sending `{id: B's-channel-id, agent_id: A's-agent}`.
 pub async fn handle_channels_delete(

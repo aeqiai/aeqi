@@ -7,15 +7,15 @@ import { SegmentRenderer } from "@/components/session/SegmentRenderer";
 import type { MessageSegment } from "@/components/session/types";
 import { useDaemonStore } from "@/store/daemon";
 
-function renderInTrustRoute(ui: ReactNode) {
+function renderInCompanyRoute(ui: ReactNode) {
   useDaemonStore.setState({
     entities: [
       {
-        id: "trust-1",
-        name: "Trust",
-        type: "trust",
+        id: "company-1",
+        name: "Company",
+        type: "company",
         status: "active",
-        trust_address: "trust-slug",
+        company_address: "company-slug",
         created_at: "2026-05-23T00:00:00.000Z",
       },
     ],
@@ -33,9 +33,9 @@ function renderInTrustRoute(ui: ReactNode) {
   });
 
   return render(
-    <MemoryRouter initialEntries={["/trust/trust-slug"]}>
+    <MemoryRouter initialEntries={["/company/company-slug"]}>
       <Routes>
-        <Route path="/trust/:trustAddress" element={ui} />
+        <Route path="/company/:companyAddress" element={ui} />
       </Routes>
     </MemoryRouter>,
   );
@@ -186,16 +186,16 @@ describe("EntityRefInline", () => {
           kind: "quest",
           id: "ae-096",
           label: "Reference primitive work",
-          trustId: "trust-1",
+          companyId: "company-1",
           status: "in progress",
         },
       },
     ];
 
-    const { container } = renderInTrustRoute(<SegmentRenderer segments={segments} />);
+    const { container } = renderInCompanyRoute(<SegmentRenderer segments={segments} />);
 
     const link = screen.getByRole("link", { name: /quest reference primitive work/i });
-    expect(link).toHaveAttribute("href", "/trust/trust-slug/quests/ae-096");
+    expect(link).toHaveAttribute("href", "/company/company-slug/quests/ae-096");
     expect(container.querySelector(".asv-entity-ref--quest")).not.toBeNull();
     expect(screen.getByText("in progress")).toBeInTheDocument();
   });
@@ -208,7 +208,7 @@ describe("EntityRefInline", () => {
       },
     ];
 
-    const { container } = renderInTrustRoute(<SegmentRenderer segments={segments} />);
+    const { container } = renderInCompanyRoute(<SegmentRenderer segments={segments} />);
 
     expect(screen.queryByRole("link")).toBeNull();
     expect(screen.getByText("Idea")).toBeInTheDocument();

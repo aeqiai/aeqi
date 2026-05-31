@@ -20,7 +20,7 @@ interface UseWebSocketChatOptions {
   token: string | null;
   agentId: string;
   agentName: string;
-  trustId: string | null;
+  companyId: string | null;
   activeSessionId: string | null;
   sessionIdRef: React.MutableRefObject<string | null>;
   prevSessionRef: React.MutableRefObject<string | null>;
@@ -46,7 +46,7 @@ export function useWebSocketChat({
   token,
   agentId,
   agentName,
-  trustId,
+  companyId,
   activeSessionId,
   sessionIdRef,
   prevSessionRef,
@@ -187,7 +187,7 @@ export function useWebSocketChat({
         return Promise.resolve();
       }
       return new Promise<void>((resolve) => {
-        const ws = openChatSocket(token, trustId);
+        const ws = openChatSocket(token, companyId);
         replaceSocket(ws, sessionId);
         ws.onopen = () => {
           ws.send(JSON.stringify({ subscribe: true, session_id: sessionId }));
@@ -196,7 +196,7 @@ export function useWebSocketChat({
         attachEventHandlers(ws, startTime);
       });
     },
-    [token, trustId, attachEventHandlers, replaceSocket],
+    [token, companyId, attachEventHandlers, replaceSocket],
   );
 
   const dispatchMessage = useCallback(
@@ -212,7 +212,7 @@ export function useWebSocketChat({
         agentId,
         agentName,
         messageText,
-        trustId,
+        companyId,
       });
 
       if (!token || !sessionId) return;
@@ -246,7 +246,7 @@ export function useWebSocketChat({
                 ? turnFiles.map((f) => ({ name: f.name, content: f.content }))
                 : undefined,
           },
-          trustId || undefined,
+          companyId || undefined,
         );
       } catch {
         clearLiveState();
@@ -268,7 +268,7 @@ export function useWebSocketChat({
       attachedFiles,
       setSessionStreaming,
       track,
-      trustId,
+      companyId,
     ],
   );
 
@@ -360,11 +360,11 @@ function parseEvent(data: string): RawEvent | null {
   }
 }
 
-function openChatSocket(token: string, trustId?: string | null): WebSocket {
+function openChatSocket(token: string, companyId?: string | null): WebSocket {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const entity = trustId || getScopedEntity();
+  const entity = companyId || getScopedEntity();
   return new WebSocket(
-    `${protocol}//${window.location.host}/api/chat/stream?token=${token}&trust_id=${encodeURIComponent(entity)}`,
+    `${protocol}//${window.location.host}/api/chat/stream?token=${token}&company_id=${encodeURIComponent(entity)}`,
   );
 }
 
@@ -437,7 +437,7 @@ interface EnsureSessionArgs {
   agentId: string;
   agentName: string;
   messageText: string;
-  trustId?: string | null;
+  companyId?: string | null;
 }
 
 async function ensureSession({
@@ -448,12 +448,12 @@ async function ensureSession({
   agentId,
   agentName,
   messageText,
-  trustId,
+  companyId,
 }: EnsureSessionArgs): Promise<{ sessionId: string | null; isNew: boolean }> {
   const existing = sessionIdRef.current;
   if (existing) return { sessionId: existing, isNew: false };
   try {
-    const d = await api.createSession(agentId, trustId || undefined);
+    const d = await api.createSession(agentId, companyId || undefined);
     const sid = (d.session_id as string | undefined) ?? null;
     if (!sid) return { sessionId: null, isNew: true };
     sessionIdRef.current = sid;

@@ -11,7 +11,7 @@ calls, not hidden string injection.
 ## The thesis
 
 AEQI's canonical operating surfaces are **roles, agents, quests, ideas, events,
-sessions, and apps/tools** inside a TRUST. Everything the LLM sees must trace
+sessions, and apps/tools** inside a COMPANY. Everything the LLM sees must trace
 back to one of those surfaces via a visible, configured path. Any string that
 appears in the model's context without that provenance is "magic" and must be
 killed.

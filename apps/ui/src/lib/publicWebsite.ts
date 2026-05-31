@@ -1,37 +1,37 @@
-import type { Trust } from "@/lib/types";
+import type { Company } from "@/lib/types";
 
-type PublicWebsiteTrust = Pick<Trust, "id" | "trust_address" | "slug"> &
-  Partial<Pick<Trust, "name">>;
+type PublicWebsiteCompany = Pick<Company, "id" | "company_address" | "slug"> &
+  Partial<Pick<Company, "name">>;
 
-export type { PublicWebsiteTrust };
+export type { PublicWebsiteCompany };
 
 /**
- * Canonical public website identity for a trust.
+ * Canonical public website identity for a company.
  *
- * The public trust surface is the website. Prefer the public slug when the
+ * The public company surface is the website. Prefer the public slug when the
  * backend has minted one; otherwise derive the launch slug from the unique
- * trust name. Address/id fallback only exists for legacy rows that predate
+ * company name. Address/id fallback only exists for legacy rows that predate
  * launch-time website identity.
  */
-export function publicWebsitePath(trust: PublicWebsiteTrust): string {
-  const slug = publicWebsiteSlug(trust);
+export function publicWebsitePath(company: PublicWebsiteCompany): string {
+  const slug = publicWebsiteSlug(company);
   return `/${encodeURIComponent(slug)}`;
 }
 
-export function publicWebsiteDomain(trust: PublicWebsiteTrust): string {
-  return `${publicWebsiteSlug(trust)}.aeqi.ai`;
+export function publicWebsiteDomain(company: PublicWebsiteCompany): string {
+  return `${publicWebsiteSlug(company)}.aeqi.ai`;
 }
 
-export function publicWebsiteUrl(trust: PublicWebsiteTrust): string {
-  return `https://${publicWebsiteDomain(trust)}/`;
+export function publicWebsiteUrl(company: PublicWebsiteCompany): string {
+  return `https://${publicWebsiteDomain(company)}/`;
 }
 
-export function publicWebsiteSlug(trust: PublicWebsiteTrust): string {
+export function publicWebsiteSlug(company: PublicWebsiteCompany): string {
   return (
-    normalizeWebsiteSlug(trust.slug) ??
-    normalizeWebsiteSlug(trust.name) ??
-    trust.trust_address ??
-    trust.id
+    normalizeWebsiteSlug(company.slug) ??
+    normalizeWebsiteSlug(company.name) ??
+    company.company_address ??
+    company.id
   );
 }
 

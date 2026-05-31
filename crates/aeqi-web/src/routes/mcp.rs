@@ -52,7 +52,7 @@ struct McpActorContext {
     #[serde(skip_serializing_if = "Option::is_none")]
     user_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    trust_id: Option<String>,
+    company_id: Option<String>,
     #[serde(default)]
     roles: Vec<String>,
     #[serde(default)]
@@ -274,7 +274,7 @@ fn mcp_context(scope: Option<&UserScope>, headers: &HeaderMap) -> McpHttpContext
     let role_id = header_string(headers, "x-aeqi-role-id")
         .or_else(|| header_string(headers, "x-aeqi-as-role-id"));
     let allowed_roots = scope.map(|s| s.roots.clone()).unwrap_or_default();
-    let trust_id = scope.and_then(|_| allowed_roots.first().cloned());
+    let company_id = scope.and_then(|_| allowed_roots.first().cloned());
     let user_id = scope.and_then(|s| s.user_id.clone());
 
     let actor = McpActorContext {
@@ -284,7 +284,7 @@ fn mcp_context(scope: Option<&UserScope>, headers: &HeaderMap) -> McpHttpContext
             "local_operator".to_string()
         },
         user_id,
-        trust_id,
+        company_id,
         roles: Vec::new(),
         grants: if scope.is_none() {
             vec!["*".to_string()]
@@ -324,8 +324,8 @@ fn apply_actor(ctx: &McpHttpContext, request: &mut serde_json::Value) {
     if let Some(agent_id) = ctx.agent_id.as_deref() {
         request["caller_agent_id"] = serde_json::json!(agent_id);
     }
-    if let Some(trust_id) = ctx.actor.trust_id.as_deref() {
-        request["caller_entity_id"] = serde_json::json!(trust_id);
+    if let Some(company_id) = ctx.actor.company_id.as_deref() {
+        request["caller_entity_id"] = serde_json::json!(company_id);
     }
 }
 
@@ -349,7 +349,7 @@ async fn call_tool(
             "ok": true,
             "mode": if ctx.allowed_roots.is_empty() { "self_hosted_local" } else { "http_scoped" },
             "root": ctx.allowed_roots.first(),
-            "trust_id": ctx.actor.trust_id,
+            "company_id": ctx.actor.company_id,
             "user_id": ctx.actor.user_id,
             "allowed_roots": ctx.allowed_roots,
             "actor": ctx.actor,
@@ -397,7 +397,7 @@ async fn call_browser(
                 .or(ctx.agent_id.as_deref())
                 .ok_or_else(|| {
                     anyhow::anyhow!(
-                        "agent_id is required for browser evidence until TRUST-scoped files land"
+                        "agent_id is required for browser evidence until COMPANY-scoped files land"
                     )
                 })?;
             let capture = run_browser_capture(&args)?;
@@ -941,12 +941,12 @@ async fn call_views(
         .get("action")
         .and_then(|v| v.as_str())
         .unwrap_or("list");
-    let trust_id = mcp_trust_id(ctx, &args)?;
+    let company_id = mcp_company_id(ctx, &args)?;
     match action {
         "list" => {
             let mut req = serde_json::json!({
                 "cmd": "list_views",
-                "trust_id": trust_id,
+                "company_id": company_id,
             });
             copy_fields(&args, &mut req, &["owner_user_id"]);
             ipc(state, ctx, req).await
@@ -954,7 +954,7 @@ async fn call_views(
         "upsert" => {
             let mut req = serde_json::json!({
                 "cmd": "upsert_views",
-                "trust_id": trust_id,
+                "company_id": company_id,
             });
             copy_fields(&args, &mut req, &["view", "views", "owner_user_id"]);
             ipc(state, ctx, req).await
@@ -962,7 +962,7 @@ async fn call_views(
         "delete" => {
             let mut req = serde_json::json!({
                 "cmd": "delete_view",
-                "trust_id": trust_id,
+                "company_id": company_id,
             });
             copy_fields(&args, &mut req, &["view_id", "id", "key", "owner_user_id"]);
             ipc(state, ctx, req).await
@@ -971,15 +971,15 @@ async fn call_views(
     }
 }
 
-fn mcp_trust_id(ctx: &McpHttpContext, args: &serde_json::Value) -> anyhow::Result<String> {
-    args.get("trust_id")
+fn mcp_company_id(ctx: &McpHttpContext, args: &serde_json::Value) -> anyhow::Result<String> {
+    args.get("company_id")
         .and_then(|v| v.as_str())
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .map(str::to_string)
-        .or_else(|| ctx.actor.trust_id.clone())
+        .or_else(|| ctx.actor.company_id.clone())
         .or_else(|| ctx.allowed_roots.first().cloned())
-        .ok_or_else(|| anyhow::anyhow!("trust_id is required"))
+        .ok_or_else(|| anyhow::anyhow!("company_id is required"))
 }
 
 async fn call_agents(
@@ -1635,7 +1635,7 @@ const INTEGRATION_PACKS: &[IntegrationPack] = &[
         auth_model: "oauth2",
         credential_name: "oauth_token",
         default_scope_kind: "agent",
-        credential_scope_note: "Per-agent OAuth by default, with TRUST/global fallback through the credential resolver.",
+        credential_scope_note: "Per-agent OAuth by default, with COMPANY/global fallback through the credential resolver.",
         tool_prefixes: &["google", "gmail", "calendar", "meet", "drive"],
         capabilities: &["email", "calendar", "meetings", "documents", "files"],
     },
@@ -1666,7 +1666,7 @@ const INTEGRATION_PACKS: &[IntegrationPack] = &[
         auth_model: "oauth2",
         credential_name: "oauth_token",
         default_scope_kind: "agent",
-        credential_scope_note: "Per-agent Notion OAuth by default; can be elevated to TRUST scope when the workspace is company-owned.",
+        credential_scope_note: "Per-agent Notion OAuth by default; can be elevated to COMPANY scope when the workspace is company-owned.",
         tool_prefixes: &["notion"],
         capabilities: &["pages", "blocks", "databases", "users"],
     },
@@ -1686,11 +1686,11 @@ const INTEGRATION_PACKS: &[IntegrationPack] = &[
         provider: "etsy",
         title: "Etsy",
         category: "commerce",
-        description: "Seller shop, listing, order, and draft-listing tools for TRUST-owned storefronts.",
+        description: "Seller shop, listing, order, and draft-listing tools for COMPANY-owned storefronts.",
         auth_model: "oauth2",
         credential_name: "oauth_token",
-        default_scope_kind: "trust",
-        credential_scope_note: "TRUST-scoped OAuth: one connected seller account powers permitted humans and agents.",
+        default_scope_kind: "company",
+        credential_scope_note: "COMPANY-scoped OAuth: one connected seller account powers permitted humans and agents.",
         tool_prefixes: &["etsy"],
         capabilities: &["shops", "listings", "orders", "draft_listings"],
     },
@@ -1704,7 +1704,7 @@ const PLANNED_INTEGRATIONS: &[PlannedIntegration] = &[
         description: "Enterprise WeChat channel for company operators, customers, and group workflows.",
         recommended_mode: "callback_self_built_app",
         auth_model: "service_account_callback",
-        default_scope_kind: "trust",
+        default_scope_kind: "company",
         capabilities: &[
             "direct_messages",
             "group_messages",
@@ -1719,7 +1719,7 @@ const PLANNED_INTEGRATIONS: &[PlannedIntegration] = &[
             "Prefer WeCom Callback for AEQI companies: it appears as a self-built enterprise app and supports multi-corp routing.",
             "Inbound callbacks must verify signature, decrypt XML, deduplicate WeCom retries, immediately ACK, and queue async agent work.",
             "Outbound replies should use WeCom message/send with cached access tokens and one refresh retry on token expiry.",
-            "Access should bind to TRUST role/app grants plus channel allowlists, not to raw webhook possession.",
+            "Access should bind to COMPANY role/app grants plus channel allowlists, not to raw webhook possession.",
         ],
     },
     PlannedIntegration {
@@ -1879,7 +1879,7 @@ fn credential_resolution_scope(
         .unwrap_or("agent");
     let requested_id = args
         .get("credential_scope_id")
-        .or_else(|| args.get("credential_trust_id"))
+        .or_else(|| args.get("credential_company_id"))
         .or_else(|| args.get("credential_agent_id"))
         .or_else(|| args.get("agent_id"))
         .and_then(|v| v.as_str())
@@ -1888,9 +1888,9 @@ fn credential_resolution_scope(
         .map(ToOwned::to_owned);
 
     let mut scope = ResolutionScope {
-        trust_id: ctx
+        company_id: ctx
             .actor
-            .trust_id
+            .company_id
             .clone()
             .or_else(|| ctx.allowed_roots.first().cloned()),
         user_id: ctx.actor.user_id.clone(),
@@ -1898,9 +1898,9 @@ fn credential_resolution_scope(
     };
     match requested_kind {
         "global" => {}
-        "trust" | "entity" => {
-            scope.trust_id = requested_id
-                .or_else(|| ctx.actor.trust_id.clone())
+        "company" | "entity" => {
+            scope.company_id = requested_id
+                .or_else(|| ctx.actor.company_id.clone())
                 .or_else(|| ctx.allowed_roots.first().cloned());
         }
         "user" => {
@@ -1937,15 +1937,15 @@ fn authorize_app_role(
         });
     }
 
-    let trust_id = args
-        .get("trust_id")
+    let company_id = args
+        .get("company_id")
         .and_then(|v| v.as_str())
         .map(str::trim)
         .filter(|s| !s.is_empty())
-        .or(ctx.actor.trust_id.as_deref())
-        .ok_or_else(|| anyhow::anyhow!("trust_id is required for scoped app calls"))?;
-    if !ctx.allowed_roots.iter().any(|root| root == trust_id) {
-        anyhow::bail!("forbidden: trust_id is outside the MCP allowed roots");
+        .or(ctx.actor.company_id.as_deref())
+        .ok_or_else(|| anyhow::anyhow!("company_id is required for scoped app calls"))?;
+    if !ctx.allowed_roots.iter().any(|root| root == company_id) {
+        anyhow::bail!("forbidden: company_id is outside the MCP allowed roots");
     }
 
     let db_path = state.data_dir.join("aeqi.db");
@@ -1958,7 +1958,7 @@ fn authorize_app_role(
         .filter(|s| !s.is_empty())
         .map(ToOwned::to_owned)
         .or_else(|| ctx.role_id.clone())
-        .or(infer_single_occupied_role(&conn, trust_id, ctx)?)
+        .or(infer_single_occupied_role(&conn, company_id, ctx)?)
         .ok_or_else(|| {
             anyhow::anyhow!(
                 "role_id is required for scoped app calls when no single occupied role can be inferred"
@@ -1967,12 +1967,12 @@ fn authorize_app_role(
 
     let (occupant_kind, occupant_id): (String, Option<String>) = conn
         .query_row(
-            "SELECT occupant_kind, occupant_id FROM roles WHERE id = ?1 AND trust_id = ?2",
-            params![role_id, trust_id],
+            "SELECT occupant_kind, occupant_id FROM roles WHERE id = ?1 AND company_id = ?2",
+            params![role_id, company_id],
             |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .optional()?
-        .ok_or_else(|| anyhow::anyhow!("role not found in trust: {role_id}"))?;
+        .ok_or_else(|| anyhow::anyhow!("role not found in company: {role_id}"))?;
     match (occupant_kind.as_str(), occupant_id.as_deref()) {
         ("human", Some(id)) if ctx.actor.user_id.as_deref() == Some(id) => {}
         ("agent", Some(id)) if ctx.agent_id.as_deref() == Some(id) => {}
@@ -1997,7 +1997,7 @@ fn authorize_app_role(
 
 fn infer_single_occupied_role(
     conn: &Connection,
-    trust_id: &str,
+    company_id: &str,
     ctx: &McpHttpContext,
 ) -> anyhow::Result<Option<String>> {
     let (kind, occupant_id) = if let Some(user_id) = ctx.actor.user_id.as_deref() {
@@ -2009,11 +2009,11 @@ fn infer_single_occupied_role(
     };
     let mut stmt = conn.prepare(
         "SELECT id FROM roles
-         WHERE trust_id = ?1 AND occupant_kind = ?2 AND occupant_id = ?3
+         WHERE company_id = ?1 AND occupant_kind = ?2 AND occupant_id = ?3
          ORDER BY created_at ASC",
     )?;
     let roles = stmt
-        .query_map(params![trust_id, kind, occupant_id], |row| {
+        .query_map(params![company_id, kind, occupant_id], |row| {
             row.get::<_, String>(0)
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -2317,7 +2317,7 @@ fn tool_defs() -> serde_json::Value {
         {
             "name": "views",
             "title": "AEQI Views",
-            "description": "Durable TRUST-scoped route and dashboard views. Use this to list, upsert, or delete saved views that the UI and agents can share for launch dashboards, operating consoles, and public-ready overview curation.",
+            "description": "Durable COMPANY-scoped route and dashboard views. Use this to list, upsert, or delete saved views that the UI and agents can share for launch dashboards, operating consoles, and public-ready overview curation.",
             "annotations": {
                 "title": "AEQI Views",
                 "readOnlyHint": false,
@@ -2329,7 +2329,7 @@ fn tool_defs() -> serde_json::Value {
                 "type": "object",
                 "properties": {
                     "action": {"type": "string", "enum": ["list", "upsert", "delete"], "description": "list returns saved views; upsert creates or updates one or more views; delete removes one private view by id or key."},
-                    "trust_id": {"type": "string", "description": "TRUST/entity id. Defaults to the MCP actor's TRUST when available."},
+                    "company_id": {"type": "string", "description": "COMPANY/entity id. Defaults to the MCP actor's COMPANY when available."},
                     "owner_user_id": {"type": "string", "description": "Optional owner override for private views. Omit to use the authenticated caller."},
                     "view": {"type": "object", "description": "Single view upsert payload with key, label, kind, scope, path/search, layout_json, pinned, and sort_order."},
                     "views": {"type": "array", "items": {"type": "object"}, "description": "Batch upsert payload."},
@@ -2451,7 +2451,7 @@ fn tool_defs() -> serde_json::Value {
         {
             "name": "apps",
             "title": "AEQI Apps Proxy",
-            "description": "Universal TRUST-role proxy for connected apps. Use catalog to discover available app packs, credential scope, capabilities, and safe/destructive tools; use planned/roadmap to inspect non-callable next integrations; use list_tools for raw function schemas; use call to dispatch through the credential substrate. Scoped calls require the acting role to occupy the TRUST and hold an app grant such as apps.google.use or apps.use.",
+            "description": "Universal COMPANY-role proxy for connected apps. Use catalog to discover available app packs, credential scope, capabilities, and safe/destructive tools; use planned/roadmap to inspect non-callable next integrations; use list_tools for raw function schemas; use call to dispatch through the credential substrate. Scoped calls require the acting role to occupy the COMPANY and hold an app grant such as apps.google.use or apps.use.",
             "annotations": {
                 "title": "AEQI Apps Proxy",
                 "readOnlyHint": false,
@@ -2466,10 +2466,10 @@ fn tool_defs() -> serde_json::Value {
                     "provider": {"type": "string", "description": "App/provider key, for example google, github, notion, slack, etsy, wecom, or weixin. Required when the provider cannot be inferred from the tool name."},
                     "tool": {"type": "string", "description": "App tool name for call, for example google.request, drive.list_files, or gmail.search."},
                     "arguments": {"type": "object", "description": "Arguments passed unchanged to the app tool."},
-                    "trust_id": {"type": "string", "description": "TRUST/entity id to authorize against. Defaults to the MCP allowed root."},
+                    "company_id": {"type": "string", "description": "COMPANY/entity id to authorize against. Defaults to the MCP allowed root."},
                     "role_id": {"type": "string", "description": "Role/chair the MCP actor is occupying. May also be supplied as x-aeqi-role-id."},
-                    "credential_scope_kind": {"type": "string", "enum": ["agent", "trust", "global", "user", "channel", "installation"], "description": "Credential lookup scope. Defaults to agent, whose resolver order is agent, TRUST, then global."},
-                    "credential_scope_id": {"type": "string", "description": "Optional credential scope id; for TRUST scope this is the TRUST/entity id."}
+                    "credential_scope_kind": {"type": "string", "enum": ["agent", "company", "global", "user", "channel", "installation"], "description": "Credential lookup scope. Defaults to agent, whose resolver order is agent, COMPANY, then global."},
+                    "credential_scope_id": {"type": "string", "description": "Optional credential scope id; for COMPANY scope this is the COMPANY/entity id."}
                 },
                 "required": ["action"]
             }
@@ -2492,10 +2492,10 @@ fn tool_defs() -> serde_json::Value {
                     "provider": {"type": "string", "description": "Integration provider key, for example google, github, notion, slack, etsy, wecom, or weixin. Required when the provider cannot be inferred from the tool name."},
                     "tool": {"type": "string", "description": "App tool name for call, for example google.request, drive.list_files, or gmail.search."},
                     "arguments": {"type": "object", "description": "Arguments passed unchanged to the app tool."},
-                    "trust_id": {"type": "string", "description": "TRUST/entity id to authorize against. Defaults to the MCP allowed root."},
+                    "company_id": {"type": "string", "description": "COMPANY/entity id to authorize against. Defaults to the MCP allowed root."},
                     "role_id": {"type": "string", "description": "Role/chair the MCP actor is occupying. May also be supplied as x-aeqi-role-id."},
-                    "credential_scope_kind": {"type": "string", "enum": ["agent", "trust", "global", "user", "channel", "installation"], "description": "Credential lookup scope. Defaults to agent, whose resolver order is agent, TRUST, then global."},
-                    "credential_scope_id": {"type": "string", "description": "Optional credential scope id; for TRUST scope this is the TRUST/entity id."}
+                    "credential_scope_kind": {"type": "string", "enum": ["agent", "company", "global", "user", "channel", "installation"], "description": "Credential lookup scope. Defaults to agent, whose resolver order is agent, COMPANY, then global."},
+                    "credential_scope_id": {"type": "string", "description": "Optional credential scope id; for COMPANY scope this is the COMPANY/entity id."}
                 },
                 "required": ["action"]
             }
@@ -2542,7 +2542,7 @@ mod tests {
 
         assert_eq!(ctx.actor.kind, "user");
         assert_eq!(ctx.actor.user_id.as_deref(), Some("user-1"));
-        assert_eq!(ctx.actor.trust_id.as_deref(), Some("entity-1"));
+        assert_eq!(ctx.actor.company_id.as_deref(), Some("entity-1"));
         assert_eq!(ctx.agent.as_deref(), Some("architect"));
         assert_eq!(ctx.role_id.as_deref(), Some("role-director"));
         assert_eq!(ctx.allowed_roots, vec!["entity-1"]);
@@ -2735,7 +2735,7 @@ mod tests {
             actor: McpActorContext {
                 kind: "local_operator".to_string(),
                 user_id: None,
-                trust_id: None,
+                company_id: None,
                 roles: Vec::new(),
                 grants: vec!["*".to_string()],
                 source: "test".to_string(),
@@ -2943,7 +2943,7 @@ mod tests {
             views["description"]
                 .as_str()
                 .unwrap()
-                .contains("Durable TRUST-scoped")
+                .contains("Durable COMPANY-scoped")
         );
         let view_actions = views["inputSchema"]["properties"]["action"]["enum"]
             .as_array()
@@ -2954,7 +2954,11 @@ mod tests {
                 .iter()
                 .any(|action| action.as_str() == Some("upsert"))
         );
-        assert!(views["inputSchema"]["properties"].get("trust_id").is_some());
+        assert!(
+            views["inputSchema"]["properties"]
+                .get("company_id")
+                .is_some()
+        );
         assert!(views["inputSchema"]["properties"].get("views").is_some());
 
         let ideas = by_name("ideas");
@@ -3025,7 +3029,7 @@ mod tests {
             apps["description"]
                 .as_str()
                 .unwrap()
-                .contains("TRUST-role proxy")
+                .contains("COMPANY-role proxy")
         );
         assert!(
             apps["inputSchema"]["properties"]
@@ -3086,7 +3090,7 @@ mod tests {
             .iter()
             .find(|entry| entry["provider"] == "etsy")
             .expect("etsy catalog entry");
-        assert_eq!(etsy["credential"]["default_scope_kind"], "trust");
+        assert_eq!(etsy["credential"]["default_scope_kind"], "company");
         assert_eq!(etsy["auth_model"], "oauth2");
         assert!(etsy["tool_count"].as_u64().unwrap_or_default() >= 5);
         assert!(
@@ -3119,7 +3123,7 @@ mod tests {
             .expect("wecom planned entry");
         assert_eq!(wecom["status"], "planned");
         assert_eq!(wecom["recommended_mode"], "callback_self_built_app");
-        assert_eq!(wecom["credential"]["default_scope_kind"], "trust");
+        assert_eq!(wecom["credential"]["default_scope_kind"], "company");
         assert_eq!(wecom["tool_count"], 0);
         assert!(wecom["tools"].as_array().unwrap().is_empty());
         assert!(
@@ -3145,7 +3149,7 @@ mod tests {
         assert_eq!(ctx.actor.kind, "local_operator");
         assert_eq!(ctx.actor.source, "self_hosted_local");
         assert_eq!(ctx.actor.user_id, None);
-        assert_eq!(ctx.actor.trust_id, None);
+        assert_eq!(ctx.actor.company_id, None);
         assert_eq!(ctx.actor.grants, vec!["*"]);
         assert!(ctx.allowed_roots.is_empty());
     }
@@ -3181,7 +3185,7 @@ mod tests {
 
         assert_eq!(ctx.actor.kind, "user");
         assert_eq!(ctx.actor.user_id.as_deref(), Some("user-1"));
-        assert_eq!(ctx.actor.trust_id.as_deref(), Some("entity-1"));
+        assert_eq!(ctx.actor.company_id.as_deref(), Some("entity-1"));
     }
 
     #[test]

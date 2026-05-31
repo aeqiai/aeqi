@@ -1,29 +1,29 @@
 /**
  * `useDecodedModuleActivity` — decode the leading N signatures against a
- * Module PDA into typed `aeqi_trust` instruction rows.
+ * Module PDA into typed `aeqi_company` instruction rows.
  *
  * Iter-6 surfaced the raw signature tail in `ModuleDetailModal` with
  * timestamp + explorer-link only. Operators couldn't tell which signature
  * was an `adopt_module_implementation` vs a `set_module_acl` vs a
  * `register_module` without opening each one in the explorer. Iter-7
  * closes that gap by walking each parsed transaction, finding the
- * `aeqi_trust` invocation that touched the Module PDA, and mapping its
+ * `aeqi_company` invocation that touched the Module PDA, and mapping its
  * 8-byte Anchor discriminator to the IDL instruction name.
  *
  * Decode strategy:
- *   1. The Module PDA is owned by `aeqi_trust` so most lifecycle
+ *   1. The Module PDA is owned by `aeqi_company` so most lifecycle
  *      mutations enter through one of the IDL's 11 instructions. We
- *      pull the instructions whose `programId === AEQI_TRUST_PROGRAM_ID`
+ *      pull the instructions whose `programId === AEQI_COMPANY_PROGRAM_ID`
  *      and look at the first 8 bytes of their data — `bs58.decode(data)`
  *      for partially-decoded instructions, or the `parsed.type` for
  *      fully-parsed ones (the IDL doesn't ship a parser plugin so RPCs
  *      almost always return partial-decode shape here).
  *   2. The discriminator → name map mirrors the canonical IDL
- *      (`aeqi_trust.json` instructions array, 2026-05-21 snapshot).
+ *      (`aeqi_company.json` instructions array, 2026-05-21 snapshot).
  *      If we don't recognise the disc the row falls back to a typed
  *      "On-chain call" badge with the raw 8-byte hex disc surfaced for
  *      the operator to grep upstream.
- *   3. Multiple `aeqi_trust` instructions in one tx (e.g. factory's
+ *   3. Multiple `aeqi_company` instructions in one tx (e.g. factory's
  *      register + adopt sequence) collapse to the FIRST recognised
  *      instruction. We surface the count via the secondary label so
  *      the operator knows the row is a compound, not a single-shot.
@@ -40,7 +40,7 @@
  *   - Non-AEQI signatures (third-party programs that touched the Module
  *     account via CPI without our IDL) collapse to "on-chain call" with
  *     the calling program IDs surfaced honestly. We never fabricate an
- *     `aeqi_trust` name when our program wasn't the caller.
+ *     `aeqi_company` name when our program wasn't the caller.
  */
 import { useMemo } from "react";
 import { useQueries } from "@tanstack/react-query";
@@ -48,21 +48,21 @@ import type { ParsedInstruction, PartiallyDecodedInstruction } from "@solana/web
 import bs58 from "bs58";
 
 import { getConnection, isDirectSolanaRpcEnabled } from "@/solana/client";
-import { AEQI_TRUST_PROGRAM_ID } from "@/solana/pdas";
+import { AEQI_COMPANY_PROGRAM_ID } from "@/solana/pdas";
 import type { VaultSignature } from "@/hooks/useVaultActivity";
 
 const DECODE_LIMIT = 12;
 const STALE_TIME_MS = 60_000;
 
-const AEQI_TRUST_PID = AEQI_TRUST_PROGRAM_ID.toBase58();
+const AEQI_COMPANY_PID = AEQI_COMPANY_PROGRAM_ID.toBase58();
 
 /**
- * Anchor 8-byte instruction discriminators for `aeqi_trust`. Source of
- * truth: `apps/ui/src/solana/generated/idl/aeqi_trust.json` 2026-05-21
+ * Anchor 8-byte instruction discriminators for `aeqi_company`. Source of
+ * truth: `apps/ui/src/solana/generated/idl/aeqi_company.json` 2026-05-21
  * snapshot — keep in sync if the IDL is regenerated. Stored as hex so
  * the lookup key matches `bytesToHex(slice(0, 8))` without re-binding.
  */
-const TRUST_DISCRIMINATORS: Record<string, string> = {
+const COMPANY_DISCRIMINATORS: Record<string, string> = {
   "3406184628680edd": "adopt_module_implementation",
   ab3dda387f730cd9: "finalize",
   afaf6d1f0d989bed: "initialize",
@@ -76,7 +76,7 @@ const TRUST_DISCRIMINATORS: Record<string, string> = {
   "5b3c7dc0b0e1a6da": "set_paused",
 };
 
-export type DecodedModuleKind = "trust-ix" | "other";
+export type DecodedModuleKind = "company-ix" | "other";
 
 export interface DecodedModuleActivity {
   signature: string;
@@ -91,9 +91,9 @@ export interface DecodedModuleActivity {
    *  operator a grep target against the IDL without us fabricating a
    *  name we don't have. */
   unknownDiscHex: string | null;
-  /** Other AEQI-trust calls within the same tx — surfaced as a
+  /** Other AEQI-company calls within the same tx — surfaced as a
    *  "+N more" label so the operator knows the row is a compound. */
-  extraTrustCalls: number;
+  extraCompanyCalls: number;
   /** Top-level program IDs called in the transaction. Surfaced in the
    *  "other" fallback so the row reads "called program X" honestly. */
   programs: string[];
@@ -129,10 +129,10 @@ function discFromPartialIx(ix: PartiallyDecodedInstruction): string | null {
 }
 
 /**
- * Walk a parsed transaction looking for `aeqi_trust` invocations against
+ * Walk a parsed transaction looking for `aeqi_company` invocations against
  * the target Module PDA. Returns the first recognised instruction name
  * (so the row gets a load-bearing label) plus a count of additional
- * trust calls in the tx (so a compound register-then-adopt reads as
+ * company calls in the tx (so a compound register-then-adopt reads as
  * such instead of hiding the second call).
  */
 function decodeParsedModuleTx(
@@ -148,7 +148,7 @@ function decodeParsedModuleTx(
   for (const ix of message.instructions) programs.add(ix.programId.toBase58());
 
   // Flatten top-level + inner instructions; the factory wraps multiple
-  // `aeqi_trust` calls inside a single user-facing tx via CPI.
+  // `aeqi_company` calls inside a single user-facing tx via CPI.
   const allInstructions: Array<ParsedInstruction | PartiallyDecodedInstruction> = [
     ...message.instructions,
   ];
@@ -161,7 +161,7 @@ function decodeParsedModuleTx(
   let trustCallCount = 0;
 
   for (const ix of allInstructions) {
-    if (ix.programId.toBase58() !== AEQI_TRUST_PID) continue;
+    if (ix.programId.toBase58() !== AEQI_COMPANY_PID) continue;
 
     // Honest gate: confirm this instruction actually touched the
     // module PDA we're decoding for. A factory `initialize` doesn't
@@ -170,7 +170,7 @@ function decodeParsedModuleTx(
     // fully-parsed shape doesn't — for the latter we fall back to a
     // tx-wide accountKeys membership check (the signature wouldn't
     // have been returned otherwise) which is less precise but still
-    // honest for `aeqi_trust` since it only writes to module/trust
+    // honest for `aeqi_company` since it only writes to module/company
     // PDAs.
     if (!isParsedInstruction(ix)) {
       const accountList = ix.accounts;
@@ -195,7 +195,7 @@ function decodeParsedModuleTx(
     }
     const disc = discFromPartialIx(ix);
     if (!disc) continue;
-    const name = TRUST_DISCRIMINATORS[disc];
+    const name = COMPANY_DISCRIMINATORS[disc];
     if (name && firstInstruction === null) {
       firstInstruction = name;
     } else if (!name && firstInstruction === null && firstUnknownDisc === null) {
@@ -209,10 +209,10 @@ function decodeParsedModuleTx(
       blockTime: sig.blockTime,
       slot: sig.slot,
       err: sig.err,
-      kind: "trust-ix",
+      kind: "company-ix",
       instruction: firstInstruction,
       unknownDiscHex: firstInstruction ? null : firstUnknownDisc,
-      extraTrustCalls: Math.max(0, trustCallCount - 1),
+      extraCompanyCalls: Math.max(0, trustCallCount - 1),
       programs: [...programs],
     };
   }
@@ -225,7 +225,7 @@ function decodeParsedModuleTx(
     kind: "other",
     instruction: null,
     unknownDiscHex: null,
-    extraTrustCalls: 0,
+    extraCompanyCalls: 0,
     programs: [...programs],
   };
 }
@@ -239,7 +239,7 @@ export interface UseDecodedModuleActivityResult {
 /**
  * Fetch parsed transactions for the leading `limit` signatures touching
  * a Module PDA and tag each with its IDL instruction name where the
- * 8-byte Anchor discriminator matches a known `aeqi_trust` ix.
+ * 8-byte Anchor discriminator matches a known `aeqi_company` ix.
  */
 export function useDecodedModuleActivity(
   moduleAddress: string | null,
@@ -262,7 +262,7 @@ export function useDecodedModuleActivity(
             kind: "other",
             instruction: null,
             unknownDiscHex: null,
-            extraTrustCalls: 0,
+            extraCompanyCalls: 0,
             programs: [],
           };
         }
@@ -281,7 +281,7 @@ export function useDecodedModuleActivity(
               kind: "other",
               instruction: null,
               unknownDiscHex: null,
-              extraTrustCalls: 0,
+              extraCompanyCalls: 0,
               programs: [],
             };
           }
@@ -295,7 +295,7 @@ export function useDecodedModuleActivity(
             kind: "other",
             instruction: null,
             unknownDiscHex: null,
-            extraTrustCalls: 0,
+            extraCompanyCalls: 0,
             programs: [],
           };
         }
@@ -315,7 +315,7 @@ export function useDecodedModuleActivity(
   }, [queries, targetSigs]);
 
   const isLoading = queries.some((q) => q.isLoading);
-  const hasAny = rows.some((r) => r.kind === "trust-ix");
+  const hasAny = rows.some((r) => r.kind === "company-ix");
 
   return { rows, isLoading, hasAny };
 }

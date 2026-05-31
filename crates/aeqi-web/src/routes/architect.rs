@@ -8,7 +8,7 @@
 //!
 //! `POST /api/architect/deploy` is owned by **aeqi-platform**, not the
 //! runtime. The deploy path needs to write `runtime_placements`, spawn
-//! the sandbox, and fire on-chain TRUST provisioning — all platform-side
+//! the sandbox, and fire on-chain COMPANY provisioning — all platform-side
 //! responsibilities. The platform handler ferries the architect's inline
 //! blueprint into the freshly-spawned runtime via the `spawn_blueprint`
 //! IPC verb's `inline_blueprint` payload (see

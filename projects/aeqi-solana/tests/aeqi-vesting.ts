@@ -1,6 +1,6 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { AeqiTrust } from "../target/types/aeqi_trust";
+import { AeqiCompany } from "../target/types/aeqi_company";
 import { AeqiVesting } from "../target/types/aeqi_vesting";
 import { PublicKey, Keypair } from "@solana/web3.js";
 import {
@@ -13,16 +13,16 @@ import {
   getAccount,
 } from "@solana/spl-token";
 import { expect } from "chai";
-import { createTrust, expectTxFail, fundKeypair } from "./support";
+import { createCompany, expectTxFail, fundKeypair } from "./support";
 
 describe("aeqi_vesting", () => {
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
 
   const program = anchor.workspace.aeqiVesting as Program<AeqiVesting>;
-  const trustProgram = anchor.workspace.aeqiTrust as Program<AeqiTrust>;
+  const trustProgram = anchor.workspace.aeqiCompany as Program<AeqiCompany>;
 
-  let fakeTrust: PublicKey;
+  let fakeCompany: PublicKey;
   let modulePda: PublicKey;
   let vaultAuthority: PublicKey;
   let mint: PublicKey;
@@ -30,14 +30,14 @@ describe("aeqi_vesting", () => {
   let recipientAta: PublicKey;
 
   before(async () => {
-    fakeTrust = await createTrust(provider, trustProgram, "aeqi-vesting");
+    fakeCompany = await createCompany(provider, trustProgram, "aeqi-vesting");
 
     [modulePda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("vesting_module"), fakeTrust.toBuffer()],
+      [Buffer.from("vesting_module"), fakeCompany.toBuffer()],
       program.programId,
     );
     [vaultAuthority] = PublicKey.findProgramAddressSync(
-      [Buffer.from("vesting_vault_authority"), fakeTrust.toBuffer()],
+      [Buffer.from("vesting_vault_authority"), fakeCompany.toBuffer()],
       program.programId,
     );
 
@@ -109,7 +109,7 @@ describe("aeqi_vesting", () => {
     await program.methods
       .init()
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         moduleState: modulePda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -117,18 +117,18 @@ describe("aeqi_vesting", () => {
       .rpc();
 
     const m = await program.account.vestingModuleState.fetch(modulePda);
-    expect(m.trust.toBase58()).to.eq(fakeTrust.toBase58());
+    expect(m.company.toBase58()).to.eq(fakeCompany.toBase58());
     expect(m.positionCount.toString()).to.eq("0");
   });
 
-  it("init rejects a payer that is not the trust authority", async () => {
-    const trust = await createTrust(
+  it("init rejects a payer that is not the company authority", async () => {
+    const company = await createCompany(
       provider,
       trustProgram,
       "aeqi-vesting-unauthorized-init",
     );
     const [moduleStatePda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("vesting_module"), trust.toBuffer()],
+      [Buffer.from("vesting_module"), company.toBuffer()],
       program.programId,
     );
     const payer = await fundKeypair(provider);
@@ -138,7 +138,7 @@ describe("aeqi_vesting", () => {
         program.methods
           .init()
           .accountsPartial({
-            trust,
+            company,
             moduleState: moduleStatePda,
             payer: payer.publicKey,
             systemProgram: anchor.web3.SystemProgram.programId,
@@ -156,7 +156,7 @@ describe("aeqi_vesting", () => {
     const [posPda] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("vesting_pos"),
-        fakeTrust.toBuffer(),
+        fakeCompany.toBuffer(),
         Buffer.from(positionId),
       ],
       program.programId,
@@ -180,7 +180,7 @@ describe("aeqi_vesting", () => {
         PublicKey.default,
       )
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         moduleState: modulePda,
         position: posPda,
         mint,
@@ -197,7 +197,7 @@ describe("aeqi_vesting", () => {
     await program.methods
       .claim()
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         position: posPda,
         vaultAuthority,
         mint,
@@ -224,7 +224,7 @@ describe("aeqi_vesting", () => {
       await program.methods
         .claim()
         .accountsPartial({
-          trust: fakeTrust,
+          company: fakeCompany,
           position: posPda,
           vaultAuthority,
           mint,
@@ -251,7 +251,7 @@ describe("aeqi_vesting", () => {
     const [posPda] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("vesting_pos"),
-        fakeTrust.toBuffer(),
+        fakeCompany.toBuffer(),
         Buffer.from(positionId),
       ],
       program.programId,
@@ -274,7 +274,7 @@ describe("aeqi_vesting", () => {
         PublicKey.default,
       )
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         moduleState: modulePda,
         position: posPda,
         mint,
@@ -289,7 +289,7 @@ describe("aeqi_vesting", () => {
       await program.methods
         .claim()
         .accountsPartial({
-          trust: fakeTrust,
+          company: fakeCompany,
           position: posPda,
           vaultAuthority,
           mint,
@@ -341,7 +341,7 @@ describe("aeqi_vesting", () => {
     await program.methods
       .claim()
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         position: posPda,
         vaultAuthority,
         mint,
@@ -393,7 +393,7 @@ describe("aeqi_vesting", () => {
     const [posPda] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("vesting_pos"),
-        fakeTrust.toBuffer(),
+        fakeCompany.toBuffer(),
         Buffer.from(positionId),
       ],
       program.programId,
@@ -419,7 +419,7 @@ describe("aeqi_vesting", () => {
         mint,
       )
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         moduleState: modulePda,
         position: posPda,
         mint,
@@ -447,7 +447,7 @@ describe("aeqi_vesting", () => {
       await program.methods
         .claim()
         .accountsPartial({
-          trust: fakeTrust,
+          company: fakeCompany,
           position: posPda,
           vaultAuthority,
           mint,
@@ -512,7 +512,7 @@ describe("aeqi_vesting", () => {
     await program.methods
       .claim()
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         position: posPda,
         vaultAuthority,
         mint,
@@ -543,7 +543,7 @@ describe("aeqi_vesting", () => {
     const [posPda] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("vesting_pos"),
-        fakeTrust.toBuffer(),
+        fakeCompany.toBuffer(),
         Buffer.from(positionId),
       ],
       program.programId,
@@ -565,7 +565,7 @@ describe("aeqi_vesting", () => {
           PublicKey.default,
         )
         .accountsPartial({
-          trust: fakeTrust,
+          company: fakeCompany,
           moduleState: modulePda,
           position: posPda,
           mint,
@@ -587,7 +587,7 @@ describe("aeqi_vesting", () => {
     const [posPda] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("vesting_pos"),
-        fakeTrust.toBuffer(),
+        fakeCompany.toBuffer(),
         Buffer.from(positionId),
       ],
       program.programId,
@@ -611,7 +611,7 @@ describe("aeqi_vesting", () => {
         PublicKey.default,
       )
       .accountsPartial({
-        trust: fakeTrust,
+        company: fakeCompany,
         moduleState: modulePda,
         position: posPda,
         mint,
@@ -625,7 +625,7 @@ describe("aeqi_vesting", () => {
       await program.methods
         .claim()
         .accountsPartial({
-          trust: fakeTrust,
+          company: fakeCompany,
           position: posPda,
           vaultAuthority,
           mint,

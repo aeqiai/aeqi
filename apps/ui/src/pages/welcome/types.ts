@@ -58,8 +58,8 @@ export interface AccountSessionResponse {
   user_id?: string;
   wallet_pubkey_b58?: string;
   company_id?: string | null;
-  trust_id_hex?: string;
-  trust_pubkey_b58?: string;
+  company_id_hex?: string;
+  company_pubkey_b58?: string;
   authority_pubkey_b58?: string;
   already_existed: boolean;
   create_signature_b58?: string | null;

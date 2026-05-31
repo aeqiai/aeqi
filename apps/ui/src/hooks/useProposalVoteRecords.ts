@@ -10,7 +10,7 @@
  * could pick a slightly different key and silently fork the cache).
  *
  * Lifting the query into a hook means there's exactly one source of
- * truth for the vote-record list per (trust, proposal) and the iter-3
+ * truth for the vote-record list per (company, proposal) and the iter-3
  * `useQuorumInvalidator` keeps working unchanged — it already targets
  * the same key prefix.
  */
@@ -38,7 +38,7 @@ function bytesToHexLocal(bytes: Uint8Array | number[]): string {
 }
 
 export function useProposalVoteRecords(
-  trustAddress: string,
+  companyAddress: string,
   proposalId: Uint8Array | number[],
   options?: { enabled?: boolean },
 ): UseProposalVoteRecordsResult {
@@ -53,10 +53,10 @@ export function useProposalVoteRecords(
     }
     return arr.length === 0 ? true : true;
   }, [proposalId]);
-  const enabled = (options?.enabled ?? true) && trustAddress.length > 0 && !isZeroId;
+  const enabled = (options?.enabled ?? true) && companyAddress.length > 0 && !isZeroId;
   const query = useQuery({
-    queryKey: ["quorum", "voteRecords", trustAddress, idKey],
-    queryFn: () => readVoteRecords(trustAddress, proposalId),
+    queryKey: ["quorum", "voteRecords", companyAddress, idKey],
+    queryFn: () => readVoteRecords(companyAddress, proposalId),
     staleTime: STALE_TIME_MS,
     enabled,
   });

@@ -1,9 +1,9 @@
 import { timeShort } from "@/lib/format";
 import type { InboxItem } from "@/lib/api";
-import type { Quest, Role, Trust } from "@/lib/types";
+import type { Quest, Role, Company } from "@/lib/types";
 
 export function latestActivityLabel(
-  activeTrust: Trust | null,
+  activeCompany: Company | null,
   inboxItems: ReadonlyArray<InboxItem>,
   quests: ReadonlyArray<Quest>,
 ) {
@@ -17,7 +17,7 @@ export function latestActivityLabel(
     .filter(Boolean)
     .sort()
     .at(-1);
-  const timestamp = inboxTime || questTime || activeTrust?.last_active;
+  const timestamp = inboxTime || questTime || activeCompany?.last_active;
   return timestamp ? timeShort(timestamp) : "Ready";
 }
 
@@ -27,7 +27,7 @@ export function pickFeaturedRole(roles: ReadonlyArray<Role>, userId?: string): R
     const own = roles.find((role) => role.occupant_kind === "human" && role.occupant_id === userId);
     if (own) return own;
   }
-  const trustHeld = roles.find((role) => role.occupant_kind === "trust");
+  const trustHeld = roles.find((role) => role.occupant_kind === "company");
   if (trustHeld) return trustHeld;
   const founder = roles.find((role) => role.founder);
   if (founder) return founder;

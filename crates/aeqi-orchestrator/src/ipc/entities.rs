@@ -35,7 +35,7 @@ pub async fn handle_entities(
 
     // Pre-resolve each entity's default agent so the response can surface
     // `agent_id` — the agent_id column on `placement` rows is what the UI
-    // uses to land /trust/<addr>/ on the right agent.
+    // uses to land /company/<addr>/ on the right agent.
     let all_default_agents = ctx
         .agent_registry
         .list_entity_agents()
@@ -46,7 +46,7 @@ pub async fn handle_entities(
     for entity in &entities {
         let backing_agent = all_default_agents
             .iter()
-            .find(|a| a.trust_id.as_deref() == Some(&entity.id))
+            .find(|a| a.company_id.as_deref() == Some(&entity.id))
             .map(|a| a.id.clone());
 
         // Aggregate quest counts across every agent owned by this entity.
@@ -128,11 +128,11 @@ pub async fn handle_create_entity(
     }
 
     let slug = request.get("slug").and_then(|v| v.as_str()).unwrap_or(name);
-    let personal_trust = request.get("personal_trust").and_then(|v| v.as_bool()) == Some(true)
+    let personal_company = request.get("personal_company").and_then(|v| v.as_bool()) == Some(true)
         || request.get("kind").and_then(|v| v.as_str()) == Some("personal")
-        || request.get("trust_kind").and_then(|v| v.as_str()) == Some("personal");
+        || request.get("company_kind").and_then(|v| v.as_str()) == Some("personal");
 
-    if personal_trust {
+    if personal_company {
         let caller_user_id = super::request_field(request, "caller_user_id")
             .or_else(|| super::request_field(request, "creator_user_id"))
             .map(str::to_string);
@@ -181,16 +181,16 @@ pub async fn handle_create_entity(
                 .await
         {
             tracing::warn!(
-                trust_id = %entity.id,
+                company_id = %entity.id,
                 user_id = %uid,
-                "failed to create founding Director role for personal trust: {e}"
+                "failed to create founding Director role for personal company: {e}"
             );
         }
 
         return serde_json::json!({
             "ok": true,
             "id": entity.id,
-            "trust": {
+            "company": {
                 "id": entity.id,
                 "name": entity.name,
                 "type": "personal",
@@ -210,13 +210,13 @@ pub async fn handle_create_entity(
     let creator_user_id = super::request_field(request, "creator_user_id")
         .or_else(|| super::request_field(request, "caller_user_id"))
         .map(str::to_string);
-    let trust_id = match ctx.agent_registry.spawn(name, None, None).await {
-        Ok(agent) => match agent.trust_id {
+    let company_id = match ctx.agent_registry.spawn(name, None, None).await {
+        Ok(agent) => match agent.company_id {
             Some(eid) => eid,
             None => {
                 return serde_json::json!({
                     "ok": false,
-                    "error": "spawned company agent has no trust_id (post-Phase-4 invariant)",
+                    "error": "spawned company agent has no company_id (post-Phase-4 invariant)",
                 });
             }
         },
@@ -225,7 +225,7 @@ pub async fn handle_create_entity(
 
     if let Err(e) = ctx
         .agent_registry
-        .seed_company_cap_table_defaults(&trust_id, creator_user_id.as_deref())
+        .seed_company_cap_table_defaults(&company_id, creator_user_id.as_deref())
         .await
     {
         return serde_json::json!({"ok": false, "error": e.to_string()});
@@ -240,9 +240,9 @@ pub async fn handle_create_entity(
 
     serde_json::json!({
         "ok": true,
-        "id": trust_id,
-        "trust": {
-            "id": trust_id,
+        "id": company_id,
+        "company": {
+            "id": company_id,
             "name": name,
             "type": "company",
             "slug": slug,
@@ -357,7 +357,7 @@ pub async fn handle_update_entity(
         && let Ok(agents) = ctx.agent_registry.list_entity_agents().await
         && let Some(default_agent) = agents
             .into_iter()
-            .find(|a| a.trust_id.as_deref() == Some(&entity.id))
+            .find(|a| a.company_id.as_deref() == Some(&entity.id))
     {
         let _ = ctx
             .agent_registry
@@ -373,21 +373,21 @@ pub async fn handle_list_cap_table_entries(
     request: &serde_json::Value,
     allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let trust_id = match super::request_field(request, "trust_id") {
+    let company_id = match super::request_field(request, "company_id") {
         Some(value) => value,
         None => {
-            return serde_json::json!({"ok": false, "code": "bad_request", "error": "trust_id is required"});
+            return serde_json::json!({"ok": false, "code": "bad_request", "error": "company_id is required"});
         }
     };
 
-    if allowed.is_some() && !is_allowed(allowed, trust_id) {
+    if allowed.is_some() && !is_allowed(allowed, company_id) {
         return serde_json::json!({"ok": false, "code": "forbidden", "error": "access denied"});
     }
 
-    match ctx.agent_registry.list_cap_table_entries(trust_id).await {
+    match ctx.agent_registry.list_cap_table_entries(company_id).await {
         Ok(entries) => serde_json::json!({
             "ok": true,
-            "trust_id": trust_id,
+            "company_id": company_id,
             "entries": entries,
         }),
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
@@ -399,14 +399,14 @@ pub async fn handle_list_views(
     request: &serde_json::Value,
     allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let trust_id = match super::request_field(request, "trust_id") {
+    let company_id = match super::request_field(request, "company_id") {
         Some(value) => value,
         None => {
-            return serde_json::json!({"ok": false, "code": "bad_request", "error": "trust_id is required"});
+            return serde_json::json!({"ok": false, "code": "bad_request", "error": "company_id is required"});
         }
     };
 
-    if allowed.is_some() && !is_allowed(allowed, trust_id) {
+    if allowed.is_some() && !is_allowed(allowed, company_id) {
         return serde_json::json!({"ok": false, "code": "forbidden", "error": "access denied"});
     }
 
@@ -414,12 +414,12 @@ pub async fn handle_list_views(
         .or_else(|| super::request_field(request, "caller_user_id"));
     match ctx
         .agent_registry
-        .list_entity_views(trust_id, owner_user_id)
+        .list_entity_views(company_id, owner_user_id)
         .await
     {
         Ok(views) => serde_json::json!({
             "ok": true,
-            "trust_id": trust_id,
+            "company_id": company_id,
             "views": views,
         }),
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
@@ -431,14 +431,14 @@ pub async fn handle_upsert_views(
     request: &serde_json::Value,
     allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let trust_id = match super::request_field(request, "trust_id") {
+    let company_id = match super::request_field(request, "company_id") {
         Some(value) => value,
         None => {
-            return serde_json::json!({"ok": false, "code": "bad_request", "error": "trust_id is required"});
+            return serde_json::json!({"ok": false, "code": "bad_request", "error": "company_id is required"});
         }
     };
 
-    if allowed.is_some() && !is_allowed(allowed, trust_id) {
+    if allowed.is_some() && !is_allowed(allowed, company_id) {
         return serde_json::json!({"ok": false, "code": "forbidden", "error": "access denied"});
     }
 
@@ -453,12 +453,12 @@ pub async fn handle_upsert_views(
 
     match ctx
         .agent_registry
-        .upsert_entity_views(trust_id, owner_user_id, views)
+        .upsert_entity_views(company_id, owner_user_id, views)
         .await
     {
         Ok(views) => serde_json::json!({
             "ok": true,
-            "trust_id": trust_id,
+            "company_id": company_id,
             "views": views,
         }),
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
@@ -470,10 +470,10 @@ pub async fn handle_delete_view(
     request: &serde_json::Value,
     allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let trust_id = match super::request_field(request, "trust_id") {
+    let company_id = match super::request_field(request, "company_id") {
         Some(value) => value,
         None => {
-            return serde_json::json!({"ok": false, "code": "bad_request", "error": "trust_id is required"});
+            return serde_json::json!({"ok": false, "code": "bad_request", "error": "company_id is required"});
         }
     };
     let id_or_key = match super::request_field(request, "view_id")
@@ -486,7 +486,7 @@ pub async fn handle_delete_view(
         }
     };
 
-    if allowed.is_some() && !is_allowed(allowed, trust_id) {
+    if allowed.is_some() && !is_allowed(allowed, company_id) {
         return serde_json::json!({"ok": false, "code": "forbidden", "error": "access denied"});
     }
 
@@ -494,12 +494,12 @@ pub async fn handle_delete_view(
         .or_else(|| super::request_field(request, "caller_user_id"));
     match ctx
         .agent_registry
-        .delete_entity_view(trust_id, owner_user_id, id_or_key)
+        .delete_entity_view(company_id, owner_user_id, id_or_key)
         .await
     {
         Ok(deleted) => serde_json::json!({
             "ok": true,
-            "trust_id": trust_id,
+            "company_id": company_id,
             "deleted": deleted,
         }),
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),

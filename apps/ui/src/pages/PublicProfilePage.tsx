@@ -1,17 +1,17 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import TrustHeroStrip from "@/components/TrustHeroStrip";
+import CompanyHeroStrip from "@/components/CompanyHeroStrip";
 import { Button, EmptyState, Loading } from "@/components/ui";
 
 /**
  * Public profile page — Phase 2 of public-profiles. Renders at the
- * top-level URL `<host>/<slug>` where `<slug>` is the trust_id
+ * top-level URL `<host>/<slug>` where `<slug>` is the company_id
  * UUID. Reads from the unauth `/api/public/entities/<slug>` endpoint;
  * 404s when the entity is not marked `public=true` (or doesn't exist —
  * the public-read endpoint deliberately doesn't distinguish, so private
  * workspaces stay invisible to probers).
  *
- * Uses `<TrustHeroStrip public />` in read-only mode for the hero so
+ * Uses `<CompanyHeroStrip public />` in read-only mode for the hero so
  * the surface stays consistent with the in-shell Overview rail.
  *
  * No follow / DM / messaging affordances on this surface — Phase 3+.
@@ -34,7 +34,7 @@ interface PublicIdea {
 }
 
 interface PublicProfile {
-  trust_id: string;
+  company_id: string;
   display_name: string;
   tagline: string | null;
   public: true;
@@ -159,8 +159,8 @@ export default function PublicProfilePage() {
         minHeight: "100vh",
       }}
     >
-      <TrustHeroStrip
-        trustId={profile.trust_id}
+      <CompanyHeroStrip
+        companyId={profile.company_id}
         public
         publicEntity={{
           display_name: profile.display_name,

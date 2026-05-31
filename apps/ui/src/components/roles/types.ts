@@ -10,7 +10,7 @@ export const OCCUPANT_FILTER_VALUES: OccupantFilter[] = [
   "all",
   "agent",
   "human",
-  "trust",
+  "company",
   "vacant",
 ];
 
@@ -30,7 +30,7 @@ export const OCCUPANT_FILTER_LABEL: Record<OccupantFilter, string> = {
   all: "All",
   agent: "Agent",
   human: "Human",
-  trust: "TRUST",
+  company: "COMPANY",
   vacant: "Vacant",
 };
 

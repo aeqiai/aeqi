@@ -13,7 +13,7 @@ interface CurrentRoute {
   label: string;
   path: string;
   search: string;
-  trustId?: string;
+  companyId?: string;
 }
 
 interface PinCurrentViewButtonProps {
@@ -31,8 +31,8 @@ function getBrowserRoute(): Pick<CurrentRoute, "path" | "search"> {
   };
 }
 
-function trustIdFromPath(path: string): string | undefined {
-  const match = path.match(/^\/trust\/([^/]+)/);
+function companyIdFromPath(path: string): string | undefined {
+  const match = path.match(/^\/company\/([^/]+)/);
   return match?.[1] ? decodeURIComponent(match[1]) : undefined;
 }
 
@@ -47,7 +47,7 @@ function titleCase(value: string): string {
 function labelFromPath(path: string): string {
   const segments = path.split("/").filter(Boolean);
   const lastSegment = segments[segments.length - 1];
-  if (!lastSegment || lastSegment === "trust") return "View";
+  if (!lastSegment || lastSegment === "company") return "View";
 
   try {
     return titleCase(decodeURIComponent(lastSegment).replace(/[-_]+/g, " "));
@@ -58,13 +58,14 @@ function labelFromPath(path: string): string {
 
 function buildCurrentRoute(defaultLabel?: string, activeEntity?: string): CurrentRoute {
   const { path, search } = getBrowserRoute();
-  const routeTrustId = trustIdFromPath(path) ?? (path === "/trust" ? activeEntity : undefined);
+  const routeCompanyId =
+    companyIdFromPath(path) ?? (path === "/company" ? activeEntity : undefined);
 
   return {
     label: defaultLabel?.trim() || labelFromPath(path),
     path,
     search,
-    trustId: routeTrustId || undefined,
+    companyId: routeCompanyId || undefined,
   };
 }
 
@@ -111,7 +112,7 @@ export default function PinCurrentViewButton({ defaultLabel }: PinCurrentViewBut
       label,
       path: draftRoute.path,
       search: draftRoute.search,
-      trustId: draftRoute.trustId,
+      companyId: draftRoute.companyId,
     });
     closeModal();
   };

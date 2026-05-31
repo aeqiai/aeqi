@@ -54,22 +54,22 @@ import {
   useSeedUserSessionsPinnedView,
 } from "@/components/shell/useSeedUserSessionsPinnedView";
 import {
-  TRUST_NAV_MATCHES,
-  type TrustNavGroupId,
-  type TrustNavGroupState,
+  COMPANY_NAV_MATCHES,
+  type CompanyNavGroupId,
+  type CompanyNavGroupState,
 } from "@/components/shell/sidebarNavModel";
 
 interface LeftSidebarProps {
   /** Canonical entity (organization) id. Sidebar tabs are org-scoped, not child-agent scoped. */
-  trustId: string | null;
+  companyId: string | null;
   path: string;
 }
 
 // Sidebar nav icons — routed through the shared Icon primitive so the rail
 // follows the Storybook iconography rules (16px default, 1.5 stroke).
 const HomeIcon = () => <Icon icon={House} />;
-// Views — the composable trust landing. LayoutDashboard reads "saved
-// operating view" without overloading the Trust group itself.
+// Views — the composable company landing. LayoutDashboard reads "saved
+// operating view" without overloading the Company group itself.
 const ViewsIcon = () => <Icon icon={LayoutDashboard} />;
 const AgentsIcon = () => <Icon icon={Bot} />;
 // Events — Activity: single-line waveform reads as the event stream
@@ -95,14 +95,14 @@ const RoundsIcon = () => <Icon icon={CircleDollarSign} />;
 const AssetsIcon = () => <Icon icon={Box} />;
 const ControlsIcon = () => <Icon icon={ShieldCheck} />;
 const FilingsIcon = () => <Icon icon={Files} />;
-// Roles — its own peer slot under Trust. The org-chart authority graph owns
+// Roles — its own peer slot under Company. The org-chart authority graph owns
 // hierarchy, selection, creation, and inline property edits in one workspace.
 const RolesIcon = () => <Icon icon={Workflow} />;
 const MembersIcon = () => <Icon icon={Users} />;
 const IntegrationsIcon = () => <Icon icon={Plug} />;
 // Economy — Globe reads "the wider network / world economy" — the
 // marketplace + inference + stake activity is happening *out there*
-// across every trust, not in your local store.
+// across every company, not in your local store.
 const EconomyIcon = () => <Icon icon={Globe} />;
 const BlueprintsIcon = () => <Icon icon={Blocks} />;
 const ReferralsIcon = () => <Icon icon={Share2} />;
@@ -117,7 +117,7 @@ const ExpandSidebarIcon = () => <Icon icon={PanelLeftOpen} size="sm" />;
 const GroupChevronIcon = () => <Icon icon={ChevronDown} size="sm" />;
 const UnpinIcon = () => <Icon icon={PinOff} size="sm" />;
 
-export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
+export default function LeftSidebar({ companyId, path }: LeftSidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
@@ -191,35 +191,35 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
 
   // Derive canonical base path for sidebar tabs.
   const entities = useDaemonStore((s) => s.entities);
-  const activeEntityObj = trustId ? (entities.find((e) => e.id === trustId) ?? null) : null;
+  const activeEntityObj = companyId ? (entities.find((e) => e.id === companyId) ?? null) : null;
   const base = activeEntityObj ? entityBasePath(activeEntityObj) : "";
-  const hasCompany = !!trustId;
-  const globalPinnedViews = pinnedViews.filter((view) => !view.trustId);
-  const trustPinnedViews = pinnedViews.filter((view) => view.trustId === trustId);
+  const hasCompany = !!companyId;
+  const globalPinnedViews = pinnedViews.filter((view) => !view.companyId);
+  const trustPinnedViews = pinnedViews.filter((view) => view.companyId === companyId);
   const userSessionsPinnedPath = base ? `${base}/sessions` : "";
   const isUserSessionsPinnedView = (view: PinnedView) =>
     isUserSessionsPinnedViewForPath(view, userSessionsPinnedPath);
-  useSeedUserSessionsPinnedView({ trustId, userSessionsPinnedPath, pinnedViews, savePinnedView });
+  useSeedUserSessionsPinnedView({ companyId, userSessionsPinnedPath, pinnedViews, savePinnedView });
 
-  // Runtime gate cue — when the TRUST has no runtime attached, the
+  // Runtime gate cue — when the COMPANY has no runtime attached, the
   // execution-tab rows (Agents/Events/Quests/Ideas) read as locked
   // (reduced opacity). They stay clickable on purpose; the in-tab
   // upsell IS the conversion surface. While the status query is
   // in-flight or unavailable we leave them at full opacity.
-  const runtimeStatus = useRuntimeStatus(trustId);
-  const runtimeLocked = !runtimeStatus.isLoading && trustId !== null && !runtimeStatus.hasRuntime;
+  const runtimeStatus = useRuntimeStatus(companyId);
+  const runtimeLocked = !runtimeStatus.isLoading && companyId !== null && !runtimeStatus.hasRuntime;
 
   const navHref = (id: string) => `${base}/${id}`;
 
-  // The Views row stays lit ONLY at the bare trust URL —
+  // The Views row stays lit ONLY at the bare company URL —
   // Phase 1 promotes Treasury / Ownership / Governance / Roles to
   // top-level rows, so they own their own "active" state and shouldn't
-  // double-light the trust landing.
+  // double-light the company landing.
   const isActiveTab = (id: string) => {
     if (!base) return false;
     return path === `${base}/${id}` || path.startsWith(`${base}/${id}/`);
   };
-  const isCompanyOverview = !!base && (path === base || path === "/trust");
+  const isCompanyOverview = !!base && (path === base || path === "/company");
   const activeUserSessionsView =
     !!base &&
     isActiveTab("sessions") &&
@@ -227,22 +227,22 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
   const isActiveGroupTab = (id: string) =>
     id === "sessions" && activeUserSessionsView ? false : isActiveTab(id);
   const isActiveWithin = (ids: string[]) => ids.some((id) => isActiveGroupTab(id));
-  const activeTrustGroup =
-    (Object.entries(TRUST_NAV_MATCHES) as Array<[TrustNavGroupId, string[]]>).find(([, ids]) =>
+  const activeCompanyGroup =
+    (Object.entries(COMPANY_NAV_MATCHES) as Array<[CompanyNavGroupId, string[]]>).find(([, ids]) =>
       isActiveWithin(ids),
     )?.[0] ?? null;
-  const [openTrustGroups, setOpenTrustGroups] = useState<TrustNavGroupState>(() => ({
-    operations: !activeTrustGroup || activeTrustGroup === "operations",
-    ownership: activeTrustGroup === "ownership",
-    infrastructure: activeTrustGroup === "infrastructure",
+  const [openCompanyGroups, setOpenCompanyGroups] = useState<CompanyNavGroupState>(() => ({
+    operations: !activeCompanyGroup || activeCompanyGroup === "operations",
+    ownership: activeCompanyGroup === "ownership",
+    infrastructure: activeCompanyGroup === "infrastructure",
   }));
 
   useEffect(() => {
-    if (!activeTrustGroup) return;
-    setOpenTrustGroups((current) =>
-      current[activeTrustGroup] ? current : { ...current, [activeTrustGroup]: true },
+    if (!activeCompanyGroup) return;
+    setOpenCompanyGroups((current) =>
+      current[activeCompanyGroup] ? current : { ...current, [activeCompanyGroup]: true },
     );
-  }, [activeTrustGroup, path]);
+  }, [activeCompanyGroup, path]);
 
   // Top-level public rows.
   const isEconomy =
@@ -372,9 +372,9 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
     );
   };
 
-  const trustNavGroup = (id: TrustNavGroupId, label: string, items: React.ReactNode) => {
-    const open = openTrustGroups[id];
-    const active = activeTrustGroup === id;
+  const trustNavGroup = (id: CompanyNavGroupId, label: string, items: React.ReactNode) => {
+    const open = openCompanyGroups[id];
+    const active = activeCompanyGroup === id;
 
     return (
       <section key={id} className={`sidebar-group ${open ? "" : "collapsed"}`} aria-label={label}>
@@ -382,7 +382,7 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
           type="button"
           className={`sidebar-group-title${active ? " active" : ""}`}
           aria-expanded={open}
-          onClick={() => setOpenTrustGroups((current) => ({ ...current, [id]: !current[id] }))}
+          onClick={() => setOpenCompanyGroups((current) => ({ ...current, [id]: !current[id] }))}
         >
           <span className="sidebar-group-label">{label}</span>
           <span className="sidebar-group-chevron" aria-hidden>
@@ -482,8 +482,8 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
 
       <div className="left-sidebar-body">
         {/* ── Start rail — global personal surfaces stay directly under Home.
-            Search is still owned by the Home row. Trust-owned surfaces live
-            inside the trust group below. ── */}
+            Search is still owned by the Home row. Company-owned surfaces live
+            inside the company group below. ── */}
         <nav className="sidebar-surface-nav sidebar-zone" aria-label="Start">
           {topLevelItem("/", "Home", <HomeIcon />, isStart, {
             action: rowAction("Search", <SearchIcon />, openPalette, `${isMac ? "⌘" : "Ctrl"}K`),
@@ -495,12 +495,15 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
           {globalPinnedViews.map(pinnedViewItem)}
         </nav>
 
-        {/* ── Trust group — pinned views first, then primitive registries. ── */}
+        {/* ── Company group — pinned views first, then primitive registries. ── */}
         {hasCompany && (
           <>
-            <nav className="sidebar-surface-nav sidebar-zone sidebar-trust-nav" aria-label="Trust">
+            <nav
+              className="sidebar-surface-nav sidebar-zone sidebar-company-nav"
+              aria-label="Company"
+            >
               <div className={`sidebar-section-label${isCompanyOverview ? " active" : ""}`}>
-                Trust
+                Company
               </div>
               <ActingAsSelector />
               {trustPinnedViews.map(pinnedViewItem)}

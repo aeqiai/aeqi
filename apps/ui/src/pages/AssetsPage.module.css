@@ -1,5 +1,5 @@
 /*
- * /trust/<addr>/assets — TRUST treasury surface.
+ * /company/<addr>/assets — COMPANY treasury surface.
  *
  * Every value uses tokens from packages/tokens or
  * src/styles/primitives.css — no hex, no rgb, no inline-style escape
@@ -1140,7 +1140,7 @@
 }
 
 /* Iter-9: Capitalize section staking affordance — surfaces when the
-   TRUST holds a known LST mint (jitoSOL / mSOL / bSOL). Sits beside
+   COMPANY holds a known LST mint (jitoSOL / mSOL / bSOL). Sits beside
    the existing Deposit / Receive / Withdraw action row as a quieter
    link so it doesn't compete with the primary capitalize CTA. */
 .capitalizeStaking {

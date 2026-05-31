@@ -132,7 +132,7 @@ fn catalog() -> Vec<IntegrationCatalogEntry> {
             provider: "wecom",
             name: "callback_app",
             label: "WeCom",
-            description: "Enterprise WeChat messaging for trust-owned companies: encrypted callbacks, direct and group replies, media, and proactive sends through a self-built WeCom app.",
+            description: "Enterprise WeChat messaging for company-owned companies: encrypted callbacks, direct and group replies, media, and proactive sends through a self-built WeCom app.",
             lifecycle_kind: "service_account_callback",
             auth_url: None,
             token_url: None,

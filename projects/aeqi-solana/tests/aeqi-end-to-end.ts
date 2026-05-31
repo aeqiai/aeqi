@@ -1,13 +1,13 @@
 /**
  * AEQI end-to-end spawn — the full architecture proof.
  *
- * Spawns an AEQI TRUST via aeqi_factory.create_company_full, registers and
+ * Spawns an AEQI COMPANY via aeqi_factory.create_company_full, registers and
  * initializes the role / token / governance modules under it, then runs role,
  * token, and governance flows end to end.
  */
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { AeqiTrust } from "../target/types/aeqi_trust";
+import { AeqiCompany } from "../target/types/aeqi_company";
 import { AeqiFactory } from "../target/types/aeqi_factory";
 import { AeqiRole } from "../target/types/aeqi_role";
 import { AeqiToken } from "../target/types/aeqi_token";
@@ -26,17 +26,17 @@ describe("AEQI end-to-end spawn", () => {
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
 
-  const trust = anchor.workspace.aeqiTrust as Program<AeqiTrust>;
+  const company = anchor.workspace.aeqiCompany as Program<AeqiCompany>;
   const factory = anchor.workspace.aeqiFactory as Program<AeqiFactory>;
   const role = anchor.workspace.aeqiRole as Program<AeqiRole>;
   const token = anchor.workspace.aeqiToken as Program<AeqiToken>;
   const governance = anchor.workspace.aeqiGovernance as Program<AeqiGovernance>;
 
-  const trustId = new Uint8Array(32);
-  trustId[0] = 0x41; // 'A' for AEQI
-  trustId[1] = 0x45; // 'E'
-  trustId[2] = 0x49; // 'I'
-  trustId[3] = 0x51; // 'Q'
+  const companyId = new Uint8Array(32);
+  companyId[0] = 0x41; // 'A' for AEQI
+  companyId[1] = 0x45; // 'E'
+  companyId[2] = 0x49; // 'I'
+  companyId[3] = 0x51; // 'Q'
 
   let trustPda: PublicKey;
   let roleModuleIdBytes: Uint8Array;
@@ -45,8 +45,8 @@ describe("AEQI end-to-end spawn", () => {
 
   before(() => {
     [trustPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("trust"), Buffer.from(trustId)],
-      trust.programId,
+      [Buffer.from("company"), Buffer.from(companyId)],
+      company.programId,
     );
     roleModuleIdBytes = new Uint8Array(32);
     roleModuleIdBytes[0] = 0x52; // 'R'
@@ -72,13 +72,13 @@ describe("AEQI end-to-end spawn", () => {
         trustPda.toBuffer(),
         Buffer.from(tokenConfigKey),
       ],
-      trust.programId,
+      company.programId,
     );
 
-    await trust.methods
+    await company.methods
       .setBytesConfig(Array.from(tokenConfigKey), encodeTokenInitConfig(9))
       .accountsPartial({
-        trust: trustPda,
+        company: trustPda,
         config: tokenBytesConfigPda,
         sourceModule: null,
         authority: provider.wallet.publicKey,
@@ -89,21 +89,21 @@ describe("AEQI end-to-end spawn", () => {
     await token.methods
       .finalize()
       .accountsPartial({
-        trust: trustPda,
+        company: trustPda,
         moduleState: tokenModuleStatePda,
         bytesConfig: tokenBytesConfigPda,
       })
       .rpc();
   }
 
-  it("step 1: factory.create_company_full spawns AEQI trust + registers/inits 3 modules + finalizes", async () => {
+  it("step 1: factory.create_company_full spawns AEQI company + registers/inits 3 modules + finalizes", async () => {
     const [roleModulePda] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("module"),
         trustPda.toBuffer(),
         Buffer.from(roleModuleIdBytes),
       ],
-      trust.programId,
+      company.programId,
     );
     const [tokenModulePda] = PublicKey.findProgramAddressSync(
       [
@@ -111,7 +111,7 @@ describe("AEQI end-to-end spawn", () => {
         trustPda.toBuffer(),
         Buffer.from(tokenModuleIdBytes),
       ],
-      trust.programId,
+      company.programId,
     );
     const [govModulePda] = PublicKey.findProgramAddressSync(
       [
@@ -119,7 +119,7 @@ describe("AEQI end-to-end spawn", () => {
         trustPda.toBuffer(),
         Buffer.from(govModuleIdBytes),
       ],
-      trust.programId,
+      company.programId,
     );
     const [roleModuleStatePda] = PublicKey.findProgramAddressSync(
       [Buffer.from("role_module"), trustPda.toBuffer()],
@@ -141,12 +141,12 @@ describe("AEQI end-to-end spawn", () => {
         trustPda.toBuffer(),
         Buffer.from(tokenConfigKey),
       ],
-      trust.programId,
+      company.programId,
     );
 
     await factory.methods
       .createCompanyFull(
-        Array.from(trustId),
+        Array.from(companyId),
         Array.from(roleModuleIdBytes),
         Array.from(tokenModuleIdBytes),
         Array.from(govModuleIdBytes),
@@ -157,7 +157,7 @@ describe("AEQI end-to-end spawn", () => {
         new anchor.BN(0),
       )
       .accountsPartial({
-        trust: trustPda,
+        company: trustPda,
         roleModule: roleModulePda,
         tokenModule: tokenModulePda,
         govModule: govModulePda,
@@ -166,7 +166,7 @@ describe("AEQI end-to-end spawn", () => {
         govModuleState: govModuleStatePda,
         tokenBytesConfig: tokenBytesConfigPda,
         authority: provider.wallet.publicKey,
-        aeqiTrustProgram: trust.programId,
+        aeqiCompanyProgram: company.programId,
         aeqiRoleProgram: role.programId,
         aeqiTokenProgram: token.programId,
         aeqiGovernanceProgram: governance.programId,
@@ -174,21 +174,21 @@ describe("AEQI end-to-end spawn", () => {
       })
       .rpc();
 
-    const t = await trust.account.trust.fetch(trustPda);
+    const t = await company.account.company.fetch(trustPda);
     expect(t.creationMode).to.eq(false);
     expect(t.moduleCount).to.eq(3);
     expect(t.authority.toBase58()).to.eq(provider.wallet.publicKey.toBase58());
 
     // Verify each module record was created with the right program ID
-    const r = await trust.account.module.fetch(roleModulePda);
+    const r = await company.account.module.fetch(roleModulePda);
     expect(r.programId.toBase58()).to.eq(role.programId.toBase58());
-    const tk = await trust.account.module.fetch(tokenModulePda);
+    const tk = await company.account.module.fetch(tokenModulePda);
     expect(tk.programId.toBase58()).to.eq(token.programId.toBase58());
-    const g = await trust.account.module.fetch(govModulePda);
+    const g = await company.account.module.fetch(govModulePda);
     expect(g.programId.toBase58()).to.eq(governance.programId.toBase58());
   });
 
-  it("step 2: verifies factory-initialized module state under the AEQI trust", async () => {
+  it("step 2: verifies factory-initialized module state under the AEQI company", async () => {
     const [roleModuleStatePda] = PublicKey.findProgramAddressSync(
       [Buffer.from("role_module"), trustPda.toBuffer()],
       role.programId,
@@ -204,17 +204,17 @@ describe("AEQI end-to-end spawn", () => {
       governance.programId,
     );
 
-    // All three module-state PDAs exist + bound to the AEQI trust
+    // All three module-state PDAs exist + bound to the AEQI company
     const rs = await role.account.roleModuleState.fetch(roleModuleStatePda);
-    expect(rs.trust.toBase58()).to.eq(trustPda.toBase58());
+    expect(rs.company.toBase58()).to.eq(trustPda.toBase58());
     expect(rs.initialized).to.eq(true);
 
     const ts = await token.account.tokenModuleState.fetch(tokenModuleStatePda);
-    expect(ts.trust.toBase58()).to.eq(trustPda.toBase58());
+    expect(ts.company.toBase58()).to.eq(trustPda.toBase58());
 
     const gs =
       await governance.account.governanceModuleState.fetch(govModuleStatePda);
-    expect(gs.trust.toBase58()).to.eq(trustPda.toBase58());
+    expect(gs.company.toBase58()).to.eq(trustPda.toBase58());
   });
 
   it("step 3: register role types — director (h=0) + ceo (h=1)", async () => {
@@ -250,7 +250,7 @@ describe("AEQI end-to-end spawn", () => {
           contribution: false,
         })
         .accountsPartial({
-          trust: trustPda,
+          company: trustPda,
           roleType: pda,
           payer: provider.wallet.publicKey,
           systemProgram: anchor.web3.SystemProgram.programId,
@@ -281,7 +281,7 @@ describe("AEQI end-to-end spawn", () => {
         allowEarlyEnact: true,
       })
       .accountsPartial({
-        trust: trustPda,
+        company: trustPda,
         moduleState: govModuleStatePda,
         governanceConfig: cfgPda,
         payer: provider.wallet.publicKey,
@@ -305,7 +305,7 @@ describe("AEQI end-to-end spawn", () => {
         Array.from(new Uint8Array(64)),
       )
       .accountsPartial({
-        trust: trustPda,
+        company: trustPda,
         moduleState: govModuleStatePda,
         proposal: proposalPda,
         proposer: provider.wallet.publicKey,
@@ -332,7 +332,7 @@ describe("AEQI end-to-end spawn", () => {
     await token.methods
       .createMint(9)
       .accountsPartial({
-        trust: trustPda,
+        company: trustPda,
         moduleState: tokenModuleStatePda,
         mintAuthority: mintAuthorityPda,
         mint: mintPda,
@@ -366,7 +366,7 @@ describe("AEQI end-to-end spawn", () => {
     await token.methods
       .mintTokens(new anchor.BN(1000))
       .accountsPartial({
-        trust: trustPda,
+        company: trustPda,
         moduleState: tokenModuleStatePda,
         mintAuthority: mintAuthorityPda,
         mint: mintPda,
@@ -443,10 +443,10 @@ describe("AEQI end-to-end spawn", () => {
   //
   //   real director seat → cross-program role-checkpoint → role-vote → execute
   //
-  // Steps 1–4 above proved trust spawn + module init + role types + a
+  // Steps 1–4 above proved company spawn + module init + role types + a
   // governance lifecycle that took weight as a u64 argument. This one
   // instead:
-  //   - creates a Director Role under the AEQI trust
+  //   - creates a Director Role under the AEQI company
   //   - assigns it to a *different* wallet (Alice) — exercises the
   //     `assign_role` checkpoint-PDA fix where the checkpoint is keyed on
   //     the assignee, not the payer
@@ -496,7 +496,7 @@ describe("AEQI end-to-end spawn", () => {
         Array.from(new Uint8Array(64)),
       )
       .accountsPartial({
-        trust: trustPda,
+        company: trustPda,
         roleType: rtPda,
         role: rolePda,
         callerRole: null,
@@ -532,7 +532,7 @@ describe("AEQI end-to-end spawn", () => {
       .accountsPartial({
         role: rolePda,
         roleType: rtPda,
-        trust: trustPda,
+        company: trustPda,
         callerRole: null,
         checkpoint: providerCkptPda,
         payer: provider.wallet.publicKey,
@@ -544,7 +544,7 @@ describe("AEQI end-to-end spawn", () => {
       .accountsPartial({
         role: rolePda,
         roleType: rtPda,
-        trust: trustPda,
+        company: trustPda,
         prevCheckpoint: providerCkptPda,
         newCheckpoint: aliceCkptPda,
         newAccount: alice.publicKey,
@@ -577,7 +577,7 @@ describe("AEQI end-to-end spawn", () => {
         allowEarlyEnact: true,
       })
       .accountsPartial({
-        trust: trustPda,
+        company: trustPda,
         moduleState: govModuleStatePda,
         governanceConfig: roleCfgPda,
         payer: provider.wallet.publicKey,
@@ -600,7 +600,7 @@ describe("AEQI end-to-end spawn", () => {
         Array.from(new Uint8Array(64)),
       )
       .accountsPartial({
-        trust: trustPda,
+        company: trustPda,
         moduleState: govModuleStatePda,
         proposal: proposalPda,
         proposer: alice.publicKey,

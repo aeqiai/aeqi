@@ -178,7 +178,7 @@ export default function BlueprintDetailPage() {
   const single = template;
 
   // Detail page is preview-only. The launch CTA hands off to
-  // `/launch/<blueprintId>` (TrustSetupPage) where the operator confirms a
+  // `/launch/<blueprintId>` (CompanySetupPage) where the operator confirms a
   // name, stages role overrides, and picks a plan before spawn.
   const launchHref = isImportMode
     ? `/templates/${encodeURIComponent(blueprintId(single))}?import_into=${encodeURIComponent(importIntoId ?? "")}`
@@ -235,7 +235,7 @@ export default function BlueprintDetailPage() {
             </span>
             <h1 className="bp-detail-toolbar-title">{single.name}</h1>
             {single.template && (
-              <span className="bp-detail-template-badge" title="On-chain TRUST template">
+              <span className="bp-detail-template-badge" title="On-chain COMPANY template">
                 {single.template}
               </span>
             )}
@@ -250,7 +250,7 @@ export default function BlueprintDetailPage() {
                   if (isImportMode) e.preventDefault();
                 }}
               >
-                {isImportMode ? "Launch only" : "Launch TRUST"}
+                {isImportMode ? "Launch only" : "Launch COMPANY"}
               </Button>
             </Link>
           </div>
@@ -261,7 +261,7 @@ export default function BlueprintDetailPage() {
             <div className="bp-import-banner" role="status">
               <span className="bp-import-banner-eyebrow">Import mode</span>
               <p className="bp-import-banner-line">
-                This is a company package for launching a new TRUST. Import mode is for primitive
+                This is a company package for launching a new COMPANY. Import mode is for primitive
                 bundles; v1 does not merge full company packages into{" "}
                 <strong>{importTarget?.name || "the selected agent"}</strong>&rsquo;s tree.
               </p>
@@ -277,8 +277,8 @@ export default function BlueprintDetailPage() {
           <div className="bp-detail-mode-note" role="note">
             <span className="bp-detail-mode-note-label">Launch scope</span>
             <p>
-              Company templates launch new TRUSTs with their seed roles, agents, views, events,
-              quests, and ideas. Primitive bundles are the import path for existing TRUSTs.
+              Company templates launch new Companies with their seed roles, agents, views, events,
+              quests, and ideas. Primitive bundles are the import path for existing Companies.
             </p>
           </div>
 

@@ -36,9 +36,9 @@ import { useQuorumKeyboardShortcuts } from "./QuorumPage.shortcuts";
 /**
  * Quorum — `q` in the AEQI grammar (assets · equity · quorum · identity).
  *
- * Read-only first ship of the governance surface. Renders the TRUST's
+ * Read-only first ship of the governance surface. Renders the COMPANY's
  * registered voting configs (token-mode and/or per-role-mode) plus
- * every proposal that has ever been created against this TRUST. Reads
+ * every proposal that has ever been created against this COMPANY. Reads
  * go DIRECT from the browser through the shared Anchor provider; the
  * write paths (propose / vote / execute / register_config) are owned
  * by a sibling follow-up quest and surface here only as "(coming
@@ -46,10 +46,10 @@ import { useQuorumKeyboardShortcuts } from "./QuorumPage.shortcuts";
  *
  * Sections:
  *   1. Voting configs — table of every GovernanceConfig PDA scoped to
- *      this TRUST, with a per-row mode badge (Token-weighted vs
+ *      this COMPANY, with a per-row mode badge (Token-weighted vs
  *      Role:<type>) plus the quorum / support thresholds and the
  *      voting-period window.
- *   2. Proposals — table of every Proposal PDA scoped to this TRUST,
+ *   2. Proposals — table of every Proposal PDA scoped to this COMPANY,
  *      with a mode badge, derived status (active / executed / canceled
  *      / succeeded / defeated / pending), for/against/abstain bars,
  *      the vote window, and a snapshot-root commit indicator for
@@ -61,18 +61,18 @@ import { useQuorumKeyboardShortcuts } from "./QuorumPage.shortcuts";
  * rotation, no snapshot_root commit, no new design tokens. All defer
  * to follow-up quests.
  */
-export default function QuorumPage({ trustId }: { trustId: string }) {
+export default function QuorumPage({ companyId }: { companyId: string }) {
   const entities = useDaemonStore((s) => s.entities);
-  const entity = useMemo(() => entities.find((e) => e.id === trustId), [entities, trustId]);
-  const trustAddress = entity?.trust_address ?? null;
+  const entity = useMemo(() => entities.find((e) => e.id === companyId), [entities, companyId]);
+  const companyAddress = entity?.company_address ?? null;
 
   const { configs, proposals, roleTypes, roles, voteRecords, programDeployed, isLoading, error } =
-    useQuorum(trustAddress);
-  // iter-7: subscribe to `aeqi_governance` account changes for this TRUST
+    useQuorum(companyAddress);
+  // iter-7: subscribe to `aeqi_governance` account changes for this COMPANY
   // so a freshly-created proposal or cast vote appears without a manual
-  // refresh. The hook is a no-op until the trust address resolves, so
+  // refresh. The hook is a no-op until the company address resolves, so
   // it's safe to call ahead of the loading / error returns below.
-  useGovernanceSubscription(trustAddress);
+  useGovernanceSubscription(companyAddress);
   const [newProposalOpen, setNewProposalOpen] = useState(false);
 
   // Hoisted ahead of the early returns so the hook order stays stable
@@ -91,14 +91,14 @@ export default function QuorumPage({ trustId }: { trustId: string }) {
   });
 
   // ── Pre-bridge state: entity exists but has no on-chain mirror yet.
-  if (!trustAddress) {
+  if (!companyAddress) {
     return (
       <Page>
-        <PageHeader title="Governance" description="How the TRUST decides — proposals + votes." />
+        <PageHeader title="Governance" description="How the COMPANY decides — proposals + votes." />
         <PageBody>
           <EmptyState
             title="Not yet on-chain"
-            description="This entity does not have a TRUST proxy address yet. Once the click-to-DAO bridge fires, voting configs and proposals will render here."
+            description="This entity does not have a COMPANY proxy address yet. Once the click-to-DAO bridge fires, voting configs and proposals will render here."
           />
         </PageBody>
       </Page>
@@ -108,7 +108,7 @@ export default function QuorumPage({ trustId }: { trustId: string }) {
   if (isLoading) {
     return (
       <Page>
-        <PageHeader title="Governance" description="How the TRUST decides — proposals + votes." />
+        <PageHeader title="Governance" description="How the COMPANY decides — proposals + votes." />
         <PageBody>
           <Loading variant="section" label="Reading on-chain governance state" />
         </PageBody>
@@ -119,7 +119,7 @@ export default function QuorumPage({ trustId }: { trustId: string }) {
   if (error) {
     return (
       <Page>
-        <PageHeader title="Governance" description="How the TRUST decides — proposals + votes." />
+        <PageHeader title="Governance" description="How the COMPANY decides — proposals + votes." />
         <PageBody>
           <EmptyState
             title="Couldn't read governance state"
@@ -162,7 +162,7 @@ export default function QuorumPage({ trustId }: { trustId: string }) {
     </Button>
   ) : undefined;
 
-  // The proposer-cancel check needs the EOA that owns this TRUST. We
+  // The proposer-cancel check needs the EOA that owns this COMPANY. We
   // resolve it once from the entity record so the action bar doesn't
   // re-derive on every render.
   const viewerCreatorAddress = entity?.creator_address ?? null;
@@ -171,14 +171,14 @@ export default function QuorumPage({ trustId }: { trustId: string }) {
     <Page>
       <PageHeader
         title="Governance"
-        description="How the TRUST decides — proposals + votes."
+        description="How the COMPANY decides — proposals + votes."
         actions={headerActions}
       />
       <PageBody>
         {programMissing ? (
           <ProgramNotProvisionedCard />
         ) : !hasConfigs ? (
-          <NoGovernanceSetup trustId={trustId} />
+          <NoGovernanceSetup companyId={companyId} />
         ) : (
           <>
             <KpiStrip
@@ -195,8 +195,8 @@ export default function QuorumPage({ trustId }: { trustId: string }) {
                 roleTypes={roleTypeList}
                 roles={rolesList}
                 voteRecords={voteRecordsList}
-                trustId={trustId}
-                trustAddress={trustAddress}
+                companyId={companyId}
+                companyAddress={companyAddress}
                 viewerCreatorAddress={viewerCreatorAddress}
               />
             ) : (
@@ -207,8 +207,8 @@ export default function QuorumPage({ trustId }: { trustId: string }) {
       </PageBody>
       <NewProposalModal
         open={newProposalOpen}
-        trustId={trustId}
-        trustAddress={trustAddress}
+        companyId={companyId}
+        companyAddress={companyAddress}
         configs={configsList}
         roleTypes={roleTypeList}
         onClose={() => setNewProposalOpen(false)}

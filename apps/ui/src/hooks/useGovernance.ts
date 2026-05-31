@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 import {
   fetchProposalsForModule,
-  fetchTrustModules,
+  fetchCompanyModules,
   fetchVotingPower,
   findModuleByType,
   indexerEnabled,
@@ -22,16 +22,16 @@ export interface GovernanceState {
 }
 
 /**
- * Fetch on-chain governance state for a given TRUST address.
+ * Fetch on-chain governance state for a given COMPANY address.
  *
  * Degrades gracefully in all failure modes:
  * - Indexer not configured → proposals=[], votingPower=undefined, hasModule=false
- * - No governance module on TRUST → proposals=[], hasModule=false
+ * - No governance module on COMPANY → proposals=[], hasModule=false
  * - votingPower query absent from schema → votingPower=null
  * - Network error → error set, proposals stays null (caller shows error state)
  */
 export function useGovernance(
-  trustAddress: string | undefined,
+  companyAddress: string | undefined,
   accountAddress?: string,
 ): GovernanceState {
   const [proposals, setProposals] = useState<IndexedProposal[] | null>(null);
@@ -40,7 +40,7 @@ export function useGovernance(
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!trustAddress || !indexerEnabled()) {
+    if (!companyAddress || !indexerEnabled()) {
       setProposals([]);
       setVotingPower(undefined);
       setHasModule(false);
@@ -56,7 +56,7 @@ export function useGovernance(
 
     (async () => {
       try {
-        const mods = await fetchTrustModules(trustAddress);
+        const mods = await fetchCompanyModules(companyAddress);
         const govModule = findModuleByType(mods, "governance");
 
         if (!govModule) {
@@ -93,7 +93,7 @@ export function useGovernance(
     return () => {
       cancelled = true;
     };
-  }, [trustAddress, accountAddress]);
+  }, [companyAddress, accountAddress]);
 
   return { proposals, votingPower, hasModule, error };
 }

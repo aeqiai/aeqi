@@ -34,7 +34,7 @@ function statusOf(idea: Idea): string | null {
 }
 
 export default function IdeaChildrenList({ ideaId, agentId, scope }: IdeaChildrenListProps) {
-  const { goEntity, trustId } = useNav();
+  const { goEntity, companyId } = useNav();
   const queryClient = useQueryClient();
   const [children, setChildren] = useState<Idea[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,7 +46,7 @@ export default function IdeaChildrenList({ ideaId, agentId, scope }: IdeaChildre
     let cancelled = false;
     setLoading(true);
     setError(null);
-    listIdeaChildren(ideaId, trustId)
+    listIdeaChildren(ideaId, companyId)
       .then((res) => {
         if (cancelled) return;
         setChildren(res.ideas ?? []);
@@ -62,12 +62,12 @@ export default function IdeaChildrenList({ ideaId, agentId, scope }: IdeaChildre
     return () => {
       cancelled = true;
     };
-  }, [ideaId, trustId]);
+  }, [ideaId, companyId]);
 
   async function refresh() {
-    const res = await listIdeaChildren(ideaId, trustId);
+    const res = await listIdeaChildren(ideaId, companyId);
     setChildren(res.ideas ?? []);
-    await invalidateIdeaQueriesForScope(queryClient, trustId);
+    await invalidateIdeaQueriesForScope(queryClient, companyId);
   }
 
   const hasChildren = children.length > 0;
@@ -131,7 +131,7 @@ export default function IdeaChildrenList({ ideaId, agentId, scope }: IdeaChildre
                 <button
                   type="button"
                   className="idea-children-card"
-                  onClick={() => goEntity(trustId, "ideas", child.id)}
+                  onClick={() => goEntity(companyId, "ideas", child.id)}
                 >
                   <span className="idea-children-card-name">{child.name || "Untitled"}</span>
                   {status && <span className="idea-children-card-status">{status}</span>}
@@ -146,7 +146,7 @@ export default function IdeaChildrenList({ ideaId, agentId, scope }: IdeaChildre
           parentIdeaId={ideaId}
           agentId={agentId}
           scope={scope}
-          trustId={trustId}
+          companyId={companyId}
           onClose={() => setShowAdd(false)}
           onCreated={async () => {
             setShowAdd(false);
@@ -162,7 +162,7 @@ interface AddChildModalProps {
   parentIdeaId: string;
   agentId: string;
   scope?: ScopeValue;
-  trustId: string;
+  companyId: string;
   onClose: () => void;
   onCreated: () => Promise<void> | void;
 }
@@ -171,7 +171,7 @@ function AddChildModal({
   parentIdeaId,
   agentId,
   scope,
-  trustId,
+  companyId,
   onClose,
   onCreated,
 }: AddChildModalProps) {
@@ -197,7 +197,7 @@ function AddChildModal({
           scope: scope ?? "self",
           parent_idea_id: parentIdeaId,
         },
-        trustId,
+        companyId,
       );
       await onCreated();
     } catch (err) {

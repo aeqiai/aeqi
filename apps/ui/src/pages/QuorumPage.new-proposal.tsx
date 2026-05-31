@@ -33,8 +33,8 @@ import { useQuorumInvalidator } from "./QuorumPage.actions";
  */
 export function NewProposalModal({
   open,
-  trustId,
-  trustAddress,
+  companyId,
+  companyAddress,
   configs,
   roleTypes,
   onClose,
@@ -42,8 +42,8 @@ export function NewProposalModal({
   initialConfigIdHex,
 }: {
   open: boolean;
-  trustId: string;
-  trustAddress: string;
+  companyId: string;
+  companyAddress: string;
   configs: GovernanceConfigWithPda[];
   roleTypes: RoleTypeWithPda[];
   onClose: () => void;
@@ -51,7 +51,7 @@ export function NewProposalModal({
   /** Optional pre-selection — used by the config switcher chip row. */
   initialConfigIdHex?: string;
 }) {
-  const invalidate = useQuorumInvalidator(trustAddress);
+  const invalidate = useQuorumInvalidator(companyAddress);
   const [configIdHex, setConfigIdHex] = useState<string>(() => {
     if (initialConfigIdHex) return initialConfigIdHex;
     return configs.length > 0 ? configIdHexFor(configs[0].account.governanceConfigId) : "";
@@ -241,7 +241,7 @@ export function NewProposalModal({
     setPinTbd(false);
     try {
       const result = await api.ipfsUpload({
-        entity_id: trustId,
+        entity_id: companyId,
         kind: "proposal",
         content: {
           title: title.trim(),
@@ -273,7 +273,7 @@ export function NewProposalModal({
     setSuccess(null);
     try {
       const result = await api.proposalCreate({
-        entity_id: trustId,
+        entity_id: companyId,
         governance_config_id_hex: configIdHex,
         title: title.trim(),
         description: description.trim(),
@@ -549,7 +549,7 @@ function configIdHexFor(bytes: Uint8Array | number[]): string {
 /* ────────────────────────────────────────────────────────────────── */
 
 /**
- * Proposal template kinds — match the common shapes a TRUST will open
+ * Proposal template kinds — match the common shapes a COMPANY will open
  * proposals against. Free-form is the default and matches iter-1..8
  * behavior (no pre-fill).
  *
@@ -599,7 +599,7 @@ const PROPOSAL_TEMPLATES: ProposalTemplate[] = [
     kind: "treasury_transfer",
     label: "Treasury transfer",
     blurb:
-      "Move funds out of the TRUST treasury. Executor reads recipient + token mint + amount from the payload.",
+      "Move funds out of the COMPANY treasury. Executor reads recipient + token mint + amount from the payload.",
     descriptionStub: [
       "## Treasury transfer",
       "",
@@ -608,7 +608,7 @@ const PROPOSAL_TEMPLATES: ProposalTemplate[] = [
       "**Amount (smallest unit):** <integer>",
       "**Rationale:** <why this transfer, link to upstream decision>",
       "",
-      "On-chain effect: `aeqi_treasury::transfer` called with the above against the TRUST treasury vault.",
+      "On-chain effect: `aeqi_treasury::transfer` called with the above against the COMPANY treasury vault.",
     ].join("\n"),
     calldataHint:
       "Treasury executor will look for `recipient`, `mint`, and `amount` (in smallest unit) inside the pinned payload. Double-check the mint — passing the wrong one transfers the wrong asset.",
@@ -626,7 +626,7 @@ const PROPOSAL_TEMPLATES: ProposalTemplate[] = [
       "**Init args (hex bytes):** <optional, defaults to empty>",
       "**Migration notes:** <breaking changes, storage layout, downgrade path>",
       "",
-      "On-chain effect: `aeqi_factory::upgrade_module` rewires the TRUST's module registry to point at the new program. ALL future calls to that module go through the new program id.",
+      "On-chain effect: `aeqi_factory::upgrade_module` rewires the COMPANY's module registry to point at the new program. ALL future calls to that module go through the new program id.",
     ].join("\n"),
     calldataHint:
       "Module executor will look for `module_id`, `new_program_id`, and optional `init_args` (hex). The upgrade is one-way — make sure the new program is audited and has a downgrade story before voting `for`.",
@@ -635,7 +635,7 @@ const PROPOSAL_TEMPLATES: ProposalTemplate[] = [
     kind: "role_grant",
     label: "Role grant",
     blurb:
-      "Grant or revoke a role on the TRUST. Executor reads role type + holder + grant-or-revoke from the payload.",
+      "Grant or revoke a role on the COMPANY. Executor reads role type + holder + grant-or-revoke from the payload.",
     descriptionStub: [
       "## Role grant",
       "",
@@ -644,10 +644,10 @@ const PROPOSAL_TEMPLATES: ProposalTemplate[] = [
       "**Action:** grant | revoke",
       "**Authority scope:** <what this role lets the holder do, list module ids>",
       "",
-      "On-chain effect: `aeqi_trust::grant_role` (or `revoke_role`) updates the role registry. The holder gains (or loses) any authority transitively reachable from this role.",
+      "On-chain effect: `aeqi_company::grant_role` (or `revoke_role`) updates the role registry. The holder gains (or loses) any authority transitively reachable from this role.",
     ].join("\n"),
     calldataHint:
-      "Trust executor will look for `role_type`, `holder`, and `action` (grant|revoke) in the pinned payload. Granting a role transitively elevates the holder's authority — review the role's downstream edges before voting.",
+      "Company executor will look for `role_type`, `holder`, and `action` (grant|revoke) in the pinned payload. Granting a role transitively elevates the holder's authority — review the role's downstream edges before voting.",
   },
 ];
 

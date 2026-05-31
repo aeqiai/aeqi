@@ -1,7 +1,7 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { AeqiFactory } from "../target/types/aeqi_factory";
-import { AeqiTrust } from "../target/types/aeqi_trust";
+import { AeqiCompany } from "../target/types/aeqi_company";
 import { AeqiRole } from "../target/types/aeqi_role";
 import { AeqiToken } from "../target/types/aeqi_token";
 import { AeqiGovernance } from "../target/types/aeqi_governance";
@@ -23,7 +23,7 @@ describe("aeqi_factory", () => {
   anchor.setProvider(provider);
 
   const factory = anchor.workspace.aeqiFactory as Program<AeqiFactory>;
-  const trust = anchor.workspace.aeqiTrust as Program<AeqiTrust>;
+  const company = anchor.workspace.aeqiCompany as Program<AeqiCompany>;
   const role = anchor.workspace.aeqiRole as Program<AeqiRole>;
   const token = anchor.workspace.aeqiToken as Program<AeqiToken>;
   const governance = anchor.workspace.aeqiGovernance as Program<AeqiGovernance>;
@@ -39,12 +39,12 @@ describe("aeqi_factory", () => {
     version = new anchor.BN(1),
   ) {
     const pda = moduleImplementationPda(
-      trust.programId,
+      company.programId,
       provider.wallet.publicKey,
       moduleId,
       version,
     );
-    await trust.methods
+    await company.methods
       .publishModuleImplementation(Array.from(moduleId), version, metadataHash)
       .accountsPartial({
         implementation: pda,
@@ -56,34 +56,34 @@ describe("aeqi_factory", () => {
     return pda;
   }
 
-  it("create_company spawns a trust via CPI to aeqi_trust::initialize", async () => {
-    const trustId = new Uint8Array(32);
-    trustId[0] = 0x42; // distinguish from the trust suite's trust
+  it("create_company spawns a company via CPI to aeqi_company::initialize", async () => {
+    const companyId = new Uint8Array(32);
+    companyId[0] = 0x42; // distinguish from the company suite's company
 
     const [trustPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("trust"), Buffer.from(trustId)],
-      trust.programId,
+      [Buffer.from("company"), Buffer.from(companyId)],
+      company.programId,
     );
 
     await factory.methods
-      .createCompany(Array.from(trustId))
+      .createCompany(Array.from(companyId))
       .accountsPartial({
-        trust: trustPda,
+        company: trustPda,
         authority: provider.wallet.publicKey,
-        aeqiTrustProgram: trust.programId,
+        aeqiCompanyProgram: company.programId,
         systemProgram: anchor.web3.SystemProgram.programId,
       })
       .rpc();
 
-    // Verify aeqi_trust state was actually written by the CPI.
-    const trustAcct = await trust.account.trust.fetch(trustPda);
+    // Verify aeqi_company state was actually written by the CPI.
+    const trustAcct = await company.account.company.fetch(trustPda);
     expect(trustAcct.creationMode).to.eq(true);
     expect(trustAcct.authority.toBase58()).to.eq(
       provider.wallet.publicKey.toBase58(),
     );
     expect(trustAcct.moduleCount).to.eq(0);
-    expect(Buffer.from(trustAcct.trustId).toString("hex")).to.eq(
-      Buffer.from(trustId).toString("hex"),
+    expect(Buffer.from(trustAcct.companyId).toString("hex")).to.eq(
+      Buffer.from(companyId).toString("hex"),
     );
   });
 
@@ -227,13 +227,13 @@ describe("aeqi_factory", () => {
     expect(threw).to.eq(true);
   });
 
-  it("create_with_modules spawns trust + N modules and leaves the trust in creation mode", async () => {
-    const trustId = new Uint8Array(32);
-    trustId[0] = 0x77;
+  it("create_with_modules spawns company + N modules and leaves the company in creation mode", async () => {
+    const companyId = new Uint8Array(32);
+    companyId[0] = 0x77;
 
     const [trustPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("trust"), Buffer.from(trustId)],
-      trust.programId,
+      [Buffer.from("company"), Buffer.from(companyId)],
+      company.programId,
     );
 
     const moduleIdRole = new Uint8Array(32);
@@ -243,18 +243,18 @@ describe("aeqi_factory", () => {
 
     const [modulePdaRole] = PublicKey.findProgramAddressSync(
       [Buffer.from("module"), trustPda.toBuffer(), Buffer.from(moduleIdRole)],
-      trust.programId,
+      company.programId,
     );
     const [modulePdaGov] = PublicKey.findProgramAddressSync(
       [Buffer.from("module"), trustPda.toBuffer(), Buffer.from(moduleIdGov)],
-      trust.programId,
+      company.programId,
     );
 
     const dummyRoleProg = anchor.web3.Keypair.generate().publicKey;
     const dummyGovProg = anchor.web3.Keypair.generate().publicKey;
 
     await factory.methods
-      .createWithModules(Array.from(trustId), [
+      .createWithModules(Array.from(companyId), [
         {
           moduleId: Array.from(moduleIdRole),
           programId: dummyRoleProg,
@@ -273,9 +273,9 @@ describe("aeqi_factory", () => {
         },
       ])
       .accountsPartial({
-        trust: trustPda,
+        company: trustPda,
         authority: provider.wallet.publicKey,
-        aeqiTrustProgram: trust.programId,
+        aeqiCompanyProgram: company.programId,
         systemProgram: anchor.web3.SystemProgram.programId,
       })
       .remainingAccounts([
@@ -284,16 +284,16 @@ describe("aeqi_factory", () => {
       ])
       .rpc();
 
-    // Trust state — STILL in creation mode (caller is responsible for
+    // Company state — STILL in creation mode (caller is responsible for
     // finalizing after module inits). The previous shape called
-    // `aeqi_trust::finalize` inside this CPI, which prevented any
-    // subsequent module init from succeeding (TrustNotInCreationMode).
-    const trustAcct = await trust.account.trust.fetch(trustPda);
+    // `aeqi_company::finalize` inside this CPI, which prevented any
+    // subsequent module init from succeeding (CompanyNotInCreationMode).
+    const trustAcct = await company.account.company.fetch(trustPda);
     expect(trustAcct.creationMode).to.eq(true);
     expect(trustAcct.moduleCount).to.eq(2);
 
     // Both module PDAs were created with the right program IDs and ACLs
-    const role = await trust.account.module.fetch(modulePdaRole);
+    const role = await company.account.module.fetch(modulePdaRole);
     expect(role.programId.toBase58()).to.eq(dummyRoleProg.toBase58());
     expect(role.provider.toBase58()).to.eq(
       provider.wallet.publicKey.toBase58(),
@@ -301,28 +301,28 @@ describe("aeqi_factory", () => {
     expect(role.implementationVersion.toString()).to.eq("1");
     expect(role.trustAcl.toString()).to.eq("255");
 
-    const gov = await trust.account.module.fetch(modulePdaGov);
+    const gov = await company.account.module.fetch(modulePdaGov);
     expect(gov.programId.toBase58()).to.eq(dummyGovProg.toBase58());
     expect(gov.provider.toBase58()).to.eq(provider.wallet.publicKey.toBase58());
     expect(gov.implementationVersion.toString()).to.eq("1");
     expect(gov.trustAcl.toString()).to.eq("128");
 
-    // Confirm the caller can drive the trust out of creation mode via
+    // Confirm the caller can drive the company out of creation mode via
     // the explicit finalize CPI. This is the canonical sequence:
-    // create_with_modules → module inits → trust.finalize.
-    await trust.methods
+    // create_with_modules → module inits → company.finalize.
+    await company.methods
       .finalize()
       .accountsPartial({
-        trust: trustPda,
+        company: trustPda,
         authority: provider.wallet.publicKey,
       })
       .rpc();
 
-    const trustAfter = await trust.account.trust.fetch(trustPda);
+    const trustAfter = await company.account.company.fetch(trustPda);
     expect(trustAfter.creationMode).to.eq(false);
   });
 
-  it("instantiate_template replays a registered template into a fresh TRUST", async () => {
+  it("instantiate_template replays a registered template into a fresh COMPANY", async () => {
     // Register a template first
     const templateId = new Uint8Array(32);
     templateId[0] = 0xa1;
@@ -381,21 +381,21 @@ describe("aeqi_factory", () => {
       })
       .rpc();
 
-    // Now instantiate it against a fresh trust_id
-    const trustId = new Uint8Array(32);
-    trustId[0] = 0x88;
-    trustId[1] = 0xa1;
+    // Now instantiate it against a fresh company_id
+    const companyId = new Uint8Array(32);
+    companyId[0] = 0x88;
+    companyId[1] = 0xa1;
 
     const instantiateAccounts = buildInstantiateTemplateAccounts({
       factoryProgramId: factory.programId,
-      trustProgramId: trust.programId,
+      trustProgramId: company.programId,
       templateId,
-      trustId,
+      companyId,
       authority: provider.wallet.publicKey,
     });
     const instantiateRemaining = buildInstantiateTemplateRemainingAccounts({
-      trustProgramId: trust.programId,
-      trust: instantiateAccounts.trust,
+      trustProgramId: company.programId,
+      company: instantiateAccounts.company,
       modules: [
         {
           moduleId: moduleIdR,
@@ -419,33 +419,33 @@ describe("aeqi_factory", () => {
     const [roleToTokenAcl] = instantiateRemaining.aclEdgePdas;
 
     await factory.methods
-      .instantiateTemplate(Array.from(trustId))
+      .instantiateTemplate(Array.from(companyId))
       .accountsPartial(instantiateAccounts)
       .remainingAccounts(instantiateRemaining.remainingAccounts)
       .rpc();
 
-    // Verify trust is STILL in creation mode (caller is responsible for
+    // Verify company is STILL in creation mode (caller is responsible for
     // finalizing after module inits) + 2 modules registered with right
     // program IDs. The previous shape finalized inside this CPI, which
     // locked out every subsequent module init — same bug class as the
     // prior create_with_modules shape (fixed b7173c8c).
-    const t = await trust.account.trust.fetch(instantiateAccounts.trust);
+    const t = await company.account.company.fetch(instantiateAccounts.company);
     expect(t.creationMode).to.eq(true);
     expect(t.moduleCount).to.eq(2);
 
-    const mR = await trust.account.module.fetch(modR);
+    const mR = await company.account.module.fetch(modR);
     expect(mR.programId.toBase58()).to.eq(programR.toBase58());
     expect(mR.provider.toBase58()).to.eq(provider.wallet.publicKey.toBase58());
     expect(mR.implementationVersion.toString()).to.eq("1");
     expect(mR.trustAcl.toString()).to.eq("255");
 
-    const mT = await trust.account.module.fetch(modT);
+    const mT = await company.account.module.fetch(modT);
     expect(mT.programId.toBase58()).to.eq(programT.toBase58());
     expect(mT.provider.toBase58()).to.eq(provider.wallet.publicKey.toBase58());
     expect(mT.implementationVersion.toString()).to.eq("1");
     expect(mT.trustAcl.toString()).to.eq("128");
 
-    const acl = await trust.account.moduleAclEdge.fetch(roleToTokenAcl);
+    const acl = await company.account.moduleAclEdge.fetch(roleToTokenAcl);
     expect(Buffer.from(acl.sourceModuleId).toString("hex")).to.eq(
       Buffer.from(moduleIdR).toString("hex"),
     );
@@ -469,7 +469,7 @@ describe("aeqi_factory", () => {
     moduleId[0] = 0x49;
     moduleId[1] = 0xa1;
     const impl = await publishImplementation(moduleId, role.programId);
-    await trust.methods
+    await company.methods
       .setModuleImplementationActive(false)
       .accountsPartial({
         implementation: impl,
@@ -499,19 +499,19 @@ describe("aeqi_factory", () => {
       })
       .rpc();
 
-    const trustId = new Uint8Array(32);
-    trustId[0] = 0x89;
-    trustId[1] = 0xa1;
+    const companyId = new Uint8Array(32);
+    companyId[0] = 0x89;
+    companyId[1] = 0xa1;
     const instantiateAccounts = buildInstantiateTemplateAccounts({
       factoryProgramId: factory.programId,
-      trustProgramId: trust.programId,
+      trustProgramId: company.programId,
       templateId,
-      trustId,
+      companyId,
       authority: provider.wallet.publicKey,
     });
     const instantiateRemaining = buildInstantiateTemplateRemainingAccounts({
-      trustProgramId: trust.programId,
-      trust: instantiateAccounts.trust,
+      trustProgramId: company.programId,
+      company: instantiateAccounts.company,
       modules: [
         {
           moduleId,
@@ -524,7 +524,7 @@ describe("aeqi_factory", () => {
     await expectTxFail(
       async () =>
         factory.methods
-          .instantiateTemplate(Array.from(trustId))
+          .instantiateTemplate(Array.from(companyId))
           .accountsPartial(instantiateAccounts)
           .remainingAccounts(instantiateRemaining.remainingAccounts)
           .rpc(),
@@ -532,17 +532,17 @@ describe("aeqi_factory", () => {
     );
   });
 
-  it("create_company_full atomically spawns trust + registers + inits 3 modules in ONE tx", async () => {
+  it("create_company_full atomically spawns company + registers + inits 3 modules in ONE tx", async () => {
     // Atomic orchestration:
-    //   1. trust.initialize
-    //   2. trust.register_module ×3 (role / token / governance)
+    //   1. company.initialize
+    //   2. company.register_module ×3 (role / token / governance)
     //   3. each module's init (creates module-state PDA)
-    //   4. trust.finalize
+    //   4. company.finalize
     //   5. each module's finalize with config bytes via BytesConfig dispatch
 
-    const trustId = new Uint8Array(32);
-    trustId[0] = 0x99;
-    trustId[1] = 0xaa;
+    const companyId = new Uint8Array(32);
+    companyId[0] = 0x99;
+    companyId[1] = 0xaa;
 
     const roleModuleId = new Uint8Array(32);
     roleModuleId[0] = 0x52;
@@ -552,20 +552,20 @@ describe("aeqi_factory", () => {
     govModuleId[0] = 0x47;
 
     const [trustPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("trust"), Buffer.from(trustId)],
-      trust.programId,
+      [Buffer.from("company"), Buffer.from(companyId)],
+      company.programId,
     );
     const [roleModulePda] = PublicKey.findProgramAddressSync(
       [Buffer.from("module"), trustPda.toBuffer(), Buffer.from(roleModuleId)],
-      trust.programId,
+      company.programId,
     );
     const [tokenModulePda] = PublicKey.findProgramAddressSync(
       [Buffer.from("module"), trustPda.toBuffer(), Buffer.from(tokenModuleId)],
-      trust.programId,
+      company.programId,
     );
     const [govModulePda] = PublicKey.findProgramAddressSync(
       [Buffer.from("module"), trustPda.toBuffer(), Buffer.from(govModuleId)],
-      trust.programId,
+      company.programId,
     );
 
     const [roleModuleStatePda] = PublicKey.findProgramAddressSync(
@@ -582,7 +582,7 @@ describe("aeqi_factory", () => {
     );
 
     // BytesConfig PDA for the token module's borsh-encoded TokenInitConfig.
-    // Lives under aeqi_trust's program id; key is TOKEN_CONFIG_KEY = [1,0,...,0].
+    // Lives under aeqi_company's program id; key is TOKEN_CONFIG_KEY = [1,0,...,0].
     const tokenConfigKey = new Uint8Array(32);
     tokenConfigKey[0] = 1;
     const [tokenBytesConfigPda] = PublicKey.findProgramAddressSync(
@@ -591,12 +591,12 @@ describe("aeqi_factory", () => {
         trustPda.toBuffer(),
         Buffer.from(tokenConfigKey),
       ],
-      trust.programId,
+      company.programId,
     );
 
     await factory.methods
       .createCompanyFull(
-        Array.from(trustId),
+        Array.from(companyId),
         Array.from(roleModuleId),
         Array.from(tokenModuleId),
         Array.from(govModuleId),
@@ -607,7 +607,7 @@ describe("aeqi_factory", () => {
         new anchor.BN(1_000_000_000), // token_max_supply_cap
       )
       .accountsPartial({
-        trust: trustPda,
+        company: trustPda,
         roleModule: roleModulePda,
         tokenModule: tokenModulePda,
         govModule: govModulePda,
@@ -616,7 +616,7 @@ describe("aeqi_factory", () => {
         govModuleState: govModuleStatePda,
         tokenBytesConfig: tokenBytesConfigPda,
         authority: provider.wallet.publicKey,
-        aeqiTrustProgram: trust.programId,
+        aeqiCompanyProgram: company.programId,
         aeqiRoleProgram: role.programId,
         aeqiTokenProgram: token.programId,
         aeqiGovernanceProgram: governance.programId,
@@ -624,32 +624,32 @@ describe("aeqi_factory", () => {
       })
       .rpc();
 
-    // Verify trust is finalized + 3 modules registered
-    const t = await trust.account.trust.fetch(trustPda);
+    // Verify company is finalized + 3 modules registered
+    const t = await company.account.company.fetch(trustPda);
     expect(t.creationMode).to.eq(false);
     expect(t.moduleCount).to.eq(3);
 
     // Each module record has the right program ID
-    const r = await trust.account.module.fetch(roleModulePda);
+    const r = await company.account.module.fetch(roleModulePda);
     expect(r.programId.toBase58()).to.eq(role.programId.toBase58());
     expect(r.provider.toBase58()).to.eq(role.programId.toBase58());
     expect(r.implementationVersion.toString()).to.eq("1");
-    const tk = await trust.account.module.fetch(tokenModulePda);
+    const tk = await company.account.module.fetch(tokenModulePda);
     expect(tk.programId.toBase58()).to.eq(token.programId.toBase58());
     expect(tk.provider.toBase58()).to.eq(token.programId.toBase58());
     expect(tk.implementationVersion.toString()).to.eq("1");
-    const g = await trust.account.module.fetch(govModulePda);
+    const g = await company.account.module.fetch(govModulePda);
     expect(g.programId.toBase58()).to.eq(governance.programId.toBase58());
     expect(g.provider.toBase58()).to.eq(governance.programId.toBase58());
     expect(g.implementationVersion.toString()).to.eq("1");
 
     // Each module's state PDA was created — module init ran
     const rs = await role.account.roleModuleState.fetch(roleModuleStatePda);
-    expect(rs.trust.toBase58()).to.eq(trustPda.toBase58());
+    expect(rs.company.toBase58()).to.eq(trustPda.toBase58());
     expect(rs.initialized).to.eq(true);
 
     const ts = await token.account.tokenModuleState.fetch(tokenModuleStatePda);
-    expect(ts.trust.toBase58()).to.eq(trustPda.toBase58());
+    expect(ts.company.toBase58()).to.eq(trustPda.toBase58());
     // BytesConfig dispatch landed: finalize decoded the blob and copied
     // decimals + max_supply_cap onto module_state.
     expect(ts.decimals).to.eq(9);
@@ -657,20 +657,20 @@ describe("aeqi_factory", () => {
 
     const gs =
       await governance.account.governanceModuleState.fetch(govModuleStatePda);
-    expect(gs.trust.toBase58()).to.eq(trustPda.toBase58());
+    expect(gs.company.toBase58()).to.eq(trustPda.toBase58());
   });
 
   it("max_supply_cap from TokenInitConfig is enforced by mint_tokens", async () => {
     // createCompanyFull → create_mint → mint up to cap → exceed (fails) →
     // residual headroom mint succeeds. Cap = 2000, decimals = 0 to keep
     // the math literal.
-    const trustId = new Uint8Array(32);
-    trustId[0] = 0xca;
-    trustId[1] = 0xaa;
+    const companyId = new Uint8Array(32);
+    companyId[0] = 0xca;
+    companyId[1] = 0xaa;
 
     const [trustPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("trust"), Buffer.from(trustId)],
-      trust.programId,
+      [Buffer.from("company"), Buffer.from(companyId)],
+      company.programId,
     );
     const roleModuleId = new Uint8Array(32);
     roleModuleId[0] = 0x52;
@@ -682,7 +682,7 @@ describe("aeqi_factory", () => {
     const pdaModule = (id: Uint8Array) =>
       PublicKey.findProgramAddressSync(
         [Buffer.from("module"), trustPda.toBuffer(), Buffer.from(id)],
-        trust.programId,
+        company.programId,
       )[0];
     const roleModulePda = pdaModule(roleModuleId);
     const tokenModulePda = pdaModule(tokenModuleId);
@@ -709,12 +709,12 @@ describe("aeqi_factory", () => {
         trustPda.toBuffer(),
         Buffer.from(tokenConfigKey),
       ],
-      trust.programId,
+      company.programId,
     );
 
     await factory.methods
       .createCompanyFull(
-        Array.from(trustId),
+        Array.from(companyId),
         Array.from(roleModuleId),
         Array.from(tokenModuleId),
         Array.from(govModuleId),
@@ -725,7 +725,7 @@ describe("aeqi_factory", () => {
         new anchor.BN(2000), // max_supply_cap
       )
       .accountsPartial({
-        trust: trustPda,
+        company: trustPda,
         roleModule: roleModulePda,
         tokenModule: tokenModulePda,
         govModule: govModulePda,
@@ -734,7 +734,7 @@ describe("aeqi_factory", () => {
         govModuleState: govModuleStatePda,
         tokenBytesConfig: tokenBytesConfigPda,
         authority: provider.wallet.publicKey,
-        aeqiTrustProgram: trust.programId,
+        aeqiCompanyProgram: company.programId,
         aeqiRoleProgram: role.programId,
         aeqiTokenProgram: token.programId,
         aeqiGovernanceProgram: governance.programId,
@@ -763,7 +763,7 @@ describe("aeqi_factory", () => {
     await token.methods
       .createMint(0)
       .accountsPartial({
-        trust: trustPda,
+        company: trustPda,
         moduleState: tokenModuleStatePda,
         mintAuthority: mintAuthorityPda,
         mint: mintPda,
@@ -798,7 +798,7 @@ describe("aeqi_factory", () => {
     await token.methods
       .mintTokens(new anchor.BN(1500))
       .accountsPartial({
-        trust: trustPda,
+        company: trustPda,
         moduleState: tokenModuleStatePda,
         mintAuthority: mintAuthorityPda,
         mint: mintPda,
@@ -821,7 +821,7 @@ describe("aeqi_factory", () => {
       await token.methods
         .mintTokens(new anchor.BN(600))
         .accountsPartial({
-          trust: trustPda,
+          company: trustPda,
           moduleState: tokenModuleStatePda,
           mintAuthority: mintAuthorityPda,
           mint: mintPda,
@@ -840,7 +840,7 @@ describe("aeqi_factory", () => {
     await token.methods
       .mintTokens(new anchor.BN(500))
       .accountsPartial({
-        trust: trustPda,
+        company: trustPda,
         moduleState: tokenModuleStatePda,
         mintAuthority: mintAuthorityPda,
         mint: mintPda,
@@ -891,12 +891,12 @@ describe("aeqi_factory", () => {
   // cap-table-company shape that can hold funds, vest grants, and open a
   // continuous curve).
   //
-  // What `instantiate_template` ships today: trust.initialize +
+  // What `instantiate_template` ships today: company.initialize +
   // provider-published implementation validation + register_module per
-  // template-spec'd module + ACL graph replay + trust.finalize. Per-module
+  // template-spec'd module + ACL graph replay + company.finalize. Per-module
   // init/finalize/set_bytes_config remains a separate caller step (each
   // module's own context shape varies). This test asserts the registry +
-  // instantiation work; module init for the spawned trust is the next step
+  // instantiation work; module init for the spawned company is the next step
   // a real caller (or the platform bridge) would run.
   it("registers BASIC + VENTURE templates side-by-side and instantiates both", async () => {
     const BASIC_ID = (() => {
@@ -1049,20 +1049,20 @@ describe("aeqi_factory", () => {
     const venture = await factory.account.template.fetch(venturePda);
     expect(venture.modules.length).to.eq(6);
 
-    // Instantiate BASIC against a fresh trust.
-    const trustIdBasic = new Uint8Array(32);
-    trustIdBasic[0] = 0xb1;
-    trustIdBasic[1] = 0x42;
+    // Instantiate BASIC against a fresh company.
+    const companyIdBasic = new Uint8Array(32);
+    companyIdBasic[0] = 0xb1;
+    companyIdBasic[1] = 0x42;
     const basicAccounts = buildInstantiateTemplateAccounts({
       factoryProgramId: factory.programId,
-      trustProgramId: trust.programId,
+      trustProgramId: company.programId,
       templateId: BASIC_ID,
-      trustId: trustIdBasic,
+      companyId: companyIdBasic,
       authority: provider.wallet.publicKey,
     });
     const basicRemaining = buildInstantiateTemplateRemainingAccounts({
-      trustProgramId: trust.programId,
-      trust: basicAccounts.trust,
+      trustProgramId: company.programId,
+      company: basicAccounts.company,
       modules: [
         {
           moduleId: moduleIdR,
@@ -1082,48 +1082,48 @@ describe("aeqi_factory", () => {
       ],
     });
     await factory.methods
-      .instantiateTemplate(Array.from(trustIdBasic))
+      .instantiateTemplate(Array.from(companyIdBasic))
       .accountsPartial(basicAccounts)
       .remainingAccounts(basicRemaining.remainingAccounts)
       .rpc();
 
-    // instantiate_template leaves the trust in creation mode now —
+    // instantiate_template leaves the company in creation mode now —
     // caller drives the per-module inits + finalize sequence after.
-    const tBasic = await trust.account.trust.fetch(basicAccounts.trust);
+    const tBasic = await company.account.company.fetch(basicAccounts.company);
     expect(tBasic.creationMode).to.eq(true);
     expect(tBasic.moduleCount).to.eq(3);
     // Sanity: each module record points at the right program.
     expect(
       (
-        await trust.account.module.fetch(basicRemaining.modulePdas[0])
+        await company.account.module.fetch(basicRemaining.modulePdas[0])
       ).programId.toBase58(),
     ).to.eq(role.programId.toBase58());
     expect(
       (
-        await trust.account.module.fetch(basicRemaining.modulePdas[1])
+        await company.account.module.fetch(basicRemaining.modulePdas[1])
       ).programId.toBase58(),
     ).to.eq(token.programId.toBase58());
     expect(
       (
-        await trust.account.module.fetch(basicRemaining.modulePdas[2])
+        await company.account.module.fetch(basicRemaining.modulePdas[2])
       ).programId.toBase58(),
     ).to.eq(governance.programId.toBase58());
 
-    // Instantiate VENTURE against a different fresh trust — proves the same
+    // Instantiate VENTURE against a different fresh company — proves the same
     // factory can spawn distinct shapes from distinct registered templates.
-    const trustIdVent = new Uint8Array(32);
-    trustIdVent[0] = 0xb2;
-    trustIdVent[1] = 0x56;
+    const companyIdVent = new Uint8Array(32);
+    companyIdVent[0] = 0xb2;
+    companyIdVent[1] = 0x56;
     const ventureAccounts = buildInstantiateTemplateAccounts({
       factoryProgramId: factory.programId,
-      trustProgramId: trust.programId,
+      trustProgramId: company.programId,
       templateId: VENTURE_ID,
-      trustId: trustIdVent,
+      companyId: companyIdVent,
       authority: provider.wallet.publicKey,
     });
     const ventureRemaining = buildInstantiateTemplateRemainingAccounts({
-      trustProgramId: trust.programId,
-      trust: ventureAccounts.trust,
+      trustProgramId: company.programId,
+      company: ventureAccounts.company,
       modules: [
         {
           moduleId: moduleIdR,
@@ -1158,27 +1158,27 @@ describe("aeqi_factory", () => {
       ],
     });
     await factory.methods
-      .instantiateTemplate(Array.from(trustIdVent))
+      .instantiateTemplate(Array.from(companyIdVent))
       .accountsPartial(ventureAccounts)
       .remainingAccounts(ventureRemaining.remainingAccounts)
       .rpc();
 
-    const tVent = await trust.account.trust.fetch(ventureAccounts.trust);
+    const tVent = await company.account.company.fetch(ventureAccounts.company);
     expect(tVent.creationMode).to.eq(true);
     expect(tVent.moduleCount).to.eq(6);
     expect(
       (
-        await trust.account.module.fetch(ventureRemaining.modulePdas[3])
+        await company.account.module.fetch(ventureRemaining.modulePdas[3])
       ).programId.toBase58(),
     ).to.eq(treasury.programId.toBase58());
     expect(
       (
-        await trust.account.module.fetch(ventureRemaining.modulePdas[4])
+        await company.account.module.fetch(ventureRemaining.modulePdas[4])
       ).programId.toBase58(),
     ).to.eq(vesting.programId.toBase58());
     expect(
       (
-        await trust.account.module.fetch(ventureRemaining.modulePdas[5])
+        await company.account.module.fetch(ventureRemaining.modulePdas[5])
       ).programId.toBase58(),
     ).to.eq(unifutures.programId.toBase58());
   });
@@ -1186,9 +1186,9 @@ describe("aeqi_factory", () => {
   // ─── Lifecycle invariant — pins the "factory finalizes too early" bug class extinct
   //
   // Every factory entry point that calls register_module against a fresh
-  // trust MUST leave the trust in creation mode unless it ALSO runs every
+  // company MUST leave the company in creation mode unless it ALSO runs every
   // registered module's per-module `init` CPI (the all-or-nothing
-  // create_company_full shape). Otherwise the trust is in irrecoverable
+  // create_company_full shape). Otherwise the company is in irrecoverable
   // limbo: modules registered but their state PDAs uninitialized, with
   // no path forward because their inits require creation_mode=true.
   //
@@ -1202,22 +1202,22 @@ describe("aeqi_factory", () => {
   // here too, or the bug class can re-fire.
   describe("lifecycle invariant — register-without-init must NOT finalize", () => {
     it("create_with_modules leaves creation_mode=true", async () => {
-      const trustId = new Uint8Array(32);
-      trustId[0] = 0xee;
+      const companyId = new Uint8Array(32);
+      companyId[0] = 0xee;
       const [trustPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("trust"), Buffer.from(trustId)],
-        trust.programId,
+        [Buffer.from("company"), Buffer.from(companyId)],
+        company.programId,
       );
       const moduleId = new Uint8Array(32);
       moduleId[0] = 0xaa;
       const [modulePda] = PublicKey.findProgramAddressSync(
         [Buffer.from("module"), trustPda.toBuffer(), Buffer.from(moduleId)],
-        trust.programId,
+        company.programId,
       );
       const dummyProg = anchor.web3.Keypair.generate().publicKey;
 
       await factory.methods
-        .createWithModules(Array.from(trustId), [
+        .createWithModules(Array.from(companyId), [
           {
             moduleId: Array.from(moduleId),
             programId: dummyProg,
@@ -1228,9 +1228,9 @@ describe("aeqi_factory", () => {
           },
         ])
         .accountsPartial({
-          trust: trustPda,
+          company: trustPda,
           authority: provider.wallet.publicKey,
-          aeqiTrustProgram: trust.programId,
+          aeqiCompanyProgram: company.programId,
           systemProgram: anchor.web3.SystemProgram.programId,
         })
         .remainingAccounts([
@@ -1238,7 +1238,7 @@ describe("aeqi_factory", () => {
         ])
         .rpc();
 
-      const t = await trust.account.trust.fetch(trustPda);
+      const t = await company.account.company.fetch(trustPda);
       expect(
         t.creationMode,
         "create_with_modules must NOT finalize — see fix b7173c8c",
@@ -1250,6 +1250,6 @@ describe("aeqi_factory", () => {
     // "instantiate_template replays a registered template" test above —
     // it now asserts creationMode === true after the call. Both factory
     // entry points share this contract: register modules, leave the
-    // trust open for caller-driven inits + finalize.
+    // company open for caller-driven inits + finalize.
   });
 });

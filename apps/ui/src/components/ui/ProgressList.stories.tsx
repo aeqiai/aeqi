@@ -27,7 +27,7 @@ export const Running: Story = {
 export const Complete: Story = {
   args: {
     steps: [
-      { key: "creating", label: "Creating TRUST", status: "done" },
+      { key: "creating", label: "Creating COMPANY", status: "done" },
       { key: "signing", label: "Registering on Solana", status: "done" },
       { key: "roles", label: "Activating roles", status: "done" },
       { key: "runtime", label: "Starting runtime", status: "done" },
@@ -38,7 +38,7 @@ export const Complete: Story = {
 export const Failed: Story = {
   args: {
     steps: [
-      { key: "creating", label: "Creating TRUST", status: "done" },
+      { key: "creating", label: "Creating COMPANY", status: "done" },
       { key: "signing", label: "Registering on Solana", status: "done" },
       { key: "roles", label: "Activating roles", status: "error" },
       { key: "runtime", label: "Starting runtime", status: "pending" },

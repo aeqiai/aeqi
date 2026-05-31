@@ -1,11 +1,11 @@
 import { create } from "zustand";
 import * as activityApi from "@/api/activity";
 import * as agentsApi from "@/api/agents";
-import * as trustsApi from "@/api/trusts";
+import * as companiesApi from "@/api/companies";
 import * as questsApi from "@/api/quests";
 import * as runtimeApi from "@/api/runtime";
 import { getScopedEntity } from "@/lib/appMode";
-import type { Agent, ActivityEntry, Trust, Quest } from "@/lib/types";
+import type { Agent, ActivityEntry, Company, Quest } from "@/lib/types";
 
 interface WorkerEvent {
   id?: string | number;
@@ -18,7 +18,7 @@ interface DaemonState {
   status: Record<string, unknown> | null;
   dashboard: Record<string, unknown> | null;
   cost: Record<string, unknown> | null;
-  entities: Trust[];
+  entities: Company[];
   agents: Agent[];
   quests: Quest[];
   events: ActivityEntry[];
@@ -46,7 +46,7 @@ let fetchAllInFlightKey = "";
 let lastFetchAllKey = "";
 let lastFetchAllSettledAt = 0;
 
-// Hydrate cached trusts and agents from localStorage so the
+// Hydrate cached companies and agents from localStorage so the
 // LeftSidebar / agent tree paint the real shape on
 // hard refresh instead of flashing the empty-list state for the
 // 50-500 ms it takes fetchEntities() and fetchAgents() to round-trip.
@@ -67,7 +67,7 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
   status: null,
   dashboard: null,
   cost: null,
-  entities: hydrate<Trust>("aeqi_daemon_entities"),
+  entities: hydrate<Company>("aeqi_daemon_entities"),
   agents: hydrate<Agent>("aeqi_daemon_agents"),
   quests: [],
   events: [],
@@ -106,40 +106,40 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
 
   fetchEntities: async () => {
     try {
-      const data = await trustsApi.getTrustsRaw();
-      const nextEntities = trustsApi.normalizeTrustRoots(data);
-      // Empty + no `trusts` key on the response = transient/auth
+      const data = await companiesApi.getCompaniesRaw();
+      const nextEntities = companiesApi.normalizeCompanyRoots(data);
+      // Empty + no `companies` key on the response = transient/auth
       // failure; keep what we had. Empty + key present = the user
-      // genuinely has no trusts; commit the empty list.
+      // genuinely has no companies; commit the empty list.
       if (
         nextEntities.length === 0 &&
-        !Array.isArray(data.trusts) &&
+        !Array.isArray(data.companies) &&
         !Array.isArray(data.entities) &&
         !Array.isArray(data.roots)
       )
         return;
       set({ entities: nextEntities, initialLoaded: true });
-      // Trust-first migration (2026-05-17): the route slug is the
-      // on-chain trust address, but the API often wants the canonical
+      // Company-first migration (2026-05-17): the route slug is the
+      // on-chain company address, but the API often wants the canonical
       // entity id. `getScopedEntity` resolves the slug through this cached
       // entity list when possible. Clear any stale map from pre-migration
       // browser sessions so the first page after deploy doesn't 404 on a
       // now-invalid lookup.
       try {
-        localStorage.removeItem("aeqi_trust_to_entity");
+        localStorage.removeItem("aeqi_company_to_entity");
       } catch {
         // localStorage can fail in private-mode — non-blocking.
       }
     } catch {
-      // Keep existing trusts on transient failure.
+      // Keep existing companies on transient failure.
     }
   },
 
   fetchAgents: async () => {
-    // `/api/trusts` is user-scoped (no X-Trust required) and always
-    // lists every trust the user owns. `/api/agents` is scoped to the
-    // active X-Trust and returns the full subtree. We fetch both so the
-    // sidebar has roots to show on `/` (where no X-Trust is set) and the
+    // `/api/companies` is user-scoped (no X-Company required) and always
+    // lists every company the user owns. `/api/agents` is scoped to the
+    // active X-Company and returns the full subtree. We fetch both so the
+    // sidebar has roots to show on `/` (where no X-Company is set) and the
     // agent subtree is available for per-company pages.
     try {
       const nextAgents = await agentsApi.listAgentDirectory();
@@ -183,15 +183,15 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
 
     const s = get();
     const run = (async () => {
-      // fetchEntities is user-scoped (no X-Trust required) and produces the
-      // trusts the user owns. Run it first so that on first ever load we
+      // fetchEntities is user-scoped (no X-Company required) and produces the
+      // companies the user owns. Run it first so that on first ever load we
       // don't fire the entity-scoped proxy fetches against an empty scope —
-      // the proxy 400s with "X-Trust required" and the dashboard ends up
+      // the proxy 400s with "X-Company required" and the dashboard ends up
       // with five red entries before fetchEntities has resolved.
       await s.fetchEntities();
       if (!getScopedEntity()) {
         // No active entity yet — the user just landed at `/` with zero
-        // trusts, or hasn't picked one. Skip the proxied fetches; they
+        // companies, or hasn't picked one. Skip the proxied fetches; they
         // require entity scope and there's nothing to render against them.
         set({ initialLoaded: true });
         return;
@@ -231,14 +231,14 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
 
 // Persist `entities` and `agents` to localStorage on every change. Paired
 // with the synchronous `hydrate()` reads above so hard refresh restores
-// the real sidebar/trust-switcher shape instead of flashing empty
+// the real sidebar/company-switcher shape instead of flashing empty
 // lists. Plain `subscribe` + module-level reference compares match the
 // auth-store pattern (no `subscribeWithSelector` middleware needed).
 // `quests` and `events` deliberately do NOT persist — quests are
 // entity-scoped (a stale cache from one entity could leak into another
 // on refresh), and the events stream is bounded to the last 30 entries
 // and a fresh fetch is faster than reconstructing local state.
-let lastEntities: Trust[] = [];
+let lastEntities: Company[] = [];
 let lastAgents: Agent[] = [];
 useDaemonStore.subscribe((state) => {
   if (state.entities !== lastEntities) {
@@ -259,12 +259,12 @@ useDaemonStore.subscribe((state) => {
   }
 });
 
-/** Selector: list of trusts the user owns. */
+/** Selector: list of companies the user owns. */
 export function useEntities() {
   return useDaemonStore((s) => s.entities);
 }
 
-/** Selector: the trust whose id matches activeEntity, or null. */
+/** Selector: the company whose id matches activeEntity, or null. */
 export function useActiveEntity(activeEntityId: string) {
   return useDaemonStore((s) => s.entities.find((e) => e.id === activeEntityId) ?? null);
 }

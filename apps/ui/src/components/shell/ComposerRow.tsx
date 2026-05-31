@@ -59,7 +59,7 @@ export default function ComposerRow({
 }: ComposerRowProps) {
   const navigate = useNavigate();
   const { tab, itemId } = useParams<{ tab?: string; itemId?: string }>();
-  const { trustId } = useNav();
+  const { companyId } = useNav();
   const agents = useDaemonStore((s) => s.agents);
   const entities = useDaemonStore((s) => s.entities);
   const setPendingMessage = useChatStore((s) => s.setPendingMessage);
@@ -104,10 +104,10 @@ export default function ComposerRow({
     if (sessionsMounted) {
       window.dispatchEvent(new CustomEvent("aeqi:send-message", { detail }));
     } else {
-      if (agentId && trustId) {
+      if (agentId && companyId) {
         void (async () => {
           try {
-            const data = await api.createSession(agentId, trustId);
+            const data = await api.createSession(agentId, companyId);
             const sessionId = (data.session_id as string | undefined) ?? null;
             if (!sessionId) throw new Error("No session id returned");
             await api.sendSessionMessage(
@@ -119,9 +119,9 @@ export default function ComposerRow({
                 quest_id: task?.id,
                 files: files.length > 0 ? files : undefined,
               },
-              trustId,
+              companyId,
             );
-            navigate(entityPathFromId(entities, trustId, "sessions", sessionId));
+            navigate(entityPathFromId(entities, companyId, "sessions", sessionId));
           } catch {
             setPendingMessage(agentId, detail);
             navigate(composeHref || userSessionsPath(base));
@@ -148,7 +148,7 @@ export default function ComposerRow({
     composeHref,
     base,
     agentId,
-    trustId,
+    companyId,
     entities,
   ]);
 
@@ -207,7 +207,7 @@ export default function ComposerRow({
     }
     let cancelled = false;
     api
-      .getSessionMessages(currentSessionId, 500, trustId || undefined)
+      .getSessionMessages(currentSessionId, 500, companyId || undefined)
       .then((d: Record<string, unknown>) => {
         if (cancelled) return;
         const raw = (d.messages as Array<Record<string, unknown>>) || [];
@@ -223,7 +223,7 @@ export default function ComposerRow({
     return () => {
       cancelled = true;
     };
-  }, [currentSessionId, trustId]);
+  }, [currentSessionId, companyId]);
 
   // Keyboard shortcut `c` jumps focus into the composer without touching
   // the current input — lets a power user start typing from anywhere in

@@ -33,17 +33,17 @@ described with the existing grammar, the page model is wrong.
 
 ## Target surface families
 
-| Surface         | Job                                    | Primary object          | Primary action                  | Shape                                  |
-| --------------- | -------------------------------------- | ----------------------- | ------------------------------- | -------------------------------------- |
-| Home            | Decide what to do next                 | Active TRUST            | Open TRUST or launch            | Full-width overview bands              |
-| Trust overview  | Show one company’s operating state     | TRUST                   | Create quest / open active work | Hero + status + grouped rows           |
-| My sessions     | Review sessions needing the user       | Session                 | Open / answer / archive         | Session list + detail                  |
-| Agent detail    | Talk to one agent and tune model/tools | Agent                   | Start session / change settings | Shared header + chat + narrow settings |
-| Account         | Manage user-scoped settings            | Account                 | Save settings                   | Page rail + detail pane                |
-| Launch          | Create a new TRUST                     | Blueprint / launch flow | Launch TRUST                    | Wizard / reveal flow                   |
-| Blueprints      | Discover reusable company shapes       | Blueprint               | Launch / import                 | Searchable catalog                     |
-| Economy         | Browse network activity                | Listing                 | Open / inspect / apply          | List + filter + metrics                |
-| Admin / control | Maintain platform state                | Administrative object   | Perform admin action            | Dense utility page                     |
+| Surface          | Job                                    | Primary object          | Primary action                  | Shape                                  |
+| ---------------- | -------------------------------------- | ----------------------- | ------------------------------- | -------------------------------------- |
+| Home             | Decide what to do next                 | Active COMPANY          | Open COMPANY or launch          | Full-width overview bands              |
+| Company overview | Show one company’s operating state     | COMPANY                 | Create quest / open active work | Hero + status + grouped rows           |
+| My sessions      | Review sessions needing the user       | Session                 | Open / answer / archive         | Session list + detail                  |
+| Agent detail     | Talk to one agent and tune model/tools | Agent                   | Start session / change settings | Shared header + chat + narrow settings |
+| Account          | Manage user-scoped settings            | Account                 | Save settings                   | Page rail + detail pane                |
+| Launch           | Create a new COMPANY                   | Blueprint / launch flow | Launch COMPANY                  | Wizard / reveal flow                   |
+| Blueprints       | Discover reusable company shapes       | Blueprint               | Launch / import                 | Searchable catalog                     |
+| Economy          | Browse network activity                | Listing                 | Open / inspect / apply          | List + filter + metrics                |
+| Admin / control  | Maintain platform state                | Administrative object   | Perform admin action            | Dense utility page                     |
 
 If a page does not fit one of these rows, it needs a product-model decision
 before it needs a visual polish pass.
@@ -57,7 +57,7 @@ These are the interaction classes that should feel smooth across the whole app.
    - Back links
    - Breadcrumb headers
    - Page rails
-   - Trust switching
+   - Company switching
    - Deep-link recovery
 
 2. **Retrieval**
@@ -143,7 +143,7 @@ already inside the relevant surface:
 Stabilize the shell and the daily surfaces:
 
 - Home
-- Trust overview
+- Company overview
 - My sessions
 - Agent detail
 - Account
@@ -157,7 +157,7 @@ Normalize creation and discovery:
 
 - Launch
 - Blueprints
-- Trust / role discovery
+- Company / role discovery
 - Economy
 
 These surfaces need stronger filtering, clearer hierarchy, and less visual

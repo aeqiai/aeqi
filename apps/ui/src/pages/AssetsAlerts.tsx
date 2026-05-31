@@ -2,14 +2,14 @@
  * Iter-8 — Treasury alerts banner.
  *
  * Surfaces inline amber Banners above the Treasury overview when the
- * read state of the TRUST suggests an operator needs to act:
+ * read state of the COMPANY suggests an operator needs to act:
  *
  *   1. Over-allocated budgets — the sum of every active budget's
  *      remaining-allocation exceeds the current priced (stablecoin)
  *      treasury value. The on-chain `aeqi_budget` program does NOT
  *      enforce a treasury-level cap (each budget is allocated against
  *      a virtual amount the grantor set at create time); the alert is
- *      the off-chain signal that the TRUST has promised more than it
+ *      the off-chain signal that the COMPANY has promised more than it
  *      can deliver.
  *   2. Vesting positions blocked by missing contribution — every
  *      VestingPosition with `contributionRequired > 0` AND

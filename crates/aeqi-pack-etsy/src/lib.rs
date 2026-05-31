@@ -1,7 +1,7 @@
 //! `pack:etsy` — native Etsy shop tools backed by T1.9's `oauth2`
 //! lifecycle.
 //!
-//! Tools are trust-scoped: a trust connects one Etsy seller account, then any
+//! Tools are company-scoped: a company connects one Etsy seller account, then any
 //! permitted agent can inspect shop/listing/order data or prepare draft
 //! listings for human review.
 
@@ -35,7 +35,7 @@ pub fn all_tools() -> Vec<std::sync::Arc<dyn Tool>> {
 }
 
 fn need(scopes: Vec<&'static str>) -> CredentialNeed {
-    CredentialNeed::new(PROVIDER, CREDENTIAL_NAME, ScopeHint::Trust).with_scopes(scopes)
+    CredentialNeed::new(PROVIDER, CREDENTIAL_NAME, ScopeHint::Company).with_scopes(scopes)
 }
 
 fn first_cred(creds: Vec<Option<UsableCredential>>) -> Option<UsableCredential> {
@@ -44,7 +44,7 @@ fn first_cred(creds: Vec<Option<UsableCredential>>) -> Option<UsableCredential> 
 
 fn missing_credential() -> ToolResult {
     ToolResult::error(
-        "missing_credential: provider=etsy name=oauth_token (connect Etsy on the trust's \
+        "missing_credential: provider=etsy name=oauth_token (connect Etsy on the company's \
          Integrations page first)",
     )
     .with_data(json!({"reason_code": "missing_credential"}))
@@ -660,14 +660,14 @@ mod tests {
     }
 
     #[test]
-    fn tools_declare_trust_scoped_oauth_credentials() {
+    fn tools_declare_company_scoped_oauth_credentials() {
         for tool in all_tools() {
             let needs = tool.required_credentials();
             assert_eq!(needs.len(), 1, "{} credential count", tool.name());
             let need = &needs[0];
             assert_eq!(need.provider, PROVIDER);
             assert_eq!(need.name, CREDENTIAL_NAME);
-            assert_eq!(need.scope_hint, ScopeHint::Trust);
+            assert_eq!(need.scope_hint, ScopeHint::Company);
             assert!(!need.optional);
             assert!(
                 !need.oauth_scopes.is_empty(),

@@ -66,15 +66,15 @@ function formatHexBalance(hex: string): string {
 
 /**
  * Fetches on-chain ERC-20 treasury balances + recent transfers for an entity's
- * TRUST contract, using the indexer's `treasuryBalances(trustId)` field.
+ * COMPANY contract, using the indexer's `treasuryBalances(companyId)` field.
  *
- * Accepts `trustId` (bytes32 hex, e.g.
- * `"0x59bc9fd3956a4104aaf883253fde840c0000…"`) — the TRUST's on-chain identity.
+ * Accepts `companyId` (bytes32 hex, e.g.
+ * `"0x59bc9fd3956a4104aaf883253fde840c0000…"`) — the COMPANY's on-chain identity.
  *
  * Graceful-degrade: if the indexer doesn't have the treasury fields yet, the
  * hook silently returns [] and logs a one-time warning.
  */
-export function useTreasury(trustId: string | undefined): TreasuryState {
+export function useTreasury(companyId: string | undefined): TreasuryState {
   const [balances, setBalances] = useState<TokenBalance[] | null>(null);
   const [transfers, setTransfers] = useState<TreasuryTransfer[] | null>(null);
   const warnedRef = useRef(false);
@@ -84,7 +84,7 @@ export function useTreasury(trustId: string | undefined): TreasuryState {
     setBalances(null);
     setTransfers(null);
 
-    if (!trustId || !indexerEnabled()) {
+    if (!companyId || !indexerEnabled()) {
       setBalances([]);
       setTransfers([]);
       return;
@@ -101,10 +101,10 @@ export function useTreasury(trustId: string | undefined): TreasuryState {
     };
 
     (async () => {
-      // ── ERC-20 balances via treasuryBalances(trustId) ─────────────────────
+      // ── ERC-20 balances via treasuryBalances(companyId) ─────────────────────
       let resolvedBalances: TokenBalance[] = [];
       try {
-        const raw = await fetchTreasuryBalances(trustId);
+        const raw = await fetchTreasuryBalances(companyId);
         if (!cancelled) {
           resolvedBalances = raw.map((r) => ({
             symbol: resolveSymbol(r.tokenAddress),
@@ -124,7 +124,7 @@ export function useTreasury(trustId: string | undefined): TreasuryState {
       // ── Recent transfers ──────────────────────────────────────────────────
       let resolvedTransfers: TreasuryTransfer[] = [];
       try {
-        const data = await fetchTreasuryTransfers(trustId);
+        const data = await fetchTreasuryTransfers(companyId);
         if (!cancelled) resolvedTransfers = data;
       } catch (err) {
         if (isFieldNotFoundError(err)) {
@@ -138,7 +138,7 @@ export function useTreasury(trustId: string | undefined): TreasuryState {
     return () => {
       cancelled = true;
     };
-  }, [trustId]);
+  }, [companyId]);
 
   const loading = balances === null || transfers === null;
   return { balances, transfers, loading };
@@ -182,20 +182,20 @@ async function gql<T>(query: string, variables?: Record<string, unknown>): Promi
   return json.data ?? null;
 }
 
-async function fetchTreasuryBalances(trustId: string): Promise<RawTreasuryBalance[]> {
+async function fetchTreasuryBalances(companyId: string): Promise<RawTreasuryBalance[]> {
   if (!INDEXER_URL) return [];
   const data = await gql<{ treasuryBalances: RawTreasuryBalance[] }>(
-    `query($id: String!) { treasuryBalances(trustId: $id) { tokenAddress balance lastUpdatedBlock } }`,
-    { id: trustId },
+    `query($id: String!) { treasuryBalances(companyId: $id) { tokenAddress balance lastUpdatedBlock } }`,
+    { id: companyId },
   );
   return data?.treasuryBalances ?? [];
 }
 
-async function fetchTreasuryTransfers(trustId: string): Promise<TreasuryTransfer[]> {
+async function fetchTreasuryTransfers(companyId: string): Promise<TreasuryTransfer[]> {
   if (!INDEXER_URL) return [];
   const data = await gql<{ treasuryTransfers: RawTransfer[] }>(
-    `query($id: String!, $limit: Int!) { treasuryTransfers(trustId: $id, limit: $limit) { direction counterparty amount block } }`,
-    { id: trustId, limit: 20 },
+    `query($id: String!, $limit: Int!) { treasuryTransfers(companyId: $id, limit: $limit) { direction counterparty amount block } }`,
+    { id: companyId, limit: 20 },
   );
   return (data?.treasuryTransfers ?? []).map((r) => ({
     direction: (r.direction === "out" ? "out" : "in") as TransferDirection,

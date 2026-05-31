@@ -439,7 +439,7 @@ function resolveMcpProfile(warnings) {
     const body = JSON.parse(result.stdout);
     return {
       userId: body?.user_id || body?.actor?.user_id || null,
-      trustId: body?.trust_id || body?.root || body?.actor?.trust_id || null,
+      companyId: body?.company_id || body?.root || body?.actor?.company_id || null,
     };
   } catch (error) {
     warnings.push(
@@ -460,7 +460,7 @@ function resolveMintIdentity(args, warnings) {
     return {
       userId: explicitUserId,
       email: args.email ?? process.env.AEQI_EMAIL ?? null,
-      trustId: process.env.AEQI_ENTITY ?? null,
+      companyId: process.env.AEQI_ENTITY ?? null,
       source: "env-or-args",
     };
   }
@@ -469,7 +469,7 @@ function resolveMintIdentity(args, warnings) {
   return {
     userId: profile.userId,
     email: args.email ?? process.env.AEQI_EMAIL ?? null,
-    trustId: profile.trustId,
+    companyId: profile.companyId,
     source: "mcp-profile",
   };
 }
@@ -492,7 +492,7 @@ function mintAccountToken({ args, ttlSeconds, warnings }) {
       ttlSeconds,
     }),
     source: `minted:${secret.source}:${identity.source}`,
-    trustId: identity.trustId,
+    companyId: identity.companyId,
   };
 }
 
@@ -583,7 +583,7 @@ async function resolveAuthSeed({ args, url, ttlSeconds, warnings }) {
         appMode: mode.appMode,
         authMode: mode.authMode,
         source: minted.source,
-        entity: minted.trustId,
+        entity: minted.companyId,
       };
     }
 
