@@ -27,6 +27,7 @@ describe("session company scoping", () => {
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(init.headers).toMatchObject({
       "X-Company": "correct-company",
+      "X-Entity": "correct-company",
     });
   });
 });

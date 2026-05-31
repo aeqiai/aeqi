@@ -31,7 +31,10 @@ describe("ideas company scoping", () => {
     expect(fetchMock).toHaveBeenCalledTimes(4);
     for (const call of fetchMock.mock.calls) {
       const [, init] = call as [string, RequestInit];
-      expect(init.headers).toMatchObject({ "X-Company": "correct-company" });
+      expect(init.headers).toMatchObject({
+        "X-Company": "correct-company",
+        "X-Entity": "correct-company",
+      });
     }
   });
 

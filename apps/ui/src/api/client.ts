@@ -113,6 +113,7 @@ export async function apiRequest<T>(path: string, options?: ApiRequestOptions): 
   const companyId = scopedEntity === false ? null : (scopedEntity ?? getScopedEntity());
   if (companyId && !path.startsWith("/auth/")) {
     headers["X-Company"] = companyId;
+    headers["X-Entity"] = companyId;
   }
 
   const res = await fetch(url, { ...fetchOptions, headers });
