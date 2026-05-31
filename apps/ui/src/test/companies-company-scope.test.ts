@@ -10,7 +10,7 @@ describe("companies API scoping", () => {
     window.history.replaceState({}, "", "/");
   });
 
-  it("does not scope the company list while resolving a company-address route", async () => {
+  it("uses the route company scope while resolving a company-address route", async () => {
     window.history.replaceState({}, "", "/company/company-address/agents");
 
     const fetchMock = vi.fn().mockResolvedValue(
@@ -29,9 +29,10 @@ describe("companies API scoping", () => {
     expect(fetchMock).toHaveBeenCalledTimes(4);
     for (const call of fetchMock.mock.calls) {
       const [, init] = call as [string, RequestInit];
-      expect(init.headers).not.toMatchObject({
-        "X-Company": expect.any(String),
-        "X-Entity": expect.any(String),
+      expect(init.headers).toMatchObject({
+        "X-Company": "company-address",
+        "X-Entity": "company-address",
+        "X-Trust": "company-address",
       });
     }
   });

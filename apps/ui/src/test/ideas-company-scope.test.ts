@@ -34,6 +34,7 @@ describe("ideas company scoping", () => {
       expect(init.headers).toMatchObject({
         "X-Company": "correct-company",
         "X-Entity": "correct-company",
+        "X-Trust": "correct-company",
       });
     }
   });
