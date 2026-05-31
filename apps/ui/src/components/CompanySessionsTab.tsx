@@ -449,7 +449,7 @@ export default function CompanySessionsTab({
             loading={creatingSession}
             leadingIcon={<Icon icon={Plus} size="sm" />}
           >
-            New Session
+            New session
           </Button>
         }
       >
@@ -553,8 +553,14 @@ export default function CompanySessionsTab({
               hideComposer
               hideHeader
               surface="recessed"
-              emptyTitle={messagesLoading ? "loading messages" : "no messages yet"}
-              emptyHint={messagesLoading ? "fetching the transcript" : "select another session"}
+              emptyTitle={messagesLoading ? "Loading messages" : "No messages yet"}
+              emptyHint={
+                messagesLoading
+                  ? "Fetching the transcript."
+                  : selectedId
+                    ? "Send a message below to start the thread."
+                    : "Choose a session from the rail."
+              }
             />
           </div>
         </div>

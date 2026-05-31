@@ -111,7 +111,7 @@ describe("CompanySessionsTab", () => {
     );
   }
 
-  it("renders a compact Sessions header with search and New Session", async () => {
+  it("renders a compact Sessions header with search and New session", async () => {
     renderTab();
 
     const header = screen.getByLabelText("Session controls");
@@ -123,7 +123,7 @@ describe("CompanySessionsTab", () => {
     expect(within(header).queryByText("Company")).not.toBeInTheDocument();
     expect(within(header).queryByText(/All conversations/i)).not.toBeInTheDocument();
     expect(within(header).getByPlaceholderText("Search sessions")).toBeInTheDocument();
-    expect(within(header).getByRole("button", { name: "New Session" })).toBeInTheDocument();
+    expect(within(header).getByRole("button", { name: "New session" })).toBeInTheDocument();
 
     await waitFor(() => {
       expect(screen.getAllByText("Ok let's get going").length).toBeGreaterThan(0);
@@ -185,7 +185,7 @@ describe("CompanySessionsTab", () => {
     const user = userEvent.setup();
     renderTab();
 
-    await user.click(screen.getByRole("button", { name: "New Session" }));
+    await user.click(screen.getByRole("button", { name: "New session" }));
     const dialog = screen.getByRole("dialog", { name: "New session" });
     expect(dialog).toBeInTheDocument();
     expect(within(dialog).getByLabelText("Agent")).toHaveValue("agent-1");
