@@ -29,6 +29,12 @@ export interface ApiRequestOptions extends RequestInit {
   scopedEntity?: string | null | false;
 }
 
+function wirePathFor(path: string): string {
+  return path === "/companies" || path.startsWith("/companies/")
+    ? path.replace(/^\/companies/, "/trusts")
+    : path;
+}
+
 /**
  * Parse RFC 7231 `Retry-After`. The header is either an integer number
  * of seconds (`Retry-After: 30`) or an HTTP-date; the governor crate emits
@@ -99,7 +105,7 @@ async function parseResponseBody(res: Response): Promise<unknown> {
 }
 
 export async function apiRequest<T>(path: string, options?: ApiRequestOptions): Promise<T> {
-  const url = `${API_BASE_URL}${path}`;
+  const url = `${API_BASE_URL}${wirePathFor(path)}`;
   const token = getToken();
   const { scopedEntity, ...fetchOptions } = options ?? {};
   const isFormData = typeof FormData !== "undefined" && fetchOptions.body instanceof FormData;

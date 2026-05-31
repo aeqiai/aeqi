@@ -28,7 +28,8 @@ describe("companies API scoping", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(4);
     for (const call of fetchMock.mock.calls) {
-      const [, init] = call as [string, RequestInit];
+      const [url, init] = call as [string, RequestInit];
+      expect(url).toBe("/api/trusts");
       expect(init.headers).toMatchObject({
         "X-Company": "company-address",
         "X-Entity": "company-address",
