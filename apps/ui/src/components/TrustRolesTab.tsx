@@ -9,6 +9,7 @@ import { isSingleBlueprint } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
 import { entityPathFromId } from "@/lib/entityPath";
 import "@/styles/roles.css";
+import "@/styles/roles-register.css";
 import { Button, EmptyState, Loading, PrimitivePageHeader, PrimitiveSearchField } from "./ui";
 import RolesChart from "./roles/RolesChart";
 import RolesCards from "./roles/RolesCards";
@@ -17,7 +18,7 @@ import RolesSortPopover from "./roles/RolesSortPopover";
 import RolesFilterPopover from "./roles/RolesFilterPopover";
 import RolesViewPopover from "./roles/RolesViewPopover";
 import NewRoleModal from "./roles/NewRoleModal";
-import { labelRoleType } from "./roles/RoleInspectorPrimitives";
+import { roleSearchText } from "./roles/roleSearch";
 import {
   type OccupantFilter,
   type RolesFilterState,
@@ -262,7 +263,12 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
     }
     if (q) {
       rows = rows.filter((r) =>
-        roleSearchText(r, agentNames, trustNames, parentRolesByChildId.get(r.id) ?? []).includes(q),
+        roleSearchText({
+          role: r,
+          agentNames,
+          trustNames,
+          parents: parentRolesByChildId.get(r.id) ?? [],
+        }).includes(q),
       );
     }
     rows.sort((a, b) => {
@@ -290,9 +296,13 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
   );
 
   const newRolePath = useMemo(() => {
-    const params = new URLSearchParams(searchParams);
-    params.set("new", "1");
-    return `${entityPathFromId(entities, trustId, "roles")}?${params.toString()}`;
+    const base = entityPathFromId(entities, trustId, "roles");
+    const pairs = Array.from(searchParams.entries()).filter(([key]) => key !== "new");
+    const preserved = pairs.map(
+      ([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`,
+    );
+    preserved.push("new=1");
+    return `${base}?${preserved.join("&")}`;
   }, [entities, searchParams, trustId]);
 
   const handleSelectRole = useCallback(
@@ -437,40 +447,6 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
       />
     </div>
   );
-}
-
-function roleSearchText(
-  role: Role,
-  agentNames: Map<string, string>,
-  trustNames: Map<string, string>,
-  parents: Role[],
-): string {
-  const parts = [
-    role.title,
-    labelRoleType(role.role_type),
-    role.occupant_kind,
-    occupantSearchLabel(role, agentNames, trustNames),
-    role.occupant_id,
-    ...parents.flatMap((parent) => [
-      parent.title,
-      labelRoleType(parent.role_type),
-      parent.occupant_kind,
-      occupantSearchLabel(parent, agentNames, trustNames),
-      parent.occupant_id,
-    ]),
-  ];
-  return parts.filter(Boolean).join(" ").toLowerCase();
-}
-
-function occupantSearchLabel(
-  role: Role,
-  agentNames: Map<string, string>,
-  trustNames: Map<string, string>,
-): string {
-  if (role.occupant_kind === "agent") return agentNames.get(role.occupant_id ?? "") ?? "";
-  if (role.occupant_kind === "trust") return trustNames.get(role.occupant_id ?? "") ?? "";
-  if (role.occupant_kind === "human") return role.occupant_name ?? "";
-  return "vacant";
 }
 
 function isRoleTemplateBlueprint(template: Blueprint): template is SingleBlueprint {

@@ -185,28 +185,6 @@
   width: 100%;
   min-height: 104px;
 }
-.role-node--card.is-clickable::after {
-  content: "";
-  position: absolute;
-  right: 14px;
-  bottom: 14px;
-  width: 6px;
-  height: 6px;
-  border-top: 1px solid var(--color-text-muted);
-  border-right: 1px solid var(--color-text-muted);
-  opacity: 0;
-  transform: rotate(45deg) translateX(-2px);
-  transition:
-    opacity 0.12s ease,
-    transform 0.12s ease,
-    border-color 0.12s ease;
-}
-.role-node--card.is-clickable:hover::after,
-.role-node--card.is-clickable:focus-visible::after {
-  opacity: 1;
-  border-color: var(--color-text-secondary);
-  transform: rotate(45deg) translateX(0);
-}
 
 /* Apex (CEO) — subtle distinction from peer nodes. Just enough to read
    as the org spine without competing with cluster labels. No border,
@@ -462,11 +440,6 @@
    List view — canonical table surface.
    ------------------------------------------------------------------ */
 .trust-roles-table {
-  --table-separator: color-mix(
-    in srgb,
-    var(--color-border-faint) 68%,
-    var(--color-text-primary) 32%
-  );
   flex: 0 0 auto;
   min-width: 0;
   min-height: 0;
@@ -483,7 +456,6 @@
 .trust-roles-table [data-sticky-header="true"] table thead th {
   height: 48px;
   padding: 0 24px;
-  border-bottom: 1px solid var(--table-separator);
   background: color-mix(in srgb, var(--color-card-elevated) 76%, transparent);
   color: var(--color-text-secondary);
   font-size: 11px;
@@ -1188,15 +1160,6 @@
 }
 .trust-roles-scroll--list {
   padding: var(--roles-section-inset);
-}
-.trust-roles-canvas--cards,
-.trust-roles-canvas--list {
-  min-height: auto;
-}
-.trust-roles-canvas--cards .trust-roles-scroll,
-.trust-roles-canvas--list .trust-roles-scroll {
-  flex: 0 0 auto;
-  overflow: visible;
 }
 .trust-roles-state {
   padding: var(--space-6) var(--space-5);
@@ -2255,42 +2218,6 @@
     flex: 0 0 360px;
     min-height: 360px;
   }
-  .trust-roles-content--cards,
-  .trust-roles-content--list {
-    flex: 0 0 auto;
-    min-height: 0;
-    overflow: visible;
-  }
-  .trust-roles-canvas--cards,
-  .trust-roles-canvas--list {
-    overflow: visible;
-  }
-  .roles-cards-grid {
-    grid-template-columns: minmax(0, 1fr);
-    padding: var(--space-3);
-  }
-  .trust-roles-table [data-scroll-width="sm"] {
-    overflow-x: visible;
-  }
-  .trust-roles-table [data-scroll-width="sm"] table {
-    min-width: 0 !important;
-  }
-  .trust-roles-table table col:nth-child(4),
-  .trust-roles-table table col:nth-child(5),
-  .trust-roles-table table thead th:nth-child(4),
-  .trust-roles-table table thead th:nth-child(5),
-  .trust-roles-table table tbody td:nth-child(4),
-  .trust-roles-table table tbody td:nth-child(5) {
-    display: none;
-  }
-  .trust-roles-table table thead th,
-  .trust-roles-table table tbody td {
-    padding-inline: var(--space-3);
-  }
-  .trust-roles-table table tbody td {
-    height: auto;
-    padding-block: 12px;
-  }
   .trust-roles-detail {
     max-height: none;
     overflow: visible;
@@ -2379,8 +2306,7 @@
   background: var(--color-warmth-bg);
   color: var(--color-warmth);
 }
-.role-node-pill--director,
-.role-node-pill--owner {
+.role-node-pill--director {
   background: var(--color-accent-bg);
   color: var(--color-text-primary);
 }
