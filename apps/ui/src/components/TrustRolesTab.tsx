@@ -379,7 +379,9 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
         </div>
       </PrimitivePageHeader>
 
-      <div className="trust-roles-main trust-roles-main--detail-collapsed trust-primitive-shell-surface">
+      <div
+        className={`trust-roles-main trust-roles-main--detail-collapsed trust-roles-main--${view} trust-primitive-shell-surface`}
+      >
         <div className="trust-roles-workspace">
           <section
             className={`trust-roles-content trust-roles-content--${view}`}
