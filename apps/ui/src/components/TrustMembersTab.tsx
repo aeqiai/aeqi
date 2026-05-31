@@ -28,6 +28,7 @@ import {
   FILTER_LABELS,
   FILTER_ORDER,
   MEMBERS_PAGE_SIZE,
+  authorityRoleLabel,
   roleList,
   SORT_LABELS,
   SORT_ORDER,
@@ -122,6 +123,7 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
         row.name,
         row.detail,
         STATUS_LABEL[row.status],
+        authorityRoleLabel(row.authorityRole),
         ...row.roles,
         ...row.roleIds,
       ]
@@ -200,12 +202,11 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
       },
       {
         key: "roles",
-        header: "Roles",
-        width: "96px",
-        align: "end",
+        header: "Role",
+        width: "112px",
         sortable: true,
-        sortAccessor: (row) => row.roleIds.length,
-        cell: (row) => <RoleCountCell row={row} onOpen={openMemberRoles} />,
+        sortAccessor: (row) => authorityRoleLabel(row.authorityRole),
+        cell: (row) => <MemberRoleCell row={row} onOpen={openMemberRoles} />,
       },
       {
         key: "lastActive",
@@ -366,9 +367,9 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
                     </div>
                     <dl className="trust-members-card-meta">
                       <div>
-                        <dt>Roles</dt>
+                        <dt>Role</dt>
                         <dd>
-                          <RoleCountCell row={row} onOpen={openMemberRoles} />
+                          <MemberRoleCell row={row} onOpen={openMemberRoles} />
                         </dd>
                       </div>
                       <div>
@@ -411,14 +412,15 @@ function MemberIdentity({ row }: { row: MemberRow }) {
   );
 }
 
-function RoleCountCell({ row, onOpen }: { row: MemberRow; onOpen: (row: MemberRow) => void }) {
+function MemberRoleCell({ row, onOpen }: { row: MemberRow; onOpen: (row: MemberRow) => void }) {
   const count = row.roleIds.length;
-  const label = count === 1 ? `Open ${row.roles[0] ?? "role"}` : `Open roles for ${row.name}`;
+  const role = authorityRoleLabel(row.authorityRole);
+  const label = count === 1 ? `Open ${row.roles[0] ?? "role"}` : `Open role for ${row.name}`;
 
   return (
     <span className="trust-members-role-count-cell" title={roleList(row.roles)}>
       <span className={count > 0 ? "trust-members-role-count" : "trust-members-role-count muted"}>
-        {count}
+        {role}
       </span>
       {count > 0 && (
         <IconButton

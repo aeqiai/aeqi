@@ -81,10 +81,12 @@ describe("TrustMembersTab", () => {
     const table = await screen.findByRole("table", { name: "Trust members" });
 
     expect(within(table).getByRole("columnheader", { name: "Status" })).toBeInTheDocument();
+    expect(within(table).getByRole("columnheader", { name: "Role" })).toBeInTheDocument();
     expect(within(table).getByRole("columnheader", { name: "Last active" })).toBeInTheDocument();
     await waitFor(() => {
       expect(within(table).getByText("Ada Founder")).toBeInTheDocument();
       expect(within(table).getByText("Active")).toBeInTheDocument();
+      expect(within(table).getByText("Director")).toBeInTheDocument();
       expect(within(table).getByText("now")).toBeInTheDocument();
     });
   });

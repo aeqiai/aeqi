@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { LocateFixed, Minus, Plus } from "lucide-react";
 import type { Role, RoleEdge } from "@/lib/types";
@@ -492,18 +492,16 @@ function OrgZoomViewport({ children }: { children: React.ReactNode }) {
     [],
   );
 
-  // Wheel: zoom anchored on cursor position within the viewport.
-  const onWheel = useCallback(
-    (e: React.WheelEvent<HTMLDivElement>) => {
-      e.preventDefault();
+  const zoomAtPoint = useCallback(
+    (clientX: number, clientY: number, deltaY: number) => {
       const viewport = viewportRef.current;
       if (!viewport) return;
       const rect = viewport.getBoundingClientRect();
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
+      const mx = clientX - rect.left;
+      const my = clientY - rect.top;
 
       setTransform((prev) => {
-        const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+        const factor = deltaY < 0 ? 1.1 : 1 / 1.1;
         const next = clampedScale(prev.scale * factor);
         const ratio = next / prev.scale;
         return {
@@ -515,6 +513,20 @@ function OrgZoomViewport({ children }: { children: React.ReactNode }) {
     },
     [clampedScale],
   );
+
+  // Wheel: zoom anchored on cursor position. Use a native non-passive
+  // listener so preventDefault is honored without the browser warning
+  // React can emit for delegated wheel events.
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const onNativeWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      zoomAtPoint(event.clientX, event.clientY, event.deltaY);
+    };
+    viewport.addEventListener("wheel", onNativeWheel, { passive: false });
+    return () => viewport.removeEventListener("wheel", onNativeWheel);
+  }, [zoomAtPoint]);
 
   // Drag: pointer events for cross-device pan.
   const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
@@ -600,7 +612,6 @@ function OrgZoomViewport({ children }: { children: React.ReactNode }) {
     <div
       ref={viewportRef}
       className="roles-chart-viewport"
-      onWheel={onWheel}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}

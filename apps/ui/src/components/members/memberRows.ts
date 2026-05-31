@@ -3,6 +3,7 @@ import type { Role, RoleInvitation } from "@/lib/types";
 export type MemberStatus = "active" | "invited" | "accepted" | "no_role";
 export type MemberSortMode = "name" | "recent" | "active" | "roles";
 export type MemberStatusFilter = "all" | MemberStatus;
+export type MemberAuthorityRole = "director" | "operator" | "advisor";
 
 export interface MemberRow {
   id: string;
@@ -11,6 +12,7 @@ export interface MemberRow {
   status: MemberStatus;
   roleIds: string[];
   roles: string[];
+  authorityRole: MemberAuthorityRole | null;
   createdAt: string | null;
   lastActive: string | null;
   avatarUrl?: string | null;
@@ -22,7 +24,7 @@ export const SORT_LABELS: Record<MemberSortMode, string> = {
   name: "Name",
   recent: "Recently added",
   active: "Last active",
-  roles: "Role count",
+  roles: "Role",
 };
 export const SORT_ORDER: MemberSortMode[] = ["name", "recent", "active", "roles"];
 
@@ -55,7 +57,10 @@ export function compareMemberRows(a: MemberRow, b: MemberRow, sort: MemberSortMo
     case "active":
       return timestamp(b.lastActive) - timestamp(a.lastActive) || a.name.localeCompare(b.name);
     case "roles":
-      return b.roleIds.length - a.roleIds.length || a.name.localeCompare(b.name);
+      return (
+        authorityRank(a.authorityRole) - authorityRank(b.authorityRole) ||
+        a.name.localeCompare(b.name)
+      );
     case "name":
     default:
       return a.name.localeCompare(b.name);
@@ -90,6 +95,7 @@ export function buildMemberRows({
     if (existing) {
       existing.roleIds.push(role.id);
       existing.roles.push(role.title);
+      existing.authorityRole = strongestAuthorityRole(existing.authorityRole, roleAuthority(role));
       if (role.created_at < (existing.createdAt ?? role.created_at))
         existing.createdAt = role.created_at;
       existing.lastActive = latestTimestamp(existing.lastActive, role.occupant_last_active ?? null);
@@ -102,6 +108,7 @@ export function buildMemberRows({
       status: "active",
       roleIds: [role.id],
       roles: [role.title],
+      authorityRole: roleAuthority(role),
       createdAt: role.created_at,
       lastActive: role.occupant_last_active ?? null,
       avatarUrl: role.occupant_avatar_url,
@@ -118,6 +125,7 @@ export function buildMemberRows({
       status: "no_role",
       roleIds: [],
       roles: [],
+      authorityRole: null,
       createdAt: null,
       lastActive: null,
       avatarUrl: user.avatar_url,
@@ -128,6 +136,7 @@ export function buildMemberRows({
     if (invitation.declined_at || isExpired(invitation.expires_at)) continue;
 
     const roleTitle = roleTitleById.get(invitation.role_id) ?? "Role";
+    const invitedAuthority = roleAuthority(roles.find((role) => role.id === invitation.role_id));
     if (invitation.redeemed_at) {
       if (invitation.redeemed_by_user_id && byHumanId.has(invitation.redeemed_by_user_id)) continue;
       rows.push({
@@ -138,6 +147,7 @@ export function buildMemberRows({
         status: "accepted",
         roleIds: [invitation.role_id],
         roles: [roleTitle],
+        authorityRole: invitedAuthority,
         createdAt: invitation.redeemed_at,
         lastActive: null,
       });
@@ -151,6 +161,7 @@ export function buildMemberRows({
       status: "invited",
       roleIds: [invitation.role_id],
       roles: [roleTitle],
+      authorityRole: invitedAuthority,
       createdAt: invitation.created_at,
       lastActive: null,
     });
@@ -173,6 +184,34 @@ export function canManageInvitations(grants: string[]): boolean {
 
 export function roleList(roles: string[]): string {
   return roles.length > 0 ? roles.join(", ") : "";
+}
+
+export function authorityRoleLabel(role: MemberAuthorityRole | null): string {
+  if (role === "director") return "Director";
+  if (role === "operator") return "Operator";
+  if (role === "advisor") return "Advisor";
+  return "-";
+}
+
+function roleAuthority(role: Role | undefined): MemberAuthorityRole | null {
+  if (!role) return null;
+  if (role.role_type === "director" || role.role_type === "owner") return "director";
+  if (role.role_type === "advisor") return "advisor";
+  return "operator";
+}
+
+function strongestAuthorityRole(
+  current: MemberAuthorityRole | null,
+  next: MemberAuthorityRole | null,
+): MemberAuthorityRole | null {
+  return authorityRank(next) < authorityRank(current) ? next : current;
+}
+
+function authorityRank(role: MemberAuthorityRole | null): number {
+  if (role === "director") return 0;
+  if (role === "operator") return 1;
+  if (role === "advisor") return 2;
+  return 3;
 }
 
 function timestamp(value: string | null): number {
