@@ -148,8 +148,43 @@ export default function NewRoleModal({
   };
 
   return (
-    <Modal open={open} onClose={handleClose} title="New role" className="role-inspector-modal">
-      <form className="role-inspector-modal-form" onSubmit={handleSubmit}>
+    <Modal
+      open={open}
+      onClose={handleClose}
+      title="New role"
+      description="Create a company role, choose who owns it, and attach the operating permissions it should carry."
+      className="role-inspector-modal role-inspector-modal--wide"
+      footer={
+        <div className="role-inspector-modal-footer">
+          {error && (
+            <p className="role-inspector-modal-error" role="alert">
+              {error}
+            </p>
+          )}
+          <div className="role-inspector-modal-actions">
+            <Button
+              variant="secondary"
+              size="sm"
+              type="button"
+              onClick={handleClose}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              type="submit"
+              form="new-role-form"
+              loading={submitting}
+            >
+              Create role
+            </Button>
+          </div>
+        </div>
+      }
+    >
+      <form id="new-role-form" className="role-inspector-modal-form" onSubmit={handleSubmit}>
         <label className="role-inspector-modal-field" htmlFor="new-role-title">
           <span>Name</span>
           <Input
@@ -161,6 +196,7 @@ export default function NewRoleModal({
           />
         </label>
 
+        <div className="role-inspector-modal-section-label">Role type</div>
         <div className="role-inspector-option-grid" role="radiogroup" aria-label="Role type">
           {ROLE_TYPE_OPTIONS.map((option) => (
             <label
@@ -234,6 +270,7 @@ export default function NewRoleModal({
           />
         </label>
 
+        <div className="role-inspector-modal-section-label">Permissions</div>
         <div className="role-inspector-grant-grid">
           {CAPABILITY_CATALOG.map((grant) => {
             const checked = grants.includes(grant.id);
@@ -258,27 +295,6 @@ export default function NewRoleModal({
               </label>
             );
           })}
-        </div>
-
-        {error && (
-          <div className="role-inspector-modal-error" role="alert">
-            {error}
-          </div>
-        )}
-
-        <div className="role-inspector-modal-actions">
-          <Button
-            variant="secondary"
-            size="sm"
-            type="button"
-            onClick={handleClose}
-            disabled={submitting}
-          >
-            Cancel
-          </Button>
-          <Button variant="primary" size="sm" type="submit" loading={submitting}>
-            Create role
-          </Button>
         </div>
       </form>
     </Modal>

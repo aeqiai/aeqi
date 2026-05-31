@@ -2005,6 +2005,13 @@
   font-weight: 600;
   color: var(--color-text-secondary);
 }
+.role-inspector-modal-section-label {
+  margin-top: var(--space-1);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
 .role-inspector-option-grid,
 .role-inspector-grant-grid {
   display: grid;
@@ -2062,11 +2069,17 @@
   font-size: var(--font-size-xs);
   color: var(--color-error);
 }
+.role-inspector-modal-footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+}
 .role-inspector-modal-actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  padding-top: var(--space-1);
 }
 .role-inspector-meta {
   font-family: var(--font-sans);

@@ -7,17 +7,30 @@ export interface ModalProps {
   open: boolean;
   onClose: () => void;
   title?: string;
+  description?: string;
   children: React.ReactNode;
+  footer?: React.ReactNode;
   className?: string;
   closeLabel?: string;
 }
 
-export function Modal({ id, open, onClose, title, children, className, closeLabel }: ModalProps) {
+export function Modal({
+  id,
+  open,
+  onClose,
+  title,
+  description,
+  children,
+  footer,
+  className,
+  closeLabel,
+}: ModalProps) {
   const surfaceRef = useRef<HTMLDivElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
   const generatedDialogId = useRef(`modal-${Math.random().toString(36).slice(2, 9)}`).current;
   const dialogId = id ?? generatedDialogId;
   const titleId = `${dialogId}-title`;
+  const descriptionId = `${dialogId}-description`;
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -88,14 +101,22 @@ export function Modal({ id, open, onClose, title, children, className, closeLabe
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? titleId : undefined}
+        aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
       >
         {title && (
           <div className={styles.header}>
-            <h2 className={styles.title} id={titleId}>
-              {title}
-            </h2>
+            <div className={styles.heading}>
+              <h2 className={styles.title} id={titleId}>
+                {title}
+              </h2>
+              {description && (
+                <p className={styles.description} id={descriptionId}>
+                  {description}
+                </p>
+              )}
+            </div>
             <button
               className={styles.close}
               onClick={onClose}
@@ -116,7 +137,8 @@ export function Modal({ id, open, onClose, title, children, className, closeLabe
             </button>
           </div>
         )}
-        {children}
+        <div className={styles.body}>{children}</div>
+        {footer && <div className={styles.footer}>{footer}</div>}
       </div>
     </div>,
     document.body,

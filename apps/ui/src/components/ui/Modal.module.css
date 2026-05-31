@@ -12,14 +12,15 @@
 .surface {
   position: relative;
   z-index: var(--z-modal);
-  background: var(--color-card-elevated);
+  display: flex;
+  flex-direction: column;
+  background: var(--color-card);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   width: 520px;
   max-width: 92vw;
   max-height: 85vh;
-  overflow-y: auto;
-  padding: var(--space-6);
+  overflow: hidden;
   box-shadow: var(--shadow-lg);
   animation: slideIn var(--transition-normal);
 }
@@ -30,9 +31,19 @@
 
 .header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: var(--space-6);
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-6);
+  background: var(--color-card-elevated);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.heading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
 }
 
 .title {
@@ -40,6 +51,15 @@
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
+}
+
+.description {
+  margin: 0;
+  max-width: 52ch;
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
 }
 
 .close {
@@ -69,6 +89,22 @@
 .close:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
+}
+
+.body {
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-6);
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
+  background: var(--color-card-elevated);
+  border-top: 1px solid var(--color-border);
 }
 
 @keyframes fadeIn {
