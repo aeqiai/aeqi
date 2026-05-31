@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowUpRight, UserPlus, UsersRound } from "lucide-react";
+import { ArrowDownWideNarrow, ArrowUpRight, ListFilter, UserPlus } from "lucide-react";
 import { api } from "@/lib/api";
 import { entityPathFromId } from "@/lib/entityPath";
 import { formatMediumDate } from "@/lib/i18n";
@@ -8,6 +8,7 @@ import type { Role, RoleInvitation } from "@/lib/types";
 import { relativeTime } from "@/components/ideas/types";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
+import UserAvatar from "./UserAvatar";
 import {
   Badge,
   Button,
@@ -17,30 +18,26 @@ import {
   PrimitivePageHeader,
   PrimitiveSearchField,
   Table,
+  ToolbarRadioPopover,
   type TableColumn,
 } from "./ui";
+import {
+  buildMemberRows,
+  canManageInvitations,
+  compareMemberRows,
+  FILTER_LABELS,
+  FILTER_ORDER,
+  MEMBERS_PAGE_SIZE,
+  roleList,
+  SORT_LABELS,
+  SORT_ORDER,
+  STATUS_LABEL,
+  type MemberRow,
+  type MemberSortMode,
+  type MemberStatus,
+  type MemberStatusFilter,
+} from "./members/memberRows";
 import "@/styles/members.css";
-
-type MemberStatus = "active" | "invited" | "accepted" | "no_role";
-
-interface MemberRow {
-  id: string;
-  name: string;
-  detail: string;
-  status: MemberStatus;
-  roleIds: string[];
-  roles: string[];
-  createdAt: string | null;
-  lastActive: string | null;
-  avatarUrl?: string | null;
-}
-
-const STATUS_LABEL: Record<MemberStatus, string> = {
-  active: "Active",
-  invited: "Invited",
-  accepted: "Accepted",
-  no_role: "No role",
-};
 
 const STATUS_VARIANT: Record<MemberStatus, "success" | "warning" | "neutral" | "muted"> = {
   active: "success",
@@ -58,6 +55,9 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<MemberSortMode>("name");
+  const [statusFilter, setStatusFilter] = useState<MemberStatusFilter>("all");
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     let cancelled = false;
@@ -115,8 +115,9 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
 
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((row) => {
+    const narrowed = rows.filter((row) => {
+      if (statusFilter !== "all" && row.status !== statusFilter) return false;
+      if (!q) return true;
       const haystack = [
         row.name,
         row.detail,
@@ -128,7 +129,13 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
         .toLowerCase();
       return haystack.includes(q);
     });
-  }, [rows, query]);
+    return narrowed.sort((a, b) => compareMemberRows(a, b, sort));
+  }, [rows, query, sort, statusFilter]);
+
+  useEffect(() => {
+    const pageCount = Math.max(1, Math.ceil(filteredRows.length / MEMBERS_PAGE_SIZE));
+    setPage((current) => Math.min(current, pageCount));
+  }, [filteredRows.length]);
 
   const inviteTargetRole = useMemo(
     () => roles.find((role) => role.occupant_kind === "vacant") ?? null,
@@ -240,6 +247,7 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
           </span>
         }
         aria-label="Member controls"
+        pinPlacement="utilities"
         actions={
           <Button
             className="trust-top-rail-cta"
@@ -249,12 +257,12 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
             disabled={loading}
             title={
               inviteTargetRole
-                ? `Invite a human to ${inviteTargetRole.title}`
-                : "Create a role before inviting a human"
+                ? `Invite a member to ${inviteTargetRole.title}`
+                : "Create a role before inviting a member"
             }
             leadingIcon={<UserPlus size={14} strokeWidth={1.8} />}
           >
-            Invite human
+            Invite member
           </Button>
         }
       >
@@ -263,7 +271,25 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
             placeholder="Search members"
             value={query}
             onChange={setQuery}
+            showKbdHint
             onEscapeEmpty={(e) => e.currentTarget.blur()}
+          />
+          <ToolbarRadioPopover
+            label="Sort"
+            current={SORT_LABELS[sort]}
+            glyph={<ArrowDownWideNarrow size={14} strokeWidth={1.8} />}
+            options={SORT_ORDER.map((value) => ({ id: value, label: SORT_LABELS[value] }))}
+            value={sort}
+            onChange={(next) => setSort(next as MemberSortMode)}
+          />
+          <ToolbarRadioPopover
+            label="Filter"
+            current={FILTER_LABELS[statusFilter]}
+            glyph={<ListFilter size={14} strokeWidth={1.8} />}
+            options={FILTER_ORDER.map((value) => ({ id: value, label: FILTER_LABELS[value] }))}
+            value={statusFilter}
+            onChange={(next) => setStatusFilter(next as MemberStatusFilter)}
+            indicator={statusFilter !== "all"}
           />
         </div>
       </PrimitivePageHeader>
@@ -315,6 +341,13 @@ export default function TrustMembersTab({ trustId }: { trustId: string }) {
                   density="compact"
                   scrollWidth="sm"
                   ariaLabel="Trust members"
+                  pagination={{
+                    page,
+                    pageSize: MEMBERS_PAGE_SIZE,
+                    total: filteredRows.length,
+                    itemLabel: "members",
+                    onPageChange: setPage,
+                  }}
                 />
               </div>
               <div className="trust-members-card-list" aria-label="Trust members">
@@ -368,11 +401,7 @@ function MemberIdentity({ row }: { row: MemberRow }) {
   return (
     <div className="trust-member-identity">
       <span className="trust-member-avatar" aria-hidden="true">
-        {row.avatarUrl ? (
-          <img src={row.avatarUrl} alt="" />
-        ) : (
-          <UsersRound size={15} strokeWidth={1.8} />
-        )}
+        <UserAvatar name={row.name} src={row.avatarUrl} size={28} />
       </span>
       <span className="trust-member-copy">
         <span className="trust-member-name">{row.name}</span>
@@ -417,148 +446,4 @@ function LastActiveCell({ value }: { value: string | null }) {
       {label || "-"}
     </span>
   );
-}
-
-function buildMemberRows({
-  roles,
-  invitations,
-  roleTitleById,
-  trustId,
-  user,
-}: {
-  roles: Role[];
-  invitations: RoleInvitation[];
-  roleTitleById: Map<string, string>;
-  trustId: string;
-  user: {
-    id?: string;
-    email?: string;
-    name?: string;
-    avatar_url?: string;
-    roots?: string[];
-    entities?: string[];
-  } | null;
-}): MemberRow[] {
-  const byHumanId = new Map<string, MemberRow>();
-
-  for (const role of roles) {
-    if (role.occupant_kind !== "human" || !role.occupant_id) continue;
-    const existing = byHumanId.get(role.occupant_id);
-    if (existing) {
-      existing.roleIds.push(role.id);
-      existing.roles.push(role.title);
-      if (role.created_at < (existing.createdAt ?? role.created_at))
-        existing.createdAt = role.created_at;
-      existing.lastActive = latestTimestamp(existing.lastActive, role.occupant_last_active ?? null);
-      continue;
-    }
-    byHumanId.set(role.occupant_id, {
-      id: `human:${role.occupant_id}`,
-      name: role.occupant_name || "Human member",
-      detail: role.occupant_id,
-      status: "active",
-      roleIds: [role.id],
-      roles: [role.title],
-      createdAt: role.created_at,
-      lastActive: role.occupant_last_active ?? null,
-      avatarUrl: role.occupant_avatar_url,
-    });
-  }
-
-  const rows = [...byHumanId.values()];
-
-  if (user?.id && hasTrustAccess(user, trustId) && !byHumanId.has(user.id)) {
-    rows.push({
-      id: `human:${user.id}:self`,
-      name: user.name || user.email || "You",
-      detail: user.email || user.id,
-      status: "no_role",
-      roleIds: [],
-      roles: [],
-      createdAt: null,
-      lastActive: null,
-      avatarUrl: user.avatar_url,
-    });
-  }
-
-  for (const invitation of invitations) {
-    if (invitation.declined_at || isExpired(invitation.expires_at)) continue;
-
-    const roleTitle = roleTitleById.get(invitation.role_id) ?? "Role";
-    if (invitation.redeemed_at) {
-      if (invitation.redeemed_by_user_id && byHumanId.has(invitation.redeemed_by_user_id)) continue;
-      rows.push({
-        id: `accepted:${invitation.token}`,
-        name:
-          invitation.target_email || invitation.redeemed_by_user_id || acceptedTarget(invitation),
-        detail: invitation.redeemed_by_user_id || "Accepted invitation",
-        status: "accepted",
-        roleIds: [invitation.role_id],
-        roles: [roleTitle],
-        createdAt: invitation.redeemed_at,
-        lastActive: null,
-      });
-      continue;
-    }
-
-    rows.push({
-      id: `invite:${invitation.token}`,
-      name: invitationTarget(invitation),
-      detail: invitation.email_sent === false ? "Invitation not emailed" : "Pending invitation",
-      status: "invited",
-      roleIds: [invitation.role_id],
-      roles: [roleTitle],
-      createdAt: invitation.created_at,
-      lastActive: null,
-    });
-  }
-
-  return rows.sort((a, b) => {
-    const statusRank: Record<MemberStatus, number> = {
-      active: 0,
-      no_role: 1,
-      invited: 2,
-      accepted: 3,
-    };
-    return statusRank[a.status] - statusRank[b.status] || a.name.localeCompare(b.name);
-  });
-}
-
-function latestTimestamp(a: string | null, b: string | null): string | null {
-  if (!a) return b;
-  if (!b) return a;
-  const ta = Date.parse(a);
-  const tb = Date.parse(b);
-  if (!Number.isFinite(ta)) return b;
-  if (!Number.isFinite(tb)) return a;
-  return tb > ta ? b : a;
-}
-
-function hasTrustAccess(user: { roots?: string[]; entities?: string[] }, trustId: string): boolean {
-  return !!trustId && (user.roots?.includes(trustId) || user.entities?.includes(trustId) || false);
-}
-
-function canManageInvitations(grants: string[]): boolean {
-  return grants.includes("*") || grants.includes("roles.manage");
-}
-
-function invitationTarget(invitation: RoleInvitation): string {
-  if (invitation.target_kind === "email") return invitation.target_email || "Email invite";
-  if (invitation.target_kind === "slug") return invitation.target_entity_id || "Named invite";
-  return "Open invite";
-}
-
-function acceptedTarget(invitation: RoleInvitation): string {
-  if (invitation.target_email) return invitation.target_email;
-  if (invitation.target_entity_id) return invitation.target_entity_id;
-  return "Accepted member";
-}
-
-function isExpired(expiresAt: string): boolean {
-  const time = Date.parse(expiresAt);
-  return Number.isFinite(time) && time <= Date.now();
-}
-
-function roleList(roles: string[]): string {
-  return roles.length > 0 ? roles.join(", ") : "";
 }

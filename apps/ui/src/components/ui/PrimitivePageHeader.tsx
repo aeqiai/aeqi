@@ -44,13 +44,17 @@ export const PrimitivePageHeader = forwardRef<HTMLElement, PrimitivePageHeaderPr
       >
         <h1 className={styles.title}>{title}</h1>
         {children && <div className={styles.chrome}>{children}</div>}
-        {(pinPlacement === "utilities" || actions) && (
+        {pinPlacement === "utilities" ? (
           <div className={styles.utilities}>
-            {pinPlacement === "utilities" && pinButton}
+            {pinButton}
+            {actions}
+          </div>
+        ) : (
+          <div className={styles.actions}>
+            {pinPlacement === "actions" && pinButton}
             {actions}
           </div>
         )}
-        <div className={styles.actions}>{pinPlacement === "actions" && pinButton}</div>
       </header>
     );
   },

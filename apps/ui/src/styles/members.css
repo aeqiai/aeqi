@@ -3,6 +3,11 @@
 
 .trust-members {
   --toolbar-control-h: 32px;
+  --table-separator: color-mix(
+    in srgb,
+    var(--color-border-faint) 68%,
+    var(--color-text-primary) 32%
+  );
 
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -10,6 +15,7 @@
   grid-template-areas:
     "header"
     "main";
+  align-content: start;
   height: 100%;
   overflow: hidden;
   row-gap: var(--shell-footer-h, 10px);
@@ -58,10 +64,12 @@
   grid-area: main;
   display: flex;
   flex-direction: column;
+  align-self: start;
   gap: 0;
   box-sizing: border-box;
   min-width: 0;
   min-height: 0;
+  max-height: 100%;
   padding: 0;
   border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--color-card) 84%, var(--color-card-elevated) 16%);
@@ -74,7 +82,7 @@
 
 .trust-members-register {
   display: flex;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
@@ -84,22 +92,29 @@
 }
 
 .trust-members-table {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-width: 0;
-  min-height: 320px;
+  min-height: 0;
   overflow-x: auto;
   overflow-y: visible;
 }
 
 .trust-members-table table thead {
   background: color-mix(in srgb, var(--color-card-elevated) 76%, transparent);
-  box-shadow: inset 0 -1px 0 var(--border);
+  box-shadow: none;
 }
 
 .trust-members-table table thead th,
 .trust-members-table [data-sticky-header="true"] table thead th {
-  padding: 14px 24px 10px;
+  height: 48px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--table-separator);
   background: color-mix(in srgb, var(--color-card-elevated) 76%, transparent);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 560;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .trust-members-table table tbody td {
@@ -198,14 +213,6 @@
   height: 28px;
   overflow: hidden;
   border-radius: 999px;
-  background: var(--color-card-elevated);
-  color: var(--color-text-secondary);
-}
-
-.trust-member-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .trust-member-copy {
@@ -244,6 +251,7 @@
 @media (max-width: 900px) {
   .trust-members-toolbar {
     flex-wrap: wrap;
+    justify-content: flex-start;
   }
 
   .trust-members-toolbar > .ideas-list-search-field {
