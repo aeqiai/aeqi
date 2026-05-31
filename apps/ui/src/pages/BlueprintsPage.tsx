@@ -41,7 +41,7 @@ import BlueprintsFilterPopover from "./blueprints/BlueprintsFilterPopover";
 
 const KIND_DESCRIPTIONS: Record<Kind, string> = {
   companies:
-    "Canonical company Blueprints launch a new TRUST. v1 ships the first company package; draft Foundation and Fund packages stay hidden until audited.",
+    "Canonical company templates launch a new TRUST. v1 ships the first company package; draft Foundation and Fund packages stay hidden until audited.",
   agents:
     "Primitive bundles import into an existing TRUST. Agent bundles are reusable operating roles, not standalone launch packages.",
   events:
@@ -153,7 +153,7 @@ export default function BlueprintsPage() {
       })
       .catch((e: Error) => {
         if (cancelled) return;
-        setError(e.message || "Could not reach the Blueprint store.");
+        setError(e.message || "Could not reach the template store.");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -331,18 +331,18 @@ export default function BlueprintsPage() {
     return () => window.removeEventListener("keydown", handler, true);
   }, []);
 
-  const searchPlaceholder = `Search ${activeKind === "companies" ? "Blueprints" : KIND_TABS.find((t) => t.id === activeKind)?.label}`;
+  const searchPlaceholder = `Search ${activeKind === "companies" ? "Templates" : KIND_TABS.find((t) => t.id === activeKind)?.label}`;
 
   return (
     <div className="page-rail-shell">
-      <PageRail tabs={KIND_TABS} defaultTab="companies" title="Blueprints" basePath="/blueprints" />
+      <PageRail tabs={KIND_TABS} defaultTab="companies" title="Templates" basePath="/templates" />
       <main className="page-rail-content page-rail-content--full">
         <div className="bp-page-head">
           <PrimitivePageHeader
-            title="Blueprints"
+            title="Templates"
             padding="none"
             children={
-              <div className="ideas-toolbar" aria-label="Blueprint controls">
+              <div className="ideas-toolbar" aria-label="Template controls">
                 <PrimitiveSearchField
                   inputRef={searchRef}
                   placeholder={searchPlaceholder}
@@ -400,7 +400,7 @@ export default function BlueprintsPage() {
             <div className="bp-import-banner" role="status">
               <span className="bp-import-banner-eyebrow">Import mode</span>
               <p className="bp-import-banner-line">
-                Import mode is for primitive bundles. Company Blueprints stay launch-only in v1; use
+                Import mode is for primitive bundles. Company templates stay launch-only in v1; use
                 Agents for reusable role bundles, with Events, Quests, and Ideas landing later.
               </p>
             </div>
@@ -408,7 +408,7 @@ export default function BlueprintsPage() {
 
           {error && (
             <div className="bp-error" role="alert">
-              {error} — showing default Blueprints.
+              {error} — showing default templates.
             </div>
           )}
 
@@ -434,7 +434,7 @@ export default function BlueprintsPage() {
 
           {loading && (activeKind === "companies" || activeKind === "agents") ? (
             <div className="bp-status">
-              <Loading size="sm" /> Loading Blueprints…
+              <Loading size="sm" /> Loading templates…
             </div>
           ) : activeKind === "agents" ? (
             filteredAgentTemplates.length === 0 ? (
@@ -461,12 +461,12 @@ export default function BlueprintsPage() {
             <EmptyState
               title={`No importable ${KIND_TABS.find((t) => t.id === activeKind)?.label.toLowerCase()} bundles yet.`}
               description="v1 ships the first company package for launch. Standalone primitive bundles import into existing TRUSTs once they are audited and exposed."
-              action={<Link to="/blueprints/companies">Open Companies</Link>}
+              action={<Link to="/templates/companies">Open Companies</Link>}
             />
           ) : totalFiltered === 0 && filtersActive ? (
             <div className="ideas-list-filter-indicator">
               <span>
-                <strong>0</strong> of {singleBlueprints.length} blueprints match.
+                <strong>0</strong> of {singleBlueprints.length} templates match.
               </span>
               <button type="button" className="ideas-list-filter-reset" onClick={resetFilters}>
                 Reset filters
@@ -521,7 +521,7 @@ function agentTemplateRuntimeLine(template: AgentTemplate): string {
 
 function AgentTemplateRow({ template }: { template: AgentTemplate }) {
   return (
-    <Link to="/blueprints/aeqi/agents" className="bp-list-row-btn">
+    <Link to="/templates/aeqi/agents" className="bp-list-row-btn">
       <span className="bp-list-row-name">{template.name}</span>
       {template.tagline && <span className="bp-list-row-tagline">{template.tagline}</span>}
       <span className="bp-list-row-counts">{agentTemplateRuntimeLine(template)}</span>
@@ -532,7 +532,7 @@ function AgentTemplateRow({ template }: { template: AgentTemplate }) {
 function AgentTemplateCard({ template }: { template: AgentTemplate }) {
   return (
     <Link
-      to="/blueprints/aeqi/agents"
+      to="/templates/aeqi/agents"
       className="bp-card-link"
       role="listitem"
       aria-label={`${template.name} agent template`}

@@ -26,6 +26,7 @@ import {
   Settings,
   ReceiptText,
   ScrollText,
+  Share2,
   WalletCards,
 } from "lucide-react";
 import ActingAsSelector from "@/components/shell/ActingAsSelector";
@@ -87,6 +88,7 @@ const SettingsIcon = () => <Icon icon={Settings} />;
 // across every trust, not in your local store.
 const EconomyIcon = () => <Icon icon={Globe} />;
 const BlueprintsIcon = () => <Icon icon={Blocks} />;
+const ReferralsIcon = () => <Icon icon={Share2} />;
 
 // Admin — Lucide's Shield is the same silhouette as the prior hand-rolled.
 const SearchIcon = () => <Icon icon={Search} size="sm" />;
@@ -225,8 +227,17 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
   }, [activeTrustGroup, path]);
 
   // Top-level public rows.
-  const isEconomy = path === "/economy" || path.startsWith("/economy/");
-  const isBlueprints = path === "/blueprints" || path.startsWith("/blueprints/");
+  const isEconomy =
+    path === "/markets" ||
+    path.startsWith("/markets/") ||
+    path === "/economy" ||
+    path.startsWith("/economy/");
+  const isBlueprints =
+    path === "/templates" ||
+    path.startsWith("/templates/") ||
+    path === "/blueprints" ||
+    path.startsWith("/blueprints/");
+  const isReferrals = path === "/referrals" || path.startsWith("/referrals/");
   const isStart = path === "/" || path === "/start" || path.startsWith("/start/");
 
   const navItem = (
@@ -281,7 +292,7 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
   };
 
   // Top-level (non-entity-scoped) row helper. Used for Launch /
-  // Blueprints / Account — paths that don't compose off `base`.
+  // Templates / Account — paths that don't compose off `base`.
   // Mirrors `navItem` but takes an explicit href.
   const topLevelItem = (
     href: string,
@@ -458,8 +469,9 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
           {topLevelItem("/", "Home", <HomeIcon />, isStart, {
             action: rowAction("Search", <SearchIcon />, openPalette, `${isMac ? "⌘" : "Ctrl"}K`),
           })}
-          {topLevelItem("/economy", "Economy", <EconomyIcon />, isEconomy)}
-          {topLevelItem("/blueprints", "Blueprints", <BlueprintsIcon />, isBlueprints)}
+          {topLevelItem("/markets", "Markets", <EconomyIcon />, isEconomy)}
+          {topLevelItem("/templates", "Templates", <BlueprintsIcon />, isBlueprints)}
+          {topLevelItem("/referrals", "Referrals", <ReferralsIcon />, isReferrals)}
           {globalPinnedViews.map(pinnedViewItem)}
         </nav>
 

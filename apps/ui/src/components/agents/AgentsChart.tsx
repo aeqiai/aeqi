@@ -69,7 +69,7 @@ export default function AgentsChart({
       <div className="ideas-list-body">
         <EmptyState
           title="No org chart yet."
-          description="Roles appear once a Blueprint finishes seeding."
+          description="Roles appear once a template finishes seeding."
         />
       </div>
     );

@@ -52,8 +52,8 @@ export function SeedSearch({
 export function EmptyKind({ label }: { label: string }) {
   return (
     <EmptyState
-      title={`No ${label} in this Blueprint.`}
-      description="v1 blueprints ship sparse — not every Blueprint seeds every primitive."
+      title={`No ${label} in this template.`}
+      description="v1 templates ship sparse — not every template seeds every primitive."
     />
   );
 }

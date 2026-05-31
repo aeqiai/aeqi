@@ -140,7 +140,7 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
       .catch((e: Error) => {
         if (cancelled) return;
         setAgentTemplates([]);
-        setTemplatesError(e.message || "Could not load agent Blueprints.");
+        setTemplatesError(e.message || "Could not load agent templates.");
       })
       .finally(() => {
         if (!cancelled) setTemplatesLoading(false);
@@ -174,7 +174,7 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
   // point. Mirrors AgentsTab's prior wiring.
   const openPicker = useCallback(() => setPickerOpen(true), []);
   const openAgentBlueprints = useCallback(() => {
-    navigate(`/blueprints/agents?import_into=${encodeURIComponent(trustId)}`);
+    navigate(`/templates/agents?import_into=${encodeURIComponent(trustId)}`);
   }, [navigate, trustId]);
   useEffect(() => {
     window.addEventListener("aeqi:create", openPicker);
@@ -385,9 +385,9 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
 }
 
 /**
- * Suggested agents — real agent templates from the Blueprint catalog.
+ * Suggested agents — real agent templates from the template catalog.
  * The section is secondary capacity, so it sits on a recessed band;
- * each Blueprint template remains an elevated action card inside it.
+ * each template remains an elevated action card inside it.
  */
 function SuggestedAgents({
   templates,
@@ -414,9 +414,7 @@ function SuggestedAgents({
               {templates.length}
             </span>
           </div>
-          <p className="trust-agents-suggest-subtitle">
-            Agent Blueprints available for this TRUST.
-          </p>
+          <p className="trust-agents-suggest-subtitle">Agent templates available for this TRUST.</p>
         </div>
         <Button
           type="button"
@@ -425,21 +423,21 @@ function SuggestedAgents({
           className="trust-agents-suggest-all"
           onClick={onBrowse}
         >
-          View blueprints
+          View templates
         </Button>
       </header>
 
       {loading ? (
         <div className="trust-agents-suggest-state">
-          <Loading size="sm" /> Loading agent Blueprints…
+          <Loading size="sm" /> Loading agent templates…
         </div>
       ) : error ? (
         <div className="trust-agents-suggest-state" role="status">
-          Agent Blueprints are unavailable right now.
+          Agent templates are unavailable right now.
         </div>
       ) : visible.length === 0 ? (
         <div className="trust-agents-suggest-state" role="status">
-          No agent Blueprints are published yet.
+          No agent templates are published yet.
         </div>
       ) : (
         <div className="trust-agents-suggest-grid">
@@ -449,16 +447,16 @@ function SuggestedAgents({
               type="button"
               className="trust-agents-suggest-card"
               onClick={onPick}
-              aria-label={`Add ${template.name} from Blueprint`}
+              aria-label={`Add ${template.name} from template`}
             >
               <h3 className="trust-agents-suggest-card-title">{template.name}</h3>
               <p className="trust-agents-suggest-card-desc">
-                {template.tagline || template.role || "Reusable agent Blueprint."}
+                {template.tagline || template.role || "Reusable agent template."}
               </p>
               <p className="trust-agents-suggest-card-meta">{agentTemplateRuntimeLine(template)}</p>
               <span className="trust-agents-suggest-card-cta" aria-hidden>
                 <Plus size={12} strokeWidth={1.8} />
-                Add from Blueprint
+                Add from template
               </span>
             </button>
           ))}
@@ -469,7 +467,7 @@ function SuggestedAgents({
 }
 
 function agentTemplateRuntimeLine(template: AgentTemplate): string {
-  const parts = [template.role || "Agent Blueprint"];
+  const parts = [template.role || "Agent template"];
   const events = template.seed_events?.length ?? 0;
   const ideas = template.seed_ideas?.length ?? 0;
   const quests = template.seed_quests?.length ?? 0;

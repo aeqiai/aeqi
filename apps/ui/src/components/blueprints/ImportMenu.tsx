@@ -83,7 +83,7 @@ export function ImportMenu({
           },
           {
             key: "blueprint",
-            label: "Blueprint imports after primitive bundle audit",
+            label: "Template imports after primitive bundle audit",
             disabled: true,
             onSelect: () => setPickerOpen(true),
           },

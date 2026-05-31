@@ -50,7 +50,7 @@ const STEWARD_TEMPLATE: AgentTemplate = {
 
 // ── Type discriminator unit tests ────────────────────────────────────
 
-describe("Blueprint discriminated union", () => {
+describe("Template discriminated union", () => {
   it("isSingleBlueprint returns true for SingleBlueprint with no kind", () => {
     expect(isSingleBlueprint(SOLO)).toBe(true);
   });
@@ -61,23 +61,23 @@ describe("Blueprint discriminated union", () => {
   });
 });
 
-// ── BlueprintsPage catalog tests ──────────────────────────────────────
+// ── TemplatesPage catalog tests ──────────────────────────────────────
 
-const renderApp = (entry = "/blueprints") =>
+const renderApp = (entry = "/templates") =>
   render(
     <StrictMode>
       <MemoryRouter initialEntries={[entry]}>
         <Routes>
-          <Route path="/blueprints" element={<BlueprintsPage />} />
-          <Route path="/blueprints/agents" element={<BlueprintsPage />} />
-          <Route path="/blueprints/:blueprintId" element={<BlueprintDetailPage />} />
-          <Route path="/blueprints/:blueprintId/:section" element={<BlueprintDetailPage />} />
+          <Route path="/templates" element={<BlueprintsPage />} />
+          <Route path="/templates/agents" element={<BlueprintsPage />} />
+          <Route path="/templates/:blueprintId" element={<BlueprintDetailPage />} />
+          <Route path="/templates/:blueprintId/:section" element={<BlueprintDetailPage />} />
         </Routes>
       </MemoryRouter>
     </StrictMode>,
   );
 
-describe("BlueprintsPage (catalog)", () => {
+describe("TemplatesPage (catalog)", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
@@ -86,7 +86,7 @@ describe("BlueprintsPage (catalog)", () => {
     cleanup();
   });
 
-  it("renders the hero and at least one blueprint card after loading", async () => {
+  it("renders the hero and at least one template card after loading", async () => {
     vi.spyOn(api, "getBlueprints").mockResolvedValue({
       ok: true,
       blueprints: [SOLO],
@@ -97,10 +97,8 @@ describe("BlueprintsPage (catalog)", () => {
     // The catalog has no title row anymore — the toolbar IS the
     // header (matches the Ideas pattern). Assert the search field +
     // a card render to prove the page mounted.
-    expect(
-      await screen.findByRole("searchbox", { name: /search blueprints/i }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 1, name: "Blueprints" })).toBeInTheDocument();
+    expect(await screen.findByRole("searchbox", { name: /search templates/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Templates" })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Launch TRUST" }).length).toBeGreaterThan(0);
     expect(screen.getByText("Company packages")).toBeInTheDocument();
     expect(screen.getByText("Launch action")).toBeInTheDocument();
@@ -131,13 +129,13 @@ describe("BlueprintsPage (catalog)", () => {
 
     await user.click(await screen.findByText("Solo Founder"));
 
-    // Detail page renders the blueprint name as h1, the seed counts list,
+    // Detail page renders the template name as h1, the seed counts list,
     // and the "Launch TRUST" CTA — but no spawn form (that lives
     // exclusively on /launch now).
     expect(
       await screen.findByRole("heading", { level: 1, name: "Solo Founder" }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("What this blueprint seeds")).toBeInTheDocument();
+    expect(screen.getByLabelText("What this template seeds")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /launch trust/i })).toBeInTheDocument();
   });
 
@@ -148,7 +146,7 @@ describe("BlueprintsPage (catalog)", () => {
       agent_templates: [STEWARD_TEMPLATE],
     });
 
-    renderApp("/blueprints/agents");
+    renderApp("/templates/agents");
 
     expect(await screen.findByText("Steward")).toBeInTheDocument();
     expect(screen.getByText("Operating Steward")).toBeInTheDocument();
@@ -169,7 +167,7 @@ describe("BlueprintDetailPage", () => {
     vi.spyOn(api, "getBlueprint").mockResolvedValue({ ok: true, blueprint: SOLO });
 
     // Overview lands by default — shows the title + the section rail.
-    const overview = renderApp("/blueprints/solo-founder");
+    const overview = renderApp("/templates/solo-founder");
     await screen.findByRole("heading", { level: 1, name: "Solo Founder" });
     expect(screen.getByRole("tab", { name: /overview/i })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /agents/i })).toBeInTheDocument();
@@ -177,27 +175,27 @@ describe("BlueprintDetailPage", () => {
     expect(screen.getByRole("tab", { name: /events/i })).toBeInTheDocument();
     overview.unmount();
 
-    const viewsRender = renderApp("/blueprints/solo-founder/views");
+    const viewsRender = renderApp("/templates/solo-founder/views");
     await waitFor(() => {
       expect(screen.getByText("My sessions")).toBeInTheDocument();
     });
     viewsRender.unmount();
 
     // Events sub-route renders the event patterns from the seeds.
-    const eventsRender = renderApp("/blueprints/solo-founder/events");
+    const eventsRender = renderApp("/templates/solo-founder/events");
     await waitFor(() => {
       expect(screen.getByText("session:start")).toBeInTheDocument();
     });
     eventsRender.unmount();
 
     // Ideas sub-route renders the seeded idea titles.
-    renderApp("/blueprints/solo-founder/ideas");
+    renderApp("/templates/solo-founder/ideas");
     await waitFor(() => {
       expect(screen.getByText("how-to-create-a-quest")).toBeInTheDocument();
     });
   });
 
-  it("shows template-derived agent bundles on blueprint detail routes", async () => {
+  it("shows template-derived agent bundles on template detail routes", async () => {
     const aeqi: SingleBlueprint = {
       ...SOLO,
       slug: "aeqi",
@@ -216,17 +214,17 @@ describe("BlueprintDetailPage", () => {
     };
     vi.spyOn(api, "getBlueprint").mockResolvedValue({ ok: true, blueprint: aeqi });
 
-    const agentsRender = renderApp("/blueprints/aeqi/agents");
+    const agentsRender = renderApp("/templates/aeqi/agents");
     await screen.findByText("Steward");
     expect(screen.getByText("fills · Operating Steward")).toBeInTheDocument();
     agentsRender.unmount();
 
-    const ideasRender = renderApp("/blueprints/aeqi/ideas");
+    const ideasRender = renderApp("/templates/aeqi/ideas");
     await screen.findByText("Steward operating cadence");
     expect(screen.getByText(/Steward #cadence/)).toBeInTheDocument();
     ideasRender.unmount();
 
-    renderApp("/blueprints/aeqi/events");
+    renderApp("/templates/aeqi/events");
     await screen.findByText("schedule:0 16 * * 5");
     expect(screen.getByText(/Steward · steward_weekly_review/)).toBeInTheDocument();
   });
@@ -234,14 +232,14 @@ describe("BlueprintDetailPage", () => {
   it("shows the detail page error when the API fails", async () => {
     vi.spyOn(api, "getBlueprint").mockRejectedValue(new Error("offline"));
 
-    renderApp("/blueprints/solo-founder");
+    renderApp("/templates/solo-founder");
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Blueprint not found." }),
+      await screen.findByRole("heading", { level: 3, name: "Template not found." }),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /back to the catalog/i })).toHaveAttribute(
       "href",
-      "/blueprints",
+      "/templates",
     );
   });
 
@@ -258,9 +256,9 @@ describe("BlueprintDetailPage", () => {
 
     render(
       <StrictMode>
-        <MemoryRouter initialEntries={["/blueprints/solo-founder"]}>
+        <MemoryRouter initialEntries={["/templates/solo-founder"]}>
           <Routes>
-            <Route path="/blueprints/:blueprintId" element={<BlueprintDetailPage />} />
+            <Route path="/templates/:blueprintId" element={<BlueprintDetailPage />} />
             <Route path="/launch" element={<Probe />} />
             <Route path="/launch/:blueprintId" element={<Probe />} />
           </Routes>

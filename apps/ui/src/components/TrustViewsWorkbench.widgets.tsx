@@ -80,7 +80,7 @@ export const WIDGETS: WidgetDefinition[] = [
   },
   {
     kind: "economy",
-    label: "Economy",
+    label: "Markets",
     description: "Public listing, cap-table readiness, and capital surfaces.",
     source: "economy",
     icon: UsersRound,
@@ -191,7 +191,7 @@ function widgetDetails(kind: EntityViewWidgetKind, data: WidgetRenderData) {
       return {
         value: hasChain ? "Ready" : "Pending",
         label: "capital surface",
-        rows: ["Economy verifies indexed TRUST identity", "Cap-table seed status lives in Economy"],
+        rows: ["Markets verify indexed TRUST identity", "Cap-table seed status lives in Markets"],
       };
     case "website":
       return {

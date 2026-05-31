@@ -73,7 +73,7 @@ export default function BlueprintsFilterPopover({
         id={popoverId}
         className="ideas-filter-popover"
         role="dialog"
-        aria-label="Filter blueprints"
+        aria-label="Filter templates"
       >
         <section className="ideas-filter-popover-section">
           <header className="ideas-filter-popover-head">

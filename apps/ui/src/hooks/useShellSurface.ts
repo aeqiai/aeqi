@@ -24,9 +24,11 @@ export interface ShellSurface {
   isBlueprints: boolean;
   /** `/launch` — company formation surface. Left composer + right canvas. */
   isLaunch: boolean;
-  /** `/economy/*` — top-level marketplace / inference / billing destination
+  /** `/markets/*` — top-level marketplace / inference / billing destination
    *  introduced as part of the "Global" sidebar group on 2026-05-18. */
   isEconomy: boolean;
+  /** `/referrals` — global aeqi referral playbook, outside any TRUST. */
+  isReferrals: boolean;
   /** Legacy top-level `/inbox` alias. The canonical inbox now lives under
    *  `/trust/<addr>/inbox`; this flag stays so AppLayout can redirect old
    *  bookmarks and routes without mounting a second inbox surface. */
@@ -37,7 +39,7 @@ export interface ShellSurface {
   isStart: boolean;
   /** True when the path doesn't match any known shell surface — drives the
    *  in-shell 404 dispatch. Stays false for `/me/...`, `/launch/...`,
-   *  `/blueprints/...`, and other non-organization routes. */
+   *  `/templates/...`, and other non-organization routes. */
   isNotFound: boolean;
   /** `/admin` — operator dashboard. Backend gates on is_admin; the page
    *  itself returns null + bounces non-admins. */
@@ -59,9 +61,18 @@ export function useShellSurface(path: string): ShellSurface {
     const isAdmin = path === "/admin" || path.startsWith("/admin/");
     // All /account/* paths are handled by ProfilePage.
     const isAccount = path === "/account" || path.startsWith("/account/");
-    const isBlueprints = path === "/blueprints" || path.startsWith("/blueprints/");
+    const isBlueprints =
+      path === "/templates" ||
+      path.startsWith("/templates/") ||
+      path === "/blueprints" ||
+      path.startsWith("/blueprints/");
     const isLaunch = path === "/launch" || path.startsWith("/launch/");
-    const isEconomy = path === "/economy" || path.startsWith("/economy/");
+    const isEconomy =
+      path === "/markets" ||
+      path.startsWith("/markets/") ||
+      path === "/economy" ||
+      path.startsWith("/economy/");
+    const isReferrals = path === "/referrals" || path.startsWith("/referrals/");
     const isInbox = path === "/inbox" || path.startsWith("/inbox/");
     const isStart = path === "/start" || path.startsWith("/start/");
     // Canonical picker route as of 2026-05-19. The earlier /network,
@@ -91,6 +102,7 @@ export function useShellSurface(path: string): ShellSurface {
       isBlueprints ||
       isLaunch ||
       isEconomy ||
+      isReferrals ||
       isInbox ||
       isStart ||
       isTrustsPicker ||
@@ -103,6 +115,7 @@ export function useShellSurface(path: string): ShellSurface {
       isBlueprints,
       isLaunch,
       isEconomy,
+      isReferrals,
       isInbox,
       isStart,
       isTrustsPicker,

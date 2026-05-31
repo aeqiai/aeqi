@@ -3,7 +3,7 @@ import { buildAuthSwitchHref, getRedirectAfterAuth } from "@/lib/redirectAfterAu
 
 describe("getRedirectAfterAuth", () => {
   it("keeps same-origin internal next paths", () => {
-    expect(getRedirectAfterAuth(new URLSearchParams("next=/blueprints"))).toBe("/blueprints");
+    expect(getRedirectAfterAuth(new URLSearchParams("next=/templates"))).toBe("/templates");
   });
 
   it("rejects unsafe next targets", () => {
@@ -14,8 +14,8 @@ describe("getRedirectAfterAuth", () => {
 
 describe("buildAuthSwitchHref", () => {
   it("preserves safe next when switching between auth modes", () => {
-    expect(buildAuthSwitchHref("/signup", new URLSearchParams("next=/blueprints"))).toBe(
-      "/signup?next=%2Fblueprints",
+    expect(buildAuthSwitchHref("/signup", new URLSearchParams("next=/templates"))).toBe(
+      "/signup?next=%2Ftemplates",
     );
   });
 

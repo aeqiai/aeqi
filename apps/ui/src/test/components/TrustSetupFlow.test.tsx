@@ -13,7 +13,7 @@ const blueprint: SingleBlueprint = {
 
 const baseProps = {
   blueprint,
-  blueprintPath: "/blueprints/solo-founder",
+  blueprintPath: "/templates/solo-founder",
   submitError: null,
   loadError: null,
   trustName: "Janus",

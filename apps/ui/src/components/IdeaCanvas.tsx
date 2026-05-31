@@ -662,7 +662,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
               <ImportMenu
                 trustId={trustId}
                 parts={["ideas"]}
-                blueprintTitle="Import child ideas from a Blueprint"
+                blueprintTitle="Import child ideas from a template"
                 accept="*/*"
                 fileLabel="From files"
                 onMarkdownPicked={(files) => void handleFileImport(files)}

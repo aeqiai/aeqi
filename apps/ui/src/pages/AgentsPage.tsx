@@ -143,7 +143,7 @@ export default function AgentsPage() {
       ) : entities.length === 0 ? (
         <EmptyState
           title="No companies yet"
-          description="Pick a Blueprint and ship your first autonomous organization."
+          description="Pick a template and ship your first autonomous organization."
           action={
             <Button variant="primary" onClick={() => navigate("/launch")}>
               New organization

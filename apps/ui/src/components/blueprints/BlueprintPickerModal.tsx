@@ -8,7 +8,7 @@ import { BlueprintLaunchPicker } from "@/components/blueprints/BlueprintLaunchPi
 interface BlueprintPickerModalProps {
   open: boolean;
   onClose: () => void;
-  /** Host entity that the picked Blueprint will be spawned into. */
+  /** Host entity that the picked template will be spawned into. */
   trustId: string;
   /**
    * Which seed parts to materialize. Omit (default) for the full
@@ -24,7 +24,7 @@ interface BlueprintPickerModalProps {
    * modal does NOT navigate.
    */
   onSpawned?: () => void;
-  /** Modal title — defaults to "Add agents from a Blueprint". */
+  /** Modal title — defaults to "Add agents from a template". */
   title?: string;
 }
 
@@ -61,7 +61,7 @@ export function BlueprintPickerModal({
   }, [trustId, entitiesList, fetchAgents, navigate, onClose, onSpawned]);
 
   return (
-    <Modal open={open} onClose={onClose} title={title ?? "Add agents from a Blueprint"}>
+    <Modal open={open} onClose={onClose} title={title ?? "Add agents from a template"}>
       {open && (
         <BlueprintLaunchPicker
           mode="spawn-into-entity"

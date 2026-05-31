@@ -51,8 +51,8 @@ describe("LeftSidebar trust navigation", () => {
       pinnedViews: [
         {
           id: "view-economy",
-          label: "Economy board",
-          path: "/economy",
+          label: "Markets board",
+          path: "/markets",
           search: "",
           createdAt: "2026-05-30T00:00:00Z",
         },
@@ -103,7 +103,7 @@ describe("LeftSidebar trust navigation", () => {
       "href",
       "/trust/root-1/quests?status=open",
     );
-    expect(getByRole("link", { name: "Economy board" })).toHaveAttribute("href", "/economy");
+    expect(getByRole("link", { name: "Markets board" })).toHaveAttribute("href", "/markets");
     expect(getByRole("button", { name: "Unpin Open quests" })).toBeInTheDocument();
     expect(queryByText("Pinned Views")).not.toBeInTheDocument();
     expect(getByText("Trust")).toHaveClass("active");
@@ -127,7 +127,7 @@ describe("LeftSidebar trust navigation", () => {
     fireEvent.click(getByRole("button", { name: "Unpin Open quests" }));
     expect(queryByRole("link", { name: "Open quests" })).not.toBeInTheDocument();
 
-    fireEvent.click(getByRole("button", { name: "Unpin Economy board" }));
-    expect(queryByRole("link", { name: "Economy board" })).not.toBeInTheDocument();
+    fireEvent.click(getByRole("button", { name: "Unpin Markets board" }));
+    expect(queryByRole("link", { name: "Markets board" })).not.toBeInTheDocument();
   });
 });

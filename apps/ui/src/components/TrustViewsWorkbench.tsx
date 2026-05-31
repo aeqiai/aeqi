@@ -345,7 +345,7 @@ export default function TrustViewsWorkbench({
           <h2>{editable ? "Modular dashboard" : "TRUST overview"}</h2>
           <p>
             {editable
-              ? "Compose a private workspace or public overview from sessions, agents, quests, ideas, apps, events, and economy widgets."
+              ? "Compose a private workspace or public overview from sessions, agents, quests, ideas, apps, events, and market widgets."
               : "Current operating signals scoped to this TRUST, ready for the first launch review."}
           </p>
         </div>

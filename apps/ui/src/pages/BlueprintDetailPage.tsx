@@ -79,7 +79,7 @@ function blueprintAgents(template: SingleBlueprint): BlueprintSeedAgent[] {
 }
 
 /**
- * `/blueprints/:blueprintId[/:section]` — inspect a Blueprint and explore its
+ * `/templates/:blueprintId[/:section]` — inspect a template and explore its
  * seed primitives.
  *
  * Two-column shell mirrors the catalog and `/settings`: vertical
@@ -133,7 +133,7 @@ export default function BlueprintDetailPage() {
         if (cancelled) return;
         const tpl = resp.blueprint;
         if (tpl) setTemplate(tpl);
-        else setError("Blueprint not found.");
+        else setError("Template not found.");
       })
       .catch((e: Error) => {
         if (cancelled) return;
@@ -150,10 +150,10 @@ export default function BlueprintDetailPage() {
   if (loading && !template) {
     return (
       <div className="page-rail-shell">
-        <PageRail tabs={SECTION_TABS} defaultTab="overview" title="Blueprint" basePath="" />
+        <PageRail tabs={SECTION_TABS} defaultTab="overview" title="Template" basePath="" />
         <main className="page-rail-content page-rail-content--full">
           <div className="bp-status">
-            <Loading size="sm" /> Loading Blueprint…
+            <Loading size="sm" /> Loading template…
           </div>
         </main>
       </div>
@@ -163,12 +163,12 @@ export default function BlueprintDetailPage() {
   if (!template) {
     return (
       <div className="page-rail-shell">
-        <PageRail tabs={SECTION_TABS} defaultTab="overview" title="Blueprint" basePath="" />
+        <PageRail tabs={SECTION_TABS} defaultTab="overview" title="Template" basePath="" />
         <main className="page-rail-content page-rail-content--full">
           <EmptyState
-            title="Blueprint not found."
-            description={error || "We couldn't find a blueprint with that id."}
-            action={<Link to="/blueprints">Back to the catalog →</Link>}
+            title="Template not found."
+            description={error || "We couldn't find a template with that id."}
+            action={<Link to="/templates">Back to the catalog →</Link>}
           />
         </main>
       </div>
@@ -181,7 +181,7 @@ export default function BlueprintDetailPage() {
   // `/launch/<blueprintId>` (TrustSetupPage) where the operator confirms a
   // name, stages role overrides, and picks a plan before spawn.
   const launchHref = isImportMode
-    ? `/blueprints/${encodeURIComponent(blueprintId(single))}?import_into=${encodeURIComponent(importIntoId ?? "")}`
+    ? `/templates/${encodeURIComponent(blueprintId(single))}?import_into=${encodeURIComponent(importIntoId ?? "")}`
     : `/launch/${encodeURIComponent(blueprintId(single))}`;
 
   return (
@@ -189,8 +189,8 @@ export default function BlueprintDetailPage() {
       <PageRail
         tabs={SECTION_TABS}
         defaultTab="overview"
-        title="Blueprint"
-        basePath={`/blueprints/${encodeURIComponent(blueprintId(single))}`}
+        title="Template"
+        basePath={`/templates/${encodeURIComponent(blueprintId(single))}`}
         currentValue={activeSection}
       />
       <main className="page-rail-content page-rail-content--full">
@@ -200,19 +200,17 @@ export default function BlueprintDetailPage() {
               type="button"
               className="ideas-toolbar-btn"
               onClick={() =>
-                navigate(
-                  single.category ? `/blueprints?category=${single.category}` : "/blueprints",
-                )
+                navigate(single.category ? `/templates?category=${single.category}` : "/templates")
               }
               title={
                 single.category
-                  ? `Back to ${CATEGORY_LABELS[single.category]} blueprints`
-                  : "Back to Blueprints"
+                  ? `Back to ${CATEGORY_LABELS[single.category]} templates`
+                  : "Back to Templates"
               }
               aria-label={
                 single.category
-                  ? `Back to ${CATEGORY_LABELS[single.category]} blueprints`
-                  : "Back to Blueprints"
+                  ? `Back to ${CATEGORY_LABELS[single.category]} templates`
+                  : "Back to Templates"
               }
             >
               <svg
@@ -232,7 +230,7 @@ export default function BlueprintDetailPage() {
             {single.category && (
               <span className="bp-detail-breadcrumb">{CATEGORY_LABELS[single.category]}</span>
             )}
-            <span className="bp-detail-template-badge" title="Blueprint action">
+            <span className="bp-detail-template-badge" title="Template action">
               Company package
             </span>
             <h1 className="bp-detail-toolbar-title">{single.name}</h1>
@@ -279,7 +277,7 @@ export default function BlueprintDetailPage() {
           <div className="bp-detail-mode-note" role="note">
             <span className="bp-detail-mode-note-label">Launch scope</span>
             <p>
-              Company Blueprints launch new TRUSTs with their seed roles, agents, views, events,
+              Company templates launch new TRUSTs with their seed roles, agents, views, events,
               quests, and ideas. Primitive bundles are the import path for existing TRUSTs.
             </p>
           </div>

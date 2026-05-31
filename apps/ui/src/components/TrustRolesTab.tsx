@@ -402,7 +402,7 @@ function RolesEmptyState() {
     <div className="trust-roles-state">
       <EmptyState
         title="No roles yet"
-        description="Roles appear automatically when this entity has agents. They'll show up here as soon as the Blueprint finishes seeding."
+        description="Roles appear automatically when this entity has agents. They'll show up here as soon as the template finishes seeding."
       />
     </div>
   );

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { StrictMode } from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import EconomyPage from "@/pages/EconomyPage";
+import MarketsPage from "@/pages/EconomyPage";
 import { api } from "@/lib/api";
 import { useEntitiesQuery } from "@/queries/entities";
 import type { Role, Trust } from "@/lib/types";
@@ -93,20 +93,20 @@ const ALPHA_CAP_TABLE = [
   },
 ];
 
-function renderEconomy(entry = "/economy") {
+function renderMarkets(entry = "/markets") {
   return render(
     <StrictMode>
       <MemoryRouter initialEntries={[entry]}>
         <Routes>
-          <Route path="/economy" element={<EconomyPage />} />
-          <Route path="/economy/:tab" element={<EconomyPage />} />
+          <Route path="/markets" element={<MarketsPage />} />
+          <Route path="/markets/:tab" element={<MarketsPage />} />
         </Routes>
       </MemoryRouter>
     </StrictMode>,
   );
 }
 
-describe("EconomyPage", () => {
+describe("MarketsPage", () => {
   beforeEach(() => {
     vi.mocked(useEntitiesQuery).mockReturnValue({
       data: TRUSTS,
@@ -160,13 +160,13 @@ describe("EconomyPage", () => {
   });
 
   it("renders the trust registry overview with public profile affordance", async () => {
-    renderEconomy();
+    renderMarkets();
 
-    expect(screen.getByRole("heading", { level: 1, name: "Economy" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Markets" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Capital readiness" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Cap-table seed rows" })).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Browse Blueprints" }).length).toBeGreaterThan(0);
-    expect(screen.getByRole("heading", { name: "Start from a Blueprint" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Browse Templates" }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "Start from a Template" })).toBeInTheDocument();
     expect(screen.getByText("Alpha Trust")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Profile" })).toHaveAttribute("href", "/alpha");
 
@@ -194,7 +194,7 @@ describe("EconomyPage", () => {
       isLoading: false,
     } as never);
 
-    renderEconomy();
+    renderMarkets();
 
     expect(await screen.findByText("Liquidity seed not confirmed")).toBeInTheDocument();
     expect(
@@ -206,7 +206,7 @@ describe("EconomyPage", () => {
   });
 
   it("shows indexed genesis curves on the pools tab", async () => {
-    renderEconomy("/economy/pools");
+    renderMarkets("/markets/pools");
 
     expect(screen.getByRole("heading", { name: "Liquidity pools" })).toBeInTheDocument();
     expect(await screen.findByText("Genesis curve")).toBeInTheDocument();
@@ -214,7 +214,7 @@ describe("EconomyPage", () => {
   });
 
   it("filters indexed pools by pool and trust fields", async () => {
-    renderEconomy("/economy/pools");
+    renderMarkets("/markets/pools");
 
     expect(await screen.findByText("Genesis curve")).toBeInTheDocument();
 
@@ -233,7 +233,7 @@ describe("EconomyPage", () => {
   });
 
   it("filters cap-table seed rows by allocation and security fields", async () => {
-    renderEconomy();
+    renderMarkets();
 
     expect(await screen.findByText("Founder vesting")).toBeInTheDocument();
 
@@ -247,7 +247,7 @@ describe("EconomyPage", () => {
   });
 
   it("shows vacant trust roles on the roles tab", async () => {
-    renderEconomy("/economy/roles");
+    renderMarkets("/markets/roles");
 
     expect(screen.getByRole("heading", { name: "Open roles" })).toBeInTheDocument();
     expect(await screen.findByText("CFO")).toBeInTheDocument();
@@ -256,7 +256,7 @@ describe("EconomyPage", () => {
   });
 
   it("filters open roles by role and trust fields", async () => {
-    renderEconomy("/economy/roles");
+    renderMarkets("/markets/roles");
 
     expect(await screen.findByText("CFO")).toBeInTheDocument();
 
@@ -275,7 +275,7 @@ describe("EconomyPage", () => {
   });
 
   it("keeps the funding lane honest while the funding index is absent", () => {
-    renderEconomy("/economy/funding");
+    renderMarkets("/markets/funding");
 
     expect(screen.getByRole("heading", { name: "Funding rounds" })).toBeInTheDocument();
     expect(screen.getByText("No indexed funding rounds yet")).toBeInTheDocument();

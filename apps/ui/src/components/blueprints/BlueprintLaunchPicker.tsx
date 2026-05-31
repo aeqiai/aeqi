@@ -14,7 +14,7 @@ export type BlueprintLaunchMode = "spawn-company" | "spawn-into-entity";
 interface BlueprintLaunchPickerProps {
   mode: BlueprintLaunchMode;
   /** Required when `mode === "spawn-into-entity"`. The host entity that
-   *  the picked Blueprint attaches under. */
+   *  the picked template attaches under. */
   trustId?: string;
   /** Optional `parts` filter for `spawn-into-entity`. When set, only the
    *  named seed blocks materialize on spawn (e.g. `["ideas"]` for the
@@ -35,7 +35,7 @@ interface BlueprintLaunchPickerProps {
  *
  *   1. Start blank — promoted top row.
  *   2. Recommended — 3-4 curated ids from `recommendedBlueprints.ts`.
- *   3. Browse all → /blueprints — full catalog.
+ *   3. Browse all → /templates — full catalog.
  *
  * Branches on `mode`:
  *   - spawn-company → navigate to /launch/<blueprintId> (TrustSetupPage)
@@ -73,7 +73,7 @@ export function BlueprintLaunchPicker({
       })
       .catch((e: Error) => {
         if (cancelled) return;
-        setLoadError(e.message || "Could not reach the Blueprint store.");
+        setLoadError(e.message || "Could not reach the template store.");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -102,7 +102,7 @@ export function BlueprintLaunchPicker({
     async (id: string) => {
       const tpl = byId.get(id);
       if (!tpl) {
-        setSubmitError(`Blueprint '${id}' is not available.`);
+        setSubmitError(`Template '${id}' is not available.`);
         return;
       }
       // spawn-company mode: route through the setup surface so the
@@ -141,7 +141,7 @@ export function BlueprintLaunchPicker({
     return (
       <div className="bp-launch">
         <div className="bp-status">
-          <Loading size="sm" /> Loading Blueprints…
+          <Loading size="sm" /> Loading templates…
         </div>
       </div>
     );
@@ -182,7 +182,7 @@ export function BlueprintLaunchPicker({
 
       {/* 2 — Recommended. 3-4 curated cards. */}
       {recommended.length > 0 && (
-        <section className="bp-launch-section" aria-label="Recommended Blueprints">
+        <section className="bp-launch-section" aria-label="Recommended templates">
           <h3 className="bp-launch-section-label">Recommended</h3>
           <div className="bp-launch-grid" role="list">
             {recommended.map((t) => {
@@ -224,8 +224,8 @@ export function BlueprintLaunchPicker({
 
       {/* 3 — Browse all. Link out to the full catalog. */}
       <div className="bp-launch-foot">
-        <Link to="/blueprints" className="bp-launch-browse-link">
-          Browse all Blueprints →
+        <Link to="/templates" className="bp-launch-browse-link">
+          Browse all templates →
         </Link>
       </div>
     </div>

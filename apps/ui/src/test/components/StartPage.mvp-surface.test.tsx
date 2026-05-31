@@ -40,7 +40,7 @@ describe("StartPage MVP surface", () => {
 
     expect(screen.getByRole("heading", { level: 1, name: "Welcome" })).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: /launch trust/i }).length).toBeGreaterThan(0);
-    expect(screen.getByRole("link", { name: /view blueprint/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /view template/i })).toBeInTheDocument();
 
     expect(screen.queryByRole("region", { name: "Operating context" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Your TRUSTs" })).not.toBeInTheDocument();
@@ -48,23 +48,23 @@ describe("StartPage MVP surface", () => {
     expect(screen.queryByText("Active TRUST")).not.toBeInTheDocument();
   });
 
-  it("keeps the global rows focused on launch, economy, referrals, and learning", () => {
+  it("keeps the global rows focused on launch, markets, referrals, and learning", () => {
     renderStartPage();
 
     const startRow = screen.getByRole("region", { name: "Start with aeqi" });
     expect(within(startRow).getByRole("heading", { name: "First Company" })).toBeInTheDocument();
     expect(within(startRow).getByRole("heading", { name: "Launch a TRUST" })).toBeInTheDocument();
-    expect(within(startRow).getByRole("link", { name: /view blueprint/i })).toHaveAttribute(
+    expect(within(startRow).getByRole("link", { name: /view template/i })).toHaveAttribute(
       "href",
-      "/blueprints",
+      "/templates",
     );
-    expect(within(startRow).getByRole("heading", { name: "Live Economy" })).toBeInTheDocument();
+    expect(within(startRow).getByRole("heading", { name: "Markets" })).toBeInTheDocument();
     expect(
       within(startRow).getByRole("heading", { name: "Invite the first operators" }),
     ).toBeInTheDocument();
-    expect(within(startRow).getByRole("link", { name: /invite someone/i })).toHaveAttribute(
+    expect(within(startRow).getByRole("link", { name: /open referrals/i })).toHaveAttribute(
       "href",
-      expect.stringContaining("mailto:"),
+      "/referrals",
     );
     expect(screen.queryByRole("link", { name: /read update/i })).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Learn aeqi" })).toBeInTheDocument();

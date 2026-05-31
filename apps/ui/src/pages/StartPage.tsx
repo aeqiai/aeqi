@@ -64,7 +64,7 @@ function BlueprintCard() {
     <article className="home-card home-card--blueprint home-card--elevated">
       <span className="home-launch-kicker">
         <FileText size={15} strokeWidth={1.7} aria-hidden="true" />
-        Blueprint
+        Template
       </span>
       <div className="home-launch-body">
         <h2 className="home-launch-title">First Company</h2>
@@ -73,8 +73,8 @@ function BlueprintCard() {
         </p>
       </div>
       <div className="home-launch-actions">
-        <Link to="/blueprints" className="home-primary-action home-primary-action--secondary">
-          View blueprint
+        <Link to="/templates" className="home-primary-action home-primary-action--secondary">
+          View template
           <ArrowRight size={16} strokeWidth={1.8} />
         </Link>
       </div>
@@ -119,13 +119,10 @@ function ReferralCard() {
         </p>
       </div>
       <div className="home-launch-actions">
-        <a
-          href="mailto:?subject=Build%20with%20aeqi&body=https%3A%2F%2Fapp.aeqi.ai%2Flaunch"
-          className="home-primary-action home-primary-action--secondary"
-        >
-          Invite someone
+        <Link to="/referrals" className="home-primary-action home-primary-action--secondary">
+          Open referrals
           <ArrowRight size={16} strokeWidth={1.8} />
-        </a>
+        </Link>
       </div>
     </article>
   );
@@ -136,17 +133,17 @@ function EconomyCard() {
     <article className="home-card home-card--economy home-card--elevated">
       <span className="home-launch-kicker">
         <Globe size={15} strokeWidth={1.7} aria-hidden="true" />
-        Economy
+        Markets
       </span>
       <div className="home-launch-body">
-        <h2 className="home-launch-title">Live Economy</h2>
+        <h2 className="home-launch-title">Markets</h2>
         <p className="home-launch-hint">
           Browse public TRUSTs, open roles, and launch signals across the network.
         </p>
       </div>
       <div className="home-launch-actions">
-        <Link to="/economy" className="home-primary-action home-primary-action--secondary">
-          Open Economy
+        <Link to="/markets" className="home-primary-action home-primary-action--secondary">
+          Open Markets
           <ArrowRight size={16} strokeWidth={1.8} />
         </Link>
       </div>

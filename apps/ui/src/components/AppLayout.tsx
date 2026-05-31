@@ -29,6 +29,7 @@ const AdminPage = lazy(() => import("@/pages/AdminPage"));
 const TrustSetupPage = lazy(() => import("@/pages/TrustSetupPage"));
 const BlueprintsPage = lazy(() => import("@/pages/BlueprintsPage"));
 const EconomyPage = lazy(() => import("@/pages/EconomyPage"));
+const ReferralsPage = lazy(() => import("@/pages/ReferralsPage"));
 const TrustPage = lazy(() => import("@/pages/TrustPage"));
 const StartPage = lazy(() => import("@/pages/StartPage"));
 const BlueprintDetailPage = lazy(() => import("@/pages/BlueprintDetailPage"));
@@ -45,8 +46,8 @@ const NO_AGENT_SESSIONS: ReturnType<typeof useChatStore.getState>["sessionsByAge
 // full primitive pages under an agent.
 const RELOCATED_AGENT_TABS = new Set(["overview", "quests", "events", "ideas", "integrations"]);
 
-// Top-level segments under /blueprints that are catalog-kind tabs, not
-// blueprint ids. Anything else after /blueprints/ is treated as a blueprint
+// Top-level segments under /templates that are catalog-kind tabs, not
+// template ids. Anything else after /templates/ is treated as a template
 // id and dispatches BlueprintDetailPage.
 const BLUEPRINT_KINDS = new Set(["companies", "agents", "events", "quests", "ideas"]);
 
@@ -246,6 +247,7 @@ export default function AppLayout() {
     isBlueprints,
     isLaunch,
     isEconomy,
+    isReferrals,
     isInbox,
     isStart,
     isTrustsPicker,
@@ -422,6 +424,12 @@ export default function AppLayout() {
   if (isRolesEdit && roleEditTarget) {
     return <Navigate to={roleEditTarget} replace />;
   }
+  if (path === "/economy" || path.startsWith("/economy/")) {
+    return <Navigate to={`${path.replace("/economy", "/markets")}${search}`} replace />;
+  }
+  if (path === "/blueprints" || path.startsWith("/blueprints/")) {
+    return <Navigate to={`${path.replace("/blueprints", "/templates")}${search}`} replace />;
+  }
 
   const mainContent = (() => {
     if (isNotFound) return <NotFoundPage />;
@@ -434,6 +442,7 @@ export default function AppLayout() {
     if (isAdmin) return <AdminPage />;
     if (isAccount) return <ProfilePage />;
     if (isEconomy) return <EconomyPage />;
+    if (isReferrals) return <ReferralsPage />;
     // `/` is the Start surface (welcome + previews). The legacy `/start`
     // URL keeps working as an alias for any link already in circulation.
     if (isHome || isStart) return <StartPage />;
@@ -442,12 +451,12 @@ export default function AppLayout() {
     // `/acting-as`) were retired the same day — only `/trust` is mounted.
     if (isTrustsPicker) return <TrustPage />;
     if (isBlueprints) {
-      // /blueprints/<seg> where <seg> is a known kind (companies / agents /
-      // events / quests / ideas) → catalog tab. Otherwise <seg> is a blueprint
-      // id → detail page. Bare /blueprints also lands on the catalog.
+      // /templates/<seg> where <seg> is a known kind (companies / agents /
+      // events / quests / ideas) → catalog tab. Otherwise <seg> is a template
+      // id → detail page. Bare /templates also lands on the catalog.
       const segments = path.split("/").filter(Boolean);
-      // segments[0] === "blueprints"; segments[1] (if present) is either a
-      // catalog kind or a blueprint id.
+      // segments[0] === "templates"; segments[1] (if present) is either a
+      // catalog kind or a template id.
       const second = segments[1];
       const isDetail = !!second && !BLUEPRINT_KINDS.has(second);
       return isDetail ? <BlueprintDetailPage /> : <BlueprintsPage />;

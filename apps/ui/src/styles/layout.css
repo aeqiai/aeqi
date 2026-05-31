@@ -9764,6 +9764,192 @@ button.ideas-ref-add.ideas-content-pill:focus-visible {
 .entity-row[aria-pressed="true"] {
   background: var(--bg-elevated);
 }
+
+/* ------------------------------------------------------------------ *
+ * Referrals - top-level aeqi growth loop. This page is global, not
+ * trust-owned, so it sits directly in the shell paper with an elevated
+ * action panel and recessed playbook sections.
+ * ------------------------------------------------------------------ */
+.referrals-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  width: 100%;
+  max-width: 1040px;
+  padding: var(--space-6);
+}
+.referrals-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+  gap: var(--space-5);
+  align-items: stretch;
+}
+.referrals-hero-copy,
+.referrals-actions,
+.referrals-playbook,
+.referrals-channels {
+  border-radius: var(--radius-lg);
+  box-shadow: inset 0 0 0 1px var(--color-border-faint);
+}
+.referrals-hero-copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  background: var(--color-card-elevated);
+}
+.referrals-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 650;
+}
+.referrals-hero h1 {
+  max-width: 720px;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: 0;
+  color: var(--color-text-primary);
+}
+.referrals-hero p,
+.referrals-section-head p,
+.referrals-step p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.55;
+}
+.referrals-actions {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--bg-row);
+}
+.referrals-actions-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.referrals-actions-copy h2 {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: 650;
+  line-height: 1.25;
+}
+.referrals-actions-copy p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.45;
+}
+.referrals-primary-action,
+.referrals-secondary-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 16px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  font-weight: 650;
+  text-decoration: none;
+}
+.referrals-primary-action {
+  background: var(--color-text-primary);
+  color: var(--btn-primary-text);
+}
+.referrals-secondary-action {
+  background: var(--color-card-elevated);
+  color: var(--color-text-primary);
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--color-border-faint) 48%, var(--color-text-primary) 52%);
+}
+.referrals-playbook,
+.referrals-channels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--bg-row);
+}
+.referrals-section-head {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.referrals-section-head h2 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: 650;
+  line-height: 1.2;
+}
+.referrals-steps,
+.referrals-channel-grid {
+  display: grid;
+  gap: var(--space-3);
+}
+.referrals-steps {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.referrals-step,
+.referrals-channel-card {
+  background: var(--color-card-elevated);
+  border-radius: var(--radius-lg);
+  box-shadow: inset 0 0 0 1px var(--color-border-faint);
+}
+.referrals-step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 168px;
+  padding: var(--space-4);
+}
+.referrals-step-index {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 650;
+}
+.referrals-step h3 {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: 650;
+  line-height: 1.25;
+}
+.referrals-channel-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.referrals-channel-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 54px;
+  padding: 0 var(--space-4);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+@media (max-width: 860px) {
+  .referrals-page {
+    padding: var(--space-4);
+  }
+  .referrals-hero,
+  .referrals-steps,
+  .referrals-channel-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .referrals-hero h1 {
+    font-size: 32px;
+  }
+}
 .entity-body {
   flex: 1;
   min-width: 0;
@@ -13528,6 +13714,11 @@ button.role-context-card:disabled {
   background: var(--color-card-elevated);
 }
 
+.home-card--economy {
+  gap: 16px;
+  background: var(--color-card-elevated);
+}
+
 .home-card--blueprint {
   background: var(--color-card-elevated);
 }
@@ -13580,6 +13771,7 @@ button.role-context-card:disabled {
 .home-row-promos .home-card--economy,
 .home-row-promos .home-card--referral {
   display: flex;
+  gap: 16px;
   justify-content: flex-start;
   padding: var(--space-4);
 }

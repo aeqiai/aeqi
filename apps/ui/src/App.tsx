@@ -45,8 +45,11 @@ const RESERVED_SLUGS = new Set([
   "c",
   "trust",
   "launch",
+  "templates",
   "blueprints",
+  "markets",
   "economy",
+  "referrals",
   "acting-as",
   "inbox",
   "start",
@@ -121,7 +124,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 /**
  * Wrapper for top-level app-shell destinations like `/launch` and
- * `/blueprints`. Authed visitors hit the full AppLayout, which dispatches
+ * `/templates`. Authed visitors hit the full AppLayout, which dispatches
  * the matching page from the URL. Unauthed visitors bounce to /login — the
  * public-marketing variants of these surfaces are paused until they're
  * production-ready.
@@ -153,6 +156,12 @@ function RootRouteSwitch() {
   // and dispatches `path === "/"` → StartPage. No redirects to /launch or
   // /trust/<addr> anymore — the start page IS the daily-landing.
   return <GatedAppShell />;
+}
+
+function LegacyTopLevelRedirect({ from, to }: { from: string; to: string }) {
+  const location = useLocation();
+  const nextPath = location.pathname.replace(from, to);
+  return <Navigate to={`${nextPath}${location.search}${location.hash}`} replace />;
 }
 
 // `/` is only the user-scope landing before an organization exists. Once an
@@ -194,8 +203,11 @@ export default function App() {
           <Route path="account" element={null} />
           <Route path="account/:tab" element={null} />
           <Route path="admin" element={null} />
+          <Route path="markets" element={null} />
+          <Route path="markets/:tab" element={null} />
           <Route path="economy" element={null} />
           <Route path="economy/:tab" element={null} />
+          <Route path="referrals" element={null} />
           <Route path="acting-as" element={null} />
           <Route path="inbox" element={null} />
           <Route path="start" element={null} />
@@ -301,18 +313,34 @@ export default function App() {
               `/launch`. */}
           <Route path="/" element={<RootRouteSwitch />} />
 
-          {/* Blueprints — top-level destination, auth-gated end-to-end.
+          {/* Templates — top-level destination, auth-gated end-to-end.
               GatedAppShell dispatches AppLayout for authed visitors and
               redirects everyone else to /login?next=<here>. Will revert
               to a public-marketing variant once that surface ships. */}
-          <Route path="/blueprints" element={<GatedAppShell />} />
-          <Route path="/blueprints/companies" element={<GatedAppShell />} />
-          <Route path="/blueprints/agents" element={<GatedAppShell />} />
-          <Route path="/blueprints/events" element={<GatedAppShell />} />
-          <Route path="/blueprints/quests" element={<GatedAppShell />} />
-          <Route path="/blueprints/ideas" element={<GatedAppShell />} />
-          <Route path="/blueprints/:blueprintId" element={<GatedAppShell />} />
-          <Route path="/blueprints/:blueprintId/:section" element={<GatedAppShell />} />
+          <Route path="/templates" element={<GatedAppShell />} />
+          <Route path="/templates/companies" element={<GatedAppShell />} />
+          <Route path="/templates/agents" element={<GatedAppShell />} />
+          <Route path="/templates/events" element={<GatedAppShell />} />
+          <Route path="/templates/quests" element={<GatedAppShell />} />
+          <Route path="/templates/ideas" element={<GatedAppShell />} />
+          <Route path="/templates/:blueprintId" element={<GatedAppShell />} />
+          <Route path="/templates/:blueprintId/:section" element={<GatedAppShell />} />
+          <Route
+            path="/blueprints"
+            element={<LegacyTopLevelRedirect from="/blueprints" to="/templates" />}
+          />
+          <Route
+            path="/blueprints/*"
+            element={<LegacyTopLevelRedirect from="/blueprints" to="/templates" />}
+          />
+          <Route
+            path="/economy"
+            element={<LegacyTopLevelRedirect from="/economy" to="/markets" />}
+          />
+          <Route
+            path="/economy/*"
+            element={<LegacyTopLevelRedirect from="/economy" to="/markets" />}
+          />
 
           {/* Public profile — top-level `/<slug>` route. Lives BEFORE the
               authed catch-all so unauth visitors can hit a Company's

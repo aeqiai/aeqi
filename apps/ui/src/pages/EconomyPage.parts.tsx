@@ -47,7 +47,7 @@ export function CapitalReadinessSection({
   return (
     <PageSection
       title="Capital readiness"
-      description="Economy reads current entities, orchestrator cap-table seed rows, and launch status. It separates intended allocations from on-chain pool and funding claims."
+      description="Markets reads current entities, orchestrator cap-table seed rows, and launch status. It separates intended allocations from on-chain pool and funding claims."
     >
       <div className={styles.capitalReadiness}>
         {hasRisk && (
@@ -59,7 +59,7 @@ export function CapitalReadinessSection({
               <span className={styles.capitalRiskTitle}>Liquidity seed not confirmed</span>
               <span className={styles.capitalRiskCopy}>
                 {riskCount} on-chain {riskNoun} {riskVerb} no Unifutures seed surface in launch
-                status. Economy can show allocation templates, but it must stay quiet about live
+                status. Markets can show allocation templates, but it must stay quiet about live
                 liquidity and funding until real rows are indexed.
               </span>
             </span>
@@ -122,7 +122,7 @@ export function CapitalReadinessSection({
               <TableStatus state="backlog" label="Endpoint pending" />
             </span>
             <span className={styles.capitalSignalBody}>
-              Declared funding rounds are intentionally absent from Economy until the funding
+              Declared funding rounds are intentionally absent from Markets until the funding
               indexer publishes them.
             </span>
           </span>

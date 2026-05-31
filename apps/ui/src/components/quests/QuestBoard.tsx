@@ -374,7 +374,7 @@ export default function QuestBoard({
               size="md"
               trustId={trustId}
               parts={["quests"]}
-              blueprintTitle="Import quests from a Blueprint"
+              blueprintTitle="Import quests from a template"
               onMarkdownPicked={async (files) => {
                 setErr(null);
                 const failures: string[] = [];

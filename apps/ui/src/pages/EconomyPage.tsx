@@ -17,7 +17,7 @@ import { api } from "@/lib/api";
 import { entityBasePath, entityPath } from "@/lib/entityPath";
 import type { Role, RoleType } from "@/lib/types";
 import { useEntitiesQuery } from "@/queries/entities";
-import { BlueprintDiscoverySection } from "./EconomyPage.blueprints";
+import { TemplateDiscoverySection } from "./EconomyPage.blueprints";
 import { CapTableSeedSection, type CapTableSeedRow } from "./EconomyPage.capTable";
 import { EconomyMetricGrid } from "./EconomyPage.metrics";
 import {
@@ -355,25 +355,25 @@ export default function EconomyPage() {
   return (
     <div className={styles.root}>
       <PageRail
-        title="Economy"
+        title="Markets"
         tabs={ECONOMY_TABS}
         defaultTab="overview"
-        basePath="/economy"
+        basePath="/markets"
         currentValue={activeTab}
       />
       <div className={styles.content}>
         <Page width="wide" padding="lg" gap="6">
           <PageHeader
-            title="Economy"
-            description="Discover Blueprints, public TRUSTs, open roles, and live capital surfaces across the operating graph."
+            title="Markets"
+            description="Discover Templates, public TRUSTs, open roles, and live capital surfaces across the operating graph."
             actions={
               <Button
                 variant="primary"
                 size="md"
                 leadingIcon={<Blocks size={14} strokeWidth={1.5} />}
-                onClick={() => navigate("/blueprints")}
+                onClick={() => navigate("/templates")}
               >
-                Browse Blueprints
+                Browse Templates
               </Button>
             }
           />
@@ -444,20 +444,20 @@ export default function EconomyPage() {
                   onChainCount={visibleOnChainTrusts.length}
                   poolCount={visiblePoolRows.length}
                   riskTrusts={liquiditySeedGaps}
-                  onOpenPools={() => navigate("/economy/pools")}
-                  onOpenFunding={() => navigate("/economy/funding")}
+                  onOpenPools={() => navigate("/markets/pools")}
+                  onOpenFunding={() => navigate("/markets/funding")}
                 />
                 <CapTableSeedSection
                   hasSearch={hasSearch}
                   loading={loadingSecondaryData}
                   rows={visibleCapTableRows}
                 />
-                <BlueprintDiscoverySection onBrowse={() => navigate("/blueprints")} />
+                <TemplateDiscoverySection onBrowse={() => navigate("/templates")} />
                 <TrustDirectory
                   trusts={visibleTrusts.slice(0, 6)}
                   loading={entitiesLoading}
                   onOpen={(trust) => navigate(entityBasePath(trust))}
-                  onViewAll={() => navigate("/economy/trusts")}
+                  onViewAll={() => navigate("/markets/trusts")}
                 />
                 <div className={styles.registryGrid}>
                   <RegistryCard
@@ -466,7 +466,7 @@ export default function EconomyPage() {
                     value={poolRows.length}
                     tone="live"
                     body="Genesis curves and pool addresses appear once launch status confirms an on-chain pool."
-                    onOpen={() => navigate("/economy/pools")}
+                    onOpen={() => navigate("/markets/pools")}
                   />
                   <RegistryCard
                     icon={<BriefcaseBusiness size={16} strokeWidth={1.6} />}
@@ -474,7 +474,7 @@ export default function EconomyPage() {
                     value={visibleRoleOpenings.length}
                     tone="pending"
                     body="Vacant TRUST roles are the clearest path to join an operating company."
-                    onOpen={() => navigate("/economy/roles")}
+                    onOpen={() => navigate("/markets/roles")}
                   />
                 </div>
               </>
@@ -513,7 +513,7 @@ export default function EconomyPage() {
             {activeTab === "pools" && (
               <PageSection
                 title="Liquidity pools"
-                description="Every indexed genesis curve attached to a visible trust. No row means Economy has no real seed surface to show."
+                description="Every indexed genesis curve attached to a visible trust. No row means Markets has no real seed surface to show."
               >
                 <Table
                   columns={poolColumns}
@@ -545,7 +545,7 @@ export default function EconomyPage() {
               >
                 <EmptyState
                   title="No indexed funding rounds yet"
-                  description="The live indexer endpoint still needs to expose funding requests. Economy is intentionally not making fundraising or on-chain round claims before those rows exist."
+                  description="The live indexer endpoint still needs to expose funding requests. Markets is intentionally not making fundraising or on-chain round claims before those rows exist."
                 />
               </PageSection>
             )}

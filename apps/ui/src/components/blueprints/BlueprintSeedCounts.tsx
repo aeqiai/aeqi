@@ -29,7 +29,7 @@ export function BlueprintSeedCounts({ template }: BlueprintSeedCountsProps) {
     ["Events", template.seed_events?.length ?? 0],
   ];
   return (
-    <ul className="bp-summary-pills" role="list" aria-label="What this blueprint seeds">
+    <ul className="bp-summary-pills" role="list" aria-label="What this template seeds">
       {pills.map(([label, value]) => (
         <li key={label} className="bp-summary-pill">
           <span className="bp-summary-pill-value">{value}</span>

@@ -314,7 +314,7 @@ export default function IdeasListView({
               size="md"
               trustId={trustId}
               parts={["ideas"]}
-              blueprintTitle="Import ideas from a Blueprint"
+              blueprintTitle="Import ideas from a template"
               accept="*/*"
               fileLabel="From files"
               onMarkdownPicked={(files) => void handleFileImport(files, folderId)}

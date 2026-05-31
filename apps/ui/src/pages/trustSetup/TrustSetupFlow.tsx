@@ -44,8 +44,8 @@ export function LaunchShellError({ error, onBack }: { error: string | null; onBa
   return (
     <LaunchShell>
       <EmptyState
-        title="Blueprint not found."
-        description={error || "We couldn't find a blueprint with that id."}
+        title="Template not found."
+        description={error || "We couldn't find a template with that id."}
         action={
           <Button variant="secondary" onClick={onBack}>
             Back to catalog
@@ -77,7 +77,7 @@ function NameSection({
   nameError,
   onTrustNameChange,
 }: Pick<TrustSetupFlowProps, "trustName" | "nameHint" | "nameError" | "onTrustNameChange">) {
-  const launchSteps = ["Name", "Blueprint", "Operations"];
+  const launchSteps = ["Name", "Template", "Operations"];
 
   return (
     <section className="launch-form-step launch-form-step--name" aria-labelledby="launch-title">
@@ -88,7 +88,7 @@ function NameSection({
             Launch your TRUST.
           </h1>
           <p className="auth-subheading">
-            Name the workspace, confirm the blueprint, and choose whether to add hosted operations
+            Name the workspace, confirm the template, and choose whether to add hosted operations
             now.
           </p>
           <ol className="launch-sequence" aria-label="Launch sequence">
@@ -129,7 +129,7 @@ function BlueprintSection({
       <div className="launch-form-step-body">
         <div className="launch-section-row">
           <h2 id="launch-blueprint-title" className="launch-section-title">
-            Blueprint
+            Template
           </h2>
           <Link to={blueprintPath} className="launch-inline-link">
             View
@@ -143,7 +143,7 @@ function BlueprintSection({
           </span>
           <span className="launch-blueprint-summary-copy">
             {freeOperations
-              ? "Creates a free platform TRUST with a public profile and founding Director. Blueprint agents, quests, memory, tools, and evidence activate with hosted operations."
+              ? "Creates a free platform TRUST with a public profile and founding Director. Template agents, quests, memory, tools, and evidence activate with hosted operations."
               : "Includes the initial roles, agents, quests, memory, tools, and evidence structure."}
           </span>
         </div>

@@ -40,7 +40,7 @@ function formatRuntimeLine(t: SingleBlueprint): string {
 }
 
 /**
- * Catalog card on `/blueprints`. Shows:
+ * Catalog card on `/templates`. Shows:
  * - Name + tagline (unchanged)
  * - TRUST shell inclusion list derived from `template`
  * - Operating seed counts (agents · events · ideas · quests)
@@ -61,10 +61,10 @@ function BlueprintCardImpl({
 
   return (
     <Link
-      to={`/blueprints/${encodeURIComponent(id)}${importTargetSuffix}`}
+      to={`/templates/${encodeURIComponent(id)}${importTargetSuffix}`}
       className="bp-card-link"
       role="listitem"
-      aria-label={`${template.name} blueprint${template.tagline ? ` — ${template.tagline}` : ""}`}
+      aria-label={`${template.name} template${template.tagline ? ` — ${template.tagline}` : ""}`}
     >
       <Card variant="default" padding="md" interactive className="bp-card">
         <div className="bp-card-kind-row">

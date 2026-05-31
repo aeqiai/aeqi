@@ -97,7 +97,7 @@ describe("TrustAgentsTab", () => {
     expect(search.compareDocumentPosition(register)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
-  it("renders the table and real Blueprint suggestion cards directly on the workspace", async () => {
+  it("renders the table and real template suggestion cards directly on the workspace", async () => {
     renderTab();
 
     const register = screen.getByRole("region", { name: "Agents register" });
@@ -114,20 +114,20 @@ describe("TrustAgentsTab", () => {
     expect(screen.queryByText("Agents register")).not.toBeInTheDocument();
     expect(await screen.findByText("Steward")).toBeInTheDocument();
     expect(screen.getByText("Operating Steward · 1 event · 1 idea · 1 quest")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Add Steward from Blueprint" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Steward from template" })).toBeInTheDocument();
     expect(screen.queryByText("Research Agent")).not.toBeInTheDocument();
     expect(register.compareDocumentPosition(suggestions)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
-  it("opens the blueprint picker from an entire suggestion card", async () => {
+  it("opens the template picker from an entire suggestion card", async () => {
     renderTab();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Add Steward from Blueprint" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add Steward from template" }));
 
-    expect(screen.getByRole("dialog", { name: "Add agents from a Blueprint" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Add agents from a template" })).toBeInTheDocument();
   });
 
-  it("does not invent suggestions when no agent Blueprints exist", async () => {
+  it("does not invent suggestions when no agent Templates exist", async () => {
     vi.mocked(api.getBlueprints).mockResolvedValue({
       ok: true,
       blueprints: [],
@@ -137,7 +137,7 @@ describe("TrustAgentsTab", () => {
     renderTab();
 
     await waitFor(() => {
-      expect(screen.getByText("No agent Blueprints are published yet.")).toBeInTheDocument();
+      expect(screen.getByText("No agent templates are published yet.")).toBeInTheDocument();
     });
     expect(screen.queryByText("Research Agent")).not.toBeInTheDocument();
     expect(screen.queryByText("Treasury Agent")).not.toBeInTheDocument();

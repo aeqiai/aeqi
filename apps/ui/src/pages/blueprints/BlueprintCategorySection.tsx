@@ -66,7 +66,7 @@ export default function BlueprintCategorySection({
                 className="bp-list-row-btn"
                 onClick={() =>
                   onNavigate(
-                    `/blueprints/${encodeURIComponent(blueprintId(t))}${importTargetSuffix}`,
+                    `/templates/${encodeURIComponent(blueprintId(t))}${importTargetSuffix}`,
                   )
                 }
               >

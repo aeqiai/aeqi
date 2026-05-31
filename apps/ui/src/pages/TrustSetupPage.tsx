@@ -163,7 +163,7 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
         }
 
         if (!selected) {
-          setLoadError("No blueprints are available yet.");
+          setLoadError("No templates are available yet.");
           return;
         }
 
@@ -171,7 +171,7 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
         setPlan(DEFAULT_LAUNCH_PLAN);
       } catch (e) {
         if (cancelled) return;
-        const msg = e instanceof Error ? e.message : "Could not reach the blueprint store.";
+        const msg = e instanceof Error ? e.message : "Could not reach the template store.";
         setLoadError(msg);
       } finally {
         if (!cancelled) setLoading(false);
@@ -241,8 +241,8 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
 
   const selectedBlueprintId = blueprint ? blueprintId(blueprint) : "";
   const blueprintPath = blueprint
-    ? `/blueprints/${encodeURIComponent(selectedBlueprintId)}`
-    : "/blueprints";
+    ? `/templates/${encodeURIComponent(selectedBlueprintId)}`
+    : "/templates";
   const exitEntity = useMemo(() => {
     if (isFirstRun) return null;
     return (
@@ -438,7 +438,7 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
   }
 
   if (!blueprint) {
-    return <LaunchShellError error={loadError} onBack={() => navigate("/blueprints")} />;
+    return <LaunchShellError error={loadError} onBack={() => navigate("/templates")} />;
   }
 
   if (provisioning && launchId) {
