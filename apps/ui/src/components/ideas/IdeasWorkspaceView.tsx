@@ -105,6 +105,17 @@ export default function IdeasWorkspaceView({
     : activeIdea
       ? scopeValue(activeIdea, agentId)
       : composeScope;
+  const hasActiveFilter =
+    filter.scope !== "all" ||
+    filter.search.trim() !== "" ||
+    filter.tags.length > 0 ||
+    filter.needsReview;
+  const titleCountSource = hasActiveFilter ? filtered : ideas;
+  const titleCount = Math.max(
+    0,
+    titleCountSource.length -
+      (rootIdea && titleCountSource.some((idea) => idea.id === rootIdea.id) ? 1 : 0),
+  );
 
   const ranked = useMemo(() => {
     if (searchActive) {
@@ -314,7 +325,14 @@ export default function IdeasWorkspaceView({
     >
       <PrimitivePageHeader
         className="ideas-workspace-head"
-        title="Ideas"
+        title={
+          <span className="ideas-workspace-title">
+            <span className="ideas-workspace-title-text">Ideas</span>
+            <span className="ideas-workspace-count" aria-label={`${titleCount} shown`}>
+              {titleCount}
+            </span>
+          </span>
+        }
         aria-label="Ideas workspace controls"
         padding="none"
         actions={
