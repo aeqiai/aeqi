@@ -6,8 +6,10 @@ import {
   BriefcaseBusiness,
   ChevronDown,
   CircleDollarSign,
+  CreditCard,
   Files,
   Flag,
+  Gauge,
   GraduationCap,
   House,
   LayoutDashboard,
@@ -28,10 +30,10 @@ import {
   Waypoints,
   Wrench,
   Users,
-  Settings,
   ReceiptText,
   Rocket,
   ScrollText,
+  ServerCog,
   Share2,
   ShieldCheck,
   WalletCards,
@@ -82,6 +84,9 @@ const SkillsIcon = () => <Icon icon={GraduationCap} />;
 const GatewaysIcon = () => <Icon icon={Waypoints} />;
 const ToolsIcon = () => <Icon icon={Wrench} />;
 const LogsIcon = () => <Icon icon={Logs} />;
+const RuntimeIcon = () => <Icon icon={ServerCog} />;
+const UsageIcon = () => <Icon icon={Gauge} />;
+const BillingIcon = () => <Icon icon={CreditCard} />;
 const AppsIcon = () => <Icon icon={AppWindow} />;
 const BudgetsIcon = () => <Icon icon={WalletCards} />;
 const TransactionsIcon = () => <Icon icon={ReceiptText} />;
@@ -95,7 +100,6 @@ const FilingsIcon = () => <Icon icon={Files} />;
 const RolesIcon = () => <Icon icon={Workflow} />;
 const MembersIcon = () => <Icon icon={Users} />;
 const IntegrationsIcon = () => <Icon icon={Plug} />;
-const SettingsIcon = () => <Icon icon={Settings} />;
 // Economy — Globe reads "the wider network / world economy" — the
 // marketplace + inference + stake activity is happening *out there*
 // across every trust, not in your local store.
@@ -573,8 +577,10 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
                   {navItem("tools", "Tools", <ToolsIcon />, {
                     locked: runtimeLocked,
                   })}
+                  {navItem("runtime", "Runtime", <RuntimeIcon />)}
+                  {navItem("usage", "Usage", <UsageIcon />)}
+                  {navItem("billing", "Billing", <BillingIcon />)}
                   {navItem("logs", "Logs", <LogsIcon />)}
-                  {navItem("settings", "Settings", <SettingsIcon />)}
                 </>,
               )}
             </nav>

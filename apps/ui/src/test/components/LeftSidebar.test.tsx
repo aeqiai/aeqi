@@ -37,8 +37,10 @@ const CANONICAL_NAV_ROWS = new Set([
   "Integrations",
   "Gateways",
   "Tools",
+  "Runtime",
+  "Usage",
+  "Billing",
   "Logs",
-  "Settings",
 ]);
 
 function withQueryClient(ui: React.ReactElement) {
@@ -169,8 +171,22 @@ describe("LeftSidebar trust navigation", () => {
       "href",
       "/trust/root-1/filings",
     );
+    const infrastructure = getByRole("region", { name: "Infrastructure" });
+    expect(within(infrastructure).getByRole("link", { name: "Runtime" })).toHaveAttribute(
+      "href",
+      "/trust/root-1/runtime",
+    );
+    expect(within(infrastructure).getByRole("link", { name: "Usage" })).toHaveAttribute(
+      "href",
+      "/trust/root-1/usage",
+    );
+    expect(within(infrastructure).getByRole("link", { name: "Billing" })).toHaveAttribute(
+      "href",
+      "/trust/root-1/billing",
+    );
     expect(getByRole("link", { name: "Shares" })).toBeInTheDocument();
     expect(getByRole("link", { name: "Logs" })).toHaveAttribute("href", "/trust/root-1/logs");
+    expect(queryByRole("link", { name: "Settings" })).not.toBeInTheDocument();
     expect(getByRole("link", { name: "My sessions" })).toBeInTheDocument();
     expect(queryByRole("link", { name: "Inbox" })).not.toBeInTheDocument();
 

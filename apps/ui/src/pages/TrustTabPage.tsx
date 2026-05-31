@@ -58,6 +58,18 @@ const PLACEHOLDER_TABS = {
     title: "Filings",
     description: "Incorporation, tax, and compliance filings will live here.",
   },
+  runtime: {
+    title: "Runtime",
+    description: "Runtime placement, health, and service controls will live here.",
+  },
+  usage: {
+    title: "Usage",
+    description: "Usage meters, limits, and spend telemetry will live here.",
+  },
+  billing: {
+    title: "Billing",
+    description: "Invoices, payment methods, and billing controls will live here.",
+  },
   logs: {
     title: "Logs",
     description: "Audit, runtime, and infrastructure logs will live here.",
@@ -122,6 +134,9 @@ interface TrustTabPageProps {
  *   /trust/:trustAddress/gateways      → AgentGatewaysTab(default/root agent lens)
  *   /trust/:trustAddress/integrations  → TrustAppsTab (external connections)
  *   /trust/:trustAddress/tools         → TrustToolsTab(default/root agent lens)
+ *   /trust/:trustAddress/runtime       → placeholder (runtime controls)
+ *   /trust/:trustAddress/usage         → placeholder (usage telemetry)
+ *   /trust/:trustAddress/billing       → placeholder (billing controls)
  *   /trust/:trustAddress/events        → AgentEventsTab(agent lens rail)
  *   /trust/:trustAddress/logs          → placeholder (audit/runtime logs)
  *   /trust/:trustAddress/quests        → AgentQuestsTab(entity scope)

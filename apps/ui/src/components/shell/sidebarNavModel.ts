@@ -15,5 +15,15 @@ export const TRUST_NAV_MATCHES: Record<TrustNavGroupId, string[]> = {
     "assets",
     "transactions",
   ],
-  infrastructure: ["integrations", "gateways", "channels", "tools", "logs", "settings"],
+  infrastructure: [
+    "integrations",
+    "gateways",
+    "channels",
+    "tools",
+    "runtime",
+    "usage",
+    "billing",
+    "logs",
+    "settings",
+  ],
 };

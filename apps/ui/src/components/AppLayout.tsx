@@ -97,6 +97,9 @@ const COMPANY_PAGE_TABS = new Set([
   // Apps is now the operating-surface registry (Mails, Websites, Campaigns).
   "apps",
   "tools",
+  "runtime",
+  "usage",
+  "billing",
   "events",
   "logs",
   "quests",
