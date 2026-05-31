@@ -194,8 +194,9 @@
 
 .footerMeta,
 .footerPage {
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   font-size: 12px;
+  font-weight: 500;
   line-height: 1.2;
   white-space: nowrap;
 }

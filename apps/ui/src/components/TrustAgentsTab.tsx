@@ -418,9 +418,6 @@ function SuggestedAgents({
               {templates.length}
             </span>
           </div>
-          <p className="trust-agents-suggest-subtitle">
-            Reusable agents from the template catalog.
-          </p>
         </div>
         <Button
           type="button"
