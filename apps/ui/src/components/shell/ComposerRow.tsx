@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
-import { ChevronUp, MessagesSquare } from "lucide-react";
+import { useNavigate, useParams } from "react-router-dom";
+import { ChevronUp } from "lucide-react";
 import Composer from "@/components/composer/Composer";
 import { Icon } from "@/components/ui";
 import { useNav } from "@/hooks/useNav";
@@ -27,9 +27,8 @@ interface ComposerRowProps {
   disabled?: boolean;
   /** Destination for pending ambient messages when no chat view is mounted. */
   composeHref?: string;
-  /** Link to the session this ambient dock is currently connected to. */
-  sessionHref?: string | null;
-  sessionLinkLabel?: string;
+  /** Session currently connected to the dock composer. */
+  connectedSessionId?: string | null;
   /**
    * Active session id if the URL points at one (agent-scope or user-
    * scope inbox). When provided, supersedes the params-derived itemId
@@ -59,8 +58,7 @@ export default function ComposerRow({
   sessionsMounted,
   mode = "floating",
   composeHref,
-  sessionHref,
-  sessionLinkLabel = "Session",
+  connectedSessionId,
   sessionId: explicitSessionId,
   expanded = false,
   placeholder,
@@ -113,7 +111,27 @@ export default function ComposerRow({
     if (sessionsMounted) {
       window.dispatchEvent(new CustomEvent("aeqi:send-message", { detail }));
     } else {
-      if (agentId && companyId) {
+      if (agentId && companyId && connectedSessionId) {
+        void (async () => {
+          try {
+            await api.sendSessionMessage(
+              {
+                message: text,
+                agent_id: agentId,
+                session_id: connectedSessionId,
+                session_ideas: ideas.length > 0 ? ideas : undefined,
+                quest_id: task?.id,
+                files: files.length > 0 ? files : undefined,
+              },
+              companyId,
+            );
+            navigate(entityPathFromId(entities, companyId, "sessions", connectedSessionId));
+          } catch {
+            setPendingMessage(agentId, detail);
+            navigate(composeHref || userSessionsPath(base));
+          }
+        })();
+      } else if (agentId && companyId) {
         void (async () => {
           try {
             const data = await api.createSession(agentId, companyId);
@@ -157,6 +175,7 @@ export default function ComposerRow({
     composeHref,
     base,
     agentId,
+    connectedSessionId,
     companyId,
     entities,
   ]);
@@ -319,15 +338,6 @@ export default function ComposerRow({
         {mode === "dock" && (
           <div className="agent-dock-header">
             <Icon icon={ChevronUp} size="sm" className="agent-dock-cue" />
-            {sessionHref && (
-              <Link
-                className="agent-dock-session-link"
-                to={sessionHref}
-                aria-label={`Open connected session: ${sessionLinkLabel}`}
-              >
-                <Icon icon={MessagesSquare} size="sm" />
-              </Link>
-            )}
           </div>
         )}
         <div className="persistent-composer">
@@ -348,6 +358,7 @@ export default function ComposerRow({
             setAttachedQuest={setTask}
             attachedFiles={files}
             setAttachedFiles={setFiles}
+            commandHintPlacement={mode === "dock" ? "footer" : undefined}
             // Picker lives inside AgentSessionView and is opened via
             // ⌘P/⌘Q keydown there. The slash palette and attach icons
             // dispatch the same intent through a window event so the

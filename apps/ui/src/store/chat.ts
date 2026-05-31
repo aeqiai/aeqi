@@ -3,6 +3,7 @@ import type { AgentRef } from "@/lib/types";
 import type { SessionInfo } from "@/components/session/types";
 
 const SELECTED_AGENT_KEY = "aeqi_selected_agent";
+const CONNECTED_SESSIONS_KEY = "aeqi_connected_sessions";
 
 function readSelectedAgent(): AgentRef | null {
   try {
@@ -18,6 +19,31 @@ function persistSelectedAgent(agent: AgentRef | null) {
   try {
     if (agent) localStorage.setItem(SELECTED_AGENT_KEY, JSON.stringify(agent));
     else localStorage.removeItem(SELECTED_AGENT_KEY);
+  } catch {
+    // ignore localStorage failures
+  }
+}
+
+export interface ConnectedSessionRef {
+  id: string;
+  agentId: string;
+  label: string;
+  touchedAt: number;
+}
+
+function readConnectedSessions(): Record<string, ConnectedSessionRef | null> {
+  try {
+    const raw = localStorage.getItem(CONNECTED_SESSIONS_KEY);
+    if (!raw) return {};
+    return JSON.parse(raw) as Record<string, ConnectedSessionRef | null>;
+  } catch {
+    return {};
+  }
+}
+
+function persistConnectedSessions(sessions: Record<string, ConnectedSessionRef | null>) {
+  try {
+    localStorage.setItem(CONNECTED_SESSIONS_KEY, JSON.stringify(sessions));
   } catch {
     // ignore localStorage failures
   }
@@ -57,6 +83,11 @@ interface ChatState {
    */
   streamingSessions: Record<string, true>;
   setSessionStreaming: (sessionId: string, streaming: boolean) => void;
+  connectedSessionByCompany: Record<string, ConnectedSessionRef | null>;
+  setConnectedSession: (
+    companyId: string,
+    session: Omit<ConnectedSessionRef, "touchedAt"> | null,
+  ) => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
@@ -139,6 +170,16 @@ export const useChatStore = create<ChatState>((set) => ({
       if (streaming) next[sessionId] = true;
       else delete next[sessionId];
       return { streamingSessions: next };
+    }),
+  connectedSessionByCompany: readConnectedSessions(),
+  setConnectedSession: (companyId, session) =>
+    set((state) => {
+      const next = {
+        ...state.connectedSessionByCompany,
+        [companyId]: session ? { ...session, touchedAt: Date.now() } : null,
+      };
+      persistConnectedSessions(next);
+      return { connectedSessionByCompany: next };
     }),
 }));
 

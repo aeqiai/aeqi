@@ -16,9 +16,8 @@ import RateLimitBanner from "./shell/RateLimitBanner";
 import { useCurrentCompany } from "@/hooks/useCurrentCompany";
 import type { Agent, Company } from "@/lib/types";
 import { entityPathFromId } from "@/lib/entityPath";
-import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
 import { userSessionsPath, withUserSessionsView } from "@/lib/sessionViews";
-import { sessionLabel } from "@/components/session/types";
+import { resolveDockComposerBinding } from "@/components/sessions/sessionComposerBinding";
 
 const CommandPalette = lazy(() => import("./CommandPalette"));
 const AgentPage = lazy(() => import("./AgentPage"));
@@ -246,6 +245,10 @@ export default function AppLayout() {
   // is the agent record's id — what AgentPage and the sub-tabs expect.
   const activeAgent = drilledAgent ?? defaultAgent;
   const activeAgentId = activeAgent?.id ?? "";
+  const sessionsByAgent = useChatStore((s) => s.sessionsByAgent);
+  const connectedSession = useChatStore((s) =>
+    effectiveRouteEntityId ? s.connectedSessionByCompany[effectiveRouteEntityId] : null,
+  );
   const activeAgentSessions = useChatStore((s) =>
     activeAgentId ? (s.sessionsByAgent[activeAgentId] ?? NO_AGENT_SESSIONS) : NO_AGENT_SESSIONS,
   );
@@ -521,20 +524,17 @@ export default function AppLayout() {
     !drilledAgent &&
     !!activeAgentId &&
     tab !== "sessions";
-  const dockSession = activeAgentSessions
-    .filter((s) => s.session_type !== "task")
-    .slice()
-    .sort((a, b) => {
-      const aTs = Date.parse(a.last_active || a.created_at || "") || 0;
-      const bTs = Date.parse(b.last_active || b.created_at || "") || 0;
-      return bTs - aTs;
-    })[0];
-  const dockComposeHref = activeAgentId
-    ? `${base}/sessions?agent=${encodeURIComponent(activeAgentId)}`
+  const { dockConnectedSession, dockAgentId } = resolveDockComposerBinding({
+    agents,
+    entityId: effectiveRouteEntityId,
+    sessionsByAgent,
+    connectedSession,
+    activeAgentSessions,
+    activeAgentId,
+  });
+  const dockComposeHref = dockAgentId
+    ? `${base}/sessions?agent=${encodeURIComponent(dockAgentId)}`
     : userSessionsPath(base);
-  const dockSessionHref = dockSession
-    ? sessionDeepUrlFromId(entities, companyId, activeAgentId, dockSession.id)
-    : dockComposeHref;
 
   const contentBody = (
     <div className="content-body-row">
@@ -566,13 +566,13 @@ export default function AppLayout() {
           {ambientDockAllowed && (
             <Suspense fallback={null}>
               <ComposerRow
-                agentId={activeAgentId || null}
+                agentId={dockAgentId || null}
                 base={base}
                 sessionsMounted={false}
                 mode="dock"
                 composeHref={dockComposeHref}
-                sessionHref={dockSessionHref}
-                sessionLinkLabel={dockSession ? sessionLabel(dockSession) : "Session"}
+                sessionId={dockConnectedSession?.id ?? null}
+                connectedSessionId={dockConnectedSession?.id ?? null}
               />
             </Suspense>
           )}

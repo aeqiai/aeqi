@@ -1750,7 +1750,9 @@
 /* Attach action buttons */
 .asv-attach-row {
   display: flex;
+  align-items: center;
   gap: var(--space-0);
+  min-width: 0;
 }
 .asv-attach-btn {
   color: var(--color-text-muted);
@@ -1758,6 +1760,38 @@
 }
 .asv-attach-btn:hover {
   color: var(--color-text-primary);
+}
+
+.asv-composer-inline-hints {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0 var(--space-3);
+  min-width: 0;
+  margin-left: var(--space-1);
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-3xs);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.asv-composer-inline-hints span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.asv-composer-inline-hints kbd {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-3xs);
+  padding: 1px 5px;
+  border: none;
+  border-radius: 3px;
+  background: var(--bg-surface);
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+  letter-spacing: 0.02em;
 }
 
 .asv-textarea {

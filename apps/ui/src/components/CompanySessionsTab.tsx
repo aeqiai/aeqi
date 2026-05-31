@@ -20,6 +20,11 @@ import SessionRail, { type SessionRailRow } from "@/components/sessions/SessionR
 import SessionsFilterPopover, {
   type SessionsFilterState,
 } from "@/components/sessions/SessionsFilterPopover";
+import {
+  connectedSessionRef,
+  searchParam,
+  sessionsGroupedByAgent,
+} from "@/components/sessions/sessionComposerBinding";
 import SessionsSortPopover, { type SessionsSort } from "@/components/sessions/SessionsSortPopover";
 import SessionsToolbar from "@/components/sessions/SessionsToolbar";
 import { Button, Icon, Loading, PrimitivePageHeader, ToolbarRadioPopover } from "@/components/ui";
@@ -83,6 +88,8 @@ export default function CompanySessionsTab({
   const entities = useDaemonStore((s) => s.entities);
   const agents = useDaemonStore((s) => s.agents);
   const streamingSessions = useChatStore((s) => s.streamingSessions);
+  const setConnectedSession = useChatStore((s) => s.setConnectedSession);
+  const setSessionsForAgent = useChatStore((s) => s.setSessionsForAgent);
   const [sessions, setSessions] = useState<ViewSessionInfo[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -152,6 +159,12 @@ export default function CompanySessionsTab({
       .sort((a, b) => a.label.localeCompare(b.label));
     return [{ id: "all", label: "All agents" }, ...options];
   }, [agentNameById, sessions]);
+
+  useEffect(() => {
+    sessionsGroupedByAgent(sessions).forEach((agentSessions, agentId) =>
+      setSessionsForAgent(agentId, agentSessions),
+    );
+  }, [sessions, setSessionsForAgent]);
 
   useEffect(() => {
     if (agentFilter === "all") return;
@@ -275,6 +288,11 @@ export default function CompanySessionsTab({
     (agentFilter !== "all" ? agentFilter : null) ||
     companyAgents[0]?.id ||
     null;
+
+  useEffect(() => {
+    const next = connectedSessionRef(selected);
+    if (next) setConnectedSession(companyId, next);
+  }, [companyId, selected, setConnectedSession]);
 
   const openNewSessionModal = useCallback(() => {
     setNewSessionAgentId(targetAgentId ?? sessionStartAgentOptions[0]?.value ?? "");
@@ -554,10 +572,7 @@ export default function CompanySessionsTab({
           mode="dock"
           expanded
           sessionId={selectedId ?? null}
-          sessionHref={
-            selectedId ? entityPathFromId(entities, companyId, "sessions", selectedId) : null
-          }
-          sessionLinkLabel={selectedTitle}
+          connectedSessionId={selectedId ?? null}
           placeholder={`Message ${selectedAgentName || "session"}...`}
           disabled={sending || !selectedId}
         />
@@ -574,16 +589,4 @@ export default function CompanySessionsTab({
       />
     </div>
   );
-}
-
-function searchParam(search: string, key: string): string | null {
-  const clean = search.startsWith("?") ? search.slice(1) : search;
-  const encodedKey = encodeURIComponent(key);
-  for (const part of clean.split("&")) {
-    const splitAt = part.indexOf("=");
-    const rawKey = splitAt === -1 ? part : part.slice(0, splitAt);
-    const rawValue = splitAt === -1 ? "" : part.slice(splitAt + 1);
-    if (rawKey === encodedKey) return decodeURIComponent(rawValue.replace(/\+/g, " "));
-  }
-  return null;
 }

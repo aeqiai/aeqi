@@ -98,6 +98,9 @@ export interface ComposerProps {
 
   // Kbd ribbon — auto-on with slash palette; can be force-off.
   showKbdRibbon?: boolean;
+  // Dock composers render command hints inside the footer row to avoid
+  // adding a second control row below the attachment actions.
+  commandHintPlacement?: "ribbon" | "footer" | "none";
 
   // @mention autocomplete (channel surface). When non-empty, an `@`
   // followed by a partial name opens a list and Tab/Enter inserts the
@@ -143,6 +146,7 @@ const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer(
     streaming = false,
     onStop,
     showKbdRibbon,
+    commandHintPlacement,
     mentionables,
     extraActions,
     sendLabel,
@@ -169,7 +173,10 @@ const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer(
   const hasFiles = attachmentTypes?.includes("file") ?? false;
   const hasAnyAttachment = hasIdeas || hasQuests || hasFiles;
   const slashEnabled = showSlashPalette ?? hasAnyAttachment;
-  const ribbonEnabled = showKbdRibbon ?? slashEnabled;
+  const resolvedCommandHintPlacement =
+    commandHintPlacement ?? ((showKbdRibbon ?? slashEnabled) ? "ribbon" : "none");
+  const ribbonEnabled = resolvedCommandHintPlacement === "ribbon";
+  const footerHintsEnabled = resolvedCommandHintPlacement === "footer";
   const hasMentions = (mentionables?.length ?? 0) > 0;
 
   // ── Slash palette state ───────────────────────────────────────────────
@@ -651,6 +658,10 @@ const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer(
             disabled={disabled}
             computedSendLabel={computedSendLabel}
             extraActions={extraActions}
+            showCommandHints={footerHintsEnabled}
+            slashEnabled={slashEnabled}
+            hasMentions={hasMentions}
+            hasHistory={(historySource?.length ?? 0) > 0}
             onStop={onStop}
             onSend={pushHistoryAndSend}
           />

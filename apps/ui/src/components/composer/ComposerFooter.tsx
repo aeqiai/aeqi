@@ -14,6 +14,10 @@ export interface ComposerFooterProps {
   disabled: boolean;
   computedSendLabel: string;
   extraActions?: React.ReactNode;
+  showCommandHints?: boolean;
+  slashEnabled?: boolean;
+  hasMentions?: boolean;
+  hasHistory?: boolean;
   onStop?: () => void;
   onSend: () => void;
 }
@@ -31,6 +35,10 @@ export default function ComposerFooter({
   disabled,
   computedSendLabel,
   extraActions,
+  showCommandHints = false,
+  slashEnabled = false,
+  hasMentions = false,
+  hasHistory = false,
   onStop,
   onSend,
 }: ComposerFooterProps) {
@@ -90,6 +98,38 @@ export default function ComposerFooter({
               </svg>
             </IconButton>
           </Tooltip>
+        )}
+        {showCommandHints && (
+          <div className="asv-composer-inline-hints" aria-hidden="true">
+            {slashEnabled && (
+              <span>
+                <kbd>/</kbd> commands
+              </span>
+            )}
+            {hasMentions && (
+              <span>
+                <kbd>@</kbd> mention
+              </span>
+            )}
+            {hasIdeas && (
+              <span>
+                <kbd>⌘P</kbd> ideas
+              </span>
+            )}
+            {hasQuests && (
+              <span>
+                <kbd>⌘Q</kbd> quests
+              </span>
+            )}
+            {hasHistory && (
+              <span>
+                <kbd>↑</kbd> history
+              </span>
+            )}
+            <span>
+              <kbd>⇧⏎</kbd> newline
+            </span>
+          </div>
         )}
       </div>
       <div className="asv-send-stack">

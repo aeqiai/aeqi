@@ -1411,6 +1411,10 @@
   box-shadow: none;
 }
 
+.content-column:has(.company-sessions-page .composer-row--dock) {
+  padding-bottom: 0;
+}
+
 /* Body row — rail + scroll, full width inside the paper sheet. The
    paper surface is owned by .content-paper; this row stays transparent. */
 .content-body-row {
@@ -2623,23 +2627,6 @@
 .agent-dock-cue {
   color: var(--composer-text-muted);
 }
-.agent-dock-session-link {
-  position: absolute;
-  right: 0;
-  height: 18px;
-  width: 24px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-1);
-  color: var(--composer-text-muted);
-  line-height: 1;
-  text-decoration: none;
-}
-.agent-dock-session-link:hover,
-.agent-dock-session-link:focus-visible {
-  color: var(--composer-text);
-}
 .composer-row--dock .persistent-composer {
   opacity: 0;
   pointer-events: none;
@@ -2729,6 +2716,13 @@
   color: var(--composer-text-muted);
 }
 .composer-wrap .asv-composer-ribbon kbd {
+  background: var(--composer-chip-bg);
+  color: var(--composer-text);
+}
+.composer-wrap .asv-composer-inline-hints {
+  color: var(--composer-text-muted);
+}
+.composer-wrap .asv-composer-inline-hints kbd {
   background: var(--composer-chip-bg);
   color: var(--composer-text);
 }
