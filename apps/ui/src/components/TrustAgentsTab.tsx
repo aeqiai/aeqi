@@ -307,38 +307,41 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
         </div>
       </PrimitivePageHeader>
 
-      <div className={`trust-agents-main trust-primitive-shell-surface trust-agents-main--${view}`}>
-        {activeChips.length > 0 && (
-          <div className="ideas-tags-strip">
-            <div className="ideas-list-chips" role="list" aria-label="Active filters">
-              {activeChips.map((c) => (
-                <button
-                  key={c.key}
-                  type="button"
-                  role="listitem"
-                  className={
-                    c.liveness ? "ideas-list-chip agents-list-chip--liveness" : "ideas-list-chip"
-                  }
-                  onClick={c.onRemove}
-                  title={`Remove ${c.label}`}
-                >
-                  {c.liveness && (
-                    <span
-                      className={`agent-liveness-dot agent-liveness-dot--${c.liveness}`}
-                      aria-hidden
-                    />
-                  )}
-                  <span className="ideas-list-chip-label">{c.label}</span>
-                  <span className="ideas-list-chip-x" aria-hidden>
-                    ×
-                  </span>
-                </button>
-              ))}
+      <div className={`trust-agents-main trust-agents-main--${view}`}>
+        <section
+          className="trust-agents-register trust-primitive-shell-surface"
+          aria-label="Agents register"
+        >
+          {activeChips.length > 0 && (
+            <div className="ideas-tags-strip">
+              <div className="ideas-list-chips" role="list" aria-label="Active filters">
+                {activeChips.map((c) => (
+                  <button
+                    key={c.key}
+                    type="button"
+                    role="listitem"
+                    className={
+                      c.liveness ? "ideas-list-chip agents-list-chip--liveness" : "ideas-list-chip"
+                    }
+                    onClick={c.onRemove}
+                    title={`Remove ${c.label}`}
+                  >
+                    {c.liveness && (
+                      <span
+                        className={`agent-liveness-dot agent-liveness-dot--${c.liveness}`}
+                        aria-hidden
+                      />
+                    )}
+                    <span className="ideas-list-chip-label">{c.label}</span>
+                    <span className="ideas-list-chip-x" aria-hidden>
+                      ×
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        <section className="trust-agents-register" aria-label="Agents register">
           <div className="trust-agents-register-body">
             {agentsLoading && entityAgents.length === 0 ? (
               <div className="ideas-list-body">
