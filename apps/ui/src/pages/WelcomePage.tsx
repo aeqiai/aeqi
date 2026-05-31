@@ -547,6 +547,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
     if (invitationToken) qs.set("invitation", invitationToken);
     const name = getSignupName();
     if (name) qs.set("name", name);
+    qs.set("return_origin", window.location.origin);
     const query = qs.toString() ? `?${qs.toString()}` : "";
     goExternal(`${SOLANA_API_URL}/api/auth/welcome/${provider}/start${query}`);
   }
