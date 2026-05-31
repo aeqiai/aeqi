@@ -233,16 +233,8 @@
 
 .company-sessions {
   --toolbar-control-h: 32px;
-  --sessions-header-separator: color-mix(
-    in srgb,
-    var(--color-border-faint) 68%,
-    var(--color-text-primary) 32%
-  );
-  --sessions-pane-separator: color-mix(
-    in srgb,
-    var(--color-border-faint) 82%,
-    var(--color-text-primary) 18%
-  );
+  --sessions-header-separator: var(--border);
+  --sessions-pane-separator: var(--color-border-faint);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr) auto;
