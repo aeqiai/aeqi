@@ -24,11 +24,14 @@ const STEWARD_TEMPLATE: AgentTemplate = {
 
 describe("TrustAgentsTab", () => {
   beforeEach(() => {
-    vi.spyOn(api, "getRoles").mockResolvedValue({ ok: true, roles: [], edges: [] });
     vi.spyOn(api, "getBlueprints").mockResolvedValue({
       ok: true,
       blueprints: [],
       agent_templates: [STEWARD_TEMPLATE],
+    });
+    vi.spyOn(api, "spawnAgent").mockResolvedValue({
+      ok: true,
+      agent: { id: "research-agent", name: "research-agent", trust_id: "root-1", status: "active" },
     });
     queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
@@ -41,6 +44,9 @@ describe("TrustAgentsTab", () => {
         trust_id: "root-1",
         model: "gpt-5",
         created_at: "2026-05-22T00:00:00Z",
+        total_tokens: 12400,
+        lifetime_cost_usd: 1.25,
+        budget_usd: 20,
       },
     ]);
     useDaemonStore.setState({
@@ -74,6 +80,10 @@ describe("TrustAgentsTab", () => {
             <Route
               path="/trust/:trustAddress/agents"
               element={<TrustAgentsTab trustId="root-1" />}
+            />
+            <Route
+              path="/trust/:trustAddress/agents/:agentId"
+              element={<div>Created agent detail</div>}
             />
             <Route
               path="/templates/:blueprintId/:section"
@@ -118,6 +128,11 @@ describe("TrustAgentsTab", () => {
     expect(screen.queryByText("Agents register")).not.toBeInTheDocument();
     expect(screen.getByText("Showing 1-1 of 1 agents")).toBeInTheDocument();
     expect(screen.getByText("Page 1 of 1")).toBeInTheDocument();
+    expect(screen.getByText("Created")).toBeInTheDocument();
+    expect(screen.getByText("May 22, 2026")).toBeInTheDocument();
+    expect(screen.getByText("Usage")).toBeInTheDocument();
+    expect(screen.getByText("$1.25 / $20.00")).toBeInTheDocument();
+    expect(screen.getByText("12K tokens")).toBeInTheDocument();
     expect(await screen.findByText("Steward")).toBeInTheDocument();
     expect(screen.getByText("Operating steward · 1 event · 1 idea · 1 quest")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "View Steward agent template" })).toBeInTheDocument();
@@ -131,6 +146,49 @@ describe("TrustAgentsTab", () => {
     fireEvent.click(await screen.findByRole("button", { name: "View Steward agent template" }));
 
     expect(screen.getByText("Agent template detail")).toBeInTheDocument();
+  });
+
+  it("creates a blank agent from the primary toolbar modal", async () => {
+    renderTab();
+
+    fireEvent.click(screen.getByRole("button", { name: /New agent/i }));
+    expect(screen.getByRole("dialog", { name: "New agent" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Agent name"), {
+      target: { value: "Research Agent" },
+    });
+    fireEvent.change(screen.getByLabelText("Charter"), {
+      target: { value: "Track weekly market changes." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create agent" }));
+
+    await waitFor(() => {
+      expect(api.spawnAgent).toHaveBeenCalledWith({
+        name: "research-agent",
+        trust_id: "root-1",
+        system_prompt: "You are research-agent. Track weekly market changes.",
+      });
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "New agent" })).not.toBeInTheDocument();
+    });
+    expect(screen.getByText("Created agent detail")).toBeInTheDocument();
+    expect(screen.queryByText("Agent template detail")).not.toBeInTheDocument();
+  });
+
+  it("validates duplicate agent names in the create modal", async () => {
+    renderTab();
+
+    fireEvent.click(screen.getByRole("button", { name: /New agent/i }));
+    fireEvent.change(screen.getByLabelText("Agent name"), {
+      target: { value: "Janus" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create agent" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "An agent named janus already exists in this TRUST.",
+    );
+    expect(api.spawnAgent).not.toHaveBeenCalled();
   });
 
   it("does not invent suggestions when no agent Templates exist", async () => {

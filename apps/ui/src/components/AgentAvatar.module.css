@@ -1,0 +1,20 @@
+.avatar,
+.fallback {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+}
+
+.avatar {
+  display: block;
+  object-fit: cover;
+}
+
+.fallback {
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: var(--btn-primary-text);
+}

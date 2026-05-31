@@ -32,6 +32,13 @@ function formatSpendDisplay(usd: number): string {
   return `$${usd.toFixed(2)}`;
 }
 
+function formatTokenCount(tokens: number | undefined): string {
+  if (!Number.isFinite(tokens) || !tokens) return "";
+  if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(tokens >= 10_000_000 ? 0 : 1)}M`;
+  if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(tokens >= 10_000 ? 0 : 1)}K`;
+  return String(tokens);
+}
+
 function formatModel(model: string | undefined): string {
   if (!model) return "";
   const slug = model.split("/").pop() ?? model;
@@ -44,6 +51,27 @@ function formatModel(model: string | undefined): string {
 
 function shortId(id: string): string {
   return id.length > 10 ? `${id.slice(0, 6)}…${id.slice(-4)}` : id;
+}
+
+function formatCreatedDate(value: string | undefined): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const months = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+  return `${months[date.getUTCMonth()]} ${date.getUTCDate()}, ${date.getUTCFullYear()}`;
 }
 
 export default function AgentsList({
@@ -65,6 +93,7 @@ export default function AgentsList({
         cell: (a) => {
           const liveness = livenessOf(a.status);
           const model = formatModel(a.model);
+          const created = formatCreatedDate(a.created_at);
           return (
             <span className="agents-list-identity">
               <span className="agents-list-avatar">
@@ -72,11 +101,10 @@ export default function AgentsList({
               </span>
               <span className="agents-list-identity-main">
                 <span className="agents-list-name">{a.name}</span>
-                <span className="agents-list-subline">
-                  {a.execution_mode || "Runtime"} · {shortId(a.id)}
-                </span>
+                <span className="agents-list-subline">{shortId(a.id)}</span>
                 <span className="agents-list-mobile-meta">
                   {model || "No model"} · {LIVENESS_LABEL[liveness]}
+                  {created ? ` · Created ${created}` : ""}
                 </span>
               </span>
             </span>
@@ -115,6 +143,15 @@ export default function AgentsList({
         },
       },
       {
+        key: "created",
+        header: "Created",
+        width: "14%",
+        sortable: true,
+        sortAccessor: (a) => (a.created_at ? Date.parse(a.created_at) : 0),
+        cell: (a) =>
+          formatCreatedDate(a.created_at) || <span className="agents-list-muted">—</span>,
+      },
+      {
         key: "lastActive",
         header: "Last active",
         width: "16%",
@@ -124,21 +161,33 @@ export default function AgentsList({
       },
       {
         key: "spend",
-        header: "Spend",
-        width: "16%",
+        header: "Usage",
+        width: "18%",
         align: "end",
         sortable: true,
         sortAccessor: (a) => a.lifetime_cost_usd ?? 0,
         cell: (a) => {
           const spend = a.lifetime_cost_usd ?? 0;
+          const tokens = formatTokenCount(a.total_tokens);
+          const hasLimit = Number.isFinite(a.budget_usd) && (a.budget_usd ?? 0) > 0;
+          const limit = hasLimit ? formatSpendDisplay(a.budget_usd ?? 0) : "∞";
           return (
             <span
-              title={`Lifetime inference spend: ${formatSpendUsd(spend)}`}
-              className={
-                spend > 0 ? "agents-list-spend" : "agents-list-spend agents-list-spend--zero"
-              }
+              title={`Inference usage: ${formatSpendUsd(spend)} spent / ${hasLimit ? `${limit} limit` : "unlimited"}${tokens ? ` · ${tokens} tokens` : ""}`}
+              className="agents-list-usage"
             >
-              {formatSpendDisplay(spend)}
+              <span
+                className={
+                  spend > 0
+                    ? "agents-list-usage-cost"
+                    : "agents-list-usage-cost agents-list-usage-cost--zero"
+                }
+              >
+                {formatSpendDisplay(spend)} / {limit}
+              </span>
+              <span className="agents-list-usage-meta">
+                {tokens ? `${tokens} tokens` : "No tokens"}
+              </span>
             </span>
           );
         },

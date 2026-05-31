@@ -4,7 +4,7 @@ import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
 import { entityPathFromId } from "@/lib/entityPath";
 import { CardTrigger } from "./ui";
-import BlockAvatar from "./BlockAvatar";
+import AgentAvatar from "./AgentAvatar";
 import BrandMark from "./BrandMark";
 import { BlueprintPickerModal } from "@/components/blueprints/BlueprintPickerModal";
 import type { Agent, Role, RoleEdge } from "@/lib/types";
@@ -264,7 +264,7 @@ function OrgNodeView({
         aria-label={`Select agent: ${node.label}`}
       >
         <span className="org-card-avatar">
-          {node.isRoot ? <BlockAvatar name={node.label} size={20} /> : <BrandMark size={14} />}
+          {node.isRoot ? <AgentAvatar name={node.label} /> : <BrandMark size={14} />}
         </span>
         <span className="org-card-body">
           <span className="org-card-name">{node.label}</span>

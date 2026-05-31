@@ -31,9 +31,9 @@ const AVATAR_SIZE = 32;
  * Avatar render contract by occupant kind:
  *
  *   human   → RoundAvatar (circle photo or hue-tinted initials)
- *   agent   → Bot icon in a rounded-square frame (ALWAYS — agents are
- *             software, not personas; a photo would imply human-likeness
- *             that the AEQI model deliberately doesn't claim)
+ *   agent   → Bot icon in a circular frame. Agents are identity actors
+ *             like humans in the register, while the glyph keeps them
+ *             clearly software.
  *   trust   → Landmark icon in an outlined rounded-square frame —
  *             signals a board / director seat held by another entity's
  *             TRUST address (e.g. parent holding's TRUST). The outlined
@@ -42,9 +42,9 @@ const AVATAR_SIZE = 32;
  *   vacant  → dashed circle silhouette
  *
  * The agent-always-robot rule is intentional. Hash-based identicons and
- * agent profile photos both invite users to anthropomorphise; a literal
+ * uncontrolled photos can invite users to anthropomorphise; a literal
  * robot glyph keeps the line between human and software legible at a
- * glance. Same principle for trust seats: institutional iconography
+ * glance. Same principle for TRUST seats: institutional iconography
  * instead of any portrait.
  */
 export default function RoleNode({

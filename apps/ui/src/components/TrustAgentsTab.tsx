@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowRight, Plus } from "lucide-react";
+import { ArrowDownWideNarrow, ArrowRight, ListFilter, Plus } from "lucide-react";
 import { api } from "@/lib/api";
-import type { Agent, AgentTemplate, Role, RoleEdge } from "@/lib/types";
+import type { Agent, AgentTemplate } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
 import { entityPathFromId } from "@/lib/entityPath";
 import { useAgentsQuery } from "@/queries/agents";
+import { agentKeys } from "@/queries/keys";
 import "@/styles/roles.css"; // shared trust workspace primitives
 import "@/styles/agents.css";
 import {
@@ -17,12 +19,10 @@ import {
   Tooltip,
   ToolbarRadioPopover,
 } from "./ui";
-import { BlueprintPickerModal } from "@/components/blueprints/BlueprintPickerModal";
 import AgentsEmptyState from "./agents/AgentsEmptyState";
 import AgentsList from "./agents/AgentsList";
-import AgentsChart from "./agents/AgentsChart";
+import NewAgentModal from "./agents/NewAgentModal";
 
-type ViewMode = "list" | "chart";
 type SortMode = "recent" | "alpha-asc" | "alpha-desc" | "active" | "spend";
 // Filter vocabulary mirrors the liveness ladder painted on each row
 // (online / idle / offline) so the toolbar and the row dots speak the
@@ -30,19 +30,12 @@ type SortMode = "recent" | "alpha-asc" | "alpha-desc" | "active" | "spend";
 // happens in `bucketLiveness`.
 type LivenessFilter = "all" | "online" | "idle" | "offline";
 
-const VIEW_LABELS: Record<ViewMode, string> = {
-  list: "List",
-  chart: "Chart",
-};
-const VIEW_ORDER: ViewMode[] = ["list", "chart"];
-const VIEW_VALUES = new Set<ViewMode>(VIEW_ORDER);
-
 const SORT_LABELS: Record<SortMode, string> = {
   recent: "Recently created",
   "alpha-asc": "Name (A→Z)",
   "alpha-desc": "Name (Z→A)",
   active: "Activity",
-  spend: "Spend (high → low)",
+  spend: "Usage (high → low)",
 };
 const SORT_ORDER: SortMode[] = ["recent", "alpha-asc", "alpha-desc", "active", "spend"];
 const SORT_VALUES = new Set<SortMode>(SORT_ORDER);
@@ -58,21 +51,17 @@ const LIVENESS_FILTER_VALUES = new Set<LivenessFilter>(LIVENESS_FILTER_ORDER);
 
 /**
  * Agents tab. Lists every agent inside the active entity — root and seeds —
- * with the canonical search · sort · filter · view toolbar shipped on Ideas
- * and Blueprints. State (q, sort, filter, view) persists in the URL via the
+ * with the canonical search · sort · filter toolbar shipped on Ideas
+ * and Blueprints. State (q, sort, filter) persists in the URL via the
  * same `patchParams` idiom Ideas / Quests / Positions adopted.
  *
  * List view is a flat scannable register sorted by the toolbar selector
- * (recent / alpha / activity / spend). Hierarchy lives in the chart view —
- * the indented-tree shape was reverted 2026-05-07; nesting is a chart
- * concern, not a list concern.
- *
- * Chart view mirrors TrustRolesTab's layered-DAG renderer so both
- * tabs answer the same shape from different lenses — Positions reads
- * "what slots exist", Agents-chart reads "who fills those slots".
+ * (recent / alpha / activity / usage). Hierarchy belongs to Roles/Positions;
+ * Agents stays a register of operational workers.
  */
 export default function TrustAgentsTab({ trustId }: { trustId: string }) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const entitiesList = useDaemonStore((s) => s.entities);
   const openAgent = useCallback(
     (agentId: string) =>
@@ -85,8 +74,6 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
   const search = searchParams.get("q") ?? "";
   const sortRaw = searchParams.get("sort");
   const sort: SortMode = SORT_VALUES.has(sortRaw as SortMode) ? (sortRaw as SortMode) : "recent";
-  const viewRaw = searchParams.get("view");
-  const view: ViewMode = VIEW_VALUES.has(viewRaw as ViewMode) ? (viewRaw as ViewMode) : "list";
   const statusRaw = searchParams.get("status");
   const status: LivenessFilter = LIVENESS_FILTER_VALUES.has(statusRaw as LivenessFilter)
     ? (statusRaw as LivenessFilter)
@@ -94,39 +81,10 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
 
   const { data: entityAgents = [], isLoading: agentsLoading } = useAgentsQuery(trustId);
 
-  // Roles + edges power the chart view; the list view is flat. Load once
-  // for the entity so a tab toggle doesn't refetch.
-  const [positions, setPositions] = useState<Role[]>([]);
-  const [edges, setEdges] = useState<RoleEdge[]>([]);
-  const [rolesLoading, setRolesLoading] = useState(false);
-  const [chartError, setChartError] = useState<string | null>(null);
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [agentTemplates, setAgentTemplates] = useState<AgentTemplate[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(false);
   const [templatesError, setTemplatesError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setRolesLoading(true);
-    setChartError(null);
-    api
-      .getRoles(trustId)
-      .then((resp) => {
-        if (cancelled) return;
-        setPositions(resp.roles ?? []);
-        setEdges(resp.edges ?? []);
-      })
-      .catch((e: Error) => {
-        if (cancelled) return;
-        setChartError(e.message || "Could not load roles.");
-      })
-      .finally(() => {
-        if (!cancelled) setRolesLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [trustId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -172,8 +130,8 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
 
   // "+ New agent" — listen for the global aeqi:create event so the
   // composer key path (`+`) and the toolbar button share a single entry
-  // point. Mirrors AgentsTab's prior wiring.
-  const openPicker = useCallback(() => setPickerOpen(true), []);
+  // point.
+  const openCreateAgent = useCallback(() => setCreateOpen(true), []);
   const openAgentBlueprints = useCallback(() => {
     navigate(`/templates/agents?import_into=${encodeURIComponent(trustId)}`);
   }, [navigate, trustId]);
@@ -181,9 +139,17 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
     navigate(`/templates/aeqi/agents?import_into=${encodeURIComponent(trustId)}`);
   }, [navigate, trustId]);
   useEffect(() => {
-    window.addEventListener("aeqi:create", openPicker);
-    return () => window.removeEventListener("aeqi:create", openPicker);
-  }, [openPicker]);
+    window.addEventListener("aeqi:create", openCreateAgent);
+    return () => window.removeEventListener("aeqi:create", openCreateAgent);
+  }, [openCreateAgent]);
+
+  const handleAgentCreated = useCallback(
+    async (agentId: string) => {
+      await queryClient.invalidateQueries({ queryKey: agentKeys.directory(trustId) });
+      openAgent(agentId);
+    },
+    [openAgent, queryClient, trustId],
+  );
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -254,13 +220,15 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
           </span>
         }
         aria-label="Agent controls"
+        pinPlacement="utilities"
         actions={
-          <Tooltip content="New agent (N)">
+          <Tooltip content="New agent">
             <Button
               className="trust-top-rail-cta"
               variant="primary"
               size="md"
-              onClick={openPicker}
+              onClick={openCreateAgent}
+              aria-label="New agent"
               leadingIcon={<Icon icon={Plus} size="sm" />}
             >
               Agent
@@ -299,19 +267,10 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
             onChange={(next) => setSearchParam("status", next === "all" ? null : next)}
             indicator={status !== "all"}
           />
-
-          <ToolbarRadioPopover
-            label="View"
-            current={VIEW_LABELS[view]}
-            glyph={GLYPHS.view}
-            options={VIEW_ORDER.map((v) => ({ id: v, label: VIEW_LABELS[v] }))}
-            value={view}
-            onChange={(next) => setSearchParam("view", next === "list" ? null : next)}
-          />
         </div>
       </PrimitivePageHeader>
 
-      <div className={`trust-agents-main trust-agents-main--${view}`}>
+      <div className="trust-agents-main trust-agents-main--list">
         <section
           className="trust-agents-register trust-primitive-shell-surface"
           aria-label="Agents register"
@@ -353,19 +312,10 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
               </div>
             ) : entityAgents.length === 0 ? (
               <div className="ideas-list-body">
-                <AgentsEmptyState onNew={openPicker} />
+                <AgentsEmptyState onNew={openCreateAgent} />
               </div>
-            ) : view === "list" ? (
-              <AgentsList agents={filtered} onSelect={openAgent} />
             ) : (
-              <AgentsChart
-                positions={positions}
-                edges={edges}
-                entityAgents={entityAgents}
-                loading={rolesLoading}
-                error={chartError}
-                onSelect={openAgent}
-              />
+              <AgentsList agents={filtered} onSelect={openAgent} />
             )}
           </div>
         </section>
@@ -379,10 +329,12 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
         />
       </div>
 
-      <BlueprintPickerModal
-        open={pickerOpen}
-        onClose={() => setPickerOpen(false)}
+      <NewAgentModal
+        open={createOpen}
         trustId={trustId}
+        agents={entityAgents}
+        onClose={() => setCreateOpen(false)}
+        onCreated={handleAgentCreated}
       />
     </div>
   );
@@ -530,22 +482,6 @@ function compareAgents(a: Agent, b: Agent, mode: SortMode): number {
 }
 
 const GLYPHS = {
-  sort: (
-    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" aria-hidden>
-      <path d="M3 3.5h7M3 6.5h5M3 9.5h3" strokeWidth="1.2" strokeLinecap="round" />
-    </svg>
-  ),
-  filter: (
-    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" aria-hidden>
-      <path d="M2 3.25h9M3.5 6.5h6M5 9.75h3" strokeWidth="1.25" strokeLinecap="round" />
-    </svg>
-  ),
-  view: (
-    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" aria-hidden>
-      <rect x="2" y="2" width="3.5" height="3.5" strokeWidth="1.2" rx="0.4" />
-      <rect x="7.5" y="2" width="3.5" height="3.5" strokeWidth="1.2" rx="0.4" />
-      <rect x="2" y="7.5" width="3.5" height="3.5" strokeWidth="1.2" rx="0.4" />
-      <rect x="7.5" y="7.5" width="3.5" height="3.5" strokeWidth="1.2" rx="0.4" />
-    </svg>
-  ),
+  sort: <Icon icon={ArrowDownWideNarrow} size="sm" />,
+  filter: <Icon icon={ListFilter} size="sm" />,
 } as const;

@@ -20,11 +20,9 @@ export interface TrustAvatarProps {
  * white card-elevated surface — the runtime's signature standing in
  * for an organization that hasn't customized yet.
  *
- * Mirrors UserAvatar (round, human) / AgentAvatar (rounded-square,
- * agent Bot) but with brandmark-as-default instead of random
- * identicon. The shape is rounded-square so a TRUST and an agent
- * never read as the same primitive: agents are charcoal-bg + white
- * Bot, TRUSTs are white-bg + black brandmark.
+ * Mirrors UserAvatar / AgentAvatar as actor identity circles, while
+ * TRUSTs keep the institutional rounded-square frame: white-bg +
+ * black brandmark by default.
  */
 export default function TrustAvatar({ name, src, size = 32, className }: TrustAvatarProps) {
   const [imgErrored, setImgErrored] = useState(false);

@@ -1,12 +1,12 @@
+import AgentAvatar from "../AgentAvatar";
 import BlockAvatar from "../BlockAvatar";
 import RoundAvatar from "../RoundAvatar";
 import { parseAssignee, resolveAssigneeDisplay } from "@/lib/assignee";
 import type { Agent, User } from "@/lib/types";
 
 /**
- * Polymorphic assignee avatar. Block (square) for agents, round for
- * humans — the codebase already locked that axis via `AgentAvatar` /
- * `UserAvatar`, this component just routes the polymorphic
+ * Polymorphic assignee avatar. Humans and agents are round actor
+ * identities; structural roles remain block marks. This component routes the polymorphic
  * `agent:<id>` | `user:<id>` | `role:<id>` string to the right primitive.
  *
  * Roles render as a block avatar (square slot) — they are positions,
@@ -34,7 +34,10 @@ export default function AssigneeAvatar({
   if (!identity) return <UnassignedDot size={size} />;
   const display = resolveAssigneeDisplay(identity, agents, users);
   if (!display) return <UnassignedDot size={size} />;
-  if (display.kind === "agent" || display.kind === "role") {
+  if (display.kind === "agent") {
+    return <AgentAvatar name={display.name} />;
+  }
+  if (display.kind === "role") {
     return <BlockAvatar name={display.name} size={size} />;
   }
   return <RoundAvatar name={display.name} size={size} src={display.avatarUrl} />;

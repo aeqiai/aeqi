@@ -1,6 +1,6 @@
 .header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 680px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-3);
   min-width: 0;
@@ -19,7 +19,11 @@
 
 .title {
   flex: 0 0 auto;
+  grid-column: 1;
+  grid-row: 1;
   justify-self: start;
+  position: relative;
+  z-index: 1;
   margin: 0;
   display: inline-flex;
   align-items: center;
@@ -55,8 +59,10 @@
 .chrome {
   display: flex;
   align-items: center;
+  grid-column: 1 / -1;
+  grid-row: 1;
   min-width: 180px;
-  width: 100%;
+  width: min(100%, 640px);
   justify-self: center;
 }
 
@@ -65,16 +71,30 @@
   flex: 1;
 }
 
+.utilities,
 .actions {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
   flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.utilities {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+}
+
+.actions {
+  grid-column: 2;
+  grid-row: 1;
   justify-self: end;
 }
 
 .header:not([data-has-chrome="true"]) .actions {
-  grid-column: 3;
+  grid-column: 2;
 }
 
 .header[data-has-chrome="true"] .actions {
@@ -88,8 +108,20 @@
     gap: var(--space-3);
   }
 
-  .header[data-has-chrome="true"] .chrome {
+  .title {
+    order: 1;
+  }
+
+  .utilities {
     order: 3;
+  }
+
+  .actions {
+    order: 4;
+  }
+
+  .header[data-has-chrome="true"] .chrome {
+    order: 2;
     flex-basis: 100%;
   }
 }

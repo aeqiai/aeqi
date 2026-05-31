@@ -11,15 +11,27 @@ export interface PrimitivePageHeaderProps extends Omit<HTMLAttributes<HTMLElemen
   actions?: ReactNode;
   padding?: "standard" | "none";
   titleVariant?: "chip" | "plain";
+  pinPlacement?: "actions" | "utilities" | "none";
 }
 
 export const PrimitivePageHeader = forwardRef<HTMLElement, PrimitivePageHeaderProps>(
   function PrimitivePageHeader(
-    { title, actions, padding = "standard", titleVariant = "plain", className, children, ...rest },
+    {
+      title,
+      actions,
+      padding = "standard",
+      titleVariant = "plain",
+      pinPlacement = "actions",
+      className,
+      children,
+      ...rest
+    },
     ref,
   ) {
     const hasChrome = Boolean(children);
     const defaultPinnedLabel = typeof title === "string" ? title : undefined;
+    const pinButton =
+      pinPlacement === "none" ? null : <PinCurrentViewButton defaultLabel={defaultPinnedLabel} />;
     return (
       <header
         ref={ref}
@@ -27,14 +39,18 @@ export const PrimitivePageHeader = forwardRef<HTMLElement, PrimitivePageHeaderPr
         data-padding={padding}
         data-has-chrome={hasChrome ? "true" : undefined}
         data-title-variant={titleVariant}
+        data-pin-placement={pinPlacement}
         {...rest}
       >
         <h1 className={styles.title}>{title}</h1>
         {children && <div className={styles.chrome}>{children}</div>}
-        <div className={styles.actions}>
-          <PinCurrentViewButton defaultLabel={defaultPinnedLabel} />
-          {actions}
-        </div>
+        {(pinPlacement === "utilities" || actions) && (
+          <div className={styles.utilities}>
+            {pinPlacement === "utilities" && pinButton}
+            {actions}
+          </div>
+        )}
+        <div className={styles.actions}>{pinPlacement === "actions" && pinButton}</div>
       </header>
     );
   },

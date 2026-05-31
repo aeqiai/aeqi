@@ -83,10 +83,9 @@
 }
 
 /* Avatar slot — sized container that DOESN'T impose its own shape on
-   the inner avatar. The avatar primitive (RoundAvatar / BlockAvatar /
-   <img>) owns its own border-radius so humans render as circles and
-   agents render as rounded-square — matches the rest of the app and
-   the canonical UserAvatar / AgentAvatar contract. */
+   the inner avatar. The avatar primitive owns its own radius: humans
+   and agents render as identity circles; TRUSTs keep institutional
+   rounded-square marks. */
 .role-node-avatar {
   flex-shrink: 0;
   display: inline-flex;
@@ -105,17 +104,15 @@
   border: 1px dashed var(--border-strong, var(--border));
   color: var(--color-text-muted);
 }
-/* Agent avatar — solid charcoal rounded-square frame holding a robot
-   glyph. Same shape rule as the rest of the app (agents = rounded
-   square) but the inner mark is a literal Bot, not an identicon —
-   agents are software, the visual should not invite anthropomorphism. */
+/* Agent avatar — solid charcoal circular frame holding a robot glyph.
+   It is an identity mark like a human avatar, but still clearly software. */
 .role-node-avatar-agent {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 100%;
   height: 100%;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   background: var(--accent);
   color: var(--btn-primary-text);
 }
@@ -534,10 +531,6 @@
   vertical-align: middle;
 }
 
-.roles-list-avatar--agent {
-  border-radius: 4px;
-}
-
 .roles-list-avatar--human,
 .roles-list-avatar--initials {
   border-radius: var(--radius-full);
@@ -806,14 +799,31 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.agents-list-spend {
+.agents-list-usage {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 0;
+  max-width: 100%;
+}
+.agents-list-usage-cost {
   font-family: var(--font-mono);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   color: var(--color-text-primary);
 }
-.agents-list-spend--zero {
+.agents-list-usage-cost--zero {
   color: var(--color-text-muted);
+}
+.agents-list-usage-meta {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Agents register table — sentence-case operational headers, not raw
@@ -2028,12 +2038,15 @@
   .agents-list table col:nth-child(2),
   .agents-list table col:nth-child(3),
   .agents-list table col:nth-child(4),
+  .agents-list table col:nth-child(5),
   .agents-list table thead th:nth-child(2),
   .agents-list table thead th:nth-child(3),
   .agents-list table thead th:nth-child(4),
+  .agents-list table thead th:nth-child(5),
   .agents-list table tbody td:nth-child(2),
   .agents-list table tbody td:nth-child(3),
-  .agents-list table tbody td:nth-child(4) {
+  .agents-list table tbody td:nth-child(4),
+  .agents-list table tbody td:nth-child(5) {
     display: none;
   }
 

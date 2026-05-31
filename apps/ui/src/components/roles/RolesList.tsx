@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import type { Role, RoleEdge, RoleType } from "@/lib/types";
+import AgentAvatar from "../AgentAvatar";
 import { Table, type TableColumn } from "../ui";
-import BlockAvatar from "../BlockAvatar";
 import { labelRoleType } from "./RoleInspectorPrimitives";
 
 export interface RolesListProps {
@@ -212,17 +212,15 @@ function parentOccupantLabel(role: Role, agentNames: Map<string, string>): strin
   return role.occupant_name ?? (role.occupant_id ? `${role.occupant_id.slice(0, 6)}…` : "");
 }
 
-const AVATAR_SIZE = 18;
-
 /**
  * Avatar render contract — matches RoleNode (the chart/cards surface):
  *
- *   agent + URL    → square <img> (borderRadius 4) — block aesthetic
- *   agent + no URL → BlockAvatar identicon (already borderRadius 4)
+ *   agent          → AgentAvatar circle — software glyph unless a real avatar exists
  *   human + URL    → circular <img> (borderRadius 999px)
  *   human + no URL → circular initials chip (borderRadius 999px)
  *
- * Square-vs-circle is the agent/human shape rule shipped on RoleNode.
+ * Humans and agents are identity circles; TRUSTs keep the institutional
+ * rounded-square shape.
  */
 function AgentAvatarChip({
   avatarUrl,
@@ -231,12 +229,9 @@ function AgentAvatarChip({
   avatarUrl: string | null | undefined;
   label: string;
 }) {
-  if (avatarUrl) {
-    return <img src={avatarUrl} alt="" className="roles-list-avatar roles-list-avatar--agent" />;
-  }
   return (
     <span aria-hidden className="roles-list-avatar-shell">
-      <BlockAvatar name={label} size={AVATAR_SIZE} />
+      <AgentAvatar name={label} src={avatarUrl ?? undefined} />
     </span>
   );
 }

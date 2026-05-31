@@ -3,10 +3,10 @@ import RoundAvatar from "./RoundAvatar";
 /**
  * UserAvatar — canonical render for humans.
  *
- * Round, colorful (hash-driven hue, initials fallback). Mirrors
- * AgentAvatar / BlockAvatar so the rule is grep-able:
- *   round   → human
- *   block   → agent
+ * Round, colorful (hash-driven hue, initials fallback). Mirrors the
+ * canonical identity rule:
+ *   round          → human or agent actor
+ *   rounded-square → TRUST / institutional entity
  * Component code uses these wrappers, not the primitives directly.
  */
 export default function UserAvatar({

@@ -27,6 +27,28 @@ describe("PrimitivePageHeader", () => {
     expect(screen.getByLabelText("Agent context")).toHaveAttribute("data-title-variant", "chip");
   });
 
+  it("can place the pin control in the utility rail before primary actions", () => {
+    render(
+      <PrimitivePageHeader
+        title="Agents"
+        aria-label="Agent controls"
+        pinPlacement="utilities"
+        actions={<button type="button">New agent</button>}
+      >
+        <input aria-label="Search agents" />
+      </PrimitivePageHeader>,
+    );
+
+    const header = screen.getByLabelText("Agent controls");
+    const search = screen.getByLabelText("Search agents");
+    const pin = screen.getByRole("button", { name: "Pin current view" });
+    const action = screen.getByRole("button", { name: "New agent" });
+
+    expect(header).toHaveAttribute("data-pin-placement", "utilities");
+    expect(search.compareDocumentPosition(pin)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(pin.compareDocumentPosition(action)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
   it("saves the current route as a pinned view", () => {
     window.history.pushState({}, "", "/trust/root-1/quests?status=open");
     render(<PrimitivePageHeader title="Quests" aria-label="Quest controls" />);

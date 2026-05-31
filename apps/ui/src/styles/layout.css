@@ -6763,15 +6763,16 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
   font-family: var(--font-sans);
   font-size: 10px;
+  line-height: 1;
   color: var(--color-text-muted);
-  background: var(--bg-base);
-  border: none;
-  border-radius: var(--radius-xs);
+  background: var(--color-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
   pointer-events: none;
   transition: opacity 0.15s;
 }
@@ -12660,7 +12661,7 @@ button.role-context-card:disabled {
 }
 
 .role-context-card-occupant-avatar--agent {
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   background: var(--accent);
   color: var(--btn-primary-text);
 }
