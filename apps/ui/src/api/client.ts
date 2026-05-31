@@ -30,6 +30,9 @@ export interface ApiRequestOptions extends RequestInit {
 }
 
 function wirePathFor(path: string): string {
+  if (path.startsWith("/runtime/status?company_id=")) {
+    return path.replace("/runtime/status?company_id=", "/runtime/status?trust_id=");
+  }
   return path === "/companies" || path.startsWith("/companies/")
     ? path.replace(/^\/companies/, "/trusts")
     : path;

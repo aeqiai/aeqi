@@ -37,4 +37,19 @@ describe("companies API scoping", () => {
       });
     }
   });
+
+  it("bridges runtime status to the hosted trust query parameter", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ ok: true, has_runtime: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.getRuntimeStatus("company-1");
+
+    const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/runtime/status?trust_id=company-1");
+  });
 });
