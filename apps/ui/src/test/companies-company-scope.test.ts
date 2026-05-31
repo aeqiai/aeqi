@@ -52,4 +52,24 @@ describe("companies API scoping", () => {
     const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("/api/runtime/status?trust_id=company-1");
   });
+
+  it("bridges roles list to the hosted trust query parameter", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ ok: true, roles: [], edges: [] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.getRoles("company-1");
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/roles?trust_id=company-1");
+    expect(init.headers).toMatchObject({
+      "X-Company": "company-1",
+      "X-Entity": "company-1",
+      "X-Trust": "company-1",
+    });
+  });
 });
