@@ -38,8 +38,7 @@ describe("StartPage MVP surface", () => {
   it("renders Home as a global product surface instead of a trust dashboard", () => {
     renderStartPage();
 
-    expect(screen.getByRole("heading", { level: 1, name: "aeqi" })).toBeInTheDocument();
-    expect(screen.getByText("Start something that can work without you.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Welcome" })).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: /launch trust/i }).length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: /view blueprint/i })).toBeInTheDocument();
 
@@ -53,12 +52,13 @@ describe("StartPage MVP surface", () => {
     renderStartPage();
 
     const startRow = screen.getByRole("region", { name: "Start with aeqi" });
+    expect(within(startRow).getByRole("heading", { name: "First Company" })).toBeInTheDocument();
     expect(within(startRow).getByRole("heading", { name: "Launch a TRUST" })).toBeInTheDocument();
     expect(within(startRow).getByRole("link", { name: /view blueprint/i })).toHaveAttribute(
       "href",
       "/blueprints",
     );
-    expect(within(startRow).getByText("Find what is live")).toBeInTheDocument();
+    expect(within(startRow).getByRole("heading", { name: "Live Economy" })).toBeInTheDocument();
     expect(
       within(startRow).getByRole("heading", { name: "Invite the first operators" }),
     ).toBeInTheDocument();
@@ -67,7 +67,6 @@ describe("StartPage MVP surface", () => {
       expect.stringContaining("mailto:"),
     );
     expect(screen.queryByRole("link", { name: /read update/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "First Company" })).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Learn aeqi" })).toBeInTheDocument();
   });
 

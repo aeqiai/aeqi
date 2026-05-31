@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, BookOpen, Globe, Plus, Rocket, Share2, Users } from "lucide-react";
+import { ArrowRight, BookOpen, FileText, Globe, Plus, Rocket, Share2, Users } from "lucide-react";
 import { LEARN_POSTS } from "./startPageLearnPosts";
 import "@/styles/roles.css";
 
 export default function StartPage() {
+  const currentDateTime = useCurrentDateTime();
+
   return (
     <div className="home-page">
       <header className="home-hero home-hero--global" aria-label="aeqi home">
@@ -13,28 +15,70 @@ export default function StartPage() {
           <div className="home-hero-identity">
             <div className="home-hero-text">
               <p className="home-hero-eyebrow">The company OS</p>
-              <h1 className="home-hero-title">aeqi</h1>
+              <h1 className="home-hero-title">Welcome</h1>
               <span className="home-hero-profile-copy">
-                <span className="home-hero-subtitle">
-                  Start something that can work without you.
-                </span>
-                <span className="home-hero-email">
-                  Launch a TRUST, bring agents into the loop, and keep proof in one place.
-                </span>
+                <span className="home-hero-subtitle">{currentDateTime}</span>
               </span>
             </div>
           </div>
         </div>
       </header>
 
-      <section className="home-row-promos" aria-label="Start with aeqi">
-        <LaunchTrustCard />
-        <EconomyCard />
-        <ReferralCard />
-      </section>
+      <div className="home-body">
+        <section className="home-row-promos" aria-label="Start with aeqi">
+          <EconomyCard />
+          <BlueprintCard />
+          <ReferralCard />
+          <LaunchTrustCard />
+        </section>
+      </div>
 
-      <LearnAeqiSection />
+      <div className="home-floor">
+        <LearnAeqiSection />
+      </div>
     </div>
+  );
+}
+
+function useCurrentDateTime() {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setNow(new Date());
+    }, 30_000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(now);
+}
+
+function BlueprintCard() {
+  return (
+    <article className="home-card home-card--blueprint home-card--elevated">
+      <span className="home-launch-kicker">
+        <FileText size={15} strokeWidth={1.7} aria-hidden="true" />
+        Blueprint
+      </span>
+      <div className="home-launch-body">
+        <h2 className="home-launch-title">First Company</h2>
+        <p className="home-launch-hint">
+          Review the default structure before you create the operating context.
+        </p>
+      </div>
+      <div className="home-launch-actions">
+        <Link to="/blueprints" className="home-primary-action home-primary-action--secondary">
+          View blueprint
+          <ArrowRight size={16} strokeWidth={1.8} />
+        </Link>
+      </div>
+    </article>
   );
 }
 
@@ -48,18 +92,13 @@ function LaunchTrustCard() {
       <div className="home-launch-body">
         <h2 className="home-launch-title">Launch a TRUST</h2>
         <p className="home-launch-hint">
-          Name the workspace, choose the First Company blueprint, and create the first operating
-          context.
+          Name the workspace and create the first operating context.
         </p>
       </div>
       <div className="home-launch-actions">
         <Link to="/launch" className="home-primary-action">
           <Plus size={16} strokeWidth={1.8} />
           Launch TRUST
-        </Link>
-        <Link to="/blueprints" className="home-primary-action home-primary-action--secondary">
-          View blueprint
-          <ArrowRight size={16} strokeWidth={1.8} />
         </Link>
       </div>
     </article>
@@ -94,22 +133,19 @@ function ReferralCard() {
 
 function EconomyCard() {
   return (
-    <article className="home-card home-card--economy home-card--recessed">
+    <article className="home-card home-card--economy home-card--elevated">
       <span className="home-launch-kicker">
         <Globe size={15} strokeWidth={1.7} aria-hidden="true" />
         Economy
       </span>
-      <div className="home-economy-content">
-        <div className="home-economy-body">
-          <p className="home-economy-lede">Find what is live</p>
-          <p className="home-economy-aside">
-            Browse public TRUSTs, open roles, and launch signals from the network.
-          </p>
-        </div>
-        <Link
-          to="/economy"
-          className="home-primary-action home-primary-action--secondary home-economy-cta"
-        >
+      <div className="home-launch-body">
+        <h2 className="home-launch-title">Live Economy</h2>
+        <p className="home-launch-hint">
+          Browse public TRUSTs, open roles, and launch signals across the network.
+        </p>
+      </div>
+      <div className="home-launch-actions">
+        <Link to="/economy" className="home-primary-action home-primary-action--secondary">
           Open Economy
           <ArrowRight size={16} strokeWidth={1.8} />
         </Link>
@@ -131,52 +167,39 @@ function LearnAeqiSection() {
 
   return (
     <section className="home-learn" aria-label="Learn aeqi">
-      <article className="home-card home-card--learn home-card--recessed">
-        <div className="home-learn-head">
-          <h2 className="home-learn-title">Learn more</h2>
-        </div>
-        <div className="home-learn-carousel">
+      <div className="home-learn-head">
+        <h2 className="home-learn-title">Learn more</h2>
+      </div>
+      <article className="home-learn-carousel">
+        <a
+          className="home-learn-carousel-media"
+          href={activePost.href}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <img
+            key={activePost.image}
+            src={activePost.image}
+            alt=""
+            className="home-learn-carousel-image"
+            aria-hidden="true"
+          />
+        </a>
+        <span key={activePost.href} className="home-learn-carousel-copy">
           <a
-            className="home-learn-carousel-media"
+            className="home-learn-carousel-link"
             href={activePost.href}
             target="_blank"
             rel="noreferrer"
           >
-            <img
-              key={activePost.image}
-              src={activePost.image}
-              alt=""
-              className="home-learn-carousel-image"
-              aria-hidden="true"
-            />
+            <span className="home-learn-post-kicker">{activePost.kicker}</span>
+            <span className="home-learn-post-title">{activePost.title}</span>
+            <span className="home-learn-post-summary">{activePost.summary}</span>
           </a>
-          <span key={activePost.href} className="home-learn-carousel-copy">
-            <a
-              className="home-learn-carousel-link"
-              href={activePost.href}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <span className="home-learn-post-kicker">{activePost.kicker}</span>
-              <span className="home-learn-post-title">{activePost.title}</span>
-              <span className="home-learn-post-summary">{activePost.summary}</span>
-            </a>
-            <span className="home-learn-rotation" aria-label="Learning article rotation">
-              {LEARN_POSTS.map((post, index) => (
-                <button
-                  key={post.href}
-                  type="button"
-                  className={`home-learn-dot${index === postIndex ? " home-learn-dot--active" : ""}`}
-                  aria-label={`Show ${post.title}`}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    setPostIndex(index);
-                  }}
-                />
-              ))}
-            </span>
+          <span className="home-learn-progress" aria-label="Learning article rotation progress">
+            <span key={activePost.href} className="home-learn-progress-bar" />
           </span>
-        </div>
+        </span>
       </article>
       <aside className="home-learn-rail" aria-label="Learn aeqi links">
         <a
