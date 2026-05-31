@@ -135,9 +135,20 @@ export default function PinCurrentViewButton({ defaultLabel }: PinCurrentViewBut
       <Modal
         open={Boolean(draftRoute)}
         onClose={closeModal}
-        title={isPinned ? "Edit pinned view" : "Pin view"}
+        title={isPinned ? "Edit pinned view" : "Pin current view"}
+        description="Save this exact route in Views so you can return to it quickly."
+        footer={
+          <div className={styles.footer}>
+            <Button type="button" variant="secondary" size="sm" onClick={closeModal}>
+              Cancel
+            </Button>
+            <Button type="submit" form="pin-current-view-form" variant="primary" size="sm">
+              Save view
+            </Button>
+          </div>
+        }
       >
-        <form className={styles.form} onSubmit={handleSubmit}>
+        <form id="pin-current-view-form" className={styles.form} onSubmit={handleSubmit}>
           <Input
             label="Name"
             value={draftName}
@@ -154,14 +165,6 @@ export default function PinCurrentViewButton({ defaultLabel }: PinCurrentViewBut
               <span className={styles.routeValue}>{`${draftRoute.path}${draftRoute.search}`}</span>
             </div>
           )}
-          <div className={styles.actions}>
-            <Button type="button" variant="ghost" onClick={closeModal}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary">
-              Save
-            </Button>
-          </div>
         </form>
       </Modal>
     </>

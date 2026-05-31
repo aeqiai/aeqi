@@ -59,7 +59,7 @@ describe("PrimitivePageHeader", () => {
     expect(input).toHaveValue("Quests");
 
     fireEvent.change(input, { target: { value: "Open quests" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save view" }));
 
     expect(useUIStore.getState().pinnedViews[0]).toMatchObject({
       label: "Open quests",

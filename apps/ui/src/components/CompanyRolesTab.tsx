@@ -443,8 +443,6 @@ export default function CompanyRolesTab({ companyId }: { companyId: string }) {
         open={createRoleOpen}
         onClose={closeCreateRole}
         companyId={companyId}
-        roles={roles}
-        agents={agents}
         onCreated={handleRoleCreated}
       />
     </div>
