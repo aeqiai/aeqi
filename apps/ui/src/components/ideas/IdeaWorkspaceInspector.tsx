@@ -21,6 +21,7 @@ export interface IdeaWorkspaceInspectorProps {
   canTrack: boolean;
   canDelete: boolean;
   scopeLocked?: boolean;
+  hideHeader?: boolean;
   onScopeChange: (scope: ScopeValue) => void;
   onTagAdd: (tag: string) => void;
   onTagRemove: (tag: string) => void;
@@ -45,6 +46,7 @@ export default function IdeaWorkspaceInspector({
   canTrack,
   canDelete,
   scopeLocked = false,
+  hideHeader = false,
   onScopeChange,
   onTagAdd,
   onTagRemove,
@@ -59,11 +61,13 @@ export default function IdeaWorkspaceInspector({
 
   return (
     <div className="role-inspector role-inspector--page ideas-workspace-detail-inspector">
-      <header className="role-inspector-topbar ideas-workspace-detail-topbar">
-        <span className="role-inspector-object ideas-workspace-detail-object">
-          {composing ? "New idea" : "Details"}
-        </span>
-      </header>
+      {!hideHeader && (
+        <header className="role-inspector-topbar ideas-workspace-detail-topbar">
+          <span className="role-inspector-object ideas-workspace-detail-object">
+            {composing ? "New idea" : "Details"}
+          </span>
+        </header>
+      )}
 
       <div className="role-inspector-body ideas-workspace-detail-body">
         {showPrimaryRow && (

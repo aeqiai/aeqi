@@ -116,6 +116,10 @@ export default function IdeasWorkspaceView({
     titleCountSource.length -
       (rootIdea && titleCountSource.some((idea) => idea.id === rootIdea.id) ? 1 : 0),
   );
+  const explorerCount = Math.max(0, ideas.length - (rootIdea ? 1 : 0));
+  const activeDocumentLabel = composing
+    ? presetName || "New idea"
+    : activeIdea?.name || rootIdea?.name || "Idea";
 
   const ranked = useMemo(() => {
     if (searchActive) {
@@ -386,72 +390,130 @@ export default function IdeasWorkspaceView({
         </div>
       )}
       <div className="ideas-workspace-layout">
-        <aside className="ideas-workspace-tree" aria-label={`${trustName} idea explorer`}>
-          <div className="ideas-workspace-tree-head">
-            <span>Explorer</span>
-            <small>{Math.max(0, ideas.length - (rootIdea ? 1 : 0))} ideas</small>
+        <header className="ideas-workspace-card-head" aria-label="Ideas content card header">
+          <div className="ideas-workspace-card-head-zone ideas-workspace-card-head-zone--explorer">
+            <span className="ideas-workspace-card-head-title">Explorer</span>
+            <span className="ideas-workspace-card-head-subtitle">
+              {explorerCount} {explorerCount === 1 ? "idea" : "ideas"}
+            </span>
           </div>
-          {preparingRoot ? (
-            <div className="ideas-workspace-loading">
-              <Loading size="sm" />
-              <span>Preparing root</span>
-            </div>
-          ) : treeRows.length > 0 ? (
-            <div className="ideas-workspace-tree-list" role="tree">
-              {treeRows.map(({ node, depth }) => {
-                const idea = node.idea;
-                const defaultExpanded = depth <= 1;
-                const expanded = expandedIdeas[idea.id] ?? defaultExpanded;
-                const isSelected = selectedTreeId === idea.id && !composing;
-                return (
-                  <div
-                    key={idea.id}
-                    className="ideas-workspace-tree-row"
-                    style={{ "--idea-tree-depth": depth } as CSSProperties}
-                    role="treeitem"
-                    aria-selected={isSelected}
-                    aria-expanded={node.children.length > 0 ? expanded : undefined}
+
+          <div className="ideas-workspace-card-head-zone ideas-workspace-card-head-zone--document">
+            <span className="ideas-workspace-card-head-title">Idea</span>
+            <span className="ideas-workspace-card-head-subtitle" title={activeDocumentLabel}>
+              {activeDocumentLabel}
+            </span>
+          </div>
+
+          <div className="ideas-workspace-card-head-zone ideas-workspace-card-head-zone--details">
+            <span className="ideas-workspace-card-head-title">
+              {detailsCollapsed ? "Details hidden" : "Details"}
+            </span>
+            <div className="ideas-workspace-card-head-actions">
+              {canvasDirty && (
+                <>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleCancel}
+                    disabled={inspectorBusy}
                   >
-                    <button
-                      type="button"
-                      className="ideas-workspace-tree-item"
-                      onClick={() => onSelect(idea.id)}
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    onClick={() => void handleSave()}
+                    disabled={!canCommit}
+                    loading={inspectorBusy}
+                  >
+                    Save
+                  </Button>
+                </>
+              )}
+              <Tooltip content={detailsCollapsed ? "Show details" : "Hide details"} portal>
+                <IconButton
+                  variant="bordered"
+                  size="sm"
+                  className="ideas-workspace-document-toggle"
+                  aria-label={detailsCollapsed ? "Show details" : "Hide details"}
+                  onClick={() => setDetailsCollapsed((collapsed) => !collapsed)}
+                >
+                  {detailsCollapsed ? (
+                    <PanelRightOpen size={13} strokeWidth={1.7} />
+                  ) : (
+                    <PanelRightClose size={13} strokeWidth={1.7} />
+                  )}
+                </IconButton>
+              </Tooltip>
+            </div>
+          </div>
+        </header>
+
+        <div className="ideas-workspace-body">
+          <aside className="ideas-workspace-tree" aria-label={`${trustName} idea explorer`}>
+            {preparingRoot ? (
+              <div className="ideas-workspace-loading">
+                <Loading size="sm" />
+                <span>Preparing root</span>
+              </div>
+            ) : treeRows.length > 0 ? (
+              <div className="ideas-workspace-tree-list" role="tree">
+                {treeRows.map(({ node, depth }) => {
+                  const idea = node.idea;
+                  const defaultExpanded = depth <= 1;
+                  const expanded = expandedIdeas[idea.id] ?? defaultExpanded;
+                  const isSelected = selectedTreeId === idea.id && !composing;
+                  return (
+                    <div
+                      key={idea.id}
+                      className="ideas-workspace-tree-row"
+                      style={{ "--idea-tree-depth": depth } as CSSProperties}
+                      role="treeitem"
+                      aria-selected={isSelected}
+                      aria-expanded={node.children.length > 0 ? expanded : undefined}
                     >
-                      {node.children.length > 0 ? (
-                        <Folder size={13} strokeWidth={1.7} />
-                      ) : (
-                        <FileText size={13} strokeWidth={1.7} />
-                      )}
-                      <span>{idea.name || "Untitled"}</span>
-                    </button>
-                    {node.children.length > 0 ? (
                       <button
                         type="button"
-                        className={`ideas-workspace-tree-toggle${expanded ? " is-open" : ""}`}
-                        aria-label={expanded ? "Collapse idea" : "Expand idea"}
-                        onClick={() => toggleIdea(idea.id, defaultExpanded)}
+                        className="ideas-workspace-tree-item"
+                        onClick={() => onSelect(idea.id)}
                       >
-                        <ChevronRight size={13} strokeWidth={1.9} />
+                        {node.children.length > 0 ? (
+                          <Folder size={13} strokeWidth={1.7} />
+                        ) : (
+                          <FileText size={13} strokeWidth={1.7} />
+                        )}
+                        <span>{idea.name || "Untitled"}</span>
                       </button>
-                    ) : (
-                      <span className="ideas-workspace-tree-toggle-spacer" aria-hidden />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="ideas-workspace-empty">No ideas match these filters.</div>
-          )}
-        </aside>
+                      {node.children.length > 0 ? (
+                        <button
+                          type="button"
+                          className={`ideas-workspace-tree-toggle${expanded ? " is-open" : ""}`}
+                          aria-label={expanded ? "Collapse idea" : "Expand idea"}
+                          onClick={() => toggleIdea(idea.id, defaultExpanded)}
+                        >
+                          <ChevronRight size={13} strokeWidth={1.9} />
+                        </button>
+                      ) : (
+                        <span className="ideas-workspace-tree-toggle-spacer" aria-hidden />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="ideas-workspace-empty">No ideas match these filters.</div>
+            )}
+          </aside>
 
-        <main className="ideas-workspace-document" aria-label="Idea">
-          {preparingRoot ? (
-            <div className="ideas-workspace-loading ideas-workspace-loading--document">
-              <Loading size="md" />
-            </div>
-          ) : rootIdea ? (
-            <>
+          <main className="ideas-workspace-document" aria-label="Idea">
+            {preparingRoot ? (
+              <div className="ideas-workspace-loading ideas-workspace-loading--document">
+                <Loading size="md" />
+              </div>
+            ) : rootIdea ? (
               <IdeaCanvas
                 ref={canvasRef}
                 key={composing ? `compose:${activeParentId ?? "root"}` : activeIdea?.id}
@@ -464,108 +526,64 @@ export default function IdeasWorkspaceView({
                 onPersisted={onSelect}
                 embedded
                 hideMetaStrip
-                contentHeaderSlot={
-                  <div className="ideas-workspace-document-head">
-                    <div className="ideas-workspace-document-title">Idea</div>
-                    <div className="ideas-workspace-document-actions">
-                      {canvasDirty && (
-                        <>
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            onClick={handleCancel}
-                            disabled={inspectorBusy}
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="primary"
-                            size="sm"
-                            onClick={() => void handleSave()}
-                            disabled={!canCommit}
-                            loading={inspectorBusy}
-                          >
-                            Save
-                          </Button>
-                        </>
-                      )}
-                      <Tooltip content={detailsCollapsed ? "Show details" : "Hide details"} portal>
-                        <IconButton
-                          variant="bordered"
-                          size="sm"
-                          className="ideas-workspace-document-toggle"
-                          aria-label={detailsCollapsed ? "Show details" : "Hide details"}
-                          onClick={() => setDetailsCollapsed((collapsed) => !collapsed)}
-                        >
-                          {detailsCollapsed ? (
-                            <PanelRightOpen size={13} strokeWidth={1.7} />
-                          ) : (
-                            <PanelRightClose size={13} strokeWidth={1.7} />
-                          )}
-                        </IconButton>
-                      </Tooltip>
-                    </div>
-                  </div>
-                }
                 composeScope={composeScope}
                 onDirtyChange={setCanvasDirty}
                 onCanCommitChange={setCanCommit}
                 conversationActivity="combined"
               />
-            </>
-          ) : (
-            <div className="empty-state-hero muted">
-              <span className="empty-state-hero-eyebrow">workspace unavailable</span>
-              <h3 className="empty-state-hero-title">The COMPANY root could not be prepared.</h3>
-              <p className="empty-state-hero-body">{rootError ?? "Try reloading the page."}</p>
-            </div>
-          )}
-        </main>
-
-        {!detailsCollapsed && (
-          <aside className="ideas-workspace-inspector" aria-label="Details">
-            {activeIdea || composing ? (
-              <IdeaWorkspaceInspector
-                idea={activeIdea}
-                agentId={agentId}
-                scopedEntity={companyId}
-                composing={composing}
-                childCount={activeIdea ? descendantCount(activeIdea.id, ideas) : 0}
-                scope={activeScope}
-                tagSuggestions={tagSuggestions}
-                dirty={canvasDirty}
-                canCommit={canCommit}
-                busy={inspectorBusy}
-                error={inspectorError}
-                canTrack={Boolean(activeIdea && !rootSelected)}
-                canDelete={Boolean(activeIdea && activeIdea.id !== rootIdea?.id)}
-                scopeLocked={rootSelected}
-                onScopeChange={(next) => void handleScopeChange(next)}
-                onTagAdd={(tag) => {
-                  if (!activeIdea) return;
-                  const key = tag.toLowerCase();
-                  if ((activeIdea.tags ?? []).some((item) => item.toLowerCase() === key)) return;
-                  void persistTags([...(activeIdea.tags ?? []), key]);
-                }}
-                onTagRemove={(tag) => {
-                  if (!activeIdea) return;
-                  void persistTags((activeIdea.tags ?? []).filter((item) => item !== tag));
-                }}
-                onTrackAsQuest={handleTrackAsQuest}
-                onDelete={() => void handleDelete()}
-                onSave={() => void handleSave()}
-                onCancel={handleCancel}
-              />
             ) : (
-              <div className="ideas-workspace-inspector-empty">
-                <strong>{composing ? "New idea" : trustName}</strong>
-                <span>{composing ? "Save it to attach it to the tree." : "Select an idea."}</span>
+              <div className="empty-state-hero muted">
+                <span className="empty-state-hero-eyebrow">workspace unavailable</span>
+                <h3 className="empty-state-hero-title">The COMPANY root could not be prepared.</h3>
+                <p className="empty-state-hero-body">{rootError ?? "Try reloading the page."}</p>
               </div>
             )}
-          </aside>
-        )}
+          </main>
+
+          {!detailsCollapsed && (
+            <aside className="ideas-workspace-inspector" aria-label="Details">
+              {activeIdea || composing ? (
+                <IdeaWorkspaceInspector
+                  idea={activeIdea}
+                  agentId={agentId}
+                  scopedEntity={companyId}
+                  composing={composing}
+                  childCount={activeIdea ? descendantCount(activeIdea.id, ideas) : 0}
+                  scope={activeScope}
+                  tagSuggestions={tagSuggestions}
+                  dirty={canvasDirty}
+                  canCommit={canCommit}
+                  busy={inspectorBusy}
+                  error={inspectorError}
+                  canTrack={Boolean(activeIdea && !rootSelected)}
+                  canDelete={Boolean(activeIdea && activeIdea.id !== rootIdea?.id)}
+                  scopeLocked={rootSelected}
+                  hideHeader
+                  onScopeChange={(next) => void handleScopeChange(next)}
+                  onTagAdd={(tag) => {
+                    if (!activeIdea) return;
+                    const key = tag.toLowerCase();
+                    if ((activeIdea.tags ?? []).some((item) => item.toLowerCase() === key)) return;
+                    void persistTags([...(activeIdea.tags ?? []), key]);
+                  }}
+                  onTagRemove={(tag) => {
+                    if (!activeIdea) return;
+                    void persistTags((activeIdea.tags ?? []).filter((item) => item !== tag));
+                  }}
+                  onTrackAsQuest={handleTrackAsQuest}
+                  onDelete={() => void handleDelete()}
+                  onSave={() => void handleSave()}
+                  onCancel={handleCancel}
+                />
+              ) : (
+                <div className="ideas-workspace-inspector-empty">
+                  <strong>{composing ? "New idea" : trustName}</strong>
+                  <span>{composing ? "Save it to attach it to the tree." : "Select an idea."}</span>
+                </div>
+              )}
+            </aside>
+          )}
+        </div>
       </div>
       <TrackIdeaAsQuestModal
         open={Boolean(trackIdea)}

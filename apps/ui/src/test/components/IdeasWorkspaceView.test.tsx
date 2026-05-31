@@ -144,7 +144,6 @@ describe("IdeasWorkspaceView", () => {
     expect(
       screen.getByRole("complementary", { name: "Eich Holding idea explorer" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Explorer")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Idea" })).toBeInTheDocument();
     expect(screen.getByRole("main", { name: "Idea" })).toBeInTheDocument();
     const details = screen.getByRole("complementary", { name: "Details" });
@@ -154,7 +153,6 @@ describe("IdeasWorkspaceView", () => {
     expect(within(details).queryByText(/^Activity/)).not.toBeInTheDocument();
     expect(within(details).queryByText("Import")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Import/ })).toBeInTheDocument();
-    expect(within(details).getByText("Details")).toHaveClass("ideas-workspace-detail-object");
     const ideaSection = Array.from(
       details.querySelectorAll<HTMLDetailsElement>("details.role-inspector-group"),
     ).find((section) => section.querySelector("summary")?.textContent?.includes("Idea"));
@@ -174,16 +172,25 @@ describe("IdeasWorkspaceView", () => {
     const workspace = container.firstElementChild;
     const pageHeader = workspace?.querySelector(".ideas-workspace-head");
     const contentSurface = workspace?.querySelector(".ideas-workspace-layout");
+    const contentHeader = workspace?.querySelector(".ideas-workspace-card-head");
+    const contentBody = workspace?.querySelector(".ideas-workspace-body");
     expect(pageHeader).toBeTruthy();
     expect(contentSurface).toBeTruthy();
+    expect(contentHeader).toBeTruthy();
+    expect(contentBody).toBeTruthy();
     expect(contentSurface?.contains(pageHeader ?? null)).toBe(false);
-    expect(within(main).getByText("Idea")).toHaveClass("ideas-workspace-document-title");
-    expect(within(canvas).getByText("Idea")).toHaveClass("ideas-workspace-document-title");
+    expect(within(contentHeader as HTMLElement).getByText("Explorer")).toBeInTheDocument();
+    expect(within(contentHeader as HTMLElement).getByText("Idea")).toBeInTheDocument();
+    expect(within(contentHeader as HTMLElement).getByText("Details")).toBeInTheDocument();
+    expect(within(contentHeader as HTMLElement).getByText("Eich Holding")).toBeInTheDocument();
+    expect(contentSurface?.contains(contentHeader ?? null)).toBe(true);
+    expect(contentSurface?.contains(contentBody ?? null)).toBe(true);
+    expect(within(main).queryByText("Details")).not.toBeInTheDocument();
     expect(
       container
         .querySelector(".ideas-canvas-paper")
         ?.contains(container.querySelector(".ideas-workspace-document-head")),
-    ).toBe(true);
+    ).toBe(false);
 
     await user.click(screen.getByRole("button", { name: "Hide details" }));
 
