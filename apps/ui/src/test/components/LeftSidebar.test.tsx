@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import { describe, expect, it, beforeEach } from "vitest";
-import { fireEvent, render, waitFor } from "@testing-library/react";
+import { fireEvent, render, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
@@ -110,6 +110,14 @@ describe("LeftSidebar trust navigation", () => {
     expect(queryByRole("link", { name: "Inbox" })).not.toBeInTheDocument();
     expect(queryByRole("link", { name: "Your Inbox" })).not.toBeInTheDocument();
     expect(getByRole("button", { name: "Operations" })).toHaveAttribute("aria-expanded", "true");
+    expect(getByRole("button", { name: "Capabilities" })).toHaveAttribute("aria-expanded", "true");
+    const operations = getByRole("region", { name: "Operations" });
+    const capabilities = getByRole("region", { name: "Capabilities" });
+    expect(within(operations).getByRole("link", { name: "Projects" })).toBeInTheDocument();
+    expect(within(operations).getByRole("link", { name: "Goals" })).toBeInTheDocument();
+    expect(within(operations).queryByRole("link", { name: "Apps" })).not.toBeInTheDocument();
+    expect(within(capabilities).getByRole("link", { name: "Apps" })).toBeInTheDocument();
+    expect(within(capabilities).getByRole("link", { name: "Skills" })).toBeInTheDocument();
 
     fireEvent.click(getByRole("button", { name: "Ownership" }));
 

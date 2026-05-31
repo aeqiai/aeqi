@@ -71,6 +71,8 @@ const COMPANY_PAGE_TABS = new Set([
   "members",
   "agents",
   "sessions",
+  "projects",
+  "goals",
   // Legacy alias: Inbox is now the pinned user-filtered Sessions view.
   "inbox",
   "mails",
@@ -96,6 +98,7 @@ const COMPANY_PAGE_TABS = new Set([
   "events",
   "quests",
   "ideas",
+  "skills",
   "health",
   // Legacy alias: singular Website moved to the first-class Websites
   // primitive. TrustTabPage redirects `/trust/<addr>/website` to

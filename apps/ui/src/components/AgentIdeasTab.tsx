@@ -53,9 +53,13 @@ const viewFallback = (
 export default function AgentIdeasTab({
   agentId,
   scope = "agent",
+  kind,
+  tags = [],
 }: {
   agentId: string;
   scope?: "agent" | "entity";
+  kind?: "goal";
+  tags?: string[];
 }) {
   const { goEntity, trustId } = useNav();
   const { entity } = useCurrentTrust();
@@ -210,6 +214,7 @@ export default function AgentIdeasTab({
           !t.includes("rejected");
         if (!isCandidate) return false;
       }
+      if (kind && idea.kind !== kind) return false;
       if (q) {
         const inName = idea.name.toLowerCase().includes(q);
         const inContent = blockTreeToPlainText(idea.content).toLowerCase().includes(q);
@@ -217,7 +222,7 @@ export default function AgentIdeasTab({
       }
       return true;
     });
-  }, [ideas, filter.search, filter.scope, filter.needsReview, agentId]);
+  }, [ideas, filter.search, filter.scope, filter.needsReview, kind, agentId]);
 
   const tagCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -232,10 +237,11 @@ export default function AgentIdeasTab({
   // (AND would tighten it; users typically expect "I selected more, I see
   // more" for additive chip selection.)
   const filtered = useMemo(() => {
-    if (filter.tags.length === 0) return scoped;
-    const wanted = new Set(filter.tags);
+    const activeTags = [...tags, ...filter.tags];
+    if (activeTags.length === 0) return scoped;
+    const wanted = new Set(activeTags);
     return scoped.filter((idea) => (idea.tags || []).some((t) => wanted.has(t)));
-  }, [scoped, filter.tags]);
+  }, [scoped, filter.tags, tags]);
 
   const folderIdea = useMemo(
     () => (folderParam ? scoped.find((idea) => idea.id === folderParam) : undefined),

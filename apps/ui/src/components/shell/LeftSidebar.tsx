@@ -70,6 +70,9 @@ const EventsIcon = () => <Icon icon={Activity} />;
 const QuestsIcon = () => <Icon icon={Target} />;
 const IdeasIcon = () => <Icon icon={Lightbulb} />;
 const SessionsIcon = () => <Icon icon={MessagesSquare} />;
+const ProjectsIcon = () => <Icon icon={Blocks} />;
+const GoalsIcon = () => <Icon icon={Target} />;
+const SkillsIcon = () => <Icon icon={Wrench} />;
 const GatewaysIcon = () => <Icon icon={Waypoints} />;
 const ToolsIcon = () => <Icon icon={Wrench} />;
 const AppsIcon = () => <Icon icon={AppWindow} />;
@@ -218,6 +221,7 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
   const [openTrustGroups, setOpenTrustGroups] = useState<TrustNavGroupState>(() => ({
     operations: !activeTrustGroup || activeTrustGroup === "operations",
     ownership: activeTrustGroup === "ownership",
+    capabilities: !activeTrustGroup || activeTrustGroup === "capabilities",
     infrastructure: activeTrustGroup === "infrastructure",
   }));
 
@@ -514,14 +518,17 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
                     locked: runtimeLocked,
                     active: isActiveTab("sessions") && !activeUserSessionsView,
                   })}
+                  {navItem("projects", "Projects", <ProjectsIcon />, {
+                    locked: runtimeLocked,
+                  })}
+                  {navItem("goals", "Goals", <GoalsIcon />, {
+                    locked: runtimeLocked,
+                  })}
                   {navItem("quests", "Quests", <QuestsIcon />, {
                     locked: runtimeLocked,
                   })}
                   {navItem("ideas", "Ideas", <IdeasIcon />, {
                     locked: runtimeLocked,
-                  })}
-                  {navItem("apps", "Apps", <AppsIcon />, {
-                    active: isActiveWithin(["apps", "mails", "websites", "campaigns"]),
                   })}
                   {navItem("events", "Events", <EventsIcon />, {
                     locked: runtimeLocked,
@@ -541,6 +548,18 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
                   {navItem("budgets", "Budgets", <BudgetsIcon />)}
                   {navItem("assets", "Assets", <AssetsIcon />)}
                   {navItem("transactions", "Transactions", <TransactionsIcon />)}
+                </>,
+              )}
+              {trustNavGroup(
+                "capabilities",
+                "Capabilities",
+                <>
+                  {navItem("apps", "Apps", <AppsIcon />, {
+                    active: isActiveWithin(["apps", "mails", "websites", "campaigns"]),
+                  })}
+                  {navItem("skills", "Skills", <SkillsIcon />, {
+                    locked: runtimeLocked,
+                  })}
                 </>,
               )}
               {trustNavGroup(

@@ -37,9 +37,11 @@ function parseQuestStatus(raw: string | null): QuestStatus | null {
 export default function AgentQuestsTab({
   agentId,
   scope = "agent",
+  kind,
 }: {
   agentId: string;
   scope?: "agent" | "entity";
+  kind?: "project";
 }) {
   const { goEntity, trustId } = useNav();
   const { itemId } = useParams<{ itemId?: string }>();
@@ -238,10 +240,15 @@ export default function AgentQuestsTab({
       scope === "entity"
         ? quests
         : quests.filter((q) => q.agent_id === agent?.id || q.agent_id == null);
+    const kindFilteredQuests = kind
+      ? visibleQuests.filter((q) => (q.kind ?? "task") === kind)
+      : visibleQuests;
     const filteredQuests =
       questFilter === "all"
-        ? visibleQuests
-        : visibleQuests.filter((q) => matchesQuestFilter(q, questFilter, agent?.id ?? agentId));
+        ? kindFilteredQuests
+        : kindFilteredQuests.filter((q) =>
+            matchesQuestFilter(q, questFilter, agent?.id ?? agentId),
+          );
     const visibleQuestIds = new Set(filteredQuests.map((q) => q.id));
     const activeScopeId = boardScopeId && visibleQuestIds.has(boardScopeId) ? boardScopeId : null;
     // When scoped, the board renders the parent quest itself alongside

@@ -88,12 +88,15 @@ const RUNTIME_GATED_TABS: Record<string, UpsellSurface> = {
   integrations: "apps",
   campaigns: "campaigns",
   sessions: "sessions",
+  projects: "quests",
+  goals: "ideas",
   gateways: "gateways",
   channels: "gateways",
   tools: "apps",
   events: "events",
   quests: "quests",
   ideas: "ideas",
+  skills: "ideas",
 };
 
 export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTabPageProps) {
@@ -339,10 +342,31 @@ export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTab
       </Suspense>
     );
   }
+  if (tab === "projects") {
+    return (
+      <Suspense>
+        <AgentQuestsTab agentId={agentId} scope="entity" kind="project" />
+      </Suspense>
+    );
+  }
   if (tab === "ideas") {
     return (
       <Suspense>
         <AgentIdeasTab agentId={agentId} scope="entity" />
+      </Suspense>
+    );
+  }
+  if (tab === "goals") {
+    return (
+      <Suspense>
+        <AgentIdeasTab agentId={agentId} scope="entity" kind="goal" />
+      </Suspense>
+    );
+  }
+  if (tab === "skills") {
+    return (
+      <Suspense>
+        <AgentIdeasTab agentId={agentId} scope="entity" tags={["skill"]} />
       </Suspense>
     );
   }
