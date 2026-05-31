@@ -1,8 +1,8 @@
-export type TrustNavGroupId = "operations" | "ownership" | "capabilities" | "infrastructure";
+export type TrustNavGroupId = "operations" | "ownership" | "infrastructure";
 export type TrustNavGroupState = Record<TrustNavGroupId, boolean>;
 
 export const TRUST_NAV_MATCHES: Record<TrustNavGroupId, string[]> = {
-  operations: ["agents", "sessions", "projects", "goals", "quests", "ideas", "events"],
+  operations: ["agents", "sessions", "projects", "goals", "skills", "quests", "ideas", "events"],
   ownership: [
     "roles",
     "members",
@@ -13,6 +13,5 @@ export const TRUST_NAV_MATCHES: Record<TrustNavGroupId, string[]> = {
     "assets",
     "transactions",
   ],
-  capabilities: ["apps", "mails", "websites", "campaigns", "skills"],
   infrastructure: ["integrations", "gateways", "channels", "tools", "settings"],
 };

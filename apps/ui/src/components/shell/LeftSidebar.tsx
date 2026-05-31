@@ -3,8 +3,11 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   AppWindow,
   Box,
+  BriefcaseBusiness,
   ChevronDown,
   CircleDollarSign,
+  Flag,
+  GraduationCap,
   House,
   LayoutDashboard,
   Workflow,
@@ -70,9 +73,9 @@ const EventsIcon = () => <Icon icon={Activity} />;
 const QuestsIcon = () => <Icon icon={Target} />;
 const IdeasIcon = () => <Icon icon={Lightbulb} />;
 const SessionsIcon = () => <Icon icon={MessagesSquare} />;
-const ProjectsIcon = () => <Icon icon={Blocks} />;
-const GoalsIcon = () => <Icon icon={Target} />;
-const SkillsIcon = () => <Icon icon={Wrench} />;
+const ProjectsIcon = () => <Icon icon={BriefcaseBusiness} />;
+const GoalsIcon = () => <Icon icon={Flag} />;
+const SkillsIcon = () => <Icon icon={GraduationCap} />;
 const GatewaysIcon = () => <Icon icon={Waypoints} />;
 const ToolsIcon = () => <Icon icon={Wrench} />;
 const AppsIcon = () => <Icon icon={AppWindow} />;
@@ -221,7 +224,6 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
   const [openTrustGroups, setOpenTrustGroups] = useState<TrustNavGroupState>(() => ({
     operations: !activeTrustGroup || activeTrustGroup === "operations",
     ownership: activeTrustGroup === "ownership",
-    capabilities: !activeTrustGroup || activeTrustGroup === "capabilities",
     infrastructure: activeTrustGroup === "infrastructure",
   }));
 
@@ -507,6 +509,9 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
                   <span className="sidebar-nav-label">Views</span>
                 </a>
               </div>
+              {navItem("apps", "Apps", <AppsIcon />, {
+                active: isActiveWithin(["apps", "mails", "websites", "campaigns"]),
+              })}
               {trustNavGroup(
                 "operations",
                 "Operations",
@@ -522,6 +527,9 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
                     locked: runtimeLocked,
                   })}
                   {navItem("goals", "Goals", <GoalsIcon />, {
+                    locked: runtimeLocked,
+                  })}
+                  {navItem("skills", "Skills", <SkillsIcon />, {
                     locked: runtimeLocked,
                   })}
                   {navItem("quests", "Quests", <QuestsIcon />, {
@@ -548,18 +556,6 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
                   {navItem("budgets", "Budgets", <BudgetsIcon />)}
                   {navItem("assets", "Assets", <AssetsIcon />)}
                   {navItem("transactions", "Transactions", <TransactionsIcon />)}
-                </>,
-              )}
-              {trustNavGroup(
-                "capabilities",
-                "Capabilities",
-                <>
-                  {navItem("apps", "Apps", <AppsIcon />, {
-                    active: isActiveWithin(["apps", "mails", "websites", "campaigns"]),
-                  })}
-                  {navItem("skills", "Skills", <SkillsIcon />, {
-                    locked: runtimeLocked,
-                  })}
                 </>,
               )}
               {trustNavGroup(

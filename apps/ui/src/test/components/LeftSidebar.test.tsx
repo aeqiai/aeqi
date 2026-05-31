@@ -9,6 +9,35 @@ import { agentKeys, entityKeys } from "@/queries/keys";
 import { useDaemonStore } from "@/store/daemon";
 import { PINNED_VIEWS_STORAGE_KEY, useUIStore } from "@/store/ui";
 
+const CANONICAL_NAV_ROWS = new Set([
+  "Home",
+  "Markets",
+  "Templates",
+  "Referrals",
+  "Launch",
+  "Views",
+  "Apps",
+  "Agents",
+  "Sessions",
+  "Projects",
+  "Goals",
+  "Skills",
+  "Quests",
+  "Ideas",
+  "Events",
+  "Roles",
+  "Members",
+  "Shares",
+  "Rounds",
+  "Budgets",
+  "Assets",
+  "Transactions",
+  "Integrations",
+  "Gateways",
+  "Tools",
+  "Settings",
+]);
+
 function withQueryClient(ui: React.ReactElement) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const daemonState = useDaemonStore.getState();
@@ -67,7 +96,7 @@ describe("LeftSidebar trust navigation", () => {
       ],
     });
 
-    const { findByRole, getByRole, getByText, queryByRole, queryByText } = render(
+    const { container, findByRole, getByRole, getByText, queryByRole, queryByText } = render(
       withQueryClient(
         <StrictMode>
           <MemoryRouter initialEntries={["/trust/root-1"]}>
@@ -110,23 +139,39 @@ describe("LeftSidebar trust navigation", () => {
     expect(queryByRole("link", { name: "Inbox" })).not.toBeInTheDocument();
     expect(queryByRole("link", { name: "Your Inbox" })).not.toBeInTheDocument();
     expect(getByRole("button", { name: "Operations" })).toHaveAttribute("aria-expanded", "true");
-    expect(getByRole("button", { name: "Capabilities" })).toHaveAttribute("aria-expanded", "true");
+    expect(getByRole("link", { name: "Apps" })).toHaveAttribute("href", "/trust/root-1/apps");
     const operations = getByRole("region", { name: "Operations" });
-    const capabilities = getByRole("region", { name: "Capabilities" });
     expect(within(operations).getByRole("link", { name: "Projects" })).toBeInTheDocument();
     expect(within(operations).getByRole("link", { name: "Goals" })).toBeInTheDocument();
+    expect(within(operations).getByRole("link", { name: "Skills" })).toBeInTheDocument();
     expect(within(operations).queryByRole("link", { name: "Apps" })).not.toBeInTheDocument();
-    expect(within(capabilities).getByRole("link", { name: "Apps" })).toBeInTheDocument();
-    expect(within(capabilities).getByRole("link", { name: "Skills" })).toBeInTheDocument();
+    expect(queryByRole("button", { name: "Capabilities" })).not.toBeInTheDocument();
 
     fireEvent.click(getByRole("button", { name: "Ownership" }));
+    fireEvent.click(getByRole("button", { name: "Infrastructure" }));
 
     expect(getByRole("button", { name: "Operations" })).toHaveAttribute("aria-expanded", "true");
     expect(getByRole("button", { name: "Ownership" })).toHaveAttribute("aria-expanded", "true");
+    expect(getByRole("button", { name: "Infrastructure" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
     expect(getByRole("link", { name: "Agents" })).toBeInTheDocument();
     expect(getByRole("link", { name: "Shares" })).toBeInTheDocument();
     expect(getByRole("link", { name: "My sessions" })).toBeInTheDocument();
     expect(queryByRole("link", { name: "Inbox" })).not.toBeInTheDocument();
+
+    const canonicalIconRows = [...container.querySelectorAll(".sidebar-nav-item")]
+      .map((row) => {
+        const label = row.querySelector(".sidebar-nav-label")?.textContent?.trim();
+        const icon = [...(row.querySelector("svg")?.classList ?? [])].find(
+          (className) => className.startsWith("lucide-") && className !== "lucide-icon",
+        );
+        return label && CANONICAL_NAV_ROWS.has(label) ? [label, icon] : null;
+      })
+      .filter((row): row is [string, string] => Boolean(row?.[1]));
+    const icons = canonicalIconRows.map(([, icon]) => icon);
+    expect(new Set(icons).size).toBe(icons.length);
 
     fireEvent.click(getByRole("button", { name: "Unpin My sessions" }));
     expect(queryByRole("link", { name: "My sessions" })).not.toBeInTheDocument();
