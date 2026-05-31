@@ -13457,6 +13457,7 @@ button.role-context-card:disabled {
 /* Home trust-primitive refresh — compact graphite/ink operating surface. */
 .home-page {
   --home-section-inset: 24px;
+  --home-content-max: 1180px;
 
   min-height: 100%;
   gap: 0;
@@ -13587,6 +13588,7 @@ button.role-context-card:disabled {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-3);
   width: 100%;
+  max-width: var(--home-content-max);
   margin: 0 auto;
   padding-top: 0;
   align-items: stretch;
@@ -13744,7 +13746,7 @@ button.role-context-card:disabled {
 .home-learn {
   grid-template-columns: minmax(0, 1fr);
   width: 100%;
-  max-width: none;
+  max-width: var(--home-content-max);
   flex: 1;
   align-content: start;
   align-items: stretch;
