@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowRight, Blocks, BookOpen, Globe, Plus, Rocket, Share2, Users } from "lucide-react";
 import { LEARN_POSTS } from "./startPageLearnPosts";
 import "@/styles/roles.css";
+import "@/styles/home.css";
 
 export default function StartPage() {
   const currentDateTime = useCurrentDateTime();

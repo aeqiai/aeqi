@@ -7,6 +7,7 @@ import { useDaemonStore } from "@/store/daemon";
 import { entityPathFromId } from "@/lib/entityPath";
 import { useAgentsQuery } from "@/queries/agents";
 import "@/styles/roles.css"; // shared trust workspace primitives
+import "@/styles/agents.css";
 import {
   Button,
   Icon,
@@ -447,7 +448,7 @@ function SuggestedAgents({
               type="button"
               className="trust-agents-suggest-card"
               onClick={onPick}
-              aria-label={`Add ${template.name} from template`}
+              aria-label={`Open template picker for ${template.name}`}
             >
               <h3 className="trust-agents-suggest-card-title">{template.name}</h3>
               <p className="trust-agents-suggest-card-desc">
@@ -456,7 +457,7 @@ function SuggestedAgents({
               <p className="trust-agents-suggest-card-meta">{agentTemplateRuntimeLine(template)}</p>
               <span className="trust-agents-suggest-card-cta" aria-hidden>
                 <Plus size={12} strokeWidth={1.8} />
-                Add from template
+                Use template
               </span>
             </button>
           ))}
