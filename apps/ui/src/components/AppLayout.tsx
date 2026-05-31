@@ -69,6 +69,8 @@ const COMPANY_PAGE_TABS = new Set([
   "views",
   "roles",
   "members",
+  "controls",
+  "filings",
   "agents",
   "sessions",
   "projects",

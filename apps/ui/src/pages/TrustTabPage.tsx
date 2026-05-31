@@ -7,6 +7,7 @@ import ProvisionRuntimeUpsell, {
   type UpsellSurface,
 } from "@/components/upsell/ProvisionRuntimeUpsell";
 import { withUserSessionsView } from "@/lib/sessionViews";
+import { EmptyState, Page, PageBody, PageHeader } from "@/components/ui";
 
 // TrustOverviewTab is the legacy implementation name for the canonical
 // bare-`/trust/<addr>/` Views landing — renders TrustHeroStrip + roles /
@@ -35,6 +36,53 @@ const AgentQuestsTab = lazy(() => import("@/components/AgentQuestsTab"));
 const AgentIdeasTab = lazy(() => import("@/components/AgentIdeasTab"));
 const TrustSettingsTab = lazy(() => import("@/components/TrustSettingsTab"));
 
+const PLACEHOLDER_TABS = {
+  projects: {
+    title: "Projects",
+    description: "Native project planning will live here. For now this surface is reserved.",
+  },
+  goals: {
+    title: "Goals",
+    description:
+      "Goal ownership, progress, and targets will live here. For now this surface is reserved.",
+  },
+  skills: {
+    title: "Skills",
+    description: "Reusable AEQI skills will live here. For now this surface is reserved.",
+  },
+  controls: {
+    title: "Controls",
+    description: "Governance controls, voting rules, and multisig settings will live here.",
+  },
+  filings: {
+    title: "Filings",
+    description: "Incorporation, tax, and compliance filings will live here.",
+  },
+  logs: {
+    title: "Logs",
+    description: "Audit, runtime, and infrastructure logs will live here.",
+  },
+} as const;
+
+type PlaceholderTab = keyof typeof PLACEHOLDER_TABS;
+
+function TrustPrimitivePlaceholder({ tab }: { tab: PlaceholderTab }) {
+  const copy = PLACEHOLDER_TABS[tab];
+
+  return (
+    <Page width="full" padding="lg">
+      <PageHeader title={copy.title} description={copy.description} />
+      <PageBody>
+        <EmptyState
+          eyebrow="Placeholder"
+          title="Reserved AEQI primitive"
+          description="This surface is intentionally blank while its native workflow is being designed."
+        />
+      </PageBody>
+    </Page>
+  );
+}
+
 interface TrustTabPageProps {
   agentId: string;
   trustId: string;
@@ -54,8 +102,13 @@ interface TrustTabPageProps {
  *   /trust/:trustAddress/roles         → TrustRolesTab (org chart)
  *   /trust/:trustAddress/roles/:roleId → TrustRoleDetailPage
  *   /trust/:trustAddress/members       → TrustMembersTab (humans + pending invites)
+ *   /trust/:trustAddress/controls      → placeholder (governance controls)
+ *   /trust/:trustAddress/filings       → placeholder (legal/tax filings)
  *   /trust/:trustAddress/agents        → TrustAgentsTab (LIST)
  *   /trust/:trustAddress/sessions      → TrustSessionsTab (all trust sessions)
+ *   /trust/:trustAddress/projects      → placeholder (native project workspace)
+ *   /trust/:trustAddress/goals         → placeholder (native goal workspace)
+ *   /trust/:trustAddress/skills        → placeholder (native skill workspace)
  *   /trust/:trustAddress/inbox         → redirect to Sessions?view=mine (legacy URL)
  *   /trust/:trustAddress/apps          → TrustAppsTab(app registry)
  *   /trust/:trustAddress/mails         → TrustAppsTab(mails surface)
@@ -70,6 +123,7 @@ interface TrustTabPageProps {
  *   /trust/:trustAddress/integrations  → TrustAppsTab (external connections)
  *   /trust/:trustAddress/tools         → TrustToolsTab(default/root agent lens)
  *   /trust/:trustAddress/events        → AgentEventsTab(agent lens rail)
+ *   /trust/:trustAddress/logs          → placeholder (audit/runtime logs)
  *   /trust/:trustAddress/quests        → AgentQuestsTab(entity scope)
  *   /trust/:trustAddress/ideas         → AgentIdeasTab(entity scope)
  *   /trust/:trustAddress/settings      → TrustSettingsTab
@@ -88,16 +142,12 @@ const RUNTIME_GATED_TABS: Record<string, UpsellSurface> = {
   integrations: "apps",
   campaigns: "campaigns",
   sessions: "sessions",
-  projects: "quests",
-  goals: "ideas",
   gateways: "gateways",
   channels: "gateways",
   tools: "apps",
   events: "events",
-  logs: "events",
   quests: "quests",
   ideas: "ideas",
-  skills: "ideas",
 };
 
 export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTabPageProps) {
@@ -179,6 +229,10 @@ export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTab
   if (tab === "health") {
     const target = location.pathname.replace(/\/health\/?$/, "/") + location.search;
     return <Navigate to={target} replace />;
+  }
+
+  if (tab in PLACEHOLDER_TABS) {
+    return <TrustPrimitivePlaceholder tab={tab as PlaceholderTab} />;
   }
 
   // Bare `/trust/<addr>/` Views renders TrustOverviewTab directly — the
@@ -336,13 +390,6 @@ export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTab
       </Suspense>
     );
   }
-  if (tab === "logs") {
-    return (
-      <Suspense>
-        <AgentEventsTab agentId={agentId} agentRail />
-      </Suspense>
-    );
-  }
   if (tab === "quests") {
     return (
       <Suspense>
@@ -350,31 +397,10 @@ export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTab
       </Suspense>
     );
   }
-  if (tab === "projects") {
-    return (
-      <Suspense>
-        <AgentQuestsTab agentId={agentId} scope="entity" kind="project" />
-      </Suspense>
-    );
-  }
   if (tab === "ideas") {
     return (
       <Suspense>
         <AgentIdeasTab agentId={agentId} scope="entity" />
-      </Suspense>
-    );
-  }
-  if (tab === "goals") {
-    return (
-      <Suspense>
-        <AgentIdeasTab agentId={agentId} scope="entity" kind="goal" />
-      </Suspense>
-    );
-  }
-  if (tab === "skills") {
-    return (
-      <Suspense>
-        <AgentIdeasTab agentId={agentId} scope="entity" tags={["skill"]} />
       </Suspense>
     );
   }

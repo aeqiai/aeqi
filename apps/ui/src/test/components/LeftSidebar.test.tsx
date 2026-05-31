@@ -27,6 +27,8 @@ const CANONICAL_NAV_ROWS = new Set([
   "Events",
   "Roles",
   "Members",
+  "Controls",
+  "Filings",
   "Shares",
   "Rounds",
   "Budgets",
@@ -158,7 +160,17 @@ describe("LeftSidebar trust navigation", () => {
       "true",
     );
     expect(getByRole("link", { name: "Agents" })).toBeInTheDocument();
+    const ownership = getByRole("region", { name: "Ownership" });
+    expect(within(ownership).getByRole("link", { name: "Controls" })).toHaveAttribute(
+      "href",
+      "/trust/root-1/controls",
+    );
+    expect(within(ownership).getByRole("link", { name: "Filings" })).toHaveAttribute(
+      "href",
+      "/trust/root-1/filings",
+    );
     expect(getByRole("link", { name: "Shares" })).toBeInTheDocument();
+    expect(getByRole("link", { name: "Logs" })).toHaveAttribute("href", "/trust/root-1/logs");
     expect(getByRole("link", { name: "My sessions" })).toBeInTheDocument();
     expect(queryByRole("link", { name: "Inbox" })).not.toBeInTheDocument();
 

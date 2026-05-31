@@ -6,6 +6,8 @@ export const TRUST_NAV_MATCHES: Record<TrustNavGroupId, string[]> = {
   ownership: [
     "roles",
     "members",
+    "controls",
+    "filings",
     "shares",
     "equity",
     "rounds",

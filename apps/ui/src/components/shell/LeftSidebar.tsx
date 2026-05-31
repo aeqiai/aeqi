@@ -6,6 +6,7 @@ import {
   BriefcaseBusiness,
   ChevronDown,
   CircleDollarSign,
+  Files,
   Flag,
   GraduationCap,
   House,
@@ -32,6 +33,7 @@ import {
   Rocket,
   ScrollText,
   Share2,
+  ShieldCheck,
   WalletCards,
 } from "lucide-react";
 import ActingAsSelector from "@/components/shell/ActingAsSelector";
@@ -86,6 +88,8 @@ const TransactionsIcon = () => <Icon icon={ReceiptText} />;
 const SharesIcon = () => <Icon icon={ScrollText} />;
 const RoundsIcon = () => <Icon icon={CircleDollarSign} />;
 const AssetsIcon = () => <Icon icon={Box} />;
+const ControlsIcon = () => <Icon icon={ShieldCheck} />;
+const FilingsIcon = () => <Icon icon={Files} />;
 // Roles — its own peer slot under Trust. The org-chart authority graph owns
 // hierarchy, selection, creation, and inline property edits in one workspace.
 const RolesIcon = () => <Icon icon={Workflow} />;
@@ -525,15 +529,9 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
                     locked: runtimeLocked,
                     active: isActiveTab("sessions") && !activeUserSessionsView,
                   })}
-                  {navItem("projects", "Projects", <ProjectsIcon />, {
-                    locked: runtimeLocked,
-                  })}
-                  {navItem("goals", "Goals", <GoalsIcon />, {
-                    locked: runtimeLocked,
-                  })}
-                  {navItem("skills", "Skills", <SkillsIcon />, {
-                    locked: runtimeLocked,
-                  })}
+                  {navItem("projects", "Projects", <ProjectsIcon />)}
+                  {navItem("goals", "Goals", <GoalsIcon />)}
+                  {navItem("skills", "Skills", <SkillsIcon />)}
                   {navItem("quests", "Quests", <QuestsIcon />, {
                     locked: runtimeLocked,
                   })}
@@ -551,6 +549,8 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
                 <>
                   {navItem("roles", "Roles", <RolesIcon />)}
                   {navItem("members", "Members", <MembersIcon />)}
+                  {navItem("controls", "Controls", <ControlsIcon />)}
+                  {navItem("filings", "Filings", <FilingsIcon />)}
                   {navItem("shares", "Shares", <SharesIcon />, {
                     active: isActiveWithin(["shares", "equity"]),
                   })}
@@ -573,9 +573,7 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
                   {navItem("tools", "Tools", <ToolsIcon />, {
                     locked: runtimeLocked,
                   })}
-                  {navItem("logs", "Logs", <LogsIcon />, {
-                    locked: runtimeLocked,
-                  })}
+                  {navItem("logs", "Logs", <LogsIcon />)}
                   {navItem("settings", "Settings", <SettingsIcon />)}
                 </>,
               )}
