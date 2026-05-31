@@ -233,7 +233,12 @@
 
 .company-sessions {
   --toolbar-control-h: 32px;
-  --sessions-card-separator: color-mix(
+  --sessions-header-separator: color-mix(
+    in srgb,
+    var(--color-border-faint) 68%,
+    var(--color-text-primary) 32%
+  );
+  --sessions-pane-separator: color-mix(
     in srgb,
     var(--color-border-faint) 82%,
     var(--color-text-primary) 18%
@@ -264,7 +269,7 @@
 .company-session-detail-strip {
   flex-shrink: 0;
   padding: 0;
-  border-bottom: 1px solid var(--sessions-card-separator);
+  border-bottom: 1px solid var(--sessions-header-separator);
   background: color-mix(in srgb, var(--color-card-elevated) 76%, transparent);
 }
 
@@ -306,7 +311,7 @@
   width: clamp(292px, 28vw, 352px);
   min-width: 252px;
   padding: var(--space-2);
-  border-right: 1px solid var(--sessions-card-separator);
+  border-right: 1px solid var(--sessions-pane-separator);
   border-radius: 0;
   background: var(--bg-row);
 }
@@ -1098,8 +1103,17 @@
   }
 
   .company-session-detail-header.session-detail-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
     min-height: 42px;
     padding: 0 var(--space-3);
+  }
+
+  .company-session-detail-header .session-detail-header-extras {
+    justify-content: flex-end;
+    margin-left: auto;
   }
 
   .inbox-page > .inbox-head,
