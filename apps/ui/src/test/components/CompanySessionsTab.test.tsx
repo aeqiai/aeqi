@@ -186,10 +186,16 @@ describe("CompanySessionsTab", () => {
     renderTab();
 
     await user.click(screen.getByRole("button", { name: "New Session" }));
+    const dialog = screen.getByRole("dialog", { name: "New session" });
+    expect(dialog).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Agent")).toHaveValue("agent-1");
+    expect(api.createSession).not.toHaveBeenCalled();
 
+    await user.dblClick(screen.getByRole("button", { name: "Start session" }));
     await waitFor(() => {
       expect(api.createSession).toHaveBeenCalledWith("agent-1", "root-1");
     });
+    expect(api.createSession).toHaveBeenCalledTimes(1);
   });
 
   it("renders the pinned My sessions view from user-scoped session data", async () => {

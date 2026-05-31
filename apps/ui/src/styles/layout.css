@@ -2471,6 +2471,16 @@
   z-index: 1;
 }
 
+.content-main-col:has(.company-sessions-page .composer-row--dock)::after {
+  content: none;
+}
+
+.content-main-col:has(.company-sessions-page .composer-row--dock)
+  .company-sessions-page
+  .session-detail-thread {
+  padding: var(--space-4) var(--space-5) var(--space-5);
+}
+
 /* Composer row — floats over the scroll surface. Tight 8px vertical
    padding; solid card-color background covers any scrolling content that
    would otherwise show through the row's side bleed. `pointer-events:
@@ -2597,6 +2607,11 @@
   border-radius: var(--radius-md) var(--radius-md) 0 0;
   padding: var(--space-2);
 }
+.composer-row--dock.composer-row--expanded .composer-wrap {
+  max-height: 220px;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  padding: var(--space-2);
+}
 .agent-dock-header {
   min-height: 18px;
   position: relative;
@@ -2634,6 +2649,11 @@
     transform 0.16s ease;
 }
 .composer-row--dock:is(:hover, :focus-within) .persistent-composer {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+}
+.composer-row--dock.composer-row--expanded .persistent-composer {
   opacity: 1;
   pointer-events: auto;
   transform: none;

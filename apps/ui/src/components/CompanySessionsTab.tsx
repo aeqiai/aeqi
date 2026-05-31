@@ -5,7 +5,6 @@ import { api, type InboxItem } from "@/lib/api";
 import { entityPathFromId } from "@/lib/entityPath";
 import { recencyBucket, timeAgo, timeShort } from "@/lib/format";
 import { sessionsViewFromSearch, withUserSessionsView } from "@/lib/sessionViews";
-import Composer from "@/components/composer/Composer";
 import { inboxMessagesAdapter } from "@/components/inbox/inboxMessagesAdapter";
 import {
   gatewayLabel,
@@ -13,7 +12,9 @@ import {
   type Message,
   type SessionInfo,
 } from "@/components/session/types";
+import ComposerRow from "@/components/shell/ComposerRow";
 import ParticipantStrip from "@/components/sessions/ParticipantStrip";
+import NewSessionModal from "@/components/sessions/NewSessionModal";
 import SessionDetail from "@/components/sessions/SessionDetail";
 import SessionRail, { type SessionRailRow } from "@/components/sessions/SessionRail";
 import SessionsFilterPopover, {
@@ -91,13 +92,26 @@ export default function CompanySessionsTab({
   const [filter, setFilter] = useState<SessionsFilterState>({ status: "all" });
   const [agentFilter, setAgentFilter] = useState("all");
   const [creatingSession, setCreatingSession] = useState(false);
+  const [newSessionOpen, setNewSessionOpen] = useState(false);
+  const [newSessionAgentId, setNewSessionAgentId] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
-  const [composerBody, setComposerBody] = useState("");
 
   const agentNameById = useMemo(
     () => new Map(agents.map((agent) => [agent.id, agent.name])),
     [agents],
+  );
+
+  const companyAgents = useMemo(() => {
+    const scoped = agents.filter(
+      (agent) => agent.company_id === companyId || agent.id === companyId,
+    );
+    return scoped.length > 0 ? scoped : agents;
+  }, [agents, companyId]);
+
+  const sessionStartAgentOptions = useMemo(
+    () => companyAgents.map((agent) => ({ value: agent.id, label: agent.name })),
+    [companyAgents],
   );
 
   const activeView = sessionsViewFromSearch(location.search);
@@ -246,10 +260,6 @@ export default function CompanySessionsTab({
     };
   }, [loadMessages, selectedAgentName, selectedId]);
 
-  useEffect(() => {
-    setComposerBody("");
-  }, [selectedId]);
-
   const handleSelect = useCallback(
     (id: string) => {
       const path = entityPathFromId(entities, companyId, "sessions", id);
@@ -263,24 +273,35 @@ export default function CompanySessionsTab({
   const targetAgentId =
     selected?.agent_id ||
     (agentFilter !== "all" ? agentFilter : null) ||
-    agents.find((agent) => agent.company_id === companyId)?.id ||
-    agents[0]?.id ||
+    companyAgents[0]?.id ||
     null;
 
+  const openNewSessionModal = useCallback(() => {
+    setNewSessionAgentId(targetAgentId ?? sessionStartAgentOptions[0]?.value ?? "");
+    setSendError(null);
+    setNewSessionOpen(true);
+  }, [sessionStartAgentOptions, targetAgentId]);
+
+  const closeNewSessionModal = useCallback(() => {
+    if (creatingSession) return;
+    setNewSessionOpen(false);
+  }, [creatingSession]);
+
   const handleNewSession = useCallback(async () => {
-    if (!targetAgentId || creatingSession) return;
+    const agentId = newSessionAgentId || targetAgentId;
+    if (!agentId || creatingSession) return;
     setCreatingSession(true);
     setSendError(null);
     try {
-      const data = await api.createSession(targetAgentId, companyId);
+      const data = await api.createSession(agentId, companyId);
       const sessionId = (data.session_id as string | undefined) ?? null;
       if (!sessionId) throw new Error("No session id returned");
-      const agentName = agentNameById.get(targetAgentId) ?? "Agent";
+      const agentName = agentNameById.get(agentId) ?? "Agent";
       const createdAt = new Date().toISOString();
       setSessions((prev) => [
         {
           id: sessionId,
-          agent_id: targetAgentId,
+          agent_id: agentId,
           agent_name: agentName,
           status: "active",
           created_at: createdAt,
@@ -292,6 +313,7 @@ export default function CompanySessionsTab({
       ]);
       const path = entityPathFromId(entities, companyId, "sessions", sessionId);
       navigate(userSessionsView ? withUserSessionsView(path, location.search) : path);
+      setNewSessionOpen(false);
     } catch {
       setSendError("Could not start a new session.");
     } finally {
@@ -303,6 +325,7 @@ export default function CompanySessionsTab({
     entities,
     location.search,
     navigate,
+    newSessionAgentId,
     targetAgentId,
     companyId,
     userSessionsView,
@@ -310,7 +333,7 @@ export default function CompanySessionsTab({
 
   const handleSend = useCallback(
     async (body: string) => {
-      if (!selectedId) return;
+      if (!selectedId || sending) return;
       setSending(true);
       setSendError(null);
       setMessages((prev) => [
@@ -356,15 +379,19 @@ export default function CompanySessionsTab({
         setSending(false);
       }
     },
-    [selected?.agent_id, selected?.awaiting, selectedId, companyId, userSessionsView],
+    [selected?.agent_id, selected?.awaiting, selectedId, companyId, sending, userSessionsView],
   );
 
-  const handleComposerSend = useCallback(async () => {
-    const trimmed = composerBody.trim();
-    if (!trimmed || sending || !selectedId) return;
-    setComposerBody("");
-    await handleSend(trimmed);
-  }, [composerBody, handleSend, selectedId, sending]);
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ text?: string }>).detail;
+      const text = detail?.text?.trim() ?? "";
+      if (!text) return;
+      void handleSend(text);
+    };
+    window.addEventListener("aeqi:send-message", handler);
+    return () => window.removeEventListener("aeqi:send-message", handler);
+  }, [handleSend]);
 
   const empty = !loading && rows.length === 0;
   const visibleConversationCount = rows.length;
@@ -399,8 +426,8 @@ export default function CompanySessionsTab({
             className="company-top-rail-cta"
             variant="primary"
             size="md"
-            onClick={() => void handleNewSession()}
-            disabled={!targetAgentId}
+            onClick={openNewSessionModal}
+            disabled={sessionStartAgentOptions.length === 0}
             loading={creatingSession}
             leadingIcon={<Icon icon={Plus} size="sm" />}
           >
@@ -520,20 +547,31 @@ export default function CompanySessionsTab({
             {sendError}
           </div>
         )}
-        <div className="composer-wrap company-sessions-composer-wrap">
-          <div className="persistent-composer">
-            <Composer
-              variant="shell"
-              value={composerBody}
-              onChange={setComposerBody}
-              onSend={() => void handleComposerSend()}
-              streaming={selectedStreaming}
-              placeholder={`Message ${selectedAgentName || "session"}...`}
-              disabled={sending || !selectedId}
-            />
-          </div>
-        </div>
+        <ComposerRow
+          agentId={selected?.agent_id ?? targetAgentId}
+          base={entityPathFromId(entities, companyId)}
+          sessionsMounted
+          mode="dock"
+          expanded
+          sessionId={selectedId ?? null}
+          sessionHref={
+            selectedId ? entityPathFromId(entities, companyId, "sessions", selectedId) : null
+          }
+          sessionLinkLabel={selectedTitle}
+          placeholder={`Message ${selectedAgentName || "session"}...`}
+          disabled={sending || !selectedId}
+        />
       </div>
+      <NewSessionModal
+        open={newSessionOpen}
+        onClose={closeNewSessionModal}
+        onSubmit={handleNewSession}
+        agentOptions={sessionStartAgentOptions}
+        agentId={newSessionAgentId}
+        onAgentChange={setNewSessionAgentId}
+        creating={creatingSession}
+        error={sendError}
+      />
     </div>
   );
 }

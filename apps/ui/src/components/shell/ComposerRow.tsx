@@ -19,6 +19,12 @@ interface ComposerRowProps {
   sessionsMounted: boolean;
   /** Visual placement. "floating" is the chat footer; "dock" is the ambient below-card strip. */
   mode?: "floating" | "dock";
+  /** Keep the dock composer open while preserving the same bottom-drawer component. */
+  expanded?: boolean;
+  /** Override the default agent-derived placeholder. */
+  placeholder?: string;
+  /** Disable sending while the mounted surface cannot accept messages. */
+  disabled?: boolean;
   /** Destination for pending ambient messages when no chat view is mounted. */
   composeHref?: string;
   /** Link to the session this ambient dock is currently connected to. */
@@ -56,6 +62,9 @@ export default function ComposerRow({
   sessionHref,
   sessionLinkLabel = "Session",
   sessionId: explicitSessionId,
+  expanded = false,
+  placeholder,
+  disabled = false,
 }: ComposerRowProps) {
   const navigate = useNavigate();
   const { tab, itemId } = useParams<{ tab?: string; itemId?: string }>();
@@ -296,7 +305,13 @@ export default function ComposerRow({
 
   return (
     <div
-      className={mode === "dock" ? "composer-row composer-row--dock" : "composer-row"}
+      className={[
+        "composer-row",
+        mode === "dock" ? "composer-row--dock" : "",
+        mode === "dock" && expanded ? "composer-row--expanded" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
       ref={rowRef}
       aria-label={mode === "dock" ? "Agent dock" : undefined}
     >
@@ -321,10 +336,11 @@ export default function ComposerRow({
             value={input}
             onChange={setInput}
             onSend={handleSend}
-            placeholder={`Message ${agentDisplayName || "agent"}...`}
+            placeholder={placeholder ?? `Message ${agentDisplayName || "agent"}...`}
             composerRef={inputRef}
             streaming={streaming}
             onStop={handleStop}
+            disabled={disabled}
             attachmentTypes={["idea", "quest", "file"]}
             attachedIdeas={ideas}
             setAttachedIdeas={setIdeas}
