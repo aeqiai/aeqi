@@ -80,12 +80,43 @@ export default function NewAgentModal({
   };
 
   return (
-    <Modal open={open} onClose={handleClose} title="New agent" className="aeqi-form-modal">
-      <form className="aeqi-form-modal__form" onSubmit={handleSubmit}>
-        <p className="aeqi-form-modal__copy">
-          Create a blank agent in this COMPANY. Agent templates stay available below the register.
-        </p>
-
+    <Modal
+      open={open}
+      onClose={handleClose}
+      title="New agent"
+      description="Create a blank agent in this COMPANY. Agent templates stay available below the register."
+      className="aeqi-form-modal"
+      footer={
+        <div className="aeqi-form-modal__footer">
+          {error && (
+            <div className="aeqi-form-modal__error" role="alert">
+              {error}
+            </div>
+          )}
+          <div className="aeqi-form-modal__actions">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={handleClose}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="new-agent-form"
+              variant="primary"
+              size="sm"
+              loading={submitting}
+            >
+              Create agent
+            </Button>
+          </div>
+        </div>
+      }
+    >
+      <form id="new-agent-form" className="aeqi-form-modal__form" onSubmit={handleSubmit}>
         <Input
           id="new-agent-name"
           label="Agent name"
@@ -106,27 +137,6 @@ export default function NewAgentModal({
           hint="Optional. Stored as this agent's starting identity."
           rows={4}
         />
-
-        {error && (
-          <div className="aeqi-form-modal__error" role="alert">
-            {error}
-          </div>
-        )}
-
-        <div className="aeqi-form-modal__actions">
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={handleClose}
-            disabled={submitting}
-          >
-            Cancel
-          </Button>
-          <Button type="submit" variant="primary" size="sm" loading={submitting}>
-            Create agent
-          </Button>
-        </div>
       </form>
     </Modal>
   );
