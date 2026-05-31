@@ -96,6 +96,7 @@ const COMPANY_PAGE_TABS = new Set([
   "apps",
   "tools",
   "events",
+  "logs",
   "quests",
   "ideas",
   "skills",

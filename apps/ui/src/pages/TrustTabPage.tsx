@@ -94,6 +94,7 @@ const RUNTIME_GATED_TABS: Record<string, UpsellSurface> = {
   channels: "gateways",
   tools: "apps",
   events: "events",
+  logs: "events",
   quests: "quests",
   ideas: "ideas",
   skills: "ideas",
@@ -329,6 +330,13 @@ export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTab
     );
   }
   if (tab === "events") {
+    return (
+      <Suspense>
+        <AgentEventsTab agentId={agentId} agentRail />
+      </Suspense>
+    );
+  }
+  if (tab === "logs") {
     return (
       <Suspense>
         <AgentEventsTab agentId={agentId} agentRail />

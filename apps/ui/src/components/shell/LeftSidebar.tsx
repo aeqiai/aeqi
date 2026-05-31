@@ -17,6 +17,7 @@ import {
   Activity,
   Target,
   Lightbulb,
+  Logs,
   Search,
   PanelLeftClose,
   PanelLeftOpen,
@@ -78,6 +79,7 @@ const GoalsIcon = () => <Icon icon={Flag} />;
 const SkillsIcon = () => <Icon icon={GraduationCap} />;
 const GatewaysIcon = () => <Icon icon={Waypoints} />;
 const ToolsIcon = () => <Icon icon={Wrench} />;
+const LogsIcon = () => <Icon icon={Logs} />;
 const AppsIcon = () => <Icon icon={AppWindow} />;
 const BudgetsIcon = () => <Icon icon={WalletCards} />;
 const TransactionsIcon = () => <Icon icon={ReceiptText} />;
@@ -569,6 +571,9 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
                     locked: runtimeLocked,
                   })}
                   {navItem("tools", "Tools", <ToolsIcon />, {
+                    locked: runtimeLocked,
+                  })}
+                  {navItem("logs", "Logs", <LogsIcon />, {
                     locked: runtimeLocked,
                   })}
                   {navItem("settings", "Settings", <SettingsIcon />)}

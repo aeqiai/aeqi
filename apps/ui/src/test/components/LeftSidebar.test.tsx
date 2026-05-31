@@ -35,6 +35,7 @@ const CANONICAL_NAV_ROWS = new Set([
   "Integrations",
   "Gateways",
   "Tools",
+  "Logs",
   "Settings",
 ]);
 
