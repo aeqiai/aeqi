@@ -92,7 +92,14 @@ pub async fn handle_create_session(
             .create_session(agent_id, "perpetual", "Permanent Session", None, None)
             .await
         {
-            Ok(session_id) => serde_json::json!({"ok": true, "session_id": session_id}),
+            Ok(session_id) => {
+                if let Some(user_id) = request_field(request, "caller_user_id") {
+                    let _ = ss
+                        .add_session_participant(&session_id, "user", user_id, None)
+                        .await;
+                }
+                serde_json::json!({"ok": true, "session_id": session_id})
+            }
             Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
         }
     } else {

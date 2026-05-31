@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Bot } from "lucide-react";
+import type { CSSProperties } from "react";
 import styles from "./AgentAvatar.module.css";
 
 /**
@@ -15,14 +16,32 @@ import styles from "./AgentAvatar.module.css";
  */
 export const AGENT_AVATAR_SIZE = 18;
 
-export default function AgentAvatar({ name, src }: { name: string; src?: string }) {
+export default function AgentAvatar({
+  name,
+  src,
+  size = AGENT_AVATAR_SIZE,
+}: {
+  name: string;
+  src?: string;
+  size?: number;
+}) {
   const [errored, setErrored] = useState(false);
+  const style = { "--agent-avatar-size": `${size}px` } as CSSProperties;
+  const iconSize = Math.max(12, Math.round(size * 0.58));
   if (src && !errored) {
-    return <img src={src} alt="" onError={() => setErrored(true)} className={styles.avatar} />;
+    return (
+      <img
+        src={src}
+        alt=""
+        onError={() => setErrored(true)}
+        className={styles.avatar}
+        style={style}
+      />
+    );
   }
   return (
-    <span className={styles.fallback} aria-hidden="true" title={name}>
-      <Bot size={12} strokeWidth={1.75} />
+    <span className={styles.fallback} aria-hidden="true" title={name} style={style}>
+      <Bot size={iconSize} strokeWidth={1.75} />
     </span>
   );
 }

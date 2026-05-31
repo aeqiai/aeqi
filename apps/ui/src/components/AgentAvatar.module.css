@@ -1,8 +1,8 @@
 .avatar,
 .fallback {
   display: inline-flex;
-  width: 18px;
-  height: 18px;
+  width: var(--agent-avatar-size, 18px);
+  height: var(--agent-avatar-size, 18px);
   flex-shrink: 0;
   border-radius: var(--radius-full);
 }

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { BriefcaseBusiness, Plus } from "lucide-react";
 import { apiRequest } from "@/api/client";
-import BlockAvatar from "@/components/BlockAvatar";
+import AgentAvatar from "@/components/AgentAvatar";
+import UserAvatar from "@/components/UserAvatar";
 import { Icon } from "@/components/ui";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
@@ -65,15 +66,50 @@ function ParticipantAvatar({
         ? entityPathFromId(entitiesList, companyId, "roles", encodeURIComponent(p.id))
         : undefined;
 
-  // Avatar shape is determined by KIND, not by whether a photo URL exists.
-  // Humans/users render as full circles; agents (and agent-adjacent kinds
-  // like positions, external) render as slight-rounded squares.
-  const shape: "circle" | "rounded-square" = p.kind === "user" ? "circle" : "rounded-square";
-  const photoBorderRadius = shape === "circle" ? "999px" : "var(--radius-sm)";
+  const className = `asv-participant-avatar${active ? " is-processing" : ""}`;
+
+  if (p.kind === "agent") {
+    const node = <AgentAvatar name={p.name || "Agent"} src={p.avatar_url ?? undefined} size={24} />;
+    if (href) {
+      return (
+        <Link
+          to={href}
+          className={`block-avatar-link ${className}`}
+          aria-label={active ? `${p.name} is processing` : p.name}
+          title={p.name}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {node}
+        </Link>
+      );
+    }
+    return (
+      <div
+        className={className}
+        title={p.name}
+        aria-label={active ? `${p.name} is processing` : p.name}
+      >
+        {node}
+      </div>
+    );
+  }
+
+  if (p.kind === "user") {
+    return (
+      <div
+        className={className}
+        title={p.name}
+        aria-label={active ? `${p.name} is processing` : p.name}
+      >
+        <UserAvatar name={p.name || "User"} src={p.avatar_url ?? null} size={24} />
+      </div>
+    );
+  }
+
+  if (p.kind === "external" && !p.avatar_url) return null;
 
   if (p.avatar_url) {
-    const className = `block-avatar-link asv-participant-avatar${active ? " is-processing" : ""}`;
-    const img = (
+    const node = (
       <img
         src={p.avatar_url}
         alt={p.name}
@@ -82,7 +118,7 @@ function ParticipantAvatar({
         style={{
           width: 24,
           height: 24,
-          borderRadius: photoBorderRadius,
+          borderRadius: "999px",
           objectFit: "cover",
           display: "block",
         }}
@@ -92,12 +128,12 @@ function ParticipantAvatar({
       return (
         <Link
           to={href}
-          className={className}
+          className={`block-avatar-link ${className}`}
           aria-label={active ? `${p.name} is processing` : p.name}
           title={p.name}
           onClick={(e) => e.stopPropagation()}
         >
-          {img}
+          {node}
         </Link>
       );
     }
@@ -107,17 +143,20 @@ function ParticipantAvatar({
         title={p.name}
         aria-label={active ? `${p.name} is processing` : p.name}
       >
-        {img}
+        {node}
       </div>
     );
   }
+
   return (
     <div
-      className={`asv-participant-avatar${active ? " is-processing" : ""}`}
+      className={className}
       title={p.name}
       aria-label={active ? `${p.name} is processing` : p.name}
     >
-      <BlockAvatar name={p.name || "?"} size={24} href={href} ariaLabel={p.name} shape={shape} />
+      <span className="asv-participant-role-avatar" aria-hidden>
+        <BriefcaseBusiness size={14} strokeWidth={1.8} />
+      </span>
     </div>
   );
 }
@@ -126,6 +165,7 @@ export default function ParticipantStrip({
   sessionId,
   companyId,
   activeParticipantIds = [],
+  extraParticipants = [],
 }: {
   sessionId: string | null;
   /** Optional entity scope override — needed when the host route doesn't
@@ -133,6 +173,7 @@ export default function ParticipantStrip({
    *  mounted in a context without a matching :companyId/:companyAddress). */
   companyId?: string;
   activeParticipantIds?: string[];
+  extraParticipants?: Participant[];
 }) {
   const [participants, setParticipants] = useState<Participant[] | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -165,38 +206,45 @@ export default function ParticipantStrip({
   // Cross-reference the API's participant list with daemon-store agents and
   // the auth-store user so the avatar + display name match what `MessageItem`
   // renders for the same identity. The /sessions/<id>/participants endpoint
-  // omits avatar_url for agents (no daemon photo), and reports humans by their
-  // session-time name (often a truncated email prefix), so without this seam
-  // the same identity ends up with a different BlockAvatar in the strip vs
-  // the message bubble.
+  // can omit avatar_url for agents and report humans by a session-time label,
+  // so this seam keeps the strip aligned with message bubbles and member rows.
   const agents = useDaemonStore((s) => s.agents);
   const currentUser = useAuthStore((s) => s.user);
 
-  const enriched = useMemo(
-    () =>
-      (participants ?? []).map((p) => {
-        if (p.kind === "agent") {
-          const a = agents.find((x) => x.id === p.id);
-          if (a) {
-            return {
-              ...p,
-              avatar_url: a.avatar ?? p.avatar_url,
-              name: a.name ?? p.name,
-            };
-          }
-          return p;
-        }
-        if (p.kind === "user" && currentUser && currentUser.id === p.id) {
+  const enriched = useMemo(() => {
+    const byIdentity = new Map<string, Participant>();
+    for (const p of [...(participants ?? []), ...extraParticipants]) {
+      const key = `${p.kind}:${p.id}`;
+      const current = byIdentity.get(key);
+      byIdentity.set(key, {
+        ...current,
+        ...p,
+        avatar_url: p.avatar_url ?? current?.avatar_url ?? null,
+        name: p.name || current?.name || p.id,
+      });
+    }
+    return [...byIdentity.values()].map((p) => {
+      if (p.kind === "agent") {
+        const a = agents.find((x) => x.id === p.id);
+        if (a) {
           return {
             ...p,
-            avatar_url: currentUser.avatar_url ?? p.avatar_url,
-            name: currentUser.name ?? p.name,
+            avatar_url: a.avatar ?? p.avatar_url,
+            name: a.name ?? p.name,
           };
         }
         return p;
-      }),
-    [participants, agents, currentUser],
-  );
+      }
+      if (p.kind === "user" && currentUser && currentUser.id === p.id) {
+        return {
+          ...p,
+          avatar_url: currentUser.avatar_url ?? p.avatar_url,
+          name: currentUser.name ?? p.name,
+        };
+      }
+      return p;
+    });
+  }, [participants, extraParticipants, agents, currentUser]);
 
   if (!sessionId) return null;
 

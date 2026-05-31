@@ -81,6 +81,7 @@ pub struct Session {
     pub gateway_sender_id: Option<String>,
     pub gateway_sender_name: Option<String>,
     pub gateway_sender_transport_id: Option<String>,
+    pub last_active: String,
 }
 
 fn parse_gateway_channel_key(raw: Option<String>) -> (Option<String>, Option<String>) {
@@ -112,6 +113,7 @@ fn session_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Session> {
         gateway_sender_id: row.get(12)?,
         gateway_sender_name: row.get(13)?,
         gateway_sender_transport_id: row.get(14)?,
+        last_active: row.get(15)?,
     })
 }
 
@@ -1745,7 +1747,8 @@ impl SessionStore {
                 "SELECT s.id, s.agent_id, s.session_type, s.name, s.status, s.created_at, \
                         s.closed_at, s.parent_id, s.quest_id, s.first_message, \
                         s.gateway_channel_id, cs.channel_key, \
-                        gs.id, gs.display_name, gs.transport_id \
+                        gs.id, gs.display_name, gs.transport_id, \
+                        COALESCE((SELECT MAX(timestamp) FROM session_messages m WHERE m.session_id = s.id), s.created_at) AS last_active \
                  FROM sessions s \
                  LEFT JOIN channel_sessions cs ON cs.session_id = s.id \
                  LEFT JOIN senders gs \
@@ -1755,7 +1758,7 @@ impl SessionStore {
                         INSTR(SUBSTR(cs.channel_key, INSTR(cs.channel_key, ':') + 1), ':') + 1 \
                       ) \
                  WHERE s.agent_id = ?1 \
-                 ORDER BY s.created_at DESC LIMIT ?2"
+                 ORDER BY last_active DESC LIMIT ?2"
                     .to_string(),
                 vec![
                     Box::new(aid.to_string()) as Box<dyn rusqlite::types::ToSql>,
@@ -1766,7 +1769,8 @@ impl SessionStore {
                 "SELECT s.id, s.agent_id, s.session_type, s.name, s.status, s.created_at, \
                         s.closed_at, s.parent_id, s.quest_id, s.first_message, \
                         s.gateway_channel_id, cs.channel_key, \
-                        gs.id, gs.display_name, gs.transport_id \
+                        gs.id, gs.display_name, gs.transport_id, \
+                        COALESCE((SELECT MAX(timestamp) FROM session_messages m WHERE m.session_id = s.id), s.created_at) AS last_active \
                  FROM sessions s \
                  LEFT JOIN channel_sessions cs ON cs.session_id = s.id \
                  LEFT JOIN senders gs \
@@ -1775,7 +1779,7 @@ impl SessionStore {
                         SUBSTR(cs.channel_key, INSTR(cs.channel_key, ':') + 1), \
                         INSTR(SUBSTR(cs.channel_key, INSTR(cs.channel_key, ':') + 1), ':') + 1 \
                       ) \
-                 ORDER BY s.created_at DESC LIMIT ?1"
+                 ORDER BY last_active DESC LIMIT ?1"
                     .to_string(),
                 vec![Box::new(limit as i64) as Box<dyn rusqlite::types::ToSql>],
             ),
@@ -1815,7 +1819,8 @@ impl SessionStore {
             "SELECT s.id, s.agent_id, s.session_type, s.name, s.status, s.created_at, \
                     s.closed_at, s.parent_id, s.quest_id, s.first_message, \
                     s.gateway_channel_id, cs.channel_key, \
-                    gs.id, gs.display_name, gs.transport_id \
+                    gs.id, gs.display_name, gs.transport_id, \
+                    COALESCE((SELECT MAX(timestamp) FROM session_messages m WHERE m.session_id = s.id), s.created_at) AS last_active \
              FROM sessions s \
              LEFT JOIN channel_sessions cs ON cs.session_id = s.id \
              LEFT JOIN senders gs \
@@ -1825,7 +1830,7 @@ impl SessionStore {
                     INSTR(SUBSTR(cs.channel_key, INSTR(cs.channel_key, ':') + 1), ':') + 1 \
                   ) \
              WHERE s.agent_id IN ({placeholders}) \
-             ORDER BY s.created_at DESC LIMIT ?{limit_idx}"
+             ORDER BY last_active DESC LIMIT ?{limit_idx}"
         );
 
         let mut boxed_params: Vec<Box<dyn rusqlite::types::ToSql>> = ids
@@ -1859,6 +1864,12 @@ impl SessionStore {
              VALUES (?1, ?2, ?3, ?4, 'active', ?5, ?6)",
             params![id, agent_id, session_type, name, parent_id, quest_id],
         )?;
+        db.execute(
+            "INSERT OR IGNORE INTO session_participants
+             (session_id, identity_kind, identity_id, joined_at)
+             VALUES (?1, 'agent', ?2, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
+            params![id, agent_id],
+        )?;
         Ok(id)
     }
 
@@ -1877,6 +1888,12 @@ impl SessionStore {
             "INSERT OR IGNORE INTO sessions (id, agent_id, session_type, name, status, parent_id, quest_id)
              VALUES (?1, ?2, ?3, ?4, 'active', ?5, ?6)",
             params![id, agent_id, session_type, name, parent_id, quest_id],
+        )?;
+        db.execute(
+            "INSERT OR IGNORE INTO session_participants
+             (session_id, identity_kind, identity_id, joined_at)
+             VALUES (?1, 'agent', ?2, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
+            params![id, agent_id],
         )?;
         Ok(id.to_string())
     }
@@ -2181,7 +2198,8 @@ impl SessionStore {
                 "SELECT s.id, s.agent_id, s.session_type, s.name, s.status, s.created_at, \
                         s.closed_at, s.parent_id, s.quest_id, s.first_message, \
                         s.gateway_channel_id, cs.channel_key, \
-                        gs.id, gs.display_name, gs.transport_id \
+                        gs.id, gs.display_name, gs.transport_id, \
+                        COALESCE((SELECT MAX(timestamp) FROM session_messages m WHERE m.session_id = s.id), s.created_at) AS last_active \
                  FROM sessions s \
                  LEFT JOIN channel_sessions cs ON cs.session_id = s.id \
                  LEFT JOIN senders gs \
@@ -2222,7 +2240,8 @@ impl SessionStore {
             "SELECT s.id, s.agent_id, s.session_type, s.name, s.status, s.created_at, \
                     s.closed_at, s.parent_id, s.quest_id, s.first_message, \
                     s.gateway_channel_id, cs.channel_key, \
-                    gs.id, gs.display_name, gs.transport_id \
+                    gs.id, gs.display_name, gs.transport_id, \
+                    COALESCE((SELECT MAX(timestamp) FROM session_messages m WHERE m.session_id = s.id), s.created_at) AS last_active \
              FROM sessions s \
              LEFT JOIN channel_sessions cs ON cs.session_id = s.id \
              LEFT JOIN senders gs \
@@ -2231,7 +2250,7 @@ impl SessionStore {
                     SUBSTR(cs.channel_key, INSTR(cs.channel_key, ':') + 1), \
                     INSTR(SUBSTR(cs.channel_key, INSTR(cs.channel_key, ':') + 1), ':') + 1 \
                   ) \
-             WHERE s.parent_id = ?1 ORDER BY s.created_at DESC",
+             WHERE s.parent_id = ?1 ORDER BY last_active DESC",
         )?;
         let rows = stmt
             .query_map(params![parent_id], session_from_row)?
@@ -3364,6 +3383,42 @@ mod tests {
 
         let by_agent = store.list_sessions(Some("a1"), 100).await.unwrap();
         assert_eq!(by_agent.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn list_sessions_orders_by_latest_message_timestamp() {
+        let store = test_store().await;
+
+        let first_created = store
+            .create_session("a1", "web", "first-created", None, None)
+            .await
+            .unwrap();
+        let second_created = store
+            .create_session("a1", "web", "second-created", None, None)
+            .await
+            .unwrap();
+
+        {
+            let db = store.db.lock().await;
+            db.execute(
+                "INSERT INTO session_messages (session_id, role, content, timestamp, event_type)
+                 VALUES (?1, 'user', 'older reply', ?2, 'message')",
+                params![second_created, "2026-05-28T10:00:00Z"],
+            )
+            .unwrap();
+            db.execute(
+                "INSERT INTO session_messages (session_id, role, content, timestamp, event_type)
+                 VALUES (?1, 'user', 'newest reply', ?2, 'message')",
+                params![first_created, "2026-05-28T12:00:00Z"],
+            )
+            .unwrap();
+        }
+
+        let sessions = store.list_sessions(Some("a1"), 100).await.unwrap();
+        assert_eq!(sessions[0].id, first_created);
+        assert_eq!(sessions[0].last_active, "2026-05-28T12:00:00Z");
+        assert_eq!(sessions[1].id, second_created);
+        assert_eq!(sessions[1].last_active, "2026-05-28T10:00:00Z");
     }
 
     #[tokio::test]

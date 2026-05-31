@@ -23,14 +23,15 @@
  *   composer-wrap + persistent-composer + Composer variant="shell".
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Composer from "@/components/composer/Composer";
 import MessageItem from "@/components/session/MessageItem";
-import ParticipantStrip from "@/components/sessions/ParticipantStrip";
+import ParticipantStrip, { type Participant } from "@/components/sessions/ParticipantStrip";
 import type { Message } from "@/components/session/types";
 import type { ComposerAttachmentKind, ComposerFile } from "@/components/composer/Composer";
 import { useRelativeNow } from "@/hooks/useRelativeNow";
 import { timeAgo } from "@/lib/format";
+import { useAuthStore } from "@/store/auth";
 
 /** Compact relative-time for the chat header — wraps `timeAgo`'s ISO API
  *  for the millisecond timestamps message rows carry. */
@@ -164,6 +165,7 @@ export default function SessionDetail({
   const prevMessageCountRef = useRef(0);
   const [unreadWhileDetached, setUnreadWhileDetached] = useState(0);
   const [body, setBody] = useState("");
+  const currentUser = useAuthStore((s) => s.user);
 
   // Reset per-session draft + scroll posture when selection changes.
   // Pin to bottom on session switch — a fresh thread should land at the
@@ -269,6 +271,36 @@ export default function SessionDetail({
       ? `Active ${formatRelative(lastTimestamp)}`
       : null;
 
+  const messageParticipants = useMemo<Participant[]>(() => {
+    const byIdentity = new Map<string, Participant>();
+    for (const msg of messages) {
+      if (msg.from_kind === "user") {
+        const id = msg.from_id || currentUser?.id;
+        if (!id) continue;
+        const isCurrentUser = currentUser?.id === id;
+        byIdentity.set(`user:${id}`, {
+          id,
+          kind: "user",
+          name: isCurrentUser
+            ? (currentUser.name ?? currentUser.email ?? "You")
+            : msg.sender?.display_name || msg.sender?.id || "User",
+          avatar_url: isCurrentUser
+            ? (currentUser.avatar_url ?? null)
+            : (msg.sender?.avatar_url ?? null),
+        });
+      } else if (msg.sender?.transport && msg.sender?.display_name) {
+        const id = msg.sender.id || msg.sender.transport_id || msg.sender.display_name;
+        byIdentity.set(`external:${id}`, {
+          id,
+          kind: "external",
+          name: msg.sender.display_name,
+          avatar_url: msg.sender.avatar_url ?? null,
+        });
+      }
+    }
+    return [...byIdentity.values()];
+  }, [currentUser, messages]);
+
   const className = [
     "session-detail",
     surface === "recessed" ? "session-detail--recessed" : "",
@@ -302,7 +334,13 @@ export default function SessionDetail({
             </div>
           </div>
           <div className="session-detail-header-extras">
-            {sessionId && <ParticipantStrip sessionId={sessionId} companyId={companyId} />}
+            {sessionId && (
+              <ParticipantStrip
+                sessionId={sessionId}
+                companyId={companyId}
+                extraParticipants={messageParticipants}
+              />
+            )}
             {headerExtras}
           </div>
         </div>

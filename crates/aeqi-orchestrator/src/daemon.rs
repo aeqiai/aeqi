@@ -2371,6 +2371,27 @@ impl Daemon {
                         match deps {
                             Err(msg) => serde_json::json!({"ok": false, "error": msg}),
                             Ok((provider, ss)) => {
+                                if let Some(ref user_id) = caller_user_id {
+                                    let _ = ss
+                                        .add_session_participant(
+                                            &resolved_session_id,
+                                            "user",
+                                            user_id,
+                                            None,
+                                        )
+                                        .await;
+                                }
+                                let participant_agent_id =
+                                    agent_id_direct.as_deref().unwrap_or(&agent_hint);
+                                let _ = ss
+                                    .add_session_participant(
+                                        &resolved_session_id,
+                                        "agent",
+                                        participant_agent_id,
+                                        None,
+                                    )
+                                    .await;
+
                                 let sender = ipc_ctx
                                     .stream_registry
                                     .get_or_create(&resolved_session_id)

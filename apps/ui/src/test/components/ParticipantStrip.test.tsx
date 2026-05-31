@@ -70,9 +70,8 @@ describe("ParticipantStrip", () => {
       expect(apiRequest).toHaveBeenCalledWith("/sessions/session-1/participants");
     });
 
-    expect(await screen.findByAltText("Builder")).toBeInTheDocument();
-    expect(screen.getByAltText("Director")).toBeInTheDocument();
-    const active = screen.getByLabelText("Builder is processing");
+    const active = await screen.findByLabelText("Builder is processing");
+    expect(screen.getByLabelText("Director")).toBeInTheDocument();
     expect(active).toHaveClass("is-processing");
     expect(screen.queryByLabelText("Director is processing")).not.toBeInTheDocument();
   });

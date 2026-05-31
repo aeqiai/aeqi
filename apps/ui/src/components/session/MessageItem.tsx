@@ -5,13 +5,10 @@ import { IconButton, Tooltip } from "@/components/ui";
 import { useNav } from "@/hooks/useNav";
 import { useDaemonStore } from "@/store/daemon";
 import { useAuthStore } from "@/store/auth";
-import { entityPathFromId } from "@/lib/entityPath";
-import BlockAvatar from "@/components/BlockAvatar";
 import MentionText from "@/components/MentionText";
 import {
   type Message,
   type MessageSegment,
-  type ResolvedAuthor,
   resolveAuthor,
   formatTransportLabel,
   formatTime,
@@ -23,6 +20,7 @@ import {
 } from "./types";
 import { SegmentRenderer, EventFireItem, SessionMarkdown } from "./SegmentRenderer";
 import { parseErrorContent } from "./parseErrorContent";
+import { AvatarCell, isExternalSender, resolveAvatar, senderAvatarUrl } from "./MessageAvatar";
 
 // ── Copy button ─────────────────────────────────────────────────────────
 
@@ -216,111 +214,6 @@ function QuestEventBubble({
   );
 }
 
-// ── Avatar resolution — shared by agent / position / user senders ────────
-
-interface AvatarResolution {
-  href: string | undefined;
-  name: string;
-  photoUrl: string;
-  shape: "circle" | "rounded-square";
-  authorLabel: string | null;
-}
-
-function resolveAvatar(
-  author: ResolvedAuthor,
-  ctx: {
-    companyId: string | undefined;
-    entitiesList: ReturnType<typeof useDaemonStore.getState>["entities"];
-    currentUserId: string;
-    currentUserName: string;
-    currentUserAvatarUrl: string;
-    userEmail: string;
-  },
-): AvatarResolution | null {
-  const {
-    companyId,
-    entitiesList,
-    currentUserId,
-    currentUserName,
-    currentUserAvatarUrl,
-    userEmail,
-  } = ctx;
-  if (author.kind === "system") return null;
-
-  if (author.kind === "agent") {
-    const href = companyId
-      ? entityPathFromId(entitiesList, companyId, "agents", encodeURIComponent(author.id))
-      : undefined;
-    return {
-      href,
-      name: author.name,
-      photoUrl: "",
-      shape: "rounded-square",
-      authorLabel: author.name,
-    };
-  }
-  if (author.kind === "position") {
-    const href = companyId
-      ? entityPathFromId(entitiesList, companyId, "roles", encodeURIComponent(author.id))
-      : undefined;
-    return {
-      href,
-      name: author.title,
-      photoUrl: "",
-      shape: "rounded-square",
-      authorLabel: author.title,
-    };
-  }
-  // author.kind === "user"
-  const isCurrentUser = !!(author.id && currentUserId && author.id === currentUserId);
-  return {
-    href: isCurrentUser ? "/account" : undefined,
-    name: isCurrentUser
-      ? currentUserName || author.name || userEmail || "You"
-      : author.name || "User",
-    photoUrl: isCurrentUser ? currentUserAvatarUrl || "" : "",
-    shape: "circle",
-    authorLabel: isCurrentUser ? "You" : author.name || "User",
-  };
-}
-
-function AvatarCell({ avatar }: { avatar: AvatarResolution }) {
-  const { href, name, photoUrl, shape } = avatar;
-  const photoBorderRadius = shape === "circle" ? "999px" : "var(--radius-sm)";
-
-  if (photoUrl) {
-    const img = (
-      <img
-        src={photoUrl}
-        alt={name}
-        width={20}
-        height={20}
-        style={{
-          width: 20,
-          height: 20,
-          borderRadius: photoBorderRadius,
-          objectFit: "cover",
-          display: "block",
-        }}
-      />
-    );
-    return href ? (
-      <Link
-        to={href}
-        className="block-avatar-link"
-        aria-label={name}
-        title={name}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {img}
-      </Link>
-    ) : (
-      img
-    );
-  }
-  return <BlockAvatar name={name} size={20} href={href} ariaLabel={name} shape={shape} />;
-}
-
 // ── Message meta + chrome actions ────────────────────────────────────────
 
 function senderIdentity(msg: Message): { label: string; detail: string | null } | null {
@@ -463,6 +356,11 @@ const MessageItem = memo(function MessageItem({
     for (const a of agents) m.set(a.id, a.name ?? a.id);
     return m;
   }, [agents]);
+  const agentAvatarById = useMemo(() => {
+    const m = new Map<string, string | undefined>();
+    for (const a of agents) m.set(a.id, a.avatar ?? undefined);
+    return m;
+  }, [agents]);
 
   const resolvedAgentId = sessionAgentId ?? companyId ?? "";
   const authorCtx = useMemo(
@@ -516,6 +414,7 @@ const MessageItem = memo(function MessageItem({
   const avatar = resolveAvatar(author, {
     companyId,
     entitiesList,
+    agentAvatarById,
     currentUserId,
     currentUserName,
     currentUserAvatarUrl,
@@ -526,7 +425,10 @@ const MessageItem = memo(function MessageItem({
       ? {
           ...avatar,
           name: sender.label,
+          photoUrl: senderAvatarUrl(msg),
           authorLabel: sender.label,
+          href: undefined,
+          kind: isExternalSender(msg) ? ("external" as const) : avatar.kind,
         }
       : avatar;
 

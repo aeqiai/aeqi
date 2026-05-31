@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
+import { BriefcaseBusiness } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { api } from "@/lib/api";
 import { apiRequest } from "@/api/client";
 import { useDaemonStore } from "@/store/daemon";
 import { useNav } from "@/hooks/useNav";
-import BlockAvatar from "@/components/BlockAvatar";
+import AgentAvatar from "@/components/AgentAvatar";
+import UserAvatar from "@/components/UserAvatar";
 import type { Role } from "@/lib/types";
 
 /**
@@ -16,7 +18,7 @@ import type { Role } from "@/lib/types";
  */
 
 type Candidate =
-  | { kind: "agent"; id: string; name: string; subtitle?: string }
+  | { kind: "agent"; id: string; name: string; subtitle?: string; avatar_url?: string | null }
   | { kind: "position"; id: string; name: string; subtitle?: string }
   | { kind: "user"; id: string; name: string; subtitle?: string; avatar_url?: string | null };
 
@@ -31,25 +33,17 @@ interface AddParticipantModalProps {
 }
 
 function CandidateAvatar({ c }: { c: Candidate }) {
-  if (c.kind === "user" && c.avatar_url) {
-    return (
-      <img
-        src={c.avatar_url}
-        alt={c.name}
-        width={24}
-        height={24}
-        style={{
-          width: 24,
-          height: 24,
-          borderRadius: "999px",
-          objectFit: "cover",
-          display: "block",
-          flexShrink: 0,
-        }}
-      />
-    );
+  if (c.kind === "agent") {
+    return <AgentAvatar name={c.name || "Agent"} src={c.avatar_url ?? undefined} size={24} />;
   }
-  return <BlockAvatar name={c.name || "?"} size={24} />;
+  if (c.kind === "user") {
+    return <UserAvatar name={c.name || "User"} src={c.avatar_url ?? null} size={24} />;
+  }
+  return (
+    <span className="add-participant-role-avatar" aria-hidden>
+      <BriefcaseBusiness size={14} strokeWidth={1.8} />
+    </span>
+  );
 }
 
 function KindChip({ kind }: { kind: Candidate["kind"] }) {
@@ -110,6 +104,7 @@ export default function AddParticipantModal({
         kind: "agent",
         id: a.id,
         name: a.name ?? a.id,
+        avatar_url: a.avatar ?? null,
       });
     }
     for (const r of roles) {

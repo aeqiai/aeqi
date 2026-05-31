@@ -81,6 +81,18 @@
   flex-shrink: 0;
   background: var(--bg-row);
 }
+.asv-participant-role-avatar,
+.add-participant-role-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--bg-row);
+  color: var(--color-text-muted);
+}
 .asv-participant-avatar.is-processing {
   position: relative;
   box-shadow:
@@ -255,6 +267,17 @@
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
+}
+.asv-msg-role-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--bg-row);
+  color: var(--color-text-muted);
 }
 .asv-msg-user .asv-msg-author {
   flex-direction: row-reverse;

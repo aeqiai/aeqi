@@ -13,7 +13,7 @@ import {
   type SessionInfo,
 } from "@/components/session/types";
 import ComposerRow from "@/components/shell/ComposerRow";
-import ParticipantStrip from "@/components/sessions/ParticipantStrip";
+import ParticipantStrip, { type Participant } from "@/components/sessions/ParticipantStrip";
 import NewSessionModal from "@/components/sessions/NewSessionModal";
 import SessionDetail from "@/components/sessions/SessionDetail";
 import SessionRail, { type SessionRailRow } from "@/components/sessions/SessionRail";
@@ -29,6 +29,7 @@ import SessionsSortPopover, { type SessionsSort } from "@/components/sessions/Se
 import SessionsToolbar from "@/components/sessions/SessionsToolbar";
 import { Button, Icon, Loading, PrimitivePageHeader, ToolbarRadioPopover } from "@/components/ui";
 import { useRelativeNow } from "@/hooks/useRelativeNow";
+import { useAuthStore } from "@/store/auth";
 import { useChatStore } from "@/store/chat";
 import { useDaemonStore } from "@/store/daemon";
 
@@ -87,6 +88,7 @@ export default function CompanySessionsTab({
   useRelativeNow();
   const entities = useDaemonStore((s) => s.entities);
   const agents = useDaemonStore((s) => s.agents);
+  const currentUser = useAuthStore((s) => s.user);
   const streamingSessions = useChatStore((s) => s.streamingSessions);
   const setConnectedSession = useChatStore((s) => s.setConnectedSession);
   const setSessionsForAgent = useChatStore((s) => s.setSessionsForAgent);
@@ -242,6 +244,35 @@ export default function CompanySessionsTab({
     : activityTimestamp != null
       ? `Active ${formatRelative(activityTimestamp)}`
       : null;
+  const messageParticipants = useMemo<Participant[]>(() => {
+    const byIdentity = new Map<string, Participant>();
+    for (const msg of messages) {
+      if (msg.from_kind === "user") {
+        const id = msg.from_id || currentUser?.id;
+        if (!id) continue;
+        const isCurrentUser = currentUser?.id === id;
+        byIdentity.set(`user:${id}`, {
+          id,
+          kind: "user",
+          name: isCurrentUser
+            ? (currentUser.name ?? currentUser.email ?? "You")
+            : msg.sender?.display_name || msg.sender?.id || "User",
+          avatar_url: isCurrentUser
+            ? (currentUser.avatar_url ?? null)
+            : (msg.sender?.avatar_url ?? null),
+        });
+      } else if (msg.sender?.transport && msg.sender?.display_name) {
+        const id = msg.sender.id || msg.sender.transport_id || msg.sender.display_name;
+        byIdentity.set(`external:${id}`, {
+          id,
+          kind: "external",
+          name: msg.sender.display_name,
+          avatar_url: msg.sender.avatar_url ?? null,
+        });
+      }
+    }
+    return [...byIdentity.values()];
+  }, [currentUser, messages]);
 
   const loadMessages = useCallback(
     async (sessionId: string, agentName?: string | null) => {
@@ -506,7 +537,11 @@ export default function CompanySessionsTab({
                 </div>
               </div>
               <div className="session-detail-header-extras">
-                <ParticipantStrip sessionId={selectedId} companyId={companyId} />
+                <ParticipantStrip
+                  sessionId={selectedId}
+                  companyId={companyId}
+                  extraParticipants={messageParticipants}
+                />
               </div>
             </div>
           </div>
