@@ -37,6 +37,13 @@
   border-bottom: 1px solid var(--table-separator);
 }
 
+.trust-roles-main--cards .trust-roles-workspace,
+.trust-roles-main--list .trust-roles-workspace {
+  flex: 0 0 auto;
+  min-height: 0;
+  overflow: visible;
+}
+
 .trust-roles-canvas--cards,
 .trust-roles-canvas--list {
   min-height: auto;
@@ -54,13 +61,6 @@
 }
 
 @media (max-width: 720px) {
-  .trust-roles-main--cards .trust-roles-workspace,
-  .trust-roles-main--list .trust-roles-workspace {
-    flex: 0 0 auto;
-    min-height: 0;
-    overflow: visible;
-  }
-
   .trust-roles-content--cards,
   .trust-roles-content--list {
     flex: 0 0 auto;
