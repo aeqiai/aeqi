@@ -406,9 +406,7 @@ export default function IdeasWorkspaceView({
           </div>
 
           <div className="ideas-workspace-card-head-zone ideas-workspace-card-head-zone--details">
-            <span className="ideas-workspace-card-head-title">
-              {detailsCollapsed ? "Details hidden" : "Details"}
-            </span>
+            <span className="ideas-workspace-card-head-title">Details</span>
             <div className="ideas-workspace-card-head-actions">
               {canvasDirty && (
                 <>
