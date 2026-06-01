@@ -328,6 +328,9 @@ export default function AgentQuestsTab({
       />
     );
     const content = scope === "entity" ? <div className="company-quests">{board}</div> : board;
+    const newQuestParent = newQuestDraft?.parent
+      ? visibleQuests.find((q) => q.id === newQuestDraft.parent)
+      : undefined;
     const contentWithModal = (
       <>
         {content}
@@ -336,6 +339,7 @@ export default function AgentQuestsTab({
           agentId={agent?.id || agentId}
           initialStatus={newQuestDraft?.status ?? presetStatus ?? "todo"}
           parentQuestId={newQuestDraft?.parent ?? null}
+          parentQuestTitle={newQuestParent?.idea?.name ?? null}
           onClose={() => setNewQuestDraft(null)}
           onCreated={handleNewQuestCreated}
         />

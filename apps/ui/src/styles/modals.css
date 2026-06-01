@@ -128,9 +128,37 @@
   gap: var(--space-4);
 }
 
+.aeqi-form-modal__context {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  align-items: center;
+  min-height: 34px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-subtle, var(--border-faint));
+  border-radius: var(--radius-sm);
+  background: var(--bg-row);
+  font-family: var(--font-sans);
+}
+
+.aeqi-form-modal__context span {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.aeqi-form-modal__context strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .aeqi-form-modal__grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-3);
 }
 
@@ -143,6 +171,10 @@
   font-family: var(--font-sans);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
+}
+
+.aeqi-form-modal__field--wide {
+  grid-column: 1 / -1;
 }
 
 @media (max-width: 640px) {

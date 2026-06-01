@@ -32,6 +32,7 @@ export interface NewQuestModalProps {
   agentId: string;
   initialStatus?: QuestStatus;
   parentQuestId?: string | null;
+  parentQuestTitle?: string | null;
   onClose: () => void;
   onCreated: (quest: Quest) => Promise<void> | void;
 }
@@ -41,6 +42,7 @@ export default function NewQuestModal({
   agentId,
   initialStatus = "todo",
   parentQuestId,
+  parentQuestTitle,
   onClose,
   onCreated,
 }: NewQuestModalProps) {
@@ -123,11 +125,6 @@ export default function NewQuestModal({
       open={open}
       onClose={handleClose}
       title={parentQuestId ? "New subquest" : "New quest"}
-      description={
-        parentQuestId
-          ? "Create a child quest under the current focus."
-          : "Create a quest and its linked idea in one step."
-      }
       className="aeqi-form-modal"
       footer={
         <div className="aeqi-form-modal__footer">
@@ -152,6 +149,7 @@ export default function NewQuestModal({
               variant="primary"
               size="sm"
               loading={submitting}
+              disabled={!name.trim()}
             >
               Create quest
             </Button>
@@ -160,6 +158,13 @@ export default function NewQuestModal({
       }
     >
       <form id="new-quest-form" className="aeqi-form-modal__form" onSubmit={handleSubmit}>
+        {parentQuestId && (
+          <div className="aeqi-form-modal__context">
+            <span>Parent</span>
+            <strong>{parentQuestTitle ?? parentQuestId}</strong>
+          </div>
+        )}
+
         <Input
           id="new-quest-name"
           label="Quest name"
@@ -201,7 +206,10 @@ export default function NewQuestModal({
               fullWidth
             />
           </label>
-          <label className="aeqi-form-modal__field" htmlFor="new-quest-scope">
+          <label
+            className="aeqi-form-modal__field aeqi-form-modal__field--wide"
+            htmlFor="new-quest-scope"
+          >
             <span>Visibility</span>
             <Select
               id="new-quest-scope"
