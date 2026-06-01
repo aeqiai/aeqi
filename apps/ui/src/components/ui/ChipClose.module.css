@@ -9,6 +9,7 @@
   width: 14px;
   height: 14px;
   border: none;
+  border-radius: var(--radius-full);
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;

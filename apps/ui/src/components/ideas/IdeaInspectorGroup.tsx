@@ -87,7 +87,7 @@ export default function IdeaInspectorGroup({
             copied={copied}
             onCopy={copyIdeaId}
           />
-          <div className="role-inspector-field-block">
+          <div className="role-inspector-field-block idea-inspector-chip-field">
             <span className="role-inspector-row-label">Tags</span>
             <div className="role-inspector-field-body">
               <TagsEditor
@@ -100,7 +100,7 @@ export default function IdeaInspectorGroup({
               {tagError && <span className="role-inspector-error">{tagError}</span>}
             </div>
           </div>
-          <div className="role-inspector-field-block">
+          <div className="role-inspector-field-block idea-inspector-chip-field">
             <span className="role-inspector-row-label">References</span>
             <div className="role-inspector-field-body">
               <IdeaLinksPanel ideaId={idea.id} agentId={idea.agent_id ?? agentId} />
