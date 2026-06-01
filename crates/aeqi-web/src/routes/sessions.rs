@@ -136,7 +136,15 @@ async fn session_send(
     scope: Scope,
     Json(body): Json<serde_json::Value>,
 ) -> Response {
-    ipc_proxy(state, scope.as_ref(), "session_send", body).await
+    let mut payload = match body {
+        serde_json::Value::Object(map) => serde_json::Value::Object(map),
+        _ => serde_json::json!({}),
+    };
+    // The web UI tails the turn through /api/chat/stream. Keep this POST
+    // as an enqueue acknowledgement instead of holding the HTTP request
+    // open until the model turn completes.
+    payload["detached"] = serde_json::Value::Bool(true);
+    ipc_proxy(state, scope.as_ref(), "session_send", payload).await
 }
 
 async fn channel_sessions(

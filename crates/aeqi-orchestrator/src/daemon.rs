@@ -2205,6 +2205,10 @@ impl Daemon {
                         .get("stream")
                         .and_then(|v| v.as_bool())
                         .unwrap_or(false);
+                    let detached_mode = request
+                        .get("detached")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(false);
                     let caller_user_id =
                         request_field(&request, "caller_user_id").map(|s| s.to_string());
                     let acting_role_id = request_field(&request, "as_role_id")
@@ -2456,6 +2460,14 @@ impl Daemon {
                                 .await
                                 {
                                     serde_json::json!({"ok": false, "error": e.to_string()})
+                                } else if detached_mode {
+                                    serde_json::json!({
+                                        "ok": true,
+                                        "accepted": true,
+                                        "chat_id": chat_id,
+                                        "session_id": resolved_session_id,
+                                        "store_session_id": store_session_id,
+                                    })
                                 } else {
                                     let mut acc = SessionSendAccumulators::default();
                                     let mut terminated = false;
