@@ -5310,8 +5310,9 @@
 }
 
 .ideas-workspace-inspector {
-  background: color-mix(in srgb, var(--color-card-elevated) 76%, transparent);
-  box-shadow: inset 1px 0 0 var(--ideas-header-separator);
+  border-inline-start: 1px solid var(--ideas-header-separator);
+  background: var(--color-card);
+  box-shadow: none;
 }
 
 .ideas-workspace-tree-head,
@@ -5595,8 +5596,8 @@
 
 .ideas-workspace-document .idea-convo-root {
   margin-top: var(--space-3);
-  padding: var(--space-4) 24px 18px;
-  border-top: 1px solid var(--ideas-header-separator);
+  padding: 14px 24px 18px;
+  border-top: 1px solid var(--border-subtle, var(--border-faint));
   background: var(--color-card);
 }
 
@@ -5616,11 +5617,27 @@
 .ideas-workspace-document .idea-convo-card--activity-combined {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0;
+}
+
+.ideas-workspace-document .idea-convo-card--activity-combined > .idea-convo-head {
+  min-height: 0;
+  margin: 0 0 8px;
+  padding: 0;
+}
+
+.ideas-workspace-document .idea-convo-card--activity-combined > .idea-convo-head .idea-convo-title {
+  display: none;
 }
 
 .ideas-workspace-document .idea-convo-card--activity-combined > .idea-convo-panel {
   width: 100%;
+}
+
+.ideas-workspace-document .idea-convo-card--activity-combined > .idea-convo-panel--activity {
+  margin: 0 0 10px;
+  padding: 0 0 10px;
+  border-bottom: 1px solid var(--border-subtle, var(--border-faint));
 }
 
 .ideas-workspace-document .idea-convo-title {
@@ -5639,6 +5656,7 @@
 
 .ideas-workspace-inspector {
   align-self: stretch;
+  box-sizing: border-box;
   height: 100%;
   max-height: 100%;
   overflow-y: auto;
