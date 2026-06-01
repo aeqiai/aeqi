@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Bot, Plus } from "lucide-react";
 import { api, type InboxItem } from "@/lib/api";
@@ -12,6 +20,8 @@ import {
   type Message,
   type SessionInfo,
 } from "@/components/session/types";
+import StreamingMessage from "@/components/session/StreamingMessage";
+import { useWebSocketChat } from "@/components/session/useWebSocketChat";
 import ComposerRow from "@/components/shell/ComposerRow";
 import ParticipantStrip, { type Participant } from "@/components/sessions/ParticipantStrip";
 import NewSessionModal from "@/components/sessions/NewSessionModal";
@@ -89,6 +99,7 @@ export default function CompanySessionsTab({
   const entities = useDaemonStore((s) => s.entities);
   const agents = useDaemonStore((s) => s.agents);
   const currentUser = useAuthStore((s) => s.user);
+  const token = useAuthStore((s) => s.token);
   const streamingSessions = useChatStore((s) => s.streamingSessions);
   const setConnectedSession = useChatStore((s) => s.setConnectedSession);
   const setSessionsForAgent = useChatStore((s) => s.setSessionsForAgent);
@@ -225,7 +236,69 @@ export default function CompanySessionsTab({
   const selectedSubtitle = selected
     ? sessionSecondaryLabel(selected, selectedAgentName ?? null)
     : "Choose a session from the rail.";
-  const selectedStreaming = !!selectedId && !!streamingSessions[selectedId];
+  const targetAgentId =
+    selected?.agent_id ||
+    (agentFilter !== "all" ? agentFilter : null) ||
+    companyAgents[0]?.id ||
+    null;
+  const sessionIdRef = useRef<string | null>(selectedId ?? null);
+  const prevSessionRef = useRef<string | null>(selectedId ?? null);
+  const messagesRef = useRef(messages);
+
+  useEffect(() => {
+    sessionIdRef.current = selectedId ?? null;
+    prevSessionRef.current = selectedId ?? null;
+  }, [selectedId]);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
+  const setSession = useCallback(
+    (sid: string | null) => {
+      if (!sid) return;
+      const path = entityPathFromId(entities, companyId, "sessions", sid);
+      navigate(userSessionsView ? withUserSessionsView(path, location.search) : path, {
+        replace: true,
+      });
+    },
+    [companyId, entities, location.search, navigate, userSessionsView],
+  );
+
+  const setLiveSessions = useCallback<Dispatch<SetStateAction<SessionInfo[]>>>((next) => {
+    setSessions((prev) => {
+      const value = typeof next === "function" ? next(prev) : next;
+      return value as ViewSessionInfo[];
+    });
+  }, []);
+
+  const wsChat = useWebSocketChat({
+    token,
+    agentId: selected?.agent_id || targetAgentId || "",
+    agentName: selectedAgentName || "Agent",
+    companyId,
+    activeSessionId: selectedId ?? null,
+    sessionIdRef,
+    prevSessionRef,
+    setSession,
+    setSessions: setLiveSessions,
+    messagesRef,
+    setMessages,
+    sessionIdeas: [],
+    sessionTask: null,
+    attachedFiles: [],
+  });
+  const {
+    streaming,
+    liveSegments,
+    liveParticipants,
+    thinkingStart,
+    liveStepOffset,
+    dispatchMessage,
+    attachToLiveStream,
+    handleStop,
+  } = wsChat;
+  const selectedStreaming = !!selectedId && (!!streamingSessions[selectedId] || streaming);
   const lastMessageTimestamp = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
       const timestamp = messages[i]?.timestamp;
@@ -274,6 +347,28 @@ export default function CompanySessionsTab({
     return [...byIdentity.values()];
   }, [currentUser, messages]);
 
+  const renderableMessages = useMemo(
+    () =>
+      messages.filter((msg, i, arr) => {
+        if (selectedStreaming && msg.role === "assistant" && msg.draft && i === arr.length - 1) {
+          return false;
+        }
+        return true;
+      }),
+    [messages, selectedStreaming],
+  );
+
+  const threadTrailingSlot = selectedStreaming ? (
+    <StreamingMessage
+      agentName={selectedAgentName || "Agent"}
+      liveSegments={liveSegments}
+      liveParticipants={liveParticipants}
+      thinkingStart={thinkingStart}
+      streaming={selectedStreaming}
+      stepOffset={liveStepOffset}
+    />
+  ) : null;
+
   const loadMessages = useCallback(
     async (sessionId: string, agentName?: string | null) => {
       const data = await api.getSessionMessages(sessionId, 500, companyId);
@@ -313,12 +408,6 @@ export default function CompanySessionsTab({
     },
     [entities, location.search, navigate, companyId, userSessionsView],
   );
-
-  const targetAgentId =
-    selected?.agent_id ||
-    (agentFilter !== "all" ? agentFilter : null) ||
-    companyAgents[0]?.id ||
-    null;
 
   useEffect(() => {
     const next = connectedSessionRef(selected);
@@ -385,27 +474,23 @@ export default function CompanySessionsTab({
       if (!selectedId || sending) return;
       setSending(true);
       setSendError(null);
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "user",
-          from_kind: "user",
-          content: body,
-          timestamp: Date.now(),
-        },
-      ]);
+      const userMessage: Message = {
+        role: "user",
+        from_kind: "user",
+        content: body,
+        timestamp: Date.now(),
+      };
+      setMessages((prev) => {
+        const next = [...prev, userMessage];
+        messagesRef.current = next;
+        return next;
+      });
       try {
         if (selected?.awaiting && userSessionsView) {
+          await attachToLiveStream(selectedId);
           await api.answerUserSession(selectedId, body);
         } else {
-          await api.sendSessionMessage(
-            {
-              message: body,
-              agent_id: selected?.agent_id || undefined,
-              session_id: selectedId,
-            },
-            companyId,
-          );
+          await dispatchMessage(body);
         }
         const now = new Date().toISOString();
         setSessions((prev) =>
@@ -428,7 +513,14 @@ export default function CompanySessionsTab({
         setSending(false);
       }
     },
-    [selected?.agent_id, selected?.awaiting, selectedId, companyId, sending, userSessionsView],
+    [
+      selected?.awaiting,
+      selectedId,
+      sending,
+      userSessionsView,
+      attachToLiveStream,
+      dispatchMessage,
+    ],
   );
 
   useEffect(() => {
@@ -441,6 +533,12 @@ export default function CompanySessionsTab({
     window.addEventListener("aeqi:send-message", handler);
     return () => window.removeEventListener("aeqi:send-message", handler);
   }, [handleSend]);
+
+  useEffect(() => {
+    const handler = () => handleStop(selectedId ?? null);
+    window.addEventListener("aeqi:stop-streaming", handler);
+    return () => window.removeEventListener("aeqi:stop-streaming", handler);
+  }, [handleStop, selectedId]);
 
   const empty = !loading && rows.length === 0;
   const visibleConversationCount = rows.length;
@@ -582,12 +680,14 @@ export default function CompanySessionsTab({
               agentId={selected?.agent_id}
               title={selectedTitle}
               subtitle={selectedSubtitle}
-              messages={messages}
+              messages={renderableMessages}
               isStreaming={selectedStreaming}
               onSend={handleSend}
+              onStop={() => handleStop(selectedId ?? null)}
               hideComposer
               hideHeader
               surface="recessed"
+              threadTrailingSlot={threadTrailingSlot}
               emptyTitle={messagesLoading ? "Loading messages" : "No messages yet"}
               emptyHint={
                 messagesLoading

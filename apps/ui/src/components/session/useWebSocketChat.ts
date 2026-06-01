@@ -273,8 +273,8 @@ export function useWebSocketChat({
   );
 
   const attachToLiveStream = useCallback(
-    (sessionId: string) => {
-      if (!token || !sessionId) return;
+    (sessionId: string): Promise<void> => {
+      if (!token || !sessionId) return Promise.resolve();
       // Trailing completed assistant: the turn already finished and the
       // DB reconstruction owns the canonical content. `isSessionActive`
       // can return true for a few hundred ms after the agent exits
@@ -282,7 +282,7 @@ export function useWebSocketChat({
       // backlog into a SECOND committed message. Skip the live-attach.
       // For trailing-draft / no-trailing-assistant we attach normally.
       const last = messagesRef.current[messagesRef.current.length - 1];
-      if (last?.role === "assistant" && !last.draft) return;
+      if (last?.role === "assistant" && !last.draft) return Promise.resolve();
 
       setStreaming(true);
       setLiveSegments([]);
@@ -295,7 +295,7 @@ export function useWebSocketChat({
         });
       }
 
-      void ensureLiveAttached(sessionId, 0);
+      return ensureLiveAttached(sessionId, 0);
     },
     [token, ensureLiveAttached, setSessionStreaming, setMessages, messagesRef],
   );

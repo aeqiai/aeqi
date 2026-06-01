@@ -1,10 +1,11 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import CompanySessionsTab from "@/components/CompanySessionsTab";
 import { api } from "@/lib/api";
+import { useAuthStore } from "@/store/auth";
 import { useChatStore } from "@/store/chat";
 import { useDaemonStore } from "@/store/daemon";
 
@@ -12,10 +13,46 @@ vi.mock("@/api/client", () => ({
   apiRequest: vi.fn().mockResolvedValue({ ok: true, participants: [] }),
 }));
 
+const sockets: MockWebSocket[] = [];
+
+class MockWebSocket {
+  static OPEN = 1;
+
+  readyState = 0;
+  sent: string[] = [];
+  onopen: ((event: Event) => void) | null = null;
+  onmessage: ((event: MessageEvent) => void) | null = null;
+  onerror: ((event: Event) => void) | null = null;
+  onclose: ((event: Event) => void) | null = null;
+
+  constructor(public url: string) {
+    sockets.push(this);
+    queueMicrotask(() => {
+      this.readyState = MockWebSocket.OPEN;
+      this.onopen?.(new Event("open"));
+    });
+  }
+
+  send(data: string) {
+    this.sent.push(data);
+  }
+
+  close() {
+    this.readyState = 3;
+    this.onclose?.(new Event("close"));
+  }
+
+  emit(data: Record<string, unknown>) {
+    this.onmessage?.({ data: JSON.stringify(data) } as MessageEvent);
+  }
+}
+
 describe("CompanySessionsTab", () => {
   let queryClient: QueryClient;
 
   beforeEach(() => {
+    sockets.length = 0;
+    vi.stubGlobal("WebSocket", MockWebSocket);
     queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
@@ -62,7 +99,9 @@ describe("CompanySessionsTab", () => {
     vi.spyOn(api, "sendSessionMessage").mockResolvedValue({ ok: true } as never);
     vi.spyOn(api, "answerUserSession").mockResolvedValue({ ok: true } as never);
     vi.spyOn(api, "createSession").mockResolvedValue({ ok: true, session_id: "session-2" });
+    vi.spyOn(api, "isSessionActive").mockResolvedValue({ ok: true, active: false });
 
+    useAuthStore.setState({ token: "test-token" });
     useDaemonStore.setState({
       entities: [
         {
@@ -93,6 +132,7 @@ describe("CompanySessionsTab", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
     queryClient.clear();
   });
 
@@ -171,14 +211,38 @@ describe("CompanySessionsTab", () => {
 
     await waitFor(() => {
       expect(api.sendSessionMessage).toHaveBeenCalledWith(
-        {
+        expect.objectContaining({
           message: "continue here",
           agent_id: "agent-1",
           session_id: "session-1",
-        },
+        }),
         "root-1",
       );
     });
+    expect(sockets[0]?.sent).toContain(
+      JSON.stringify({ subscribe: true, session_id: "session-1" }),
+    );
+  });
+
+  it("renders live streamed deltas in the selected session detail", async () => {
+    const user = userEvent.setup();
+    renderTab();
+
+    const input = await screen.findByLabelText("Message body");
+    await user.type(input, "continue here");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() => {
+      expect(sockets[0]?.sent).toContain(
+        JSON.stringify({ subscribe: true, session_id: "session-1" }),
+      );
+    });
+
+    act(() => {
+      sockets[0].emit({ type: "TextDelta", text: "streaming token" });
+    });
+
+    expect(await screen.findByText("streaming token")).toBeInTheDocument();
   });
 
   it("starts a new session from the page header", async () => {
