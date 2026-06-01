@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 
 import AuthMobileNav from "@/components/AuthMobileNav";
-import Wordmark from "@/components/Wordmark";
 
 export interface LaunchPitchContent {
   eyebrow: string;
@@ -94,9 +93,6 @@ export function LaunchShell({
         <section
           className={["auth-container launch-flow-card", cardClassName].filter(Boolean).join(" ")}
         >
-          <div className="auth-logo launch-logo">
-            <Wordmark size={36} />
-          </div>
           {children}
         </section>
 

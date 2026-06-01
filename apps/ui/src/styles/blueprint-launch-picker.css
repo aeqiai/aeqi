@@ -78,8 +78,8 @@
 
 .launch-pitch-side {
   flex: 1 1 52%;
-  background-image: url("/launch-hero.png");
-  background-position: 50% 50%;
+  background-image: url("/auth-hero.png");
+  background-position: 55% 50%;
 }
 
 .launch-pitch-content {
@@ -132,13 +132,13 @@
 .launch-flow-card {
   width: min(100%, 568px);
   max-width: 568px;
-  padding: var(--space-7);
+  max-height: calc(100svh - var(--space-16));
+  display: flex;
+  flex-direction: column;
+  padding: 0;
   border-color: var(--color-border-faint);
   box-shadow: var(--shadow-sm);
-}
-
-.launch-logo {
-  margin-bottom: var(--space-5);
+  overflow: hidden;
 }
 
 .launch-flow-exit {
@@ -195,14 +195,57 @@
   margin-bottom: var(--space-4);
 }
 
+.launch-card-header {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-5) var(--space-6) var(--space-4);
+  border-bottom: 1px solid var(--color-border-faint);
+}
+
+.launch-card-brand {
+  margin-bottom: var(--space-1);
+}
+
+.launch-card-header .auth-heading,
+.launch-card-header .auth-subheading {
+  margin-bottom: 0;
+}
+
+.launch-card-header .auth-heading {
+  font-size: var(--font-size-2xl);
+  letter-spacing: 0;
+}
+
+.launch-card-header .auth-subheading {
+  max-width: 48ch;
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+
+.launch-card-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: var(--space-4) var(--space-6);
+  overflow-y: auto;
+}
+
 .launch-compact-form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-2);
 }
 
 .launch-form-step {
   display: block;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border-faint);
+}
+
+.launch-form-step:first-child {
+  padding-top: 0;
+  border-top: 0;
 }
 
 .launch-form-step-body,
@@ -220,20 +263,6 @@
   gap: var(--space-2);
 }
 
-.launch-form-step-head .auth-heading,
-.launch-form-step-head .auth-subheading {
-  margin-bottom: 0;
-}
-
-.launch-form-step-head .auth-heading {
-  font-size: var(--font-size-3xl);
-  letter-spacing: 0;
-}
-
-.launch-form-step-head .auth-subheading {
-  max-width: 48ch;
-}
-
 .launch-kicker {
   margin: 0;
   color: var(--color-text-muted);
@@ -248,9 +277,12 @@
 .launch-sequence {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-3);
-  margin: var(--space-3) 0 0;
-  padding: 0;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border-faint);
+  border-radius: var(--radius-md);
+  background: var(--bg-row);
   list-style: none;
 }
 
@@ -259,7 +291,10 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 0;
+  min-height: 26px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-card-elevated);
   color: var(--color-text-primary);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
@@ -274,7 +309,7 @@
 }
 
 .launch-form-step--name input {
-  height: calc(var(--input-h-lg) + var(--space-1));
+  height: var(--input-h-lg);
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-semibold);
 }
@@ -344,11 +379,10 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding: var(--space-3) 0 0;
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--color-border-faint);
-  border-width: 1px 0 0;
   border-radius: var(--radius-md);
-  background: transparent;
+  background: var(--bg-row);
   color: var(--color-text-primary);
 }
 
@@ -386,10 +420,10 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-2);
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border-faint);
+  border-radius: var(--radius-md);
+  background: var(--bg-row);
 }
 
 .launch-operations-grid--3 {
@@ -407,12 +441,12 @@
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: start;
-  gap: var(--space-3);
-  min-height: 96px;
-  padding: var(--space-3);
+  gap: var(--space-2);
+  min-height: 78px;
+  padding: var(--space-2);
   border: 1px solid var(--color-border-faint);
   border-radius: var(--radius-md);
-  background: var(--color-card);
+  background: var(--color-card-elevated);
   color: var(--color-text-primary);
   cursor: pointer;
   transition:
@@ -510,7 +544,7 @@
 .launch-operation-price-sub {
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
-  line-height: 1.45;
+  line-height: 1.35;
 }
 
 .launch-operation-detail {
@@ -519,7 +553,11 @@
 }
 
 .launch-actions {
-  margin-top: var(--space-5);
+  flex: 0 0 auto;
+  margin-top: 0;
+  padding: var(--space-3) var(--space-6) var(--space-4);
+  border-top: 1px solid var(--color-border-faint);
+  background: var(--color-card-elevated);
 }
 
 .launch-page {
@@ -884,14 +922,29 @@
 
   .launch-flow-card {
     max-width: 460px;
-    padding: var(--space-6) var(--space-5);
+    max-height: none;
+    padding: 0;
+    overflow: visible;
+  }
+
+  .launch-card-header {
+    padding: var(--space-5);
+  }
+
+  .launch-card-body {
+    overflow: visible;
+    padding: var(--space-4) var(--space-5);
+  }
+
+  .launch-actions {
+    padding: var(--space-3) var(--space-5) var(--space-4);
   }
 
   .launch-flow-exit {
     display: none;
   }
 
-  .launch-form-step-head .auth-heading {
+  .launch-card-header .auth-heading {
     font-size: var(--font-size-2xl);
   }
 
@@ -919,8 +972,7 @@
   }
 
   .launch-flow-card {
-    padding-top: var(--space-5);
-    padding-bottom: var(--space-5);
+    max-height: calc(100svh - var(--space-6));
   }
 }
 

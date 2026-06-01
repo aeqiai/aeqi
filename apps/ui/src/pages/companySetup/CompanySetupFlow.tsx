@@ -6,6 +6,7 @@ import type { LaunchPlan, LaunchPlanId } from "@/lib/pricing";
 import { LAUNCH_PLANS } from "@/lib/pricing";
 import type { SingleBlueprint as Blueprint } from "@/lib/types";
 import { LaunchShell, type LaunchPitchContent } from "./LaunchShell";
+import Wordmark from "@/components/Wordmark";
 
 type OperationsChoice = "free" | "paid" | "sandbox";
 
@@ -71,48 +72,52 @@ function blueprintStats(blueprint: Blueprint): string {
   return parts.join(" · ");
 }
 
+function LaunchCardHeader() {
+  const launchSteps = ["Name", "Template", "Operations"];
+
+  return (
+    <>
+      <div className="launch-card-brand">
+        <Wordmark size={30} />
+      </div>
+      <p className="launch-kicker">COMPANY launch</p>
+      <h1 id="launch-title" className="auth-heading">
+        Launch your COMPANY.
+      </h1>
+      <p className="auth-subheading">
+        Name the workspace, confirm the template, and choose whether to add hosted operations now.
+      </p>
+      <ol className="launch-sequence" aria-label="Launch sequence">
+        {launchSteps.map((step, index) => (
+          <li key={step} className="launch-sequence-item">
+            <span className="launch-sequence-index">{String(index + 1).padStart(2, "0")}</span>
+            <span>{step}</span>
+          </li>
+        ))}
+      </ol>
+    </>
+  );
+}
+
 function NameSection({
   trustName,
   nameHint,
   nameError,
   onCompanyNameChange,
 }: Pick<CompanySetupFlowProps, "trustName" | "nameHint" | "nameError" | "onCompanyNameChange">) {
-  const launchSteps = ["Name", "Template", "Operations"];
-
   return (
     <section className="launch-form-step launch-form-step--name" aria-labelledby="launch-title">
-      <div className="launch-form-step-body">
-        <div className="launch-form-step-head">
-          <p className="launch-kicker">COMPANY launch</p>
-          <h1 id="launch-title" className="auth-heading">
-            Launch your COMPANY.
-          </h1>
-          <p className="auth-subheading">
-            Name the workspace, confirm the template, and choose whether to add hosted operations
-            now.
-          </p>
-          <ol className="launch-sequence" aria-label="Launch sequence">
-            {launchSteps.map((step, index) => (
-              <li key={step} className="launch-sequence-item">
-                <span className="launch-sequence-index">{String(index + 1).padStart(2, "0")}</span>
-                <span>{step}</span>
-              </li>
-            ))}
-          </ol>
-        </div>
-
-        <Input
-          aria-label="COMPANY name"
-          autoFocus
-          label="COMPANY name"
-          hint={nameHint}
-          error={nameError}
-          value={trustName}
-          onChange={(e) => onCompanyNameChange(e.target.value)}
-          placeholder="Your COMPANY"
-          size="lg"
-        />
-      </div>
+      <Input
+        aria-label="COMPANY name"
+        autoFocus
+        label="COMPANY name"
+        hint={nameHint}
+        error={nameError}
+        value={trustName}
+        onChange={(e) => onCompanyNameChange(e.target.value)}
+        placeholder="Your COMPANY"
+        size="lg"
+      />
     </section>
   );
 }
@@ -339,44 +344,50 @@ export function CompanySetupFlow({
       topSlot={exitAction}
       pitch={launchPitchForOperations(operations)}
     >
-      {submitError && (
-        <div className="launch-flow-error">
-          <Banner kind="error">{submitError}</Banner>
-        </div>
-      )}
+      <header className="launch-card-header">
+        <LaunchCardHeader />
+      </header>
 
-      {loadError && !submitError && (
-        <div className="launch-flow-error">
-          <Banner kind="error">{loadError}</Banner>
-        </div>
-      )}
+      <div className="launch-card-body">
+        {submitError && (
+          <div className="launch-flow-error">
+            <Banner kind="error">{submitError}</Banner>
+          </div>
+        )}
 
-      <div className="launch-compact-form">
-        <NameSection
-          trustName={trustName}
-          nameHint={nameHint}
-          nameError={nameError}
-          onCompanyNameChange={onCompanyNameChange}
-        />
-        <BlueprintSection
-          blueprint={blueprint}
-          blueprintPath={blueprintPath}
-          operations={operations}
-        />
-        <OperationsSection
-          operations={operations}
-          plan={plan}
-          adminSandboxAvailable={adminSandboxAvailable}
-          onOperationsChange={onOperationsChange}
-          onPlanChange={onPlanChange}
-        />
+        {loadError && !submitError && (
+          <div className="launch-flow-error">
+            <Banner kind="error">{loadError}</Banner>
+          </div>
+        )}
+
+        <div className="launch-compact-form">
+          <NameSection
+            trustName={trustName}
+            nameHint={nameHint}
+            nameError={nameError}
+            onCompanyNameChange={onCompanyNameChange}
+          />
+          <BlueprintSection
+            blueprint={blueprint}
+            blueprintPath={blueprintPath}
+            operations={operations}
+          />
+          <OperationsSection
+            operations={operations}
+            plan={plan}
+            adminSandboxAvailable={adminSandboxAvailable}
+            onOperationsChange={onOperationsChange}
+            onPlanChange={onPlanChange}
+          />
+        </div>
       </div>
 
-      <footer className="launch-actions">
+      <footer className="launch-actions" aria-label="Launch action">
         <Button
           type="button"
           variant="primary"
-          size="xl"
+          size="lg"
           fullWidth
           onClick={onLaunch}
           disabled={submitting || !canSubmit}
