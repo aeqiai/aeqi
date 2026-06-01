@@ -5327,7 +5327,7 @@
 .ideas-workspace-card-head-zone--details {
   justify-content: center;
   padding: 0 var(--space-3);
-  box-shadow: inset 1px 0 0 var(--ideas-header-separator);
+  box-shadow: inset 1px 0 0 var(--border-faint);
 }
 
 .ideas-workspace--details-collapsed .ideas-workspace-card-head-zone--details {
@@ -5454,7 +5454,7 @@
 
 .ideas-workspace-inspector {
   background: var(--color-card);
-  box-shadow: inset 1px 0 0 var(--ideas-header-separator);
+  box-shadow: inset 1px 0 0 var(--border-faint);
 }
 
 .ideas-workspace-tree-head,
@@ -5797,7 +5797,7 @@
 }
 
 .ideas-workspace-detail-body {
-  padding: var(--space-3);
+  padding: var(--space-4) var(--space-4) 18px;
 }
 
 .ideas-workspace-inspector-primary,
@@ -5834,11 +5834,11 @@
 }
 
 .ideas-workspace-meta {
-  margin: 12px 12px 0;
+  margin: 12px 0 0;
 }
 
 .ideas-workspace-section {
-  margin: 14px 12px 0;
+  margin: 14px 0 0;
 }
 
 .ideas-workspace-section h2 {
