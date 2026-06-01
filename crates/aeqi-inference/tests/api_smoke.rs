@@ -10,6 +10,7 @@ use axum::{
 use tower::ServiceExt;
 
 use aeqi_inference::{
+    InferenceProvisioningStatus,
     api::{AppState, create_router},
     billing::subscription::BalanceStore,
     router::Router as InferenceRouter,
@@ -69,6 +70,69 @@ async fn get_models_returns_200() {
         ids.contains(&"meta-llama/Meta-Llama-3.1-70B-Instruct"),
         "primary DeepInfra model should be in model list"
     );
+}
+
+// ---------------------------------------------------------------------------
+// GET /v1/provisioning — describes runtime/provider ownership
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn get_provisioning_defaults_to_runtime_owned_provider() {
+    let app = create_router(test_state());
+
+    let req = Request::builder()
+        .method("GET")
+        .uri("/provisioning")
+        .body(Body::empty())
+        .unwrap();
+
+    let response = app.oneshot(req).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    assert_eq!(json["mode"], "bring_your_own");
+    assert_eq!(json["billing_owner"], "runtime");
+    assert_eq!(json["provider"]["provider"], "runtime_configured");
+    assert_eq!(json["provider"]["operator_configurable"], true);
+    assert_eq!(json["custom_provider_allowed"], true);
+    assert!(json.get("allowance").is_none());
+}
+
+#[tokio::test]
+async fn get_provisioning_reports_aeqi_managed_allowance_for_entity() {
+    let store = BalanceStore::new();
+    store.set("test-entity", 1234);
+    let state = AppState::new(InferenceRouter::new(), store)
+        .with_provisioning(InferenceProvisioningStatus::aeqi_managed("deepinfra"));
+    let app = create_router(state);
+
+    let req = Request::builder()
+        .method("GET")
+        .uri("/provisioning")
+        .header("x-trust", "test-entity")
+        .body(Body::empty())
+        .unwrap();
+
+    let response = app.oneshot(req).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    assert_eq!(json["mode"], "aeqi_managed");
+    assert_eq!(json["billing_owner"], "aeqi");
+    assert_eq!(json["provider"]["provider"], "deepinfra");
+    assert_eq!(json["provider"]["operator_configurable"], false);
+    assert_eq!(json["allowance"]["remaining_cents"], 1234);
+    assert_eq!(json["allowance"]["metered"], true);
+    assert_eq!(json["custom_provider_allowed"], false);
+    assert_eq!(json["self_host_supported"], true);
 }
 
 // ---------------------------------------------------------------------------

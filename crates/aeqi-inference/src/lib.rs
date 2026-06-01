@@ -61,6 +61,8 @@ pub use error::InferenceError;
 pub use router::{Router as InferenceRouter, UpstreamProvider};
 pub use types::{
     ChatCompletionChunk, ChatCompletionRequest, ChatCompletionResponse, ChatMessage,
-    EmbeddingRequest, EmbeddingResponse, ModelInfo, ModelList,
+    EmbeddingRequest, EmbeddingResponse, InferenceAllowanceStatus, InferenceBillingOwner,
+    InferenceProviderStatus, InferenceProvisioningMode, InferenceProvisioningStatus, ModelInfo,
+    ModelList,
 };
 pub use upstream::deepinfra::DeepInfraProvider;

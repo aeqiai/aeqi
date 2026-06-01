@@ -160,3 +160,142 @@ pub struct ModelList {
     pub object: String,
     pub data: Vec<ModelInfo>,
 }
+
+// ---------------------------------------------------------------------------
+// Provisioning status
+// ---------------------------------------------------------------------------
+
+/// Who owns the active inference provider credentials for this runtime.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum InferenceProvisioningMode {
+    /// AEQI hosts the provider credentials and meters usage against an
+    /// allowance attached to the account/runtime.
+    AeqiManaged,
+    /// The runtime operator supplies a provider endpoint/key.
+    BringYourOwn,
+    /// The runtime points at local/self-hosted inference and AEQI does not
+    /// meter provider usage.
+    SelfHosted,
+}
+
+/// Which party is financially responsible for provider usage.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum InferenceBillingOwner {
+    /// AEQI pays the upstream provider and bills/meters the account.
+    Aeqi,
+    /// The runtime operator pays the provider directly.
+    Runtime,
+    /// No external provider billing applies.
+    None,
+}
+
+/// Active provider surface exposed to the runtime/UI.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct InferenceProviderStatus {
+    pub provider: String,
+    pub model_scope: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub endpoint: Option<String>,
+    pub operator_configurable: bool,
+}
+
+/// Monetary allowance for AEQI-managed inference.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct InferenceAllowanceStatus {
+    pub currency: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub monthly_cents: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remaining_cents: Option<i64>,
+    pub metered: bool,
+    pub hard_limit: bool,
+}
+
+/// Stable runtime contract for hosted and self-hosted inference provisioning.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct InferenceProvisioningStatus {
+    pub mode: InferenceProvisioningMode,
+    pub billing_owner: InferenceBillingOwner,
+    pub provider: InferenceProviderStatus,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allowance: Option<InferenceAllowanceStatus>,
+    pub custom_provider_allowed: bool,
+    pub self_host_supported: bool,
+}
+
+impl InferenceProvisioningStatus {
+    /// Default for standalone/self-host runtimes: AEQI does not own provider
+    /// billing, but the runtime can still use the same OpenAI-compatible
+    /// surface with operator-supplied providers.
+    pub fn bring_your_own(provider: impl Into<String>) -> Self {
+        Self {
+            mode: InferenceProvisioningMode::BringYourOwn,
+            billing_owner: InferenceBillingOwner::Runtime,
+            provider: InferenceProviderStatus {
+                provider: provider.into(),
+                model_scope: "provider_agnostic".to_string(),
+                endpoint: None,
+                operator_configurable: true,
+            },
+            allowance: None,
+            custom_provider_allowed: true,
+            self_host_supported: true,
+        }
+    }
+
+    /// Hosted AEQI mode: AEQI owns upstream credentials and meters usage
+    /// against an allowance. The concrete balance may be filled per request.
+    pub fn aeqi_managed(provider: impl Into<String>) -> Self {
+        Self {
+            mode: InferenceProvisioningMode::AeqiManaged,
+            billing_owner: InferenceBillingOwner::Aeqi,
+            provider: InferenceProviderStatus {
+                provider: provider.into(),
+                model_scope: "aeqi_managed".to_string(),
+                endpoint: None,
+                operator_configurable: false,
+            },
+            allowance: Some(InferenceAllowanceStatus {
+                currency: "usd".to_string(),
+                monthly_cents: None,
+                remaining_cents: None,
+                metered: true,
+                hard_limit: true,
+            }),
+            custom_provider_allowed: false,
+            self_host_supported: true,
+        }
+    }
+
+    /// Local inference mode: no external provider billing applies.
+    pub fn self_hosted(provider: impl Into<String>, endpoint: Option<String>) -> Self {
+        Self {
+            mode: InferenceProvisioningMode::SelfHosted,
+            billing_owner: InferenceBillingOwner::None,
+            provider: InferenceProviderStatus {
+                provider: provider.into(),
+                model_scope: "local".to_string(),
+                endpoint,
+                operator_configurable: true,
+            },
+            allowance: None,
+            custom_provider_allowed: true,
+            self_host_supported: true,
+        }
+    }
+
+    pub fn with_remaining_cents(mut self, remaining_cents: i64) -> Self {
+        if let Some(allowance) = self.allowance.as_mut() {
+            allowance.remaining_cents = Some(remaining_cents);
+        }
+        self
+    }
+}
+
+impl Default for InferenceProvisioningStatus {
+    fn default() -> Self {
+        Self::bring_your_own("runtime_configured")
+    }
+}

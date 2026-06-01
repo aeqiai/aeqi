@@ -36,7 +36,9 @@ use crate::{
     billing::subscription::BalanceStore,
     error::InferenceError,
     router::Router as InferenceRouter,
-    types::{ChatCompletionRequest, EmbeddingRequest, ModelInfo, ModelList},
+    types::{
+        ChatCompletionRequest, EmbeddingRequest, InferenceProvisioningStatus, ModelInfo, ModelList,
+    },
     upstream::deepinfra::compute_cost_microdollars,
 };
 
@@ -59,6 +61,8 @@ pub struct AppState {
     /// `spend_inference` verbs) when the workspace has role gating
     /// enabled. See `architecture_role_budget_canonical.md` § 14.
     pub budget_gate: SharedBudgetGate,
+    /// Runtime/provider ownership and allowance status for provisioning UIs.
+    pub provisioning: InferenceProvisioningStatus,
 }
 
 impl AppState {
@@ -67,6 +71,7 @@ impl AppState {
             router: Arc::new(router),
             balances,
             budget_gate: Arc::new(NoOpBudgetGate),
+            provisioning: InferenceProvisioningStatus::default(),
         }
     }
 
@@ -74,6 +79,13 @@ impl AppState {
     /// aeqi-platform calls this with its IPC-backed implementation.
     pub fn with_budget_gate(mut self, gate: SharedBudgetGate) -> Self {
         self.budget_gate = gate;
+        self
+    }
+
+    /// Override the runtime/provider provisioning status exposed by
+    /// `GET /provisioning`.
+    pub fn with_provisioning(mut self, provisioning: InferenceProvisioningStatus) -> Self {
+        self.provisioning = provisioning;
         self
     }
 }
@@ -94,6 +106,7 @@ pub fn create_router(state: AppState) -> Router {
         .route("/chat/completions", post(chat_completions_handler))
         .route("/embeddings", post(embeddings_handler))
         .route("/models", get(models_handler))
+        .route("/provisioning", get(provisioning_handler))
         .with_state(state)
 }
 
@@ -118,11 +131,7 @@ async fn chat_completions_handler(
     // Extract trust_id for cost accounting. Falls back to "unknown" when
     // the middleware has not injected the header (e.g. in tests that bypass
     // the middleware layer).
-    let trust_id = headers
-        .get("x-entity")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("unknown")
-        .to_owned();
+    let trust_id = headers.entity_id().unwrap_or_else(|| "unknown".to_owned());
 
     // Role-budget gate inputs (optional headers; the no-op gate ignores
     // them, the IPC-backed gate enforces).
@@ -202,6 +211,16 @@ fn header_string(headers: &HeaderMap, name: &str) -> Option<String> {
         .and_then(|v| v.to_str().ok())
         .filter(|s| !s.is_empty())
         .map(str::to_owned)
+}
+
+trait InferenceHeaderExt {
+    fn entity_id(&self) -> Option<String>;
+}
+
+impl InferenceHeaderExt for HeaderMap {
+    fn entity_id(&self) -> Option<String> {
+        header_string(self, "x-entity").or_else(|| header_string(self, "x-trust"))
+    }
 }
 
 /// Non-streaming path: call upstream, debit cost, return JSON.
@@ -370,6 +389,27 @@ async fn models_handler(State(_state): State<AppState>) -> Json<ModelList> {
         object: "list".to_owned(),
         data,
     })
+}
+
+/// `GET /v1/provisioning`
+///
+/// Returns the runtime-level provider/billing ownership contract without
+/// exposing provider credentials. AEQI-managed mode can include the caller's
+/// current allowance when the platform supplies `x-entity`.
+async fn provisioning_handler(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Json<InferenceProvisioningStatus> {
+    let mut status = state.provisioning.clone();
+
+    if let Some(allowance) = status.allowance.as_mut()
+        && allowance.remaining_cents.is_none()
+        && let Some(entity) = headers.entity_id()
+    {
+        allowance.remaining_cents = state.balances.get(&entity);
+    }
+
+    Json(status)
 }
 
 // ---------------------------------------------------------------------------
