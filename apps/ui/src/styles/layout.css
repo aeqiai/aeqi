@@ -5287,7 +5287,7 @@
 
 .ideas-workspace-card-head {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   min-width: 0;
   min-height: 56px;
   align-items: stretch;
@@ -5296,7 +5296,7 @@
 }
 
 .ideas-workspace--details-collapsed .ideas-workspace-card-head {
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr);
 }
 
 .ideas-workspace--explorer-collapsed .ideas-workspace-card-head {
@@ -5316,8 +5316,8 @@
 }
 
 .ideas-workspace-card-head-zone--explorer {
-  justify-content: space-between;
-  border-right: 1px solid var(--ideas-pane-separator);
+  justify-content: center;
+  padding: 0 var(--space-3);
 }
 
 .ideas-workspace-card-head-zone--document {
@@ -5327,7 +5327,6 @@
 .ideas-workspace-card-head-zone--details {
   justify-content: center;
   padding: 0 var(--space-3);
-  box-shadow: inset 1px 0 0 var(--border-faint);
 }
 
 .ideas-workspace--details-collapsed .ideas-workspace-card-head-zone--details {
@@ -5376,18 +5375,6 @@
 
 .ideas-workspace-card-head-title--document {
   font-size: 14px;
-}
-
-.ideas-workspace-card-head-subtitle {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--color-text-muted);
-  font-family: var(--font-sans);
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.2;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .ideas-workspace-card-head-actions {
@@ -5952,11 +5939,11 @@
 
 @media (max-width: 1180px) {
   .ideas-workspace-card-head {
-    grid-template-columns: 260px minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
   }
 
   .ideas-workspace--details-collapsed .ideas-workspace-card-head {
-    grid-template-columns: 260px minmax(0, 1fr);
+    grid-template-columns: auto minmax(0, 1fr);
   }
 
   .ideas-workspace--explorer-collapsed .ideas-workspace-card-head {
@@ -5993,13 +5980,8 @@
     grid-template-columns: auto minmax(0, 1fr);
   }
 
-  .ideas-workspace-card-head-zone--explorer .ideas-workspace-card-head-copy {
-    display: none;
-  }
-
   .ideas-workspace-card-head-zone--details {
     padding-left: var(--space-2);
-    box-shadow: none;
   }
 
   .ideas-workspace-card-head-zone--details .ideas-workspace-card-head-title {

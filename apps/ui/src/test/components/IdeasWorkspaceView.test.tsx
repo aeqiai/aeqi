@@ -179,7 +179,7 @@ describe("IdeasWorkspaceView", () => {
     expect(contentHeader).toBeTruthy();
     expect(contentBody).toBeTruthy();
     expect(contentSurface?.contains(pageHeader ?? null)).toBe(false);
-    expect(within(contentHeader as HTMLElement).getByText("Explorer")).toBeInTheDocument();
+    expect(within(contentHeader as HTMLElement).queryByText("Explorer")).not.toBeInTheDocument();
     expect(within(contentHeader as HTMLElement).getByText("Idea")).toBeInTheDocument();
     expect(within(contentHeader as HTMLElement).getByText("Eich Holding")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Hide explorer" })).toBeInTheDocument();

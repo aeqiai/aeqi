@@ -112,7 +112,6 @@ export default function IdeasWorkspaceView({
     titleCountSource.length -
       (rootIdea && titleCountSource.some((idea) => idea.id === rootIdea.id) ? 1 : 0),
   );
-  const explorerCount = Math.max(0, ideas.length - (rootIdea ? 1 : 0));
   const activeDocumentLabel = composing
     ? presetName || "New idea"
     : activeIdea?.name || rootIdea?.name || "Idea";
@@ -386,14 +385,6 @@ export default function IdeasWorkspaceView({
       <div className="ideas-workspace-layout">
         <header className="ideas-workspace-card-head" aria-label="Ideas content card header">
           <div className="ideas-workspace-card-head-zone ideas-workspace-card-head-zone--explorer">
-            <div className="ideas-workspace-card-head-copy">
-              <span className="ideas-workspace-card-head-title">Explorer</span>
-              {!explorerCollapsed && (
-                <span className="ideas-workspace-card-head-subtitle">
-                  {explorerCount} {explorerCount === 1 ? "idea" : "ideas"}
-                </span>
-              )}
-            </div>
             <Tooltip content={explorerCollapsed ? "Show explorer" : "Hide explorer"} portal>
               <IconButton
                 variant="bordered"
