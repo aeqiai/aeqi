@@ -9751,11 +9751,11 @@ button.ideas-content-pill:hover {
 }
 button.ideas-tag-add.ideas-content-pill,
 button.ideas-ref-add.ideas-content-pill {
-  min-width: 68px;
+  min-width: 58px;
   justify-content: center;
-  border: 1px dashed var(--border);
+  border: 1px solid var(--border-subtle, var(--border-faint));
   border-radius: var(--radius-full);
-  background: color-mix(in srgb, var(--color-card) 78%, var(--bg-row) 22%);
+  background: var(--bg-row);
   color: var(--color-text-secondary);
   box-shadow: none;
 }
