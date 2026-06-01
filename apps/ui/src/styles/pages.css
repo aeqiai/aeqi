@@ -3180,6 +3180,10 @@
   padding: 0 12px 12px;
 }
 
+.company-quests .quest-templates-floor {
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
 .company-quests .ideas-list-body {
   flex: 1;
   min-height: 0;
@@ -3632,11 +3636,201 @@
   line-height: 1.3;
 }
 
+/* Quest templates — recessed floor under the live work surface. */
+.quest-templates-floor {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 14px 16px;
+  border-top: 1px solid
+    color-mix(in srgb, var(--color-border-faint) 68%, var(--color-text-primary) 32%);
+  background: var(--bg-row);
+  box-shadow:
+    inset 0 1px 2px color-mix(in srgb, var(--color-text-primary) 8%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--color-border-faint) 84%, transparent);
+  overflow: hidden;
+}
+
+.quest-templates-floor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 0;
+}
+
+.quest-templates-floor-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.quest-templates-floor-title {
+  margin: 0;
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 620;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quest-templates-floor-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+  background: var(--bg-subtle);
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.quest-templates-floor-browse {
+  flex-shrink: 0;
+  background: var(--color-card-elevated);
+}
+
+.quest-templates-floor-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 360px));
+  justify-content: start;
+  gap: var(--space-2);
+}
+
+.quest-templates-floor-state {
+  display: flex;
+  align-items: center;
+  min-height: 76px;
+  padding: var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--color-card-elevated);
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.35;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.quest-templates-floor-card {
+  appearance: none;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 7px;
+  padding: 14px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-card-elevated);
+  color: inherit;
+  box-shadow:
+    inset 0 0 0 1px var(--border),
+    0 1px 2px color-mix(in srgb, var(--color-text-primary) 3.5%, transparent);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition:
+    background 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.quest-templates-floor-card:hover {
+  background: var(--color-card-elevated);
+  box-shadow:
+    inset 0 0 0 1px var(--border-hover),
+    var(--shadow-sm);
+}
+
+.quest-templates-floor-card:disabled {
+  cursor: progress;
+  opacity: 0.74;
+}
+
+.quest-templates-floor-card:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--color-accent);
+}
+
+.quest-templates-floor-card-title {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.quest-templates-floor-card-desc {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.quest-templates-floor-card-meta {
+  flex: 1;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.quest-templates-floor-card-cta {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 6px;
+  padding: 4px 0;
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 560;
+  transition:
+    color 0.12s ease,
+    transform 0.12s ease;
+}
+
+.quest-templates-floor-card:hover .quest-templates-floor-card-cta {
+  color: var(--color-text-primary);
+  transform: translateX(1px);
+}
+
 @media (max-width: 860px) {
   .quest-scope {
     align-items: stretch;
     flex-direction: column;
     margin: 10px 14px 0;
+  }
+
+  .quest-templates-floor-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .quest-templates-floor-browse {
+    align-self: flex-start;
   }
 }
 

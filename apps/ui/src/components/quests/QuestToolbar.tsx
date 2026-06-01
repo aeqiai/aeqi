@@ -8,6 +8,7 @@ import QuestDueDatePopover from "./QuestDueDatePopover";
 import IdeasScopePopover from "../ideas/IdeasScopePopover";
 import AssigneeAvatar from "./AssigneeAvatar";
 import AssigneePicker from "./AssigneePicker";
+import StatusDot from "./StatusDot";
 
 // ─────────────────────────────────────────────────────────────────────
 //  Shared toolbar — same chrome, same affordances, same field order in
@@ -102,7 +103,7 @@ export default function QuestToolbar({
         onClick={onNew}
         leadingIcon={<Plus size={13} strokeWidth={1.5} />}
       >
-        {isDetailToolbar ? "Quest" : "New"}
+        {isDetailToolbar ? "New quest" : "New"}
       </Button>
     </Tooltip>
   ) : null;
@@ -127,6 +128,19 @@ export default function QuestToolbar({
             /
           </span>
           <span className="quest-detail-breadcrumb-item">{breadcrumbLabel}</span>
+        </span>
+      )}
+      {breadcrumbLabel && isDetailToolbar && (
+        <span
+          className="quest-detail-toolbar-title"
+          aria-label="Quest detail"
+          title={breadcrumbLabel}
+        >
+          <StatusDot status={status} />
+          <span className="quest-detail-toolbar-title-copy">
+            <span className="quest-detail-toolbar-kicker">Quest</span>
+            <span className="quest-detail-toolbar-name">{breadcrumbLabel}</span>
+          </span>
         </span>
       )}
       {!isDetailToolbar && newQuestButton}

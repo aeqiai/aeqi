@@ -8470,6 +8470,65 @@
 .quest-detail-toolbar {
   width: 100%;
 }
+
+.quest-detail-toolbar-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: min(44vw, 620px);
+  color: var(--color-text-primary);
+}
+
+.quest-detail-toolbar-title-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.quest-detail-toolbar-kicker {
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.quest-detail-toolbar-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quest-detail-toolbar-action {
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
+  inline-size: 28px;
+  block-size: 28px;
+  flex: 0 0 28px;
+  color: var(--color-text-primary);
+  background: var(--color-card-elevated);
+  border-color: var(--border);
+}
+
+.quest-detail-toolbar-action:hover,
+.quest-detail-toolbar-action:focus-visible {
+  color: var(--color-text-title);
+  background: var(--color-card);
+  border-color: var(--border-hover);
+}
+
 .quest-detail-toolbar-pill {
   display: inline-flex;
   align-items: center;
@@ -8632,7 +8691,10 @@
   font-weight: 600;
   line-height: 1.25;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .quest-detail-rail-current small,
@@ -8662,7 +8724,9 @@
 
 .quest-detail-rail-empty {
   margin: 0;
-  padding: 4px 2px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-card-elevated) 56%, transparent);
   color: var(--color-text-muted);
   font-family: var(--font-sans);
   font-size: 12px;
@@ -8798,11 +8862,27 @@
 .quest-detail-document .idea-convo-card--activity-combined {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0;
+}
+
+.quest-detail-document .idea-convo-card--activity-combined > .idea-convo-head {
+  min-height: 0;
+  margin: 0 0 8px;
+  padding: 0;
+}
+
+.quest-detail-document .idea-convo-card--activity-combined > .idea-convo-head .idea-convo-title {
+  display: none;
 }
 
 .quest-detail-document .idea-convo-card--activity-combined > .idea-convo-panel {
   width: 100%;
+}
+
+.quest-detail-document .idea-convo-card--activity-combined > .idea-convo-panel--activity {
+  margin: 0 0 10px;
+  padding: 0 0 10px;
+  border-bottom: 1px solid var(--border-subtle, var(--border-faint));
 }
 
 .quest-detail-summary.role-inspector {
@@ -9066,6 +9146,10 @@
 }
 
 @media (max-width: 1120px) {
+  .quest-detail-toolbar-title {
+    max-width: min(62vw, 520px);
+  }
+
   .quest-detail-layout {
     grid-template-columns: minmax(0, 1fr);
     overflow-y: auto;

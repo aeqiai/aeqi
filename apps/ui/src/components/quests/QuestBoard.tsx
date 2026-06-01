@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import { formatInteger } from "@/lib/i18n";
-import { Banner, Button, Icon, PrimitivePageHeader } from "../ui";
 import type { Quest, QuestStatus, User } from "@/lib/types";
+import { Banner, Button, Icon, PrimitivePageHeader } from "../ui";
 import { formatAssignee } from "@/lib/assignee";
 import { useRelativeNow } from "@/hooks/useRelativeNow";
 import type { QuestsView } from "./questView";
@@ -17,6 +17,7 @@ import QuestBoardEmptyState from "./QuestBoardEmptyState";
 import QuestBoardNoMatches from "./QuestBoardNoMatches";
 import QuestColumnEmptyState, { COLLAPSIBLE_STATUSES } from "./QuestColumnEmptyState";
 import QuestBoardScope from "./QuestBoardScope";
+import QuestTemplatesFloor from "./QuestTemplatesFloor";
 import {
   QUEST_ACTIVE_COLUMNS,
   QUEST_ALL_COLUMNS,
@@ -29,7 +30,7 @@ import {
 export default function QuestBoard({
   agentId: _agentId,
   resolvedAgentId,
-  companyId: _companyId,
+  companyId,
   quests,
   allQuests,
   scopeFilter,
@@ -63,8 +64,6 @@ export default function QuestBoard({
   onScopeChange: (next: QuestFilter) => void;
   onCreated: () => void;
   onPick: (id: string) => void;
-  /** Navigates to the dedicated quest-compose page. Optional `status`
-   *  pre-selects the column the new quest lands in. */
   onCompose: (status?: QuestStatus) => void;
   search: string;
   onSearchChange: (next: string) => void;
@@ -81,21 +80,11 @@ export default function QuestBoard({
   onBoardScopeChange: (next: string | null) => void;
   onOpenQuest: (id: string) => void;
   onOpenParent: (id: string) => void;
-  /** When true, the main board renders only the four ACTIVE columns
-   *  (Todo · In Progress · In Review · Done) and demotes Backlog and
-   *  Cancelled into horizontal strips below the board. Used by the
-   *  standalone COMPANY-scope Quests app at `/company/<addr>/quests`. */
   splitLayout?: boolean;
 }) {
-  // Backlog and Cancelled are demoted into below-board strips when
-  // `splitLayout` is on. The drag/drop layer still recognises them as
-  // drop targets — promote / demote flows survive the split. Strip
-  // open/close state lives inside `QuestArchiveStrips`.
   const [err, setErr] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // Tick "X ago" labels on the cards once a minute so they don't
-  // freeze when the board is left open.
   useRelativeNow();
 
   const searchHits = useMemo<QuestDiscoveryHit[]>(() => {
@@ -108,33 +97,17 @@ export default function QuestBoard({
     [searchHits],
   );
 
-  // Search narrows what's displayed in the columns. Scope filtering
-  // happens upstream (parent AgentQuestsTab) and feeds us `quests`.
-  // Active search switches to discovery ranking; the saved sort mode
-  // resumes as soon as the query clears.
   const visibleQuests = useMemo(
     () => (search.trim() ? searchHits.map((hit) => hit.quest) : sortQuests(quests, sort)),
     [quests, search, searchHits, sort],
   );
 
-  // Single ordered source feeding both Board grouping and List rendering.
-  // Stable sort means within-bucket order in Board reflects the chosen
-  // mode without a secondary pass.
   const sortedVisibleQuests = visibleQuests;
 
-  // Drag-and-drop state. `dragging` is the quest id being dragged so cards can
-  // dim themselves; `dropTarget` is the column that'll receive the drop so its
-  // frame can light up. `optimistic` overrides a quest's displayed status until
-  // the server roundtrip lands — the UI feels instant, and a failed patch
-  // simply reverts when we clear the entry.
   const [dragging, setDragging] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<QuestStatus | null>(null);
   const [scopeDropActive, setScopeDropActive] = useState(false);
   const [optimistic, setOptimistic] = useState<Record<string, QuestStatus>>({});
-  // Backlog + Cancelled collapse to header-only by default; user can
-  // toggle each one via the chevron in the column header. Backlog
-  // tends to be huge (every unstarted seed) and Cancelled is archive
-  // noise; collapsed by default keeps the active board scannable.
   const [collapsedCols, setCollapsedCols] = useState<Record<string, boolean>>({
     backlog: true,
     done: true,
@@ -149,9 +122,6 @@ export default function QuestBoard({
   const toggleListGroup = useCallback((status: QuestStatus) => {
     setCollapsedListGroups((prev) => ({ ...prev, [status]: !prev[status] }));
   }, []);
-  // Keyboard-navigation focus. Separate from DOM focus so j/k can traverse
-  // cards even when the board root has programmatic focus — and so Esc can
-  // clear the outline without blurring anything visible.
   const [focusId, setFocusId] = useState<string | null>(null);
 
   const defaultAssignee = useMemo(
@@ -214,18 +184,8 @@ export default function QuestBoard({
     [quests, defaultAssignee, onCreated],
   );
 
-  // v5.3: six-status Linear ladder. Backlog (parked) → Todo (ready) →
-  // In progress → In review → Done | Cancelled. Reading order left-to-right
-  // on the board, top-to-bottom in the list view.
-  // When `splitLayout` is on, Backlog and Cancelled get demoted into
-  // collapsible strips below the main board — see the JSX below the grid.
   const columns = splitLayout ? QUEST_ACTIVE_COLUMNS : QUEST_ALL_COLUMNS;
 
-  // Bucket the already-sorted source by displayed status. Stable sort
-  // means within-column order honors the active sort mode without a
-  // secondary pass. Terminal columns deliberately show the full matching
-  // set: hiding old completed quests made the board disagree with the
-  // ledger and turned reconciliation into guesswork.
   const grouped: Record<QuestStatus, Quest[]> = useMemo(() => {
     const buckets: Record<QuestStatus, Quest[]> = {
       backlog: [],
@@ -248,9 +208,6 @@ export default function QuestBoard({
       ? "1 match"
       : `${formatInteger(sortedVisibleQuests.length)} matches`;
 
-  // Flat traversal order used by j/k. In Board view: column-major over
-  // backlog → todo → in_progress → in_review → done → cancelled. In List
-  // view: the flat-sorted order.
   const flatOrderKey = useMemo(() => {
     if (view === "list") {
       return sortedVisibleQuests.map((q) => q.id).join("|");
@@ -270,14 +227,10 @@ export default function QuestBoard({
   const flatOrderRef = useRef<string[]>([]);
   flatOrderRef.current = flatOrderKey ? flatOrderKey.split("|") : [];
 
-  // If the focused card vanishes (status change, cap, refresh) drop the focus.
   useEffect(() => {
     if (focusId && !flatOrderRef.current.includes(focusId)) setFocusId(null);
   }, [flatOrderKey, focusId]);
 
-  // j/k/Enter/Escape navigation. Mirrors the `?` shortcut idiom in AppLayout:
-  // skip when focus is inside an INPUT / TEXTAREA / contenteditable, and stay
-  // inert when any modifier is held so we don't collide with browser chords.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -286,8 +239,6 @@ export default function QuestBoard({
       const isEditable = tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable;
       if (isEditable) return;
 
-      // "/" focuses the search input (Ideas-page idiom). Stop propagation
-      // so AppLayout's global "/" (palette) handler doesn't also fire.
       if (e.key === "/") {
         e.preventDefault();
         e.stopImmediatePropagation();
@@ -296,7 +247,6 @@ export default function QuestBoard({
         return;
       }
 
-      // b / l toggle Board / List view (mirrors Ideas g/l idiom).
       if (e.key === "b" && view !== "board") {
         e.preventDefault();
         onViewChange("board");
@@ -352,9 +302,6 @@ export default function QuestBoard({
           if (dropTarget !== col.status) setDropTarget(col.status);
         }}
         onDragLeave={(e) => {
-          // Only clear the highlight when the pointer actually leaves
-          // the column's own rectangle — not when it crosses onto a
-          // child card (relatedTarget would still be inside us).
           const related = e.relatedTarget as Node | null;
           if (related && e.currentTarget.contains(related)) return;
           if (dropTarget === col.status) setDropTarget(null);
@@ -616,6 +563,7 @@ export default function QuestBoard({
             searchMatches={searchMatchById}
           />
         )}
+        {splitLayout && <QuestTemplatesFloor companyId={companyId} onCreated={onCreated} />}
       </div>
     </div>
   );

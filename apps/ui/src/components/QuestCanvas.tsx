@@ -528,6 +528,24 @@ function ViewCanvas({
       q.id !== quest.id &&
       (siblingIds.has(q.id) || (quest.idea_id != null && q.idea_id === quest.idea_id)),
   );
+  const detailsToggle = (
+    <Tooltip content={detailsCollapsed ? "Show details" : "Hide details"} portal>
+      <button
+        type="button"
+        className="role-inspector-icon-action quest-detail-toolbar-action"
+        aria-label={detailsCollapsed ? "Show quest details" : "Hide quest details"}
+        title={detailsCollapsed ? "Show details" : "Hide details"}
+        onClick={() => setDetailsCollapsed((collapsed) => !collapsed)}
+        data-pill-allowed=""
+      >
+        {detailsCollapsed ? (
+          <PanelRightOpen size={13} strokeWidth={1.7} />
+        ) : (
+          <PanelRightClose size={13} strokeWidth={1.7} />
+        )}
+      </button>
+    </Tooltip>
+  );
   const displayQuest: Quest = quest.idea
     ? {
         ...quest,
@@ -575,16 +593,19 @@ function ViewCanvas({
           onAssigneeOpenChange={setAssigneeOpen}
           dueOpen={dueOpen}
           onDueOpenChange={setDueOpen}
-          breadcrumbLabel={quest.idea?.name ?? quest.id}
+          breadcrumbLabel={quest.id}
           trailingSlot={
-            quest.sibling_quest_ids && quest.sibling_quest_ids.length > 0 ? (
-              <span
-                className="quest-detail-shared-badge"
-                title={`This idea is also tracked by ${quest.sibling_quest_ids.length} other quest${quest.sibling_quest_ids.length === 1 ? "" : "s"}`}
-              >
-                Shared spec · {quest.sibling_quest_ids.length + 1} quests
-              </span>
-            ) : undefined
+            <>
+              {quest.sibling_quest_ids && quest.sibling_quest_ids.length > 0 ? (
+                <span
+                  className="quest-detail-shared-badge"
+                  title={`This idea is also tracked by ${quest.sibling_quest_ids.length} other quest${quest.sibling_quest_ids.length === 1 ? "" : "s"}`}
+                >
+                  Shared spec · {quest.sibling_quest_ids.length + 1} quests
+                </span>
+              ) : null}
+              {detailsToggle}
+            </>
           }
         />
       </div>
@@ -612,27 +633,6 @@ function ViewCanvas({
             embedded
             hideMetaStrip
             conversationActivity="combined"
-            contentHeaderSlot={
-              <div className="quest-detail-surface-header">
-                <div className="quest-detail-surface-title">Idea</div>
-                <Tooltip content={detailsCollapsed ? "Show details" : "Hide details"} portal>
-                  <button
-                    type="button"
-                    className="role-inspector-icon-action quest-detail-surface-action"
-                    aria-label={detailsCollapsed ? "Show quest details" : "Hide quest details"}
-                    title={detailsCollapsed ? "Show details" : "Hide details"}
-                    onClick={() => setDetailsCollapsed((collapsed) => !collapsed)}
-                    data-pill-allowed=""
-                  >
-                    {detailsCollapsed ? (
-                      <PanelRightOpen size={13} strokeWidth={1.7} />
-                    ) : (
-                      <PanelRightClose size={13} strokeWidth={1.7} />
-                    )}
-                  </button>
-                </Tooltip>
-              </div>
-            }
           />
         </main>
         {!detailsCollapsed && (

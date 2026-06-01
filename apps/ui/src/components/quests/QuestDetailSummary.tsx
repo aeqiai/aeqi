@@ -135,18 +135,6 @@ export default function QuestDetailSummary({
       </header>
 
       <div className="role-inspector-body">
-        <IdeaInspectorGroup
-          idea={idea}
-          agentId={quest.agent_id ?? ""}
-          scope={scope}
-          typeLabel="Linked idea"
-          tagSuggestions={tagSuggestions}
-          emptyStatus="No linked idea"
-          onScopeChange={onScopeChange}
-          onTagAdd={onTagAdd}
-          onTagRemove={onTagRemove}
-        />
-
         <PropertyGroup title="Quest" defaultOpen>
           <CopyableRow
             label="Quest ID"
@@ -254,6 +242,18 @@ export default function QuestDetailSummary({
             </ReadOnlyRow>
           )}
         </PropertyGroup>
+
+        <IdeaInspectorGroup
+          idea={idea}
+          agentId={quest.agent_id ?? ""}
+          scope={scope}
+          typeLabel="Linked idea"
+          tagSuggestions={tagSuggestions}
+          emptyStatus="No linked idea"
+          onScopeChange={onScopeChange}
+          onTagAdd={onTagAdd}
+          onTagRemove={onTagRemove}
+        />
       </div>
     </aside>
   );
