@@ -257,16 +257,16 @@ describe("AgentQuestsTab smoke", () => {
 
     expect(screen.getByRole("button", { name: /Open board for Root quest/ })).toBeInTheDocument();
     expect(screen.queryByText("Child quest")).not.toBeInTheDocument();
-    expect(screen.getByText("Focus")).toBeInTheDocument();
-    expect(screen.getByText("Drop project here")).toBeInTheDocument();
+    expect(screen.getByText("Drop quest here")).toBeInTheDocument();
+    expect(screen.getByText("Focus a quest to view its subquests.")).toBeInTheDocument();
     expect(screen.queryByLabelText("Project scopes")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Open board for Root quest/ }));
 
     expect(screen.getByText("Child quest")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /New subquest/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Clear focus/ })).toBeInTheDocument();
-    expect(screen.getByText("Focus")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Exit focused quest/ })).toBeInTheDocument();
+    expect(screen.getByText("Focused quest")).toBeInTheDocument();
   });
 
   it("list view keeps Backlog and In review visible", () => {
@@ -319,7 +319,7 @@ describe("AgentQuestsTab smoke", () => {
     );
 
     expect(screen.getByText("Review quest")).toBeInTheDocument();
-    expect(screen.getByText("Drop project here")).toBeInTheDocument();
+    expect(screen.getByText("Drop quest here")).toBeInTheDocument();
     expect(screen.queryByLabelText("Quest status counts")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Hide In review column/ })).not.toBeInTheDocument();
 

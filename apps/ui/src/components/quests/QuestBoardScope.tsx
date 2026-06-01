@@ -1,25 +1,14 @@
 import { ArrowUp, X } from "lucide-react";
 import { Button, IconButton } from "../ui";
 import type { Quest, QuestStatus, User } from "@/lib/types";
-import QuestActiveCard from "./QuestActiveCard";
-import type { QuestDiscoveryHit } from "./agentQuestsHelpers";
+import StatusDot from "./StatusDot";
+import { QUEST_ALL_COLUMNS, type QuestDiscoveryHit } from "./agentQuestsHelpers";
 
 /**
- * Focus band — a single card-sized drop slot above the board.
+ * Quest focus rail — contextual anchor for viewing a quest's direct subquests.
  *
- * Header actions (shown only when scoped):
- *   - Up — moves up one level. If a parent quest exists, navigates to
- *     it; otherwise returns to the workspace root. Always visible
- *     when there's a scope to leave.
- *   - Clear — jumps straight to the workspace root.
- *
- * Slot:
- *   - empty — card-sized dashed drop placeholder. The slot accepts
- *     the same `text/plain = questId` drag payload as the kanban
- *     columns; dropping promotes that quest to focus.
- *   - scoped — a real `QuestActiveCard` constrained to the same
- *     fixed slot width. The card opts out of drag so the slot itself
- *     stays the drop target.
+ * The rail accepts the same `text/plain = questId` drag payload as the board
+ * columns; dropping a quest promotes that quest to focus.
  */
 export interface QuestBoardScopeProps {
   scope?: Quest;
@@ -55,17 +44,12 @@ export default function QuestBoardScope({
   onUp,
   onClear,
   onOpen,
-  optimistic,
-  focusId,
-  setDragging,
-  setDropTarget,
-  onTake,
-  onCreated,
-  onError,
-  agents,
-  users,
-  searchMatches,
 }: QuestBoardScopeProps) {
+  const title = scope?.idea?.name ?? scope?.id ?? "Focused quest";
+  const statusLabel = scope
+    ? (QUEST_ALL_COLUMNS.find((column) => column.status === scope.status)?.label ?? scope.status)
+    : null;
+  const childLabel = childCount === 1 ? "1 subquest" : `${childCount} subquests`;
   const dragProps = {
     onDragOver: (e: React.DragEvent<HTMLDivElement>) => {
       if (!dragging) return;
@@ -87,70 +71,67 @@ export default function QuestBoardScope({
   };
 
   return (
-    <section className="quest-scope" aria-label="Board focus">
-      <header className="quest-scope-header">
-        <span className="quest-scope-header-copy">
-          <span className="quest-scope-header-label">Focus</span>
-        </span>
-        {scope && (
-          <span className="quest-scope-header-actions">
+    <section
+      className="quest-scope"
+      aria-label="Board focus"
+      data-active={scope ? "" : undefined}
+      data-drop-target={dropActive || undefined}
+      {...dragProps}
+    >
+      {scope ? (
+        <>
+          <div className="quest-scope-main">
+            <span className="quest-scope-eyebrow">Focused quest</span>
+            <button
+              type="button"
+              className="quest-scope-title"
+              onClick={onOpen}
+              title="Open focused quest"
+            >
+              <StatusDot status={scope.status} />
+              <span>{title}</span>
+            </button>
+            <span className="quest-scope-meta">
+              <span>{statusLabel}</span>
+              <span>{childLabel}</span>
+              {parentScopeId && <span>Nested</span>}
+            </span>
+          </div>
+
+          <span className="quest-scope-actions">
             <Button size="sm" variant="secondary" onClick={onOpen} title="Open focused quest">
               Open
             </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={onUp}
-              leadingIcon={<ArrowUp size={14} strokeWidth={1.8} />}
-              title={parentScopeId ? "Up to parent quest" : "Back to workspace"}
-            >
-              Up
-            </Button>
+            {parentScopeId && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={onUp}
+                leadingIcon={<ArrowUp size={14} strokeWidth={1.8} />}
+                title="Up to parent quest"
+              >
+                Up
+              </Button>
+            )}
             <IconButton
               size="sm"
               variant="ghost"
               onClick={onClear}
-              aria-label="Clear focus"
-              title="Clear focus"
+              aria-label="Exit focused quest"
+              title="Exit focused quest"
             >
               <X size={15} strokeWidth={1.8} />
             </IconButton>
           </span>
-        )}
-      </header>
-      <div
-        className="quest-scope-slot"
-        data-empty={!scope || undefined}
-        data-drop-target={dropActive || undefined}
-        {...dragProps}
-      >
-        {scope ? (
-          <QuestActiveCard
-            q={scope}
-            optimistic={optimistic}
-            dragging={dragging}
-            focusId={focusId}
-            setDragging={setDragging}
-            setDropTarget={setDropTarget}
-            onPick={onOpen}
-            onTake={onTake}
-            onCreated={onCreated}
-            onError={onError}
-            agents={agents}
-            users={users}
-            childCount={childCount}
-            searchMatch={searchMatches.get(scope.id)}
-            draggable={false}
-            isScope
-          />
-        ) : (
-          <div className="quest-scope-empty">
-            <span className="quest-scope-empty-copy">
-              <span className="quest-scope-empty-title">Drop project here</span>
-            </span>
-          </div>
-        )}
-      </div>
+        </>
+      ) : (
+        <div className="quest-scope-empty">
+          <span className="quest-scope-empty-copy">
+            <span className="quest-scope-empty-title">Drop quest here</span>
+            <span className="quest-scope-empty-note">Focus a quest to view its subquests.</span>
+          </span>
+        </div>
+      )}
     </section>
   );
 }
