@@ -987,6 +987,7 @@ fn ensure_agent_entity_id_column(conn: &Connection) -> rusqlite::Result<()> {
             .collect()
     };
     let has_legacy = cols.iter().any(|c| c == "entity_id");
+    let has_trust_id = cols.iter().any(|c| c == "trust_id");
     let has_canonical = cols.iter().any(|c| c == "company_id");
     if has_legacy && !has_canonical {
         // Live-DB carryover from before the ae-062 phase-B rename.
@@ -994,12 +995,25 @@ fn ensure_agent_entity_id_column(conn: &Connection) -> rusqlite::Result<()> {
             "ALTER TABLE agents RENAME COLUMN entity_id TO company_id",
             [],
         )?;
+    } else if has_trust_id && !has_canonical {
+        conn.execute(
+            "ALTER TABLE agents RENAME COLUMN trust_id TO company_id",
+            [],
+        )?;
     } else if !has_canonical {
         conn.execute_batch(
             "ALTER TABLE agents ADD COLUMN company_id TEXT REFERENCES entities(id) ON DELETE SET NULL;",
         )?;
+    } else if has_trust_id {
+        conn.execute(
+            "UPDATE agents SET company_id = trust_id WHERE company_id IS NULL",
+            [],
+        )?;
     }
-    conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_agents_entity ON agents(company_id);")?;
+    conn.execute_batch(
+        "DROP INDEX IF EXISTS idx_agents_entity;
+         CREATE INDEX IF NOT EXISTS idx_agents_entity ON agents(company_id);",
+    )?;
     Ok(())
 }
 
@@ -1008,9 +1022,11 @@ fn ensure_agent_entity_id_column(conn: &Connection) -> rusqlite::Result<()> {
 /// vacant. Authority is resolved by transitive closure over `role_edges`
 /// (DAG — flat boards at the top are first-class).
 fn bootstrap_role_tables(conn: &Connection) -> rusqlite::Result<()> {
-    // ae-062 phase B: rename legacy `entity_id` → `company_id` on live DBs.
+    // ae-062 phase B: rename legacy `entity_id`/`trust_id` → `company_id`
+    // on live DBs.
     // CREATE TABLE IF NOT EXISTS below uses the new name, so reconcile first.
     rename_legacy_column(conn, "roles", "entity_id", "company_id")?;
+    rename_legacy_column(conn, "roles", "trust_id", "company_id")?;
 
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS roles (
@@ -1039,6 +1055,29 @@ fn bootstrap_role_tables(conn: &Connection) -> rusqlite::Result<()> {
          CREATE INDEX IF NOT EXISTS idx_role_edges_child
              ON role_edges(child_role_id);",
     )?;
+    Ok(())
+}
+
+/// Some live runtimes crossed the trust_id → company_id rename while `roles`
+/// already existed. If SQLite could not rename because a compatibility column
+/// was already present, keep the canonical column populated so current role
+/// queries do not fail or return an empty register.
+fn backfill_role_company_id(conn: &Connection) -> rusqlite::Result<()> {
+    let cols: Vec<String> = {
+        let mut stmt = conn.prepare("PRAGMA table_info(roles)")?;
+        stmt.query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .collect()
+    };
+    let has_trust_id = cols.iter().any(|c| c == "trust_id");
+    let has_company_id = cols.iter().any(|c| c == "company_id");
+    if has_trust_id && has_company_id {
+        conn.execute(
+            "UPDATE roles SET company_id = trust_id WHERE company_id IS NULL",
+            [],
+        )?;
+    }
+    conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_roles_entity ON roles(company_id);")?;
     Ok(())
 }
 
@@ -1738,6 +1777,7 @@ impl AgentRegistry {
 
         // 3c. role_type, founder, and role_grants — added in roles-grants wave.
         migrate_role_types_and_grants(&conn)?;
+        backfill_role_company_id(&conn)?;
 
         // 3d. Budget primitive — budgets + allowances + policies + events +
         //     treasury_config. Idempotent. See `budget_registry.rs` and

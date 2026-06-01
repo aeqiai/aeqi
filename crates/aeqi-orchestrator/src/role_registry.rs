@@ -49,6 +49,7 @@ impl std::str::FromStr for OccupantKind {
         match s {
             "human" => Ok(OccupantKind::Human),
             "agent" => Ok(OccupantKind::Agent),
+            "trust" => Ok(OccupantKind::Company),
             "company" => Ok(OccupantKind::Company),
             "vacant" => Ok(OccupantKind::Vacant),
             other => bail!("unknown occupant kind: {}", other),
@@ -1081,6 +1082,14 @@ mod tests {
         let entities = crate::entity_registry::EntityRegistry::open(agents.db());
         let roles = RoleRegistry::open(agents.db());
         (dir, agents, entities, roles)
+    }
+
+    #[test]
+    fn legacy_trust_occupant_kind_parses_as_company() {
+        assert_eq!(
+            "trust".parse::<OccupantKind>().unwrap(),
+            OccupantKind::Company
+        );
     }
 
     async fn make_entity(

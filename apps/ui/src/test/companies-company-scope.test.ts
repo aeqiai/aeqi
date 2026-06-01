@@ -53,7 +53,7 @@ describe("companies API scoping", () => {
     expect(url).toBe("/api/runtime/status?trust_id=company-1");
   });
 
-  it("bridges roles list to the hosted trust query parameter", async () => {
+  it("keeps roles company_id for the runtime handler while scoping by trust header", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ ok: true, roles: [], edges: [] }), {
         status: 200,
@@ -65,7 +65,7 @@ describe("companies API scoping", () => {
     await api.getRoles("company-1");
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("/api/roles?trust_id=company-1");
+    expect(url).toBe("/api/roles?company_id=company-1");
     expect(init.headers).toMatchObject({
       "X-Company": "company-1",
       "X-Entity": "company-1",
