@@ -11,6 +11,7 @@ import type { QuestsView } from "./quests/questView";
 import type { QuestSort } from "./quests/QuestsSortPopover";
 import QuestBoard from "./quests/QuestBoard";
 import TrackIdeaAsQuestModal from "./quests/TrackIdeaAsQuestModal";
+import NewQuestModal from "./quests/NewQuestModal";
 import {
   childCountsByParent,
   isDirectChildOf,
@@ -64,9 +65,20 @@ export default function AgentQuestsTab({
   const composingFromIdea = composing && Boolean(fromIdeaId);
   const presetStatus = parseQuestStatus(searchParams.get("status"));
   const parentQuestId = searchParams.get("parent") ?? null;
+  const [newQuestDraft, setNewQuestDraft] = useState<{
+    status?: QuestStatus;
+    parent?: string | null;
+  } | null>(null);
 
   const openCompose = useCallback(
     (opts?: { fromIdea?: string; status?: QuestStatus; parent?: string }) => {
+      if (!opts?.fromIdea) {
+        setNewQuestDraft({
+          status: opts?.status,
+          parent: opts?.parent ?? null,
+        });
+        return;
+      }
       const search: Record<string, string> = {};
       if (opts?.fromIdea) search.fromIdea = opts.fromIdea;
       if (opts?.status) search.status = opts.status;
@@ -211,6 +223,11 @@ export default function AgentQuestsTab({
     [fetchQuests, goEntity, companyId],
   );
 
+  const handleNewQuestCreated = useCallback(async () => {
+    await fetchQuests();
+    setNewQuestDraft(null);
+  }, [fetchQuests]);
+
   // Rail's create button → navigate to the dedicated compose page.
   useEffect(() => {
     const handler = () => openCompose();
@@ -311,10 +328,23 @@ export default function AgentQuestsTab({
       />
     );
     const content = scope === "entity" ? <div className="company-quests">{board}</div> : board;
-    if (!composingFromIdea) return content;
-    return (
+    const contentWithModal = (
       <>
         {content}
+        <NewQuestModal
+          open={Boolean(newQuestDraft)}
+          agentId={agent?.id || agentId}
+          initialStatus={newQuestDraft?.status ?? presetStatus ?? "todo"}
+          parentQuestId={newQuestDraft?.parent ?? null}
+          onClose={() => setNewQuestDraft(null)}
+          onCreated={handleNewQuestCreated}
+        />
+      </>
+    );
+    if (!composingFromIdea) return contentWithModal;
+    return (
+      <>
+        {contentWithModal}
         <TrackIdeaAsQuestModal
           open
           ideaId={fromIdeaId}

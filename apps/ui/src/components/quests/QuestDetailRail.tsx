@@ -38,8 +38,10 @@ export default function QuestDetailRail({
   return (
     <aside className="quest-detail-rail" aria-label="Quest relationships">
       <header className="ideas-workspace-tree-head">
-        <span>Explorer</span>
-        <small>{childQuests.length} child</small>
+        <span>Quest map</span>
+        <small>
+          {childQuests.length} {childQuests.length === 1 ? "child" : "children"}
+        </small>
       </header>
       <div className="quest-detail-rail-list">
         {parentQuest && <QuestRailButton quest={parentQuest} label="parent" onOpen={onOpenQuest} />}

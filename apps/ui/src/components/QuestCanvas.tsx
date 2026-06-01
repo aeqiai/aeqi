@@ -614,7 +614,7 @@ function ViewCanvas({
             conversationActivity="combined"
             contentHeaderSlot={
               <div className="quest-detail-surface-header">
-                <div className="quest-detail-surface-title">Quest idea</div>
+                <div className="quest-detail-surface-title">Idea</div>
                 <Tooltip content={detailsCollapsed ? "Show details" : "Hide details"} portal>
                   <button
                     type="button"

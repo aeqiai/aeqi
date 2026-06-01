@@ -128,7 +128,7 @@ export default function QuestDetailSummary({
       aria-label="Quest details"
     >
       <header className="role-inspector-topbar">
-        <span className="role-inspector-object">Details</span>
+        <span className="role-inspector-object">Quest</span>
         <small title={quest.updated_at ? formatDateTime(quest.updated_at) : undefined}>
           {quest.updated_at ? timeAgo(quest.updated_at) : quest.id}
         </small>
@@ -139,9 +139,9 @@ export default function QuestDetailSummary({
           idea={idea}
           agentId={quest.agent_id ?? ""}
           scope={scope}
-          typeLabel="Quest idea"
+          typeLabel="Linked idea"
           tagSuggestions={tagSuggestions}
-          emptyStatus="No canonical idea linked"
+          emptyStatus="No linked idea"
           onScopeChange={onScopeChange}
           onTagAdd={onTagAdd}
           onTagRemove={onTagRemove}
