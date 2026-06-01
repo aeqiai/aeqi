@@ -5443,16 +5443,17 @@
   min-height: 0;
   flex-direction: column;
   overflow: hidden;
-  background: var(--bg-row);
   border: 0;
   border-radius: 0;
 }
 
 .ideas-workspace-tree {
+  background: var(--bg-row);
   border-right: 1px solid var(--ideas-pane-separator);
 }
 
 .ideas-workspace-inspector {
+  background: var(--color-card);
   box-shadow: inset 1px 0 0 var(--ideas-pane-separator);
 }
 
@@ -5739,7 +5740,7 @@
   margin-top: var(--space-3);
   padding: var(--space-4) 24px 18px;
   border-top: 1px solid var(--ideas-header-separator);
-  background: var(--bg-row);
+  background: var(--color-card);
 }
 
 .ideas-workspace-document .idea-convo-card {
@@ -5785,7 +5786,7 @@
   max-height: 100%;
   overflow-y: auto;
   padding: 0;
-  background: var(--bg-row);
+  background: var(--color-card);
 }
 
 .ideas-workspace-detail-topbar {
