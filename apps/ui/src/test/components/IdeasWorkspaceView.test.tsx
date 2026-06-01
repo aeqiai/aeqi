@@ -176,43 +176,24 @@ describe("IdeasWorkspaceView", () => {
     const contentBody = workspace?.querySelector(".ideas-workspace-body");
     expect(pageHeader).toBeTruthy();
     expect(contentSurface).toBeTruthy();
-    expect(contentHeader).toBeTruthy();
+    expect(contentHeader).toBeNull();
     expect(contentBody).toBeTruthy();
     expect(contentSurface?.contains(pageHeader ?? null)).toBe(false);
-    expect(within(contentHeader as HTMLElement).queryByText("Explorer")).not.toBeInTheDocument();
-    expect(within(contentHeader as HTMLElement).getByText("Idea")).toBeInTheDocument();
-    expect(within(contentHeader as HTMLElement).getByText("Eich Holding")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Hide explorer" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Hide details" })).toBeInTheDocument();
-    expect(contentSurface?.contains(contentHeader ?? null)).toBe(true);
+    expect(screen.queryByRole("button", { name: "Hide explorer" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Show explorer" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Hide details" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Show details" })).not.toBeInTheDocument();
     expect(contentSurface?.contains(contentBody ?? null)).toBe(true);
     expect(within(main).queryByText("Details")).not.toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: "Details" })).toBeInTheDocument();
     expect(
       container
         .querySelector(".ideas-canvas-paper")
         ?.contains(container.querySelector(".ideas-workspace-document-head")),
     ).toBe(false);
-
-    await user.click(screen.getByRole("button", { name: "Hide details" }));
-
-    expect(container.firstElementChild).toHaveClass("ideas-workspace--details-collapsed");
-    expect(contentHeader?.querySelector(".ideas-workspace-card-head-zone--details")).toBeNull();
-    expect(screen.queryByRole("complementary", { name: "Details" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Show details" })).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Show details" }));
-
-    expect(container.firstElementChild).not.toHaveClass("ideas-workspace--details-collapsed");
-    expect(contentHeader?.querySelector(".ideas-workspace-card-head-zone--details")).toBeTruthy();
-    expect(screen.getByRole("complementary", { name: "Details" })).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Hide explorer" }));
-
-    expect(container.firstElementChild).toHaveClass("ideas-workspace--explorer-collapsed");
     expect(
-      screen.queryByRole("complementary", { name: "Eich Holding idea explorer" }),
-    ).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Show explorer" })).toBeInTheDocument();
+      screen.getByRole("complementary", { name: "Eich Holding idea explorer" }),
+    ).toBeInTheDocument();
   });
 
   it("keeps Explorer as a file tree instead of a metrics surface", async () => {

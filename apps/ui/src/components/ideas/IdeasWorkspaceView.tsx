@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import * as ideasApi from "@/api/ideas";
 import { ImportMenu } from "@/components/blueprints/ImportMenu";
 import { blockTreeToPlainText } from "@/components/editor/blockEditorContent";
@@ -8,7 +8,7 @@ import { useNav } from "@/hooks/useNav";
 import { asStringArray, parseFrontmatter } from "@/lib/frontmatter";
 import type { Idea, ScopeValue } from "@/lib/types";
 import { useAgentIdeasCache } from "@/queries/ideas";
-import { Button, Icon, IconButton, PrimitivePageHeader, Tooltip, Loading } from "../ui";
+import { Button, Icon, PrimitivePageHeader, Tooltip, Loading } from "../ui";
 import TrackIdeaAsQuestModal from "../quests/TrackIdeaAsQuestModal";
 import IdeasWorkspaceExplorer from "./IdeasWorkspaceExplorer";
 import IdeaWorkspaceInspector from "./IdeaWorkspaceInspector";
@@ -88,10 +88,8 @@ export default function IdeasWorkspaceView({
   const [canCommit, setCanCommit] = useState(false);
   const [inspectorBusy, setInspectorBusy] = useState(false);
   const [inspectorError, setInspectorError] = useState<string | null>(null);
-  const [explorerCollapsed, setExplorerCollapsed] = useState(false);
-  const [detailsCollapsed, setDetailsCollapsed] = useState(false);
   const [trackIdea, setTrackIdea] = useState<Idea | null>(null);
-  const workspaceClass = `ideas-workspace${explorerCollapsed ? " ideas-workspace--explorer-collapsed" : ""}${detailsCollapsed ? " ideas-workspace--details-collapsed" : ""}`;
+  const workspaceClass = "ideas-workspace";
   const searchActive = filter.search.trim() !== "";
   const activeIdea = composing ? undefined : (selectedIdea ?? rootIdea ?? undefined);
   const activeParentId = composing ? composeParentId : (activeIdea?.id ?? rootIdea?.id ?? null);
@@ -112,10 +110,6 @@ export default function IdeasWorkspaceView({
     titleCountSource.length -
       (rootIdea && titleCountSource.some((idea) => idea.id === rootIdea.id) ? 1 : 0),
   );
-  const activeDocumentLabel = composing
-    ? presetName || "New idea"
-    : activeIdea?.name || rootIdea?.name || "Idea";
-
   const ranked = useMemo(() => {
     if (searchActive) {
       return filtered
@@ -383,107 +377,17 @@ export default function IdeasWorkspaceView({
         </div>
       )}
       <div className="ideas-workspace-layout">
-        <header className="ideas-workspace-card-head" aria-label="Ideas content card header">
-          <div className="ideas-workspace-card-head-zone ideas-workspace-card-head-zone--explorer">
-            <Tooltip content={explorerCollapsed ? "Show explorer" : "Hide explorer"} portal>
-              <IconButton
-                variant="bordered"
-                size="sm"
-                className="ideas-workspace-rail-toggle"
-                aria-label={explorerCollapsed ? "Show explorer" : "Hide explorer"}
-                onClick={() => setExplorerCollapsed((collapsed) => !collapsed)}
-              >
-                {explorerCollapsed ? (
-                  <PanelLeftOpen size={13} strokeWidth={1.7} />
-                ) : (
-                  <PanelLeftClose size={13} strokeWidth={1.7} />
-                )}
-              </IconButton>
-            </Tooltip>
-          </div>
-
-          <div className="ideas-workspace-card-head-zone ideas-workspace-card-head-zone--document">
-            <div className="ideas-workspace-card-head-copy ideas-workspace-card-head-copy--document">
-              <span className="ideas-workspace-card-head-type">Idea</span>
-              <span
-                className="ideas-workspace-card-head-title ideas-workspace-card-head-title--document"
-                title={activeDocumentLabel}
-              >
-                {activeDocumentLabel}
-              </span>
-            </div>
-            {(canvasDirty || detailsCollapsed) && (
-              <div className="ideas-workspace-card-head-actions ideas-workspace-card-head-actions--document">
-                {canvasDirty && (
-                  <>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      onClick={handleCancel}
-                      disabled={inspectorBusy}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="primary"
-                      size="sm"
-                      onClick={() => void handleSave()}
-                      disabled={!canCommit}
-                      loading={inspectorBusy}
-                    >
-                      Save
-                    </Button>
-                  </>
-                )}
-                {detailsCollapsed && (
-                  <Tooltip content="Show details" portal>
-                    <IconButton
-                      variant="bordered"
-                      size="sm"
-                      className="ideas-workspace-rail-toggle"
-                      aria-label="Show details"
-                      onClick={() => setDetailsCollapsed(false)}
-                    >
-                      <PanelRightOpen size={13} strokeWidth={1.7} />
-                    </IconButton>
-                  </Tooltip>
-                )}
-              </div>
-            )}
-          </div>
-
-          {!detailsCollapsed && (
-            <div className="ideas-workspace-card-head-zone ideas-workspace-card-head-zone--details">
-              <Tooltip content="Hide details" portal>
-                <IconButton
-                  variant="bordered"
-                  size="sm"
-                  className="ideas-workspace-rail-toggle"
-                  aria-label="Hide details"
-                  onClick={() => setDetailsCollapsed(true)}
-                >
-                  <PanelRightClose size={13} strokeWidth={1.7} />
-                </IconButton>
-              </Tooltip>
-            </div>
-          )}
-        </header>
-
         <div className="ideas-workspace-body">
-          {!explorerCollapsed && (
-            <IdeasWorkspaceExplorer
-              trustName={trustName}
-              preparingRoot={preparingRoot}
-              treeRows={treeRows}
-              expandedIdeas={expandedIdeas}
-              selectedTreeId={selectedTreeId}
-              composing={composing}
-              onSelect={onSelect}
-              onToggleIdea={toggleIdea}
-            />
-          )}
+          <IdeasWorkspaceExplorer
+            trustName={trustName}
+            preparingRoot={preparingRoot}
+            treeRows={treeRows}
+            expandedIdeas={expandedIdeas}
+            selectedTreeId={selectedTreeId}
+            composing={composing}
+            onSelect={onSelect}
+            onToggleIdea={toggleIdea}
+          />
 
           <main className="ideas-workspace-document" aria-label="Idea">
             {preparingRoot ? (
@@ -517,49 +421,46 @@ export default function IdeasWorkspaceView({
             )}
           </main>
 
-          {!detailsCollapsed && (
-            <aside className="ideas-workspace-inspector" aria-label="Details">
-              {activeIdea || composing ? (
-                <IdeaWorkspaceInspector
-                  idea={activeIdea}
-                  agentId={agentId}
-                  scopedEntity={companyId}
-                  composing={composing}
-                  childCount={activeIdea ? descendantCount(activeIdea.id, ideas) : 0}
-                  scope={activeScope}
-                  tagSuggestions={tagSuggestions}
-                  dirty={canvasDirty}
-                  canCommit={canCommit}
-                  busy={inspectorBusy}
-                  error={inspectorError}
-                  canTrack={Boolean(activeIdea && !rootSelected)}
-                  canDelete={Boolean(activeIdea && activeIdea.id !== rootIdea?.id)}
-                  scopeLocked={rootSelected}
-                  hideHeader
-                  onScopeChange={(next) => void handleScopeChange(next)}
-                  onTagAdd={(tag) => {
-                    if (!activeIdea) return;
-                    const key = tag.toLowerCase();
-                    if ((activeIdea.tags ?? []).some((item) => item.toLowerCase() === key)) return;
-                    void persistTags([...(activeIdea.tags ?? []), key]);
-                  }}
-                  onTagRemove={(tag) => {
-                    if (!activeIdea) return;
-                    void persistTags((activeIdea.tags ?? []).filter((item) => item !== tag));
-                  }}
-                  onTrackAsQuest={handleTrackAsQuest}
-                  onDelete={() => void handleDelete()}
-                  onSave={() => void handleSave()}
-                  onCancel={handleCancel}
-                />
-              ) : (
-                <div className="ideas-workspace-inspector-empty">
-                  <strong>{composing ? "New idea" : trustName}</strong>
-                  <span>{composing ? "Save it to attach it to the tree." : "Select an idea."}</span>
-                </div>
-              )}
-            </aside>
-          )}
+          <aside className="ideas-workspace-inspector" aria-label="Details">
+            {activeIdea || composing ? (
+              <IdeaWorkspaceInspector
+                idea={activeIdea}
+                agentId={agentId}
+                scopedEntity={companyId}
+                composing={composing}
+                childCount={activeIdea ? descendantCount(activeIdea.id, ideas) : 0}
+                scope={activeScope}
+                tagSuggestions={tagSuggestions}
+                dirty={canvasDirty}
+                canCommit={canCommit}
+                busy={inspectorBusy}
+                error={inspectorError}
+                canTrack={Boolean(activeIdea && !rootSelected)}
+                canDelete={Boolean(activeIdea && activeIdea.id !== rootIdea?.id)}
+                scopeLocked={rootSelected}
+                onScopeChange={(next) => void handleScopeChange(next)}
+                onTagAdd={(tag) => {
+                  if (!activeIdea) return;
+                  const key = tag.toLowerCase();
+                  if ((activeIdea.tags ?? []).some((item) => item.toLowerCase() === key)) return;
+                  void persistTags([...(activeIdea.tags ?? []), key]);
+                }}
+                onTagRemove={(tag) => {
+                  if (!activeIdea) return;
+                  void persistTags((activeIdea.tags ?? []).filter((item) => item !== tag));
+                }}
+                onTrackAsQuest={handleTrackAsQuest}
+                onDelete={() => void handleDelete()}
+                onSave={() => void handleSave()}
+                onCancel={handleCancel}
+              />
+            ) : (
+              <div className="ideas-workspace-inspector-empty">
+                <strong>{composing ? "New idea" : trustName}</strong>
+                <span>{composing ? "Save it to attach it to the tree." : "Select an idea."}</span>
+              </div>
+            )}
+          </aside>
         </div>
       </div>
       <TrackIdeaAsQuestModal
