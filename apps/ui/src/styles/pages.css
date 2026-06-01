@@ -3091,57 +3091,6 @@
   line-height: 1;
 }
 
-.quest-view-toggle {
-  display: inline-flex;
-  align-items: center;
-  flex: 0 0 auto;
-  height: var(--toolbar-control-h);
-  padding: 2px;
-  gap: 2px;
-  background: var(--input-bg, var(--bg-base));
-  border: 1px solid var(--input-border, var(--border));
-  border-radius: var(--radius-full);
-}
-
-.quest-view-toggle-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  min-width: 58px;
-  height: 26px;
-  padding: 0 8px;
-  border: 0;
-  border-radius: var(--radius-full);
-  background: transparent;
-  color: var(--color-text-secondary);
-  font-family: var(--font-sans);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0;
-  cursor: pointer;
-  transition:
-    color 0.12s ease,
-    background 0.12s ease,
-    box-shadow 0.12s ease;
-}
-
-.quest-view-toggle-btn:hover {
-  color: var(--color-text-title);
-  background: var(--state-hover);
-}
-
-.quest-view-toggle-btn[data-active] {
-  color: var(--accent);
-  background: var(--color-card);
-  box-shadow: 0 0 0 1px var(--accent-dim);
-}
-
-.quest-view-toggle-btn:focus-visible {
-  outline: none;
-  box-shadow: var(--input-ring-focus, var(--ring-muted));
-}
-
 .company-quests-page-header .company-top-rail-cta {
   height: var(--toolbar-control-h);
   min-height: var(--toolbar-control-h);
@@ -3287,10 +3236,6 @@
     order: 2;
     width: 100%;
     text-align: center;
-  }
-
-  .company-quests-toolbar .quest-view-toggle {
-    order: 0;
   }
 
   .company-quests-toolbar .quest-toolbar-popover-btn {

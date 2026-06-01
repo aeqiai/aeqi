@@ -1,5 +1,5 @@
 import { Columns3, List, type LucideIcon } from "lucide-react";
-import { Icon } from "../ui";
+import { Icon, ToolbarRadioPopover } from "../ui";
 import type { QuestsView } from "./questView";
 
 const QUEST_VIEW_LABELS: Record<QuestsView, string> = {
@@ -14,31 +14,24 @@ export default function QuestViewToggle({
   view: QuestsView;
   onChange: (next: QuestsView) => void;
 }) {
-  const options: Array<{ value: QuestsView; icon: LucideIcon }> = [
-    { value: "board", icon: Columns3 },
-    { value: "list", icon: List },
+  const glyphs: Record<QuestsView, LucideIcon> = {
+    board: Columns3,
+    list: List,
+  };
+  const options: Array<{ id: QuestsView; label: string }> = [
+    { id: "board", label: QUEST_VIEW_LABELS.board },
+    { id: "list", label: QUEST_VIEW_LABELS.list },
   ];
 
   return (
-    <div className="quest-view-toggle" role="radiogroup" aria-label="View mode">
-      {options.map(({ value, icon }) => {
-        const isActive = view === value;
-        return (
-          <button
-            key={value}
-            type="button"
-            className="quest-view-toggle-btn"
-            role="radio"
-            aria-checked={isActive}
-            data-active={isActive || undefined}
-            onClick={() => onChange(value)}
-            title={`${QUEST_VIEW_LABELS[value]} view`}
-          >
-            <Icon icon={icon} size="xs" />
-            <span>{QUEST_VIEW_LABELS[value]}</span>
-          </button>
-        );
-      })}
-    </div>
+    <ToolbarRadioPopover
+      label="View"
+      current={QUEST_VIEW_LABELS[view]}
+      glyph={<Icon icon={glyphs[view]} size="sm" />}
+      options={options}
+      value={view}
+      onChange={onChange}
+      indicator={view !== "board"}
+    />
   );
 }

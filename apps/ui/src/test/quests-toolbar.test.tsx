@@ -87,7 +87,7 @@ describe("quest toolbar", () => {
 
     renderQuests();
 
-    expect(screen.getByRole("radio", { name: "Board" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("button", { name: "View: Board" })).toBeInTheDocument();
 
     fireEvent.change(screen.getByPlaceholderText("Search quests"), {
       target: { value: "review" },
@@ -99,13 +99,14 @@ describe("quest toolbar", () => {
     expect(screen.getByText("1 match")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sort: Relevance" })).toBeDisabled();
 
+    fireEvent.click(screen.getByRole("button", { name: "View: Board" }));
     fireEvent.click(screen.getByRole("radio", { name: "List" }));
 
     await waitFor(() => {
       expect(screen.getByTestId("location-search")).toHaveTextContent("view=list");
       expect(screen.getByTestId("location-search")).toHaveTextContent("q=review");
     });
-    expect(screen.getByRole("radio", { name: "List" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("button", { name: "View: List" })).toBeInTheDocument();
   });
 
   it("keeps the visibility filter in the URL", async () => {
