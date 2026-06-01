@@ -438,6 +438,7 @@ export default function IdeasWorkspaceView({
                 canTrack={Boolean(activeIdea && !rootSelected)}
                 canDelete={Boolean(activeIdea && activeIdea.id !== rootIdea?.id)}
                 scopeLocked={rootSelected}
+                hideHeader
                 onScopeChange={(next) => void handleScopeChange(next)}
                 onTagAdd={(tag) => {
                   if (!activeIdea) return;

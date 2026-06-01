@@ -186,6 +186,7 @@ describe("IdeasWorkspaceView", () => {
     expect(contentSurface?.contains(contentBody ?? null)).toBe(true);
     expect(within(main).queryByText("Details")).not.toBeInTheDocument();
     expect(screen.getByRole("complementary", { name: "Details" })).toBeInTheDocument();
+    expect(within(details).queryByText("Details")).not.toBeInTheDocument();
     expect(
       container
         .querySelector(".ideas-canvas-paper")
