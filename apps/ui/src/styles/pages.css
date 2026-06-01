@@ -3201,6 +3201,11 @@
   gap: 10px;
 }
 
+.company-quests .quest-board-grid--active {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-rows: minmax(0, 1fr);
+}
+
 .company-quests .quest-board-block {
   gap: 8px;
 }
@@ -3310,6 +3315,10 @@
   .company-quests .quest-board-grid {
     flex: 0 0 auto;
     overflow: visible;
+  }
+
+  .company-quests .quest-board-grid--active {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .company-quests .quest-scope {
@@ -3715,6 +3724,9 @@
     grid-template-columns: 1fr;
     overflow-y: auto;
   }
+  .quest-board-grid--active {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .quest-board-block {
     min-height: 420px;
   }
@@ -3723,6 +3735,9 @@
 @media (max-width: 720px) {
   .quest-board-grid {
     padding: 12px 14px 18px;
+  }
+  .quest-board-grid--active {
+    grid-template-columns: minmax(0, 1fr);
   }
   .quest-board-block {
     grid-template-columns: 1fr;
