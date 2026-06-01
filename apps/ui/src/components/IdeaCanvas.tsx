@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import type { DragEvent, ReactNode } from "react";
+import { Upload } from "lucide-react";
 import { logError } from "@/lib/logging";
 import * as ideasApi from "@/api/ideas";
 import { useNav } from "@/hooks/useNav";
@@ -800,6 +801,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
                 accept="*/*"
                 fileLabel="Upload files"
                 triggerLabel="Upload"
+                triggerIcon={<Upload size={13} strokeWidth={1.7} />}
                 includeBlueprint={false}
                 onMarkdownPicked={(files) => void handleFileImport(files)}
                 onBlueprintSpawned={() => void invalidateIdeas()}

@@ -5672,16 +5672,18 @@
 }
 
 .ideas-workspace-document .idea-convo-root {
-  padding: 0 24px 12px;
+  margin-top: var(--space-3);
+  padding: var(--space-4) 24px 18px;
+  border-top: 1px solid var(--ideas-header-separator);
+  background: var(--bg-row);
 }
 
 .ideas-workspace-document .idea-convo-card {
   width: min(100%, 760px);
   max-width: 760px;
   margin: 0 auto;
-  padding: 16px 0 16px;
+  padding: 0;
   border: 0;
-  border-top: 1px solid var(--border-subtle, var(--border-faint));
   border-radius: 0;
   background: transparent;
   box-shadow: none;

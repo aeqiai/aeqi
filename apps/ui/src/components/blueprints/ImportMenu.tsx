@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
+import { ChevronDown } from "lucide-react";
 import { Menu, Button } from "@/components/ui";
 import { BlueprintPickerModal } from "./BlueprintPickerModal";
 // `.bp-error` lives in this stylesheet — Import banners reuse it so we
@@ -22,6 +23,8 @@ interface ImportMenuProps {
   fileLabel?: string;
   /** Label for the toolbar trigger. */
   triggerLabel?: string;
+  /** Icon rendered before the trigger label. */
+  triggerIcon?: ReactNode;
   /** Whether to show the blueprint import path. */
   includeBlueprint?: boolean;
   /** Called once the user has picked one or more markdown files. The
@@ -50,6 +53,7 @@ export function ImportMenu({
   accept = ".md,.markdown",
   fileLabel = "From markdown",
   triggerLabel = "Import",
+  triggerIcon,
   includeBlueprint = true,
   onMarkdownPicked,
   onBlueprintSpawned,
@@ -57,28 +61,51 @@ export function ImportMenu({
 }: ImportMenuProps & { size?: "sm" | "md" | "lg" | "xl" }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const fileInput = (
+    <input
+      ref={fileInputRef}
+      type="file"
+      multiple
+      accept={accept}
+      style={{ display: "none" }}
+      onChange={(e) => {
+        const files = e.target.files;
+        if (files && files.length > 0) onMarkdownPicked(files);
+        // Reset so picking the same file twice in a row still fires onChange.
+        e.target.value = "";
+      }}
+    />
+  );
+
+  if (!includeBlueprint) {
+    return (
+      <>
+        <Button
+          variant="secondary"
+          size={size}
+          leadingIcon={triggerIcon}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          {triggerLabel}
+        </Button>
+        {fileInput}
+      </>
+    );
+  }
 
   return (
     <>
       <Menu
         placement="bottom-end"
         trigger={
-          <Button variant="secondary" size={size}>
-            <span>{triggerLabel}</span>
-            <svg
-              width="9"
-              height="9"
-              viewBox="0 0 9 9"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-              style={{ marginLeft: 2 }}
-            >
-              <path d="M2 3.2 L4.5 5.7 L7 3.2" />
-            </svg>
+          <Button
+            variant="secondary"
+            size={size}
+            leadingIcon={triggerIcon}
+            trailingIcon={<ChevronDown size={13} strokeWidth={1.7} />}
+            trailingIconMode="inline"
+          >
+            {triggerLabel}
           </Button>
         }
         items={[
@@ -99,19 +126,7 @@ export function ImportMenu({
             : []),
         ]}
       />
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        accept={accept}
-        style={{ display: "none" }}
-        onChange={(e) => {
-          const files = e.target.files;
-          if (files && files.length > 0) onMarkdownPicked(files);
-          // Reset so picking the same file twice in a row still fires onChange.
-          e.target.value = "";
-        }}
-      />
+      {fileInput}
       <BlueprintPickerModal
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
