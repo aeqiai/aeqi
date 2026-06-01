@@ -412,56 +412,56 @@ export default function IdeasWorkspaceView({
           </div>
 
           <div className="ideas-workspace-card-head-zone ideas-workspace-card-head-zone--document">
-            <span
-              className="ideas-workspace-card-head-title ideas-workspace-card-head-title--document"
-              title={activeDocumentLabel}
-            >
-              {activeDocumentLabel}
-            </span>
+            <div className="ideas-workspace-card-head-copy ideas-workspace-card-head-copy--document">
+              <span className="ideas-workspace-card-head-type">Idea</span>
+              <span
+                className="ideas-workspace-card-head-title ideas-workspace-card-head-title--document"
+                title={activeDocumentLabel}
+              >
+                {activeDocumentLabel}
+              </span>
+            </div>
+            {canvasDirty && (
+              <div className="ideas-workspace-card-head-actions ideas-workspace-card-head-actions--document">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleCancel}
+                  disabled={inspectorBusy}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  onClick={() => void handleSave()}
+                  disabled={!canCommit}
+                  loading={inspectorBusy}
+                >
+                  Save
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="ideas-workspace-card-head-zone ideas-workspace-card-head-zone--details">
-            <span className="ideas-workspace-card-head-title">Details</span>
-            <div className="ideas-workspace-card-head-actions">
-              {canvasDirty && (
-                <>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={handleCancel}
-                    disabled={inspectorBusy}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="primary"
-                    size="sm"
-                    onClick={() => void handleSave()}
-                    disabled={!canCommit}
-                    loading={inspectorBusy}
-                  >
-                    Save
-                  </Button>
-                </>
-              )}
-              <Tooltip content={detailsCollapsed ? "Show details" : "Hide details"} portal>
-                <IconButton
-                  variant="bordered"
-                  size="sm"
-                  className="ideas-workspace-rail-toggle"
-                  aria-label={detailsCollapsed ? "Show details" : "Hide details"}
-                  onClick={() => setDetailsCollapsed((collapsed) => !collapsed)}
-                >
-                  {detailsCollapsed ? (
-                    <PanelRightOpen size={13} strokeWidth={1.7} />
-                  ) : (
-                    <PanelRightClose size={13} strokeWidth={1.7} />
-                  )}
-                </IconButton>
-              </Tooltip>
-            </div>
+            <Tooltip content={detailsCollapsed ? "Show details" : "Hide details"} portal>
+              <IconButton
+                variant="bordered"
+                size="sm"
+                className="ideas-workspace-rail-toggle"
+                aria-label={detailsCollapsed ? "Show details" : "Hide details"}
+                onClick={() => setDetailsCollapsed((collapsed) => !collapsed)}
+              >
+                {detailsCollapsed ? (
+                  <PanelRightOpen size={13} strokeWidth={1.7} />
+                ) : (
+                  <PanelRightClose size={13} strokeWidth={1.7} />
+                )}
+              </IconButton>
+            </Tooltip>
           </div>
         </header>
 
