@@ -386,8 +386,9 @@ pub async fn start(config: &AEQIConfig) -> Result<()> {
 /// services to race the inode or this start to clobber a live socket).
 /// If the probe fails the inode is stale and we remove it before `bind`.
 ///
-/// Permissions are tightened to `0o660` so only members of the runtime's
-/// group can dial the socket; the platform service shares that group.
+/// Permissions are tightened to `0o660` and the socket inherits the parent
+/// directory group so sibling runtime clients can dial sockets created by
+/// root-owned transient units.
 async fn bind_uds(path: &std::path::Path) -> Result<tokio::net::UnixListener> {
     if path.exists() {
         let connectable = tokio::time::timeout(
@@ -416,16 +417,32 @@ async fn bind_uds(path: &std::path::Path) -> Result<tokio::net::UnixListener> {
     let listener = tokio::net::UnixListener::bind(path)
         .map_err(|e| anyhow::anyhow!("failed to bind UDS at {}: {e}", path.display()))?;
     #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o660)).map_err(|e| {
+    apply_uds_permissions(path)?;
+    Ok(listener)
+}
+
+#[cfg(unix)]
+fn apply_uds_permissions(path: &std::path::Path) -> Result<()> {
+    use std::os::unix::fs::{MetadataExt, PermissionsExt, chown};
+
+    if let Some(parent) = path.parent() {
+        let gid = std::fs::metadata(parent)
+            .map_err(|e| anyhow::anyhow!("failed to stat UDS parent {}: {e}", parent.display()))?
+            .gid();
+        chown(path, None, Some(gid)).map_err(|e| {
             anyhow::anyhow!(
-                "failed to chmod UDS at {}: {e} (proxy may be unable to dial)",
+                "failed to chgrp UDS at {} to parent gid {gid}: {e} (proxy may be unable to dial)",
                 path.display()
             )
         })?;
     }
-    Ok(listener)
+    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o660)).map_err(|e| {
+        anyhow::anyhow!(
+            "failed to chmod UDS at {}: {e} (proxy may be unable to dial)",
+            path.display()
+        )
+    })?;
+    Ok(())
 }
 
 /// ConnectInfo for axum's UDS branch. Carries peer credentials for audit
@@ -717,18 +734,24 @@ mod tests {
 #[cfg(test)]
 mod uds_tests {
     use super::bind_uds;
-    use std::os::unix::fs::PermissionsExt;
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
     use tempfile::TempDir;
     use tokio::net::UnixListener;
 
     #[tokio::test]
-    async fn bind_uds_creates_listener_and_chmods_660() {
+    async fn bind_uds_creates_listener_with_parent_group_and_chmods_660() {
         let tmp = TempDir::new().unwrap();
         let path = tmp.path().join("runtime.sock");
         let listener = bind_uds(&path).await.expect("bind on fresh path");
         assert!(path.exists(), "socket file should exist after bind");
-        let mode = std::fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+        let socket_meta = std::fs::metadata(&path).unwrap();
+        let mode = socket_meta.permissions().mode() & 0o777;
         assert_eq!(mode, 0o660, "socket should be 0o660 for group-only access");
+        assert_eq!(
+            socket_meta.gid(),
+            std::fs::metadata(tmp.path()).unwrap().gid(),
+            "socket should inherit parent directory group"
+        );
         drop(listener);
     }
 

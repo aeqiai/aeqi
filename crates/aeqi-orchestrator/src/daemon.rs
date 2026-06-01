@@ -1020,12 +1020,13 @@ impl Daemon {
         }
         match tokio::net::UnixListener::bind(sock_path) {
             Ok(listener) => {
-                // Restrict socket to owner only.
                 #[cfg(unix)]
-                {
-                    use std::os::unix::fs::PermissionsExt;
-                    let _ =
-                        std::fs::set_permissions(sock_path, std::fs::Permissions::from_mode(0o600));
+                if let Err(e) = Self::apply_ipc_socket_permissions(sock_path) {
+                    warn!(
+                        error = %e,
+                        path = %sock_path.display(),
+                        "failed to make IPC socket group-accessible"
+                    );
                 }
                 // ── Round 3 (Agent W): write-path wiring ─────────────────
                 // 1. TagPolicyCache is shared across every IPC request so
@@ -1148,6 +1149,29 @@ impl Daemon {
     #[cfg(not(unix))]
     fn spawn_ipc_listener(&self) {
         // IPC over Unix sockets is not supported on non-unix platforms.
+    }
+
+    #[cfg(unix)]
+    fn apply_ipc_socket_permissions(path: &Path) -> Result<()> {
+        use std::os::unix::fs::{MetadataExt, PermissionsExt, chown};
+
+        if let Some(parent) = path.parent() {
+            let gid = std::fs::metadata(parent)
+                .map_err(|e| {
+                    anyhow::anyhow!("failed to stat IPC socket parent {}: {e}", parent.display())
+                })?
+                .gid();
+            chown(path, None, Some(gid)).map_err(|e| {
+                anyhow::anyhow!(
+                    "failed to chgrp IPC socket at {} to parent gid {gid}: {e}",
+                    path.display()
+                )
+            })?;
+        }
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o660)).map_err(|e| {
+            anyhow::anyhow!("failed to chmod IPC socket at {}: {e}", path.display())
+        })?;
+        Ok(())
     }
 
     /// Load persisted state from disk.
@@ -2901,9 +2925,32 @@ pub async fn build_daemon_pattern_dispatcher(
 #[cfg(test)]
 mod tests {
     use super::{
-        Activity, ActivityBuffer, ReadinessContext, readiness_response, resolve_web_chat_id,
+        Activity, ActivityBuffer, Daemon, ReadinessContext, readiness_response, resolve_web_chat_id,
     };
     use crate::session_store::{agency_chat_id, named_channel_chat_id, project_chat_id};
+
+    #[cfg(unix)]
+    #[test]
+    fn ipc_socket_permissions_inherit_parent_group_and_chmod_660() {
+        use std::os::unix::fs::{MetadataExt, PermissionsExt};
+
+        let tmp = tempfile::TempDir::new().unwrap();
+        let path = tmp.path().join("rm.sock");
+        let listener = std::os::unix::net::UnixListener::bind(&path).unwrap();
+
+        Daemon::apply_ipc_socket_permissions(&path).unwrap();
+
+        let socket_meta = std::fs::metadata(&path).unwrap();
+        let mode = socket_meta.permissions().mode() & 0o777;
+        assert_eq!(mode, 0o660, "IPC socket should be group-accessible");
+        assert_eq!(
+            socket_meta.gid(),
+            std::fs::metadata(tmp.path()).unwrap().gid(),
+            "IPC socket should inherit parent directory group"
+        );
+
+        drop(listener);
+    }
 
     #[test]
     fn readiness_blocks_when_owner_registration_is_incomplete() {
