@@ -1,12 +1,5 @@
-import { useCallback, useMemo, useRef, useState, type CSSProperties } from "react";
-import {
-  ChevronRight,
-  FileText,
-  Folder,
-  PanelRightClose,
-  PanelRightOpen,
-  Plus,
-} from "lucide-react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Plus } from "lucide-react";
 import * as ideasApi from "@/api/ideas";
 import { ImportMenu } from "@/components/blueprints/ImportMenu";
 import { blockTreeToPlainText } from "@/components/editor/blockEditorContent";
@@ -17,6 +10,7 @@ import type { Idea, ScopeValue } from "@/lib/types";
 import { useAgentIdeasCache } from "@/queries/ideas";
 import { Button, Icon, IconButton, PrimitivePageHeader, Tooltip, Loading } from "../ui";
 import TrackIdeaAsQuestModal from "../quests/TrackIdeaAsQuestModal";
+import IdeasWorkspaceExplorer from "./IdeasWorkspaceExplorer";
 import IdeaWorkspaceInspector from "./IdeaWorkspaceInspector";
 import IdeasToolbar from "./IdeasToolbar";
 import type { IdeasView } from "./IdeasViewPopover";
@@ -94,8 +88,10 @@ export default function IdeasWorkspaceView({
   const [canCommit, setCanCommit] = useState(false);
   const [inspectorBusy, setInspectorBusy] = useState(false);
   const [inspectorError, setInspectorError] = useState<string | null>(null);
+  const [explorerCollapsed, setExplorerCollapsed] = useState(false);
   const [detailsCollapsed, setDetailsCollapsed] = useState(false);
   const [trackIdea, setTrackIdea] = useState<Idea | null>(null);
+  const workspaceClass = `ideas-workspace${explorerCollapsed ? " ideas-workspace--explorer-collapsed" : ""}${detailsCollapsed ? " ideas-workspace--details-collapsed" : ""}`;
   const searchActive = filter.search.trim() !== "";
   const activeIdea = composing ? undefined : (selectedIdea ?? rootIdea ?? undefined);
   const activeParentId = composing ? composeParentId : (activeIdea?.id ?? rootIdea?.id ?? null);
@@ -324,9 +320,7 @@ export default function IdeasWorkspaceView({
   );
 
   return (
-    <div
-      className={`ideas-workspace${detailsCollapsed ? " ideas-workspace--details-collapsed" : ""}`}
-    >
+    <div className={workspaceClass}>
       <PrimitivePageHeader
         className="ideas-workspace-head"
         title={
@@ -392,10 +386,29 @@ export default function IdeasWorkspaceView({
       <div className="ideas-workspace-layout">
         <header className="ideas-workspace-card-head" aria-label="Ideas content card header">
           <div className="ideas-workspace-card-head-zone ideas-workspace-card-head-zone--explorer">
-            <span className="ideas-workspace-card-head-title">Explorer</span>
-            <span className="ideas-workspace-card-head-subtitle">
-              {explorerCount} {explorerCount === 1 ? "idea" : "ideas"}
-            </span>
+            <div className="ideas-workspace-card-head-copy">
+              <span className="ideas-workspace-card-head-title">Explorer</span>
+              {!explorerCollapsed && (
+                <span className="ideas-workspace-card-head-subtitle">
+                  {explorerCount} {explorerCount === 1 ? "idea" : "ideas"}
+                </span>
+              )}
+            </div>
+            <Tooltip content={explorerCollapsed ? "Show explorer" : "Hide explorer"} portal>
+              <IconButton
+                variant="bordered"
+                size="sm"
+                className="ideas-workspace-rail-toggle"
+                aria-label={explorerCollapsed ? "Show explorer" : "Hide explorer"}
+                onClick={() => setExplorerCollapsed((collapsed) => !collapsed)}
+              >
+                {explorerCollapsed ? (
+                  <PanelLeftOpen size={13} strokeWidth={1.7} />
+                ) : (
+                  <PanelLeftClose size={13} strokeWidth={1.7} />
+                )}
+              </IconButton>
+            </Tooltip>
           </div>
 
           <div className="ideas-workspace-card-head-zone ideas-workspace-card-head-zone--document">
@@ -437,7 +450,7 @@ export default function IdeasWorkspaceView({
                 <IconButton
                   variant="bordered"
                   size="sm"
-                  className="ideas-workspace-document-toggle"
+                  className="ideas-workspace-rail-toggle"
                   aria-label={detailsCollapsed ? "Show details" : "Hide details"}
                   onClick={() => setDetailsCollapsed((collapsed) => !collapsed)}
                 >
@@ -453,60 +466,18 @@ export default function IdeasWorkspaceView({
         </header>
 
         <div className="ideas-workspace-body">
-          <aside className="ideas-workspace-tree" aria-label={`${trustName} idea explorer`}>
-            {preparingRoot ? (
-              <div className="ideas-workspace-loading">
-                <Loading size="sm" />
-                <span>Preparing root</span>
-              </div>
-            ) : treeRows.length > 0 ? (
-              <div className="ideas-workspace-tree-list" role="tree">
-                {treeRows.map(({ node, depth }) => {
-                  const idea = node.idea;
-                  const defaultExpanded = depth <= 1;
-                  const expanded = expandedIdeas[idea.id] ?? defaultExpanded;
-                  const isSelected = selectedTreeId === idea.id && !composing;
-                  return (
-                    <div
-                      key={idea.id}
-                      className="ideas-workspace-tree-row"
-                      style={{ "--idea-tree-depth": depth } as CSSProperties}
-                      role="treeitem"
-                      aria-selected={isSelected}
-                      aria-expanded={node.children.length > 0 ? expanded : undefined}
-                    >
-                      <button
-                        type="button"
-                        className="ideas-workspace-tree-item"
-                        onClick={() => onSelect(idea.id)}
-                      >
-                        {node.children.length > 0 ? (
-                          <Folder size={13} strokeWidth={1.7} />
-                        ) : (
-                          <FileText size={13} strokeWidth={1.7} />
-                        )}
-                        <span>{idea.name || "Untitled"}</span>
-                      </button>
-                      {node.children.length > 0 ? (
-                        <button
-                          type="button"
-                          className={`ideas-workspace-tree-toggle${expanded ? " is-open" : ""}`}
-                          aria-label={expanded ? "Collapse idea" : "Expand idea"}
-                          onClick={() => toggleIdea(idea.id, defaultExpanded)}
-                        >
-                          <ChevronRight size={13} strokeWidth={1.9} />
-                        </button>
-                      ) : (
-                        <span className="ideas-workspace-tree-toggle-spacer" aria-hidden />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="ideas-workspace-empty">No ideas match these filters.</div>
-            )}
-          </aside>
+          {!explorerCollapsed && (
+            <IdeasWorkspaceExplorer
+              trustName={trustName}
+              preparingRoot={preparingRoot}
+              treeRows={treeRows}
+              expandedIdeas={expandedIdeas}
+              selectedTreeId={selectedTreeId}
+              composing={composing}
+              onSelect={onSelect}
+              onToggleIdea={toggleIdea}
+            />
+          )}
 
           <main className="ideas-workspace-document" aria-label="Idea">
             {preparingRoot ? (

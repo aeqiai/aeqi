@@ -5299,6 +5299,14 @@
   grid-template-columns: 280px minmax(0, 1fr) auto;
 }
 
+.ideas-workspace--explorer-collapsed .ideas-workspace-card-head {
+  grid-template-columns: auto minmax(0, 1fr) 320px;
+}
+
+.ideas-workspace--explorer-collapsed.ideas-workspace--details-collapsed .ideas-workspace-card-head {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
 .ideas-workspace-card-head-zone {
   display: flex;
   min-width: 0;
@@ -5308,6 +5316,7 @@
 }
 
 .ideas-workspace-card-head-zone--explorer {
+  justify-content: space-between;
   border-right: 1px solid var(--ideas-pane-separator);
 }
 
@@ -5322,6 +5331,13 @@
 
 .ideas-workspace--details-collapsed .ideas-workspace-card-head-zone--details {
   width: auto;
+}
+
+.ideas-workspace-card-head-copy {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
 }
 
 .ideas-workspace-card-head-title {
@@ -5360,6 +5376,20 @@
   min-width: 0;
 }
 
+.ideas-workspace-rail-toggle {
+  background: var(--color-card);
+  border-color: var(--border);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.ideas-workspace-rail-toggle:hover,
+.ideas-workspace-rail-toggle:focus-visible {
+  background: var(--color-card);
+  border-color: var(--border-hover);
+  color: var(--color-text-title);
+}
+
 .ideas-workspace-body {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr) 320px;
@@ -5370,6 +5400,14 @@
 
 .ideas-workspace--details-collapsed .ideas-workspace-body {
   grid-template-columns: 280px minmax(0, 1fr);
+}
+
+.ideas-workspace--explorer-collapsed .ideas-workspace-body {
+  grid-template-columns: minmax(0, 1fr) 320px;
+}
+
+.ideas-workspace--explorer-collapsed.ideas-workspace--details-collapsed .ideas-workspace-body {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .ideas-workspace-tree,
@@ -5890,9 +5928,17 @@
     grid-template-columns: 260px minmax(0, 1fr) auto;
   }
 
+  .ideas-workspace--explorer-collapsed .ideas-workspace-card-head {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
   .ideas-workspace-body {
     grid-template-columns: 260px minmax(0, 1fr);
     overflow-y: auto;
+  }
+
+  .ideas-workspace--explorer-collapsed .ideas-workspace-body {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .ideas-workspace-inspector {
@@ -5902,10 +5948,10 @@
 
 @media (max-width: 820px) {
   .ideas-workspace-card-head {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
   }
 
-  .ideas-workspace-card-head-zone--explorer {
+  .ideas-workspace-card-head-zone--explorer .ideas-workspace-card-head-copy {
     display: none;
   }
 

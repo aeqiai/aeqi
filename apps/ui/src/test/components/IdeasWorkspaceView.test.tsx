@@ -182,6 +182,7 @@ describe("IdeasWorkspaceView", () => {
     expect(within(contentHeader as HTMLElement).getByText("Explorer")).toBeInTheDocument();
     expect(within(contentHeader as HTMLElement).getByText("Eich Holding")).toBeInTheDocument();
     expect(within(contentHeader as HTMLElement).getByText("Details")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hide explorer" })).toBeInTheDocument();
     expect(contentSurface?.contains(contentHeader ?? null)).toBe(true);
     expect(contentSurface?.contains(contentBody ?? null)).toBe(true);
     expect(within(main).queryByText("Details")).not.toBeInTheDocument();
@@ -196,6 +197,14 @@ describe("IdeasWorkspaceView", () => {
     expect(container.firstElementChild).toHaveClass("ideas-workspace--details-collapsed");
     expect(screen.queryByRole("complementary", { name: "Details" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Show details" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Hide explorer" }));
+
+    expect(container.firstElementChild).toHaveClass("ideas-workspace--explorer-collapsed");
+    expect(
+      screen.queryByRole("complementary", { name: "Eich Holding idea explorer" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show explorer" })).toBeInTheDocument();
   });
 
   it("keeps Explorer as a file tree instead of a metrics surface", async () => {
