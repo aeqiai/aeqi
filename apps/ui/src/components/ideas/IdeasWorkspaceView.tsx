@@ -421,48 +421,63 @@ export default function IdeasWorkspaceView({
                 {activeDocumentLabel}
               </span>
             </div>
-            {canvasDirty && (
+            {(canvasDirty || detailsCollapsed) && (
               <div className="ideas-workspace-card-head-actions ideas-workspace-card-head-actions--document">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleCancel}
-                  disabled={inspectorBusy}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="sm"
-                  onClick={() => void handleSave()}
-                  disabled={!canCommit}
-                  loading={inspectorBusy}
-                >
-                  Save
-                </Button>
+                {canvasDirty && (
+                  <>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleCancel}
+                      disabled={inspectorBusy}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      onClick={() => void handleSave()}
+                      disabled={!canCommit}
+                      loading={inspectorBusy}
+                    >
+                      Save
+                    </Button>
+                  </>
+                )}
+                {detailsCollapsed && (
+                  <Tooltip content="Show details" portal>
+                    <IconButton
+                      variant="bordered"
+                      size="sm"
+                      className="ideas-workspace-rail-toggle"
+                      aria-label="Show details"
+                      onClick={() => setDetailsCollapsed(false)}
+                    >
+                      <PanelRightOpen size={13} strokeWidth={1.7} />
+                    </IconButton>
+                  </Tooltip>
+                )}
               </div>
             )}
           </div>
 
-          <div className="ideas-workspace-card-head-zone ideas-workspace-card-head-zone--details">
-            <Tooltip content={detailsCollapsed ? "Show details" : "Hide details"} portal>
-              <IconButton
-                variant="bordered"
-                size="sm"
-                className="ideas-workspace-rail-toggle"
-                aria-label={detailsCollapsed ? "Show details" : "Hide details"}
-                onClick={() => setDetailsCollapsed((collapsed) => !collapsed)}
-              >
-                {detailsCollapsed ? (
-                  <PanelRightOpen size={13} strokeWidth={1.7} />
-                ) : (
+          {!detailsCollapsed && (
+            <div className="ideas-workspace-card-head-zone ideas-workspace-card-head-zone--details">
+              <Tooltip content="Hide details" portal>
+                <IconButton
+                  variant="bordered"
+                  size="sm"
+                  className="ideas-workspace-rail-toggle"
+                  aria-label="Hide details"
+                  onClick={() => setDetailsCollapsed(true)}
+                >
                   <PanelRightClose size={13} strokeWidth={1.7} />
-                )}
-              </IconButton>
-            </Tooltip>
-          </div>
+                </IconButton>
+              </Tooltip>
+            </div>
+          )}
         </header>
 
         <div className="ideas-workspace-body">

@@ -5296,7 +5296,7 @@
 }
 
 .ideas-workspace--details-collapsed .ideas-workspace-card-head {
-  grid-template-columns: 280px minmax(0, 1fr) auto;
+  grid-template-columns: 280px minmax(0, 1fr);
 }
 
 .ideas-workspace--explorer-collapsed .ideas-workspace-card-head {
@@ -5304,7 +5304,7 @@
 }
 
 .ideas-workspace--explorer-collapsed.ideas-workspace--details-collapsed .ideas-workspace-card-head {
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
 }
 
 .ideas-workspace-card-head-zone {
@@ -5327,7 +5327,7 @@
 .ideas-workspace-card-head-zone--details {
   justify-content: center;
   padding: 0 var(--space-3);
-  box-shadow: inset 1px 0 0 var(--ideas-pane-separator);
+  box-shadow: inset 1px 0 0 var(--ideas-header-separator);
 }
 
 .ideas-workspace--details-collapsed .ideas-workspace-card-head-zone--details {
@@ -5454,7 +5454,7 @@
 
 .ideas-workspace-inspector {
   background: var(--color-card);
-  box-shadow: inset 1px 0 0 var(--ideas-pane-separator);
+  box-shadow: inset 1px 0 0 var(--ideas-header-separator);
 }
 
 .ideas-workspace-tree-head,
@@ -5955,8 +5955,17 @@
     grid-template-columns: 260px minmax(0, 1fr) auto;
   }
 
+  .ideas-workspace--details-collapsed .ideas-workspace-card-head {
+    grid-template-columns: 260px minmax(0, 1fr);
+  }
+
   .ideas-workspace--explorer-collapsed .ideas-workspace-card-head {
     grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .ideas-workspace--explorer-collapsed.ideas-workspace--details-collapsed
+    .ideas-workspace-card-head {
+    grid-template-columns: auto minmax(0, 1fr);
   }
 
   .ideas-workspace-body {
@@ -5976,6 +5985,12 @@
 @media (max-width: 820px) {
   .ideas-workspace-card-head {
     grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .ideas-workspace--details-collapsed .ideas-workspace-card-head,
+  .ideas-workspace--explorer-collapsed.ideas-workspace--details-collapsed
+    .ideas-workspace-card-head {
+    grid-template-columns: auto minmax(0, 1fr);
   }
 
   .ideas-workspace-card-head-zone--explorer .ideas-workspace-card-head-copy {

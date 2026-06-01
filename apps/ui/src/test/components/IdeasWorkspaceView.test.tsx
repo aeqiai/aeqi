@@ -196,8 +196,15 @@ describe("IdeasWorkspaceView", () => {
     await user.click(screen.getByRole("button", { name: "Hide details" }));
 
     expect(container.firstElementChild).toHaveClass("ideas-workspace--details-collapsed");
+    expect(contentHeader?.querySelector(".ideas-workspace-card-head-zone--details")).toBeNull();
     expect(screen.queryByRole("complementary", { name: "Details" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Show details" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Show details" }));
+
+    expect(container.firstElementChild).not.toHaveClass("ideas-workspace--details-collapsed");
+    expect(contentHeader?.querySelector(".ideas-workspace-card-head-zone--details")).toBeTruthy();
+    expect(screen.getByRole("complementary", { name: "Details" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Hide explorer" }));
 
