@@ -90,4 +90,14 @@ describe("CompanyMembersTab", () => {
       expect(within(table).getByText("now")).toBeInTheDocument();
     });
   });
+
+  it("renders when the grants endpoint omits grants", async () => {
+    vi.mocked(api.getUserGrants).mockResolvedValueOnce({ ok: true } as never);
+
+    renderTab();
+
+    const table = await screen.findByRole("table", { name: "Company members" });
+    expect(within(table).getByText("Ada Founder")).toBeInTheDocument();
+    expect(screen.queryByText(/Cannot read properties/)).not.toBeInTheDocument();
+  });
 });

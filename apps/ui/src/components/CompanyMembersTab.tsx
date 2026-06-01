@@ -67,7 +67,7 @@ export default function CompanyMembersTab({ companyId }: { companyId: string }) 
         const grantsResp = await api
           .getUserGrants(companyId, user.id)
           .catch(() => ({ ok: false, grants: [] }));
-        if (canManageInvitations(grantsResp.grants)) {
+        if (canManageInvitations(grantsResp.grants ?? [])) {
           const invitationsResp = await api
             .listEntityInvitations(companyId)
             .catch(() => ({ ok: false, invitations: [] }));
