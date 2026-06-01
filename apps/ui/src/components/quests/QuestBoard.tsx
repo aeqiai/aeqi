@@ -426,46 +426,45 @@ export default function QuestBoard({
         }
       />
       <div className="quest-board-main">
-        {(boardScopeQuest || !splitLayout) && (
-          <QuestBoardScope
-            scope={boardScopeQuest}
-            childCount={boardScopeQuest ? (childCounts.get(boardScopeQuest.id) ?? 0) : 0}
-            parentScopeId={
+        <QuestBoardScope
+          scope={boardScopeQuest}
+          totalCount={allQuests.length}
+          childCount={boardScopeQuest ? (childCounts.get(boardScopeQuest.id) ?? 0) : 0}
+          parentScopeId={
+            boardScopeAncestors.length > 0
+              ? boardScopeAncestors[boardScopeAncestors.length - 1].id
+              : null
+          }
+          dragging={dragging}
+          dropActive={scopeDropActive}
+          onDropActiveChange={setScopeDropActive}
+          onDrop={(id) => {
+            onBoardScopeChange(id);
+            setDragging(null);
+            setDropTarget(null);
+          }}
+          onUp={() =>
+            onBoardScopeChange(
               boardScopeAncestors.length > 0
                 ? boardScopeAncestors[boardScopeAncestors.length - 1].id
-                : null
-            }
-            dragging={dragging}
-            dropActive={scopeDropActive}
-            onDropActiveChange={setScopeDropActive}
-            onDrop={(id) => {
-              onBoardScopeChange(id);
-              setDragging(null);
-              setDropTarget(null);
-            }}
-            onUp={() =>
-              onBoardScopeChange(
-                boardScopeAncestors.length > 0
-                  ? boardScopeAncestors[boardScopeAncestors.length - 1].id
-                  : null,
-              )
-            }
-            onClear={() => onBoardScopeChange(null)}
-            onOpen={() => {
-              if (boardScopeQuest) onOpenQuest(boardScopeQuest.id);
-            }}
-            optimistic={optimistic}
-            focusId={focusId}
-            setDragging={setDragging}
-            setDropTarget={setDropTarget}
-            onTake={handleTake}
-            onCreated={onCreated}
-            onError={setErr}
-            agents={agents}
-            users={users}
-            searchMatches={searchMatchById}
-          />
-        )}
+                : null,
+            )
+          }
+          onClear={() => onBoardScopeChange(null)}
+          onOpen={() => {
+            if (boardScopeQuest) onOpenQuest(boardScopeQuest.id);
+          }}
+          optimistic={optimistic}
+          focusId={focusId}
+          setDragging={setDragging}
+          setDropTarget={setDropTarget}
+          onTake={handleTake}
+          onCreated={onCreated}
+          onError={setErr}
+          agents={agents}
+          users={users}
+          searchMatches={searchMatchById}
+        />
         {err && (
           <Banner kind="error" className="quest-board-error">
             {err}

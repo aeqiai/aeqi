@@ -14,21 +14,21 @@
     },
     "apps/ui/src/styles/layout.css": {
       "label": "apps/ui/src/styles/layout.css",
-      "count": 14484,
+      "count": 14586,
       "topFiles": [
         {
           "file": "apps/ui/src/styles/layout.css",
-          "count": 14484
+          "count": 14586
         }
       ]
     },
     "apps/ui/src/styles/pages.css": {
       "label": "apps/ui/src/styles/pages.css",
-      "count": 5124,
+      "count": 5370,
       "topFiles": [
         {
           "file": "apps/ui/src/styles/pages.css",
-          "count": 5124
+          "count": 5370
         }
       ]
     },
@@ -44,25 +44,25 @@
     },
     "apps/ui/src/styles/roles.css": {
       "label": "apps/ui/src/styles/roles.css",
-      "count": 2449,
+      "count": 2427,
       "topFiles": [
         {
           "file": "apps/ui/src/styles/roles.css",
-          "count": 2449
+          "count": 2427
         }
       ]
     },
     "ui.megafilesOver600": {
       "label": "UI files >= 600 lines",
-      "count": 39,
+      "count": 38,
       "topFiles": [
         {
           "file": "apps/ui/src/styles/layout.css",
-          "count": 14484
+          "count": 14586
         },
         {
           "file": "apps/ui/src/styles/pages.css",
-          "count": 5124
+          "count": 5370
         },
         {
           "file": "apps/ui/src/styles/overview.css",
@@ -70,23 +70,23 @@
         },
         {
           "file": "apps/ui/src/styles/roles.css",
-          "count": 2449
+          "count": 2427
         },
         {
           "file": "apps/ui/src/styles/chat.css",
-          "count": 2161
+          "count": 2218
         },
         {
           "file": "apps/ui/src/lib/api.ts",
           "count": 2156
         },
         {
-          "file": "apps/ui/src/pages/QuorumPage.module.css",
-          "count": 1719
+          "file": "apps/ui/src/styles/events.css",
+          "count": 1734
         },
         {
-          "file": "apps/ui/src/styles/events.css",
-          "count": 1702
+          "file": "apps/ui/src/pages/QuorumPage.module.css",
+          "count": 1719
         },
         {
           "file": "apps/ui/src/styles/blueprint-launch-picker.css",
@@ -97,12 +97,12 @@
           "count": 1228
         },
         {
-          "file": "apps/ui/src/styles/components.css",
-          "count": 1176
+          "file": "apps/ui/src/styles/inbox.css",
+          "count": 1184
         },
         {
-          "file": "apps/ui/src/pages/AdminPage.tsx",
-          "count": 1106
+          "file": "apps/ui/src/styles/components.css",
+          "count": 1176
         }
       ]
     },
@@ -131,22 +131,22 @@
           "count": 4
         },
         {
+          "file": "apps/ui/src/components/CompanyViewsWorkbench.tsx",
+          "count": 4
+        },
+        {
           "file": "apps/ui/src/components/ideas/IdeasFilterPopover.tsx",
           "count": 4
         },
         {
           "file": "apps/ui/src/components/quests/QuestList.tsx",
           "count": 4
-        },
-        {
-          "file": "apps/ui/src/components/session/SegmentRenderer.tsx",
-          "count": 4
         }
       ]
     },
     "rawInput": {
       "label": "raw <input>",
-      "count": 43,
+      "count": 42,
       "topFiles": [
         {
           "file": "apps/ui/src/components/AgentEventsTab.tsx",
@@ -177,14 +177,14 @@
           "count": 2
         },
         {
-          "file": "apps/ui/src/components/roles/NewRoleModal.tsx",
+          "file": "apps/ui/src/components/roles/RoleInspectorModals.tsx",
           "count": 2
         }
       ]
     },
     "inlineStyle": {
       "label": "inline style object",
-      "count": 210,
+      "count": 207,
       "topFiles": [
         {
           "file": "apps/ui/src/pages/InvitationAcceptPage.tsx",
@@ -260,7 +260,7 @@
     },
     "literalRgb": {
       "label": "literal rgb/rgba color",
-      "count": 109,
+      "count": 104,
       "topFiles": [
         {
           "file": "apps/ui/src/styles/layout.css",
@@ -279,16 +279,16 @@
           "count": 9
         },
         {
-          "file": "apps/ui/src/styles/inbox.css",
-          "count": 6
-        },
-        {
           "file": "apps/ui/src/styles/components.css",
           "count": 5
         },
         {
           "file": "apps/ui/src/components/IdeaGraph.tsx",
           "count": 4
+        },
+        {
+          "file": "apps/ui/src/styles/inbox.css",
+          "count": 3
         },
         {
           "file": "apps/ui/src/styles/members.css",

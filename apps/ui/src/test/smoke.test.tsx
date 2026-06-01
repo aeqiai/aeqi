@@ -257,8 +257,8 @@ describe("AgentQuestsTab smoke", () => {
 
     expect(screen.getByRole("button", { name: /Open board for Root quest/ })).toBeInTheDocument();
     expect(screen.queryByText("Child quest")).not.toBeInTheDocument();
-    expect(screen.getByText("Drop quest here")).toBeInTheDocument();
-    expect(screen.getByText("Focus a quest to view its subquests.")).toBeInTheDocument();
+    expect(screen.getByText("Quest scope")).toBeInTheDocument();
+    expect(screen.getByText("All quests")).toBeInTheDocument();
     expect(screen.queryByLabelText("Project scopes")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Open board for Root quest/ }));
@@ -319,7 +319,8 @@ describe("AgentQuestsTab smoke", () => {
     );
 
     expect(screen.getByText("Review quest")).toBeInTheDocument();
-    expect(screen.getByText("Drop quest here")).toBeInTheDocument();
+    expect(screen.getByText("Quest scope")).toBeInTheDocument();
+    expect(screen.getByText("All quests")).toBeInTheDocument();
     expect(screen.queryByLabelText("Quest status counts")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Hide In review column/ })).not.toBeInTheDocument();
 

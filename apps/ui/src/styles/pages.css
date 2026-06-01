@@ -3069,26 +3069,17 @@
 }
 
 .company-quests-toolbar .quest-toolbar-popover-btn {
-  width: auto;
-  min-width: 0;
-  inline-size: auto;
-  flex-basis: auto;
-  aspect-ratio: auto;
-  gap: 6px;
-  padding: 0 10px;
+  width: var(--toolbar-control-h);
+  min-width: var(--toolbar-control-h);
+  inline-size: var(--toolbar-control-h);
+  flex-basis: var(--toolbar-control-h);
+  aspect-ratio: 1 / 1;
+  gap: 0;
+  padding: 0;
 }
 
 .company-quests-toolbar .quest-toolbar-trigger-label {
-  min-width: 0;
-  max-width: 84px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--font-sans);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0;
-  line-height: 1;
+  display: none;
 }
 
 .company-quests-page-header .company-top-rail-cta {
@@ -3124,8 +3115,9 @@
 }
 
 .company-quests .quest-scope {
+  min-height: 58px;
   margin: 0;
-  padding: 11px 14px;
+  padding: 10px 14px;
   border-radius: 0;
   background: var(--color-card-elevated);
   border: 0;
@@ -3231,11 +3223,6 @@
 
   .company-quests-toolbar .quest-toolbar-popover-btn {
     order: 4;
-    width: var(--toolbar-control-h);
-    min-width: var(--toolbar-control-h);
-    inline-size: var(--toolbar-control-h);
-    flex-basis: var(--toolbar-control-h);
-    aspect-ratio: 1 / 1;
     padding: 0;
   }
 
@@ -3562,6 +3549,16 @@
 
 .quest-scope-title:focus-visible {
   box-shadow: var(--focus-ring);
+}
+
+.quest-scope-title--static {
+  cursor: default;
+}
+
+.quest-scope-title--static:hover,
+.quest-scope-title--static:focus-visible {
+  color: var(--color-text-primary);
+  box-shadow: none;
 }
 
 .quest-scope-title span:last-child {
