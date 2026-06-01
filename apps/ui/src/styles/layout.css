@@ -8618,12 +8618,6 @@
   border-radius: 0;
 }
 
-.quest-detail-rail .ideas-workspace-tree-head {
-  min-height: 56px;
-  margin: 0;
-  border-bottom-color: var(--ideas-header-separator);
-}
-
 .quest-detail-rail-list {
   display: flex;
   flex: 1;
@@ -8631,7 +8625,7 @@
   flex-direction: column;
   gap: 2px;
   overflow-y: auto;
-  padding: 12px 9px;
+  padding: 12px 9px 14px;
 }
 
 .quest-detail-rail-current,
@@ -8670,7 +8664,6 @@
 .quest-detail-rail-current {
   background: var(--ideas-explorer-row-selected);
   border-color: var(--border);
-  box-shadow: var(--shadow-sm);
 }
 
 .quest-detail-rail-current span,
@@ -8723,166 +8716,11 @@
 }
 
 .quest-detail-rail-empty {
-  margin: 0;
-  padding: 8px 10px;
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--color-card-elevated) 56%, transparent);
+  margin: 2px 8px 0;
   color: var(--color-text-muted);
   font-family: var(--font-sans);
   font-size: 12px;
   line-height: 1.4;
-}
-
-.quest-detail-document {
-  display: flex;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-  background: var(--color-card);
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-}
-
-.quest-detail-document > .ideas-canvas {
-  flex: 1;
-  min-height: 100%;
-}
-
-.quest-detail-document .ideas-canvas-frame {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  margin: 0;
-  min-height: 100%;
-  padding-bottom: 0;
-}
-
-.quest-detail-document .ideas-canvas-paper {
-  flex: 1;
-  min-height: 100%;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  background: var(--color-card);
-}
-
-.quest-detail-document .ideas-canvas-content {
-  --ideas-canvas-editor-gutter: 36px;
-  --ideas-canvas-editor-gutter-end: 6px;
-  flex: 0 0 auto;
-  width: 100%;
-  min-height: 0;
-  margin: 0;
-  padding: var(--space-4) 0 var(--space-5);
-}
-
-.quest-detail-surface-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-width: 0;
-  min-height: 56px;
-  flex-shrink: 0;
-  margin: 0 0 var(--space-4);
-  padding: 0 var(--space-4);
-  border-bottom: 1px solid var(--ideas-header-separator);
-  background: color-mix(in srgb, var(--color-card-elevated) 76%, transparent);
-}
-
-.quest-detail-surface-title {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--color-text-primary);
-  font-family: var(--font-sans);
-  font-size: 13px;
-  font-weight: 650;
-  line-height: 1.2;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.quest-detail-surface-action {
-  width: 28px;
-  min-width: 28px;
-  height: 28px;
-  min-height: 28px;
-  inline-size: 28px;
-  block-size: 28px;
-  flex: 0 0 28px;
-  color: var(--color-text-primary);
-  background: var(--input-bg, var(--bg-base));
-  border-color: var(--input-border, var(--border));
-}
-
-.quest-detail-surface-action:hover,
-.quest-detail-surface-action:focus-visible {
-  color: var(--color-text-title);
-  background: var(--bg-row);
-  border-color: var(--input-border-focus, var(--border-hover));
-}
-
-.quest-detail-document .ideas-canvas-title,
-.quest-detail-document .ideas-canvas-content > .ideas-canvas-body,
-.quest-detail-document .ideas-canvas-content > .ideas-canvas-body-rendered {
-  width: min(calc(100% - 48px), 868px);
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.quest-detail-document .ideas-canvas-content > .ideas-canvas-body,
-.quest-detail-document .ideas-canvas-content > .ideas-canvas-body-rendered {
-  flex: 0 0 auto;
-  min-height: 150px;
-}
-
-.quest-detail-document .ideas-canvas-title {
-  margin-top: 0;
-  font-size: clamp(26px, 2vw, 31px);
-}
-
-.quest-detail-document .idea-convo-root {
-  margin-top: var(--space-3);
-  padding: 14px 24px 18px;
-  border-top: 1px solid var(--border-subtle, var(--border-faint));
-  background: var(--color-card);
-}
-
-.quest-detail-document .idea-convo-card {
-  width: min(100%, 760px);
-  max-width: 760px;
-  margin: 0 auto;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.quest-detail-document .idea-convo-card--activity-combined {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-.quest-detail-document .idea-convo-card--activity-combined > .idea-convo-head {
-  min-height: 0;
-  margin: 0 0 8px;
-  padding: 0;
-}
-
-.quest-detail-document .idea-convo-card--activity-combined > .idea-convo-head .idea-convo-title {
-  display: none;
-}
-
-.quest-detail-document .idea-convo-card--activity-combined > .idea-convo-panel {
-  width: 100%;
-}
-
-.quest-detail-document .idea-convo-card--activity-combined > .idea-convo-panel--activity {
-  margin: 0 0 10px;
-  padding: 0 0 10px;
-  border-bottom: 1px solid var(--border-subtle, var(--border-faint));
 }
 
 .quest-detail-summary.role-inspector {
@@ -8960,15 +8798,6 @@
   line-height: 1.4;
 }
 
-.quest-detail-document .idea-convo-title {
-  color: var(--color-text-primary);
-  font-size: 13px;
-  font-weight: 650;
-  letter-spacing: 0;
-  line-height: 1.2;
-  text-transform: none;
-}
-
 .quest-detail-summary {
   box-sizing: border-box;
   display: flex;
@@ -8987,11 +8816,12 @@
 }
 
 .quest-detail-summary .role-inspector-topbar {
+  align-items: center;
   min-height: 56px;
   margin: 0;
   padding: 0 var(--space-4);
   border-bottom: 1px solid var(--ideas-header-separator);
-  background: transparent;
+  background: color-mix(in srgb, var(--color-card-elevated) 76%, transparent);
 }
 
 .quest-detail-summary .role-inspector-body {
@@ -9167,7 +8997,7 @@
     overflow: visible;
   }
 
-  .quest-detail-document {
+  .quest-detail-layout > .ideas-workspace-document {
     min-height: 520px;
     overflow: visible;
   }

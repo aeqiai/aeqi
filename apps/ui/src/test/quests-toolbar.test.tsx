@@ -1,5 +1,6 @@
 import { StrictMode } from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it } from "vitest";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import AgentQuestsTab from "@/components/AgentQuestsTab";
@@ -49,6 +50,24 @@ function renderQuests(initialEntry = "/company/root-1/quests") {
         </Routes>
       </MemoryRouter>
     </StrictMode>,
+  );
+}
+
+function renderQuestDetail() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <StrictMode>
+        <MemoryRouter initialEntries={["/company/root-1/quests/67-detail"]}>
+          <Routes>
+            <Route
+              path="company/:companyAddress/:tab/:itemId"
+              element={<AgentQuestsTab agentId="root-1" scope="entity" />}
+            />
+          </Routes>
+        </MemoryRouter>
+      </StrictMode>
+    </QueryClientProvider>,
   );
 }
 
@@ -145,5 +164,32 @@ describe("quest toolbar", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Expand column" })[1]);
 
     expect(screen.getByText("Completed archive item")).toBeInTheDocument();
+  });
+
+  it("renders detail with idea document center and headerless relationship rail", () => {
+    useDaemonStore.setState({
+      quests: [
+        {
+          ...questFixture("67-detail", "Detail quest", "todo", "global"),
+          idea: {
+            id: "idea-67-detail",
+            name: "Detail quest",
+            content: "Use the idea canvas as the center document.",
+            tags: ["fact"],
+            scope: "global",
+          },
+        },
+      ] as never,
+    });
+
+    const { container } = renderQuestDetail();
+
+    expect(container.querySelector("main.ideas-workspace-document")).not.toBeNull();
+    expect(screen.getByRole("complementary", { name: "Quest relationships" })).toBeInTheDocument();
+    expect(screen.queryByText("Quest tree")).not.toBeInTheDocument();
+
+    const details = screen.getByRole("complementary", { name: "Quest details" });
+    expect(within(details).getByText("Quest ID")).toBeInTheDocument();
+    expect(within(details).getByText("Idea ID")).toBeInTheDocument();
   });
 });

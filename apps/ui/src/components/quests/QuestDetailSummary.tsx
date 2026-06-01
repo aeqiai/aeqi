@@ -124,10 +124,10 @@ export default function QuestDetailSummary({
 
   return (
     <aside
-      className="quest-detail-summary ideas-workspace-inspector role-inspector role-inspector--page"
+      className="quest-detail-summary ideas-workspace-inspector role-inspector role-inspector--page ideas-workspace-detail-inspector"
       aria-label="Quest details"
     >
-      <header className="role-inspector-topbar">
+      <header className="role-inspector-topbar ideas-workspace-detail-topbar">
         <span className="role-inspector-object">Quest</span>
         <small title={quest.updated_at ? formatDateTime(quest.updated_at) : undefined}>
           {quest.updated_at ? timeAgo(quest.updated_at) : quest.id}

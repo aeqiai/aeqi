@@ -621,7 +621,7 @@ function ViewCanvas({
           siblingQuests={siblingQuests}
           onOpenQuest={openQuest}
         />
-        <main className="quest-detail-document">
+        <main className="ideas-workspace-document">
           <IdeaCanvas
             ref={canvasRef}
             agentId={quest.agent_id ?? resolvedAgentId}
