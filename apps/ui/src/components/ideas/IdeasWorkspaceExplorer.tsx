@@ -35,6 +35,7 @@ export default function IdeasWorkspaceExplorer({
         <div className="ideas-workspace-tree-list" role="tree">
           {treeRows.map(({ node, depth }) => {
             const idea = node.idea;
+            const childCount = node.children.length;
             const defaultExpanded = depth <= 1;
             const expanded = expandedIdeas[idea.id] ?? defaultExpanded;
             const isSelected = selectedTreeId === idea.id && !composing;
@@ -47,7 +48,7 @@ export default function IdeasWorkspaceExplorer({
                 style={{ "--idea-tree-depth": depth } as CSSProperties}
                 role="treeitem"
                 aria-selected={isSelected}
-                aria-expanded={node.children.length > 0 ? expanded : undefined}
+                aria-expanded={childCount > 0 ? expanded : undefined}
               >
                 <button
                   type="button"
@@ -60,8 +61,11 @@ export default function IdeasWorkspaceExplorer({
                     <FileText size={13} strokeWidth={1.7} />
                   )}
                   <span>{idea.name || "Untitled"}</span>
+                  {childCount > 0 && (
+                    <small aria-label={`${childCount} child ideas`}>{childCount}</small>
+                  )}
                 </button>
-                {node.children.length > 0 ? (
+                {childCount > 0 ? (
                   <button
                     type="button"
                     className={`ideas-workspace-tree-toggle${expanded ? " is-open" : ""}`}
