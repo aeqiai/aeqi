@@ -3,7 +3,6 @@ import { ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import { formatInteger } from "@/lib/i18n";
 import { Banner, Button, Icon, PrimitivePageHeader } from "../ui";
-import { ImportMenu } from "../blueprints/ImportMenu";
 import type { Quest, QuestStatus, User } from "@/lib/types";
 import { formatAssignee } from "@/lib/assignee";
 import { useRelativeNow } from "@/hooks/useRelativeNow";
@@ -21,7 +20,6 @@ import QuestBoardScope from "./QuestBoardScope";
 import {
   QUEST_ACTIVE_COLUMNS,
   QUEST_ALL_COLUMNS,
-  importQuestFromMarkdown,
   rankQuestDiscovery,
   sortQuests,
   type QuestDiscoveryHit,
@@ -31,7 +29,7 @@ import {
 export default function QuestBoard({
   agentId: _agentId,
   resolvedAgentId,
-  companyId,
+  companyId: _companyId,
   quests,
   allQuests,
   scopeFilter,
@@ -369,41 +367,17 @@ export default function QuestBoard({
           />
         }
         actions={
-          <>
-            <ImportMenu
-              size="md"
-              companyId={companyId}
-              parts={["quests"]}
-              blueprintTitle="Import quests from a template"
-              onMarkdownPicked={async (files) => {
-                setErr(null);
-                const failures: string[] = [];
-                for (const file of Array.from(files)) {
-                  try {
-                    await importQuestFromMarkdown(file, resolvedAgentId);
-                  } catch (e) {
-                    failures.push(
-                      `${file.name}: ${e instanceof Error ? e.message : "import failed"}`,
-                    );
-                  }
-                }
-                onCreated();
-                if (failures.length > 0) setErr(failures.join("; "));
-              }}
-              onBlueprintSpawned={onCreated}
-            />
-            <Button
-              className="company-top-rail-cta"
-              variant="primary"
-              size="md"
-              onClick={() => onCompose()}
-              aria-label={boardScopeId ? "New subquest" : "New quest"}
-              title={boardScopeId ? "New subquest under focus (N)" : "New quest (N)"}
-              leadingIcon={<Icon icon={Plus} size="sm" />}
-            >
-              {boardScopeId ? "Subquest" : "Quest"}
-            </Button>
-          </>
+          <Button
+            className="company-top-rail-cta"
+            variant="primary"
+            size="md"
+            onClick={() => onCompose()}
+            aria-label={boardScopeId ? "New subquest" : "New quest"}
+            title={boardScopeId ? "New subquest under focus (N)" : "New quest (N)"}
+            leadingIcon={<Icon icon={Plus} size="sm" />}
+          >
+            {boardScopeId ? "New subquest" : "New quest"}
+          </Button>
         }
       />
       <div className="quest-board-main">
