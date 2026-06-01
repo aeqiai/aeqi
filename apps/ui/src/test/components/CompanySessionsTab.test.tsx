@@ -17,6 +17,7 @@ const sockets: MockWebSocket[] = [];
 
 class MockWebSocket {
   static OPEN = 1;
+  static autoOpen = true;
 
   readyState = 0;
   sent: string[] = [];
@@ -27,6 +28,7 @@ class MockWebSocket {
 
   constructor(public url: string) {
     sockets.push(this);
+    if (!MockWebSocket.autoOpen) return;
     queueMicrotask(() => {
       this.readyState = MockWebSocket.OPEN;
       this.onopen?.(new Event("open"));
@@ -52,6 +54,7 @@ describe("CompanySessionsTab", () => {
 
   beforeEach(() => {
     sockets.length = 0;
+    MockWebSocket.autoOpen = true;
     vi.stubGlobal("WebSocket", MockWebSocket);
     queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
@@ -224,6 +227,30 @@ describe("CompanySessionsTab", () => {
     );
   });
 
+  it("does not block a company-wide send when the stream socket stalls", async () => {
+    MockWebSocket.autoOpen = false;
+    const user = userEvent.setup();
+    renderTab();
+
+    const input = await screen.findByLabelText("Message body");
+    await user.type(input, "send even if stream stalls");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(
+      () => {
+        expect(api.sendSessionMessage).toHaveBeenCalledWith(
+          expect.objectContaining({
+            message: "send even if stream stalls",
+            agent_id: "agent-1",
+            session_id: "session-1",
+          }),
+          "root-1",
+        );
+      },
+      { timeout: 2000 },
+    );
+  });
+
   it("renders live streamed deltas in the selected session detail", async () => {
     const user = userEvent.setup();
     renderTab();
@@ -285,6 +312,30 @@ describe("CompanySessionsTab", () => {
     });
     expect(api.sendSessionMessage).not.toHaveBeenCalledWith(
       expect.objectContaining({ message: "approved" }),
+      "root-1",
+    );
+  });
+
+  it("does not block an awaiting-session answer when the stream socket stalls", async () => {
+    MockWebSocket.autoOpen = false;
+    const user = userEvent.setup();
+    renderTab("/company/root-1/sessions/session-1?view=mine");
+
+    const input = await screen.findByLabelText("Message body");
+    await user.type(input, "approved despite stalled stream");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(
+      () => {
+        expect(api.answerUserSession).toHaveBeenCalledWith(
+          "session-1",
+          "approved despite stalled stream",
+        );
+      },
+      { timeout: 2000 },
+    );
+    expect(api.sendSessionMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({ message: "approved despite stalled stream" }),
       "root-1",
     );
   });

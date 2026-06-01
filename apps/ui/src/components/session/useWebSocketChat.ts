@@ -42,6 +42,8 @@ interface DispatchMessageOptions {
   attachedFiles?: AttachedFile[];
 }
 
+const LIVE_ATTACH_FALLBACK_MS = 350;
+
 export function useWebSocketChat({
   token,
   agentId,
@@ -100,7 +102,7 @@ export function useWebSocketChat({
   );
 
   const attachEventHandlers = useCallback(
-    (ws: WebSocket, startTime: number) => {
+    (ws: WebSocket, startTime: number, onAttachSettled?: () => void) => {
       let state = initialStreamState(startTime);
 
       ws.onmessage = (e) => {
@@ -151,9 +153,13 @@ export function useWebSocketChat({
         }
       };
 
-      ws.onerror = () => clearLiveState();
+      ws.onerror = () => {
+        onAttachSettled?.();
+        clearLiveState();
+      };
 
       ws.onclose = () => {
+        onAttachSettled?.();
         if (state.status.kind === "streaming") commitMessage(state, false);
         clearLiveState();
       };
@@ -187,13 +193,21 @@ export function useWebSocketChat({
         return Promise.resolve();
       }
       return new Promise<void>((resolve) => {
+        let settled = false;
+        const settle = () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timeoutId);
+          resolve();
+        };
+        const timeoutId = setTimeout(settle, LIVE_ATTACH_FALLBACK_MS);
         const ws = openChatSocket(token, companyId);
         replaceSocket(ws, sessionId);
         ws.onopen = () => {
           ws.send(JSON.stringify({ subscribe: true, session_id: sessionId }));
-          resolve();
+          settle();
         };
-        attachEventHandlers(ws, startTime);
+        attachEventHandlers(ws, startTime, settle);
       });
     },
     [token, companyId, attachEventHandlers, replaceSocket],
@@ -215,7 +229,8 @@ export function useWebSocketChat({
         companyId,
       });
 
-      if (!token || !sessionId) return;
+      if (!token) throw new Error("Missing auth token");
+      if (!sessionId) throw new Error("No session id");
 
       const startTime = Date.now();
       track(Events.SessionMessageSent, {
@@ -248,8 +263,9 @@ export function useWebSocketChat({
           },
           companyId || undefined,
         );
-      } catch {
+      } catch (error) {
         clearLiveState();
+        throw error;
       }
     },
     [
