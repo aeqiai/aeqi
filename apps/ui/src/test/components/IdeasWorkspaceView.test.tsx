@@ -152,7 +152,7 @@ describe("IdeasWorkspaceView", () => {
     expect(within(details).getByText("Type")).toBeInTheDocument();
     expect(within(details).queryByText(/^Activity/)).not.toBeInTheDocument();
     expect(within(details).queryByText("Import")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Import/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Import/ })).not.toBeInTheDocument();
     const ideaSection = Array.from(
       details.querySelectorAll<HTMLDetailsElement>("details.role-inspector-group"),
     ).find((section) => section.querySelector("summary")?.textContent?.includes("Idea"));

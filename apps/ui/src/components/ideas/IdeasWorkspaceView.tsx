@@ -1,11 +1,9 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import * as ideasApi from "@/api/ideas";
-import { ImportMenu } from "@/components/blueprints/ImportMenu";
 import { blockTreeToPlainText } from "@/components/editor/blockEditorContent";
 import IdeaCanvas, { type IdeaCanvasHandle } from "@/components/IdeaCanvas";
 import { useNav } from "@/hooks/useNav";
-import { asStringArray, parseFrontmatter } from "@/lib/frontmatter";
 import type { Idea, ScopeValue } from "@/lib/types";
 import { useAgentIdeasCache } from "@/queries/ideas";
 import { Button, Icon, PrimitivePageHeader, Tooltip, Loading } from "../ui";
@@ -14,7 +12,6 @@ import IdeasWorkspaceExplorer from "./IdeasWorkspaceExplorer";
 import IdeaWorkspaceInspector from "./IdeaWorkspaceInspector";
 import IdeasToolbar from "./IdeasToolbar";
 import type { IdeasView } from "./IdeasViewPopover";
-import { importIdeaProperties, importIdeaScope, isMarkdownFile } from "./ideaImport";
 import { buildWorkspaceTree, flattenIdeaTree } from "./ideaTree";
 import { type FilterState, type IdeasFilter, matchRank } from "./types";
 
@@ -81,7 +78,7 @@ export default function IdeasWorkspaceView({
   const searchRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<IdeaCanvasHandle>(null);
   const { goEntity, companyId } = useNav();
-  const { patchIdea, removeIdea, invalidateIdeas } = useAgentIdeasCache(agentId, companyId);
+  const { patchIdea, removeIdea } = useAgentIdeasCache(agentId, companyId);
   const [expandedIdeas, setExpandedIdeas] = useState<Record<string, boolean>>({});
   const [composeScope, setComposeScope] = useState<ScopeValue>("self");
   const [canvasDirty, setCanvasDirty] = useState(false);
@@ -258,60 +255,6 @@ export default function IdeasWorkspaceView({
     }
   }, [activeIdea, onSelect, removeIdea, rootIdea, companyId]);
 
-  const handleFileImport = useCallback(
-    async (files: FileList | File[]) => {
-      const parentIdeaId = activeIdea?.id ?? rootIdea?.id ?? null;
-      if (!parentIdeaId) return;
-      setInspectorError(null);
-      const failures: string[] = [];
-      for (const file of Array.from(files)) {
-        try {
-          if (isMarkdownFile(file)) {
-            const raw = await file.text();
-            const { body, data } = parseFrontmatter(raw);
-            const name =
-              (typeof data.title === "string" && data.title) ||
-              file.name.replace(/\.(md|markdown)$/i, "") ||
-              "Untitled";
-            const summary = typeof data.summary === "string" ? data.summary.trim() : "";
-            const content =
-              summary && !body.startsWith(summary) ? `${summary}\n\n${body.trim()}` : body.trim();
-            await ideasApi.storeIdea(
-              {
-                name,
-                content,
-                tags: asStringArray(data.tags),
-                agent_id: agentId,
-                scope: importIdeaScope(data) ?? activeScope,
-                parent_idea_id: parentIdeaId,
-                properties: importIdeaProperties(data, file.name),
-              },
-              companyId,
-            );
-          } else {
-            const upload = await ideasApi.uploadFileToIdea(
-              {
-                agentId,
-                file,
-                scope: activeScope,
-                parentIdeaId,
-              },
-              companyId,
-            );
-            if (!upload.ok) throw new Error(upload.error || "upload failed");
-          }
-        } catch (error) {
-          failures.push(
-            `${file.name}: ${error instanceof Error ? error.message : "import failed"}`,
-          );
-        }
-      }
-      await invalidateIdeas();
-      if (failures.length > 0) setInspectorError(failures.join("; "));
-    },
-    [activeIdea?.id, activeScope, agentId, invalidateIdeas, rootIdea?.id, companyId],
-  );
-
   return (
     <div className={workspaceClass}>
       <PrimitivePageHeader
@@ -328,16 +271,6 @@ export default function IdeasWorkspaceView({
         padding="none"
         actions={
           <div className="ideas-workspace-head-actions">
-            <ImportMenu
-              size="md"
-              companyId={companyId}
-              parts={["ideas"]}
-              blueprintTitle="Import child ideas from a template"
-              accept="*/*"
-              fileLabel="From files"
-              onMarkdownPicked={(files) => void handleFileImport(files)}
-              onBlueprintSpawned={() => void invalidateIdeas()}
-            />
             <Tooltip content={activeIdea ? `New under ${activeIdea.name}` : "New idea"}>
               <Button
                 variant="primary"

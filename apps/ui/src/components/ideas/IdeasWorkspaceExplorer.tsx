@@ -41,7 +41,9 @@ export default function IdeasWorkspaceExplorer({
             return (
               <div
                 key={idea.id}
-                className="ideas-workspace-tree-row"
+                className={`ideas-workspace-tree-row${depth === 0 ? " is-root" : ""}${
+                  node.children.length > 0 ? " has-children" : ""
+                }`}
                 style={{ "--idea-tree-depth": depth } as CSSProperties}
                 role="treeitem"
                 aria-selected={isSelected}
